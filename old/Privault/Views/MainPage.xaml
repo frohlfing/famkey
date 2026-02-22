@@ -1,0 +1,197 @@
+<?xml version="1.0"
+      encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Privault.Core.ViewModels;assembly=Privault.Core"
+             xmlns:helpers="clr-namespace:Privault.Helpers"
+             x:Class="Privault.Views.MainPage"
+             x:DataType="vm:MainViewModel"
+             x:Name="MyMainPage"
+             Shell.NavBarIsVisible="False"
+             Title="Mein Tresor">
+    <!-- xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit" -->
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <helpers:Base64ToImageSourceConverter x:Key="Base64ToImageSourceConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    
+    <Grid RowDefinitions="Auto, *">
+
+        <!-- Kopfzeile -->
+        <Grid Grid.Row="0"
+              RowDefinitions="Auto, Auto"
+              Style="{StaticResource Header}">
+
+            <!-- 1. Zeile: Menü, Titel, Add-Button -->
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="Auto, *, Auto"
+                  Style="{StaticResource Header}">
+                <Button Grid.Column="0"
+                        Text="menu"
+                        x:Name="MenuButton"
+                        Clicked="MenuButton_OnClicked"
+                        ToolTipProperties.Text="Menü"
+                        Style="{StaticResource IconButton}"/>
+                <Label Grid.Column="1"
+                       Text="{Binding VaultName}"
+                       Style="{StaticResource HeaderTitle}"/>
+                <Button Grid.Column="2"
+                        Text="add"
+                        Command="{Binding AddEntryCommand}"
+                        ToolTipProperties.Text="Eintrag hinzufügen"
+                        Style="{StaticResource IconButton}"/>
+            </Grid>
+
+            <!-- 2. Zeile: Suchleiste, darunter "Nur meine" (links) -->
+            <VerticalStackLayout Grid.Row="1">
+
+                <Border Style="{StaticResource SearchBarBorder}">
+                    <SearchBar x:Name="SearchBar"
+                               Placeholder="Einträge durchsuchen..."
+                               Text="{Binding SearchText}"/>
+                </Border>
+
+                <!-- Filter-Schalter unter dem Suchfeld -->
+                <HorizontalStackLayout IsVisible="{Binding HasFriends}"
+                                       VerticalOptions="Center"
+                                       Style="{StaticResource FieldGroup}">
+                    <Label Text="Nur meine"
+                           Style="{StaticResource FilterLabel}"/>
+                    <Switch IsToggled="{Binding ShowOnlyMine}"
+                            VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Hauptinhalt: Gruppierte Liste der Tresoreinträge -->
+        <Grid Grid.Row="1"
+              Padding="20,20,20,30">
+            <CollectionView ItemsSource="{Binding GroupedEntries}"
+                            IsGrouped="True"
+                            Style="{StaticResource Collection}"
+                            Margin="0">
+
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate x:DataType="vm:MainGroupViewModel">
+                        <Grid Style="{StaticResource CollectionHeader}"
+                              Margin="20,0,20,0">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={x:Reference MyMainPage}, Path=BindingContext.ToggleGroupCommand}"
+                                                      CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+
+                            <HorizontalStackLayout Style="{StaticResource CollectionHeaderRow}">
+                                <Label Text="{Binding StateIcon}"
+                                       Style="{StaticResource CollectionHeaderIcon}"/>
+                                <Label Text="{Binding Name}"
+                                       Style="{StaticResource CollectionHeaderName}"/>
+                                <Label Text="{Binding TotalCount, StringFormat='({0})'}"
+                                       Style="{StaticResource CollectionHeaderCount}"/>
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.GroupHeaderTemplate>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MainEntryViewModel">
+                        <Frame Style="{StaticResource Card}">
+
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Property="BackgroundColor"
+                                                        Value="{DynamicResource CardHoverBackgroundColor}"/>
+                                                <Setter Property="Scale"
+                                                        Value="1.01"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="BackgroundColor"
+                                                        Value="{DynamicResource CardPressedBackgroundColor}"/>
+                                                <Setter Property="Scale"
+                                                        Value="0.98"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={x:Reference MyMainPage}, Path=BindingContext.OpenEntryCommand}"
+                                                      CommandParameter="{Binding .}"/>
+                            </Frame.GestureRecognizers>
+
+                            <Grid ColumnDefinitions="Auto, *"
+                                  Style="{StaticResource CardContentGrid}">
+
+                                <Border Grid.Column="0"
+                                        Style="{StaticResource Favicon}">
+                                    <Grid>
+                                        <Label Text="{Binding DisplayTitle[0]}"
+                                               Style="{StaticResource FaviconPlaceholder}"/>
+                                        <Image Source="{Binding FaviconBase64, Converter={StaticResource Base64ToImageSourceConverter}}"
+                                               Aspect="AspectFit"
+                                               Margin="4"/>
+                                    </Grid>
+                                </Border>
+
+                                <VerticalStackLayout Grid.Column="1"
+                                                     Style="{StaticResource CardTextColumn}">
+                                    <HorizontalStackLayout Style="{StaticResource CardTitleRow}">
+                                        <Label Text="{Binding DisplayTitle}"
+                                               Style="{StaticResource CardTitle}"/>
+                                        <Label Text="{Binding CreatorName, StringFormat='(Erstellt von: {0})'}"
+                                               IsVisible="{Binding ShowCreatorName}"
+                                               Style="{StaticResource CardMeta}"/>
+                                    </HorizontalStackLayout>
+
+                                    <Label Text="{Binding DisplaySubtitle}"
+                                           Style="{StaticResource CardSubtitle}"/>
+                                </VerticalStackLayout>
+
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Anzeige bei leeren Suchergebnissen -->
+            <Label Text="Keine Einträge gefunden."
+                   IsVisible="{Binding IsListEmpty}"
+                   Style="{StaticResource EmptyState}"/>
+
+        </Grid>
+
+        <!-- Ladeanzeige (Nicht blockierend) -->
+        <VerticalStackLayout Grid.Row="0"
+                             Grid.RowSpan="2"
+                             IsVisible="{Binding IsLoading}"
+                             Style="{StaticResource Loader}">
+            <ActivityIndicator IsRunning="{Binding IsLoading}"/>
+            <Label Text="Lade Daten..."
+                   Style="{StaticResource LoaderText}"/>
+        </VerticalStackLayout>
+
+        <!-- Overlay für die Synchronisation (modal) -->
+        <Grid Grid.Row="0"
+              Grid.RowSpan="2"
+              IsVisible="{Binding IsSyncing}"
+              Style="{StaticResource Overlay}">
+            <VerticalStackLayout Style="{StaticResource Loader}">
+                <ActivityIndicator IsRunning="{Binding IsSyncing}"/>
+                <Label Text="Synchronisiere..."
+                       Style="{StaticResource LoaderText}"/>
+            </VerticalStackLayout>
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

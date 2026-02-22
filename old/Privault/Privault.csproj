@@ -1,0 +1,122 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
+
+        <!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
+        <!-- <TargetFrameworks>$(TargetFrameworks);net8.0-tizen</TargetFrameworks> -->
+
+        <!-- Note for MacCatalyst:
+        The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
+        When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
+        The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
+        either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
+        <!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
+
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Privault</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- Display name -->
+        <ApplicationTitle>PriVault</ApplicationTitle>
+
+        <!-- App Identifier -->
+        <ApplicationId>com.companyname.privault</ApplicationId>
+
+        <!-- Versions -->
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">11.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">13.1</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
+
+        <!-- Unterdrückt die Warnung über plattformspezifische Laufzeitbezeichner von SQLCipher -->
+        <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
+
+        <!-- CsWinRT1030: Der Typ 'byte[]?' implementiert generische WinRT-Schnittstellen. Dies erfordert generierten Code, 
+             der beim Übertragen über die WinRT-ABI unsichere Methoden zum Kürzen von Bytes verwendet und AOT-Kompatibilität 
+             gewährleistet. Das Projekt muss mit '<AllowUnsafeBlocks>true</AllowUnsafeBlocks>' aktualisiert werden. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <!-- Spezielle Einstellungen für den Debug-Modus (Android-Emulator & Entwicklung) -->
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+        <!-- Zwingt MAUI, alle DLLs direkt in die APK zu packen -->
+        <!-- Behebt den Absturz bei Programmstart -->
+        <EmbedAssembliesIntoApk>True</EmbedAssembliesIntoApk>
+
+        <!-- Deaktiviert die Shared Runtime & Fast Deployment, die oft Probleme macht -->
+        <AndroidUseSharedRuntime>False</AndroidUseSharedRuntime>
+
+        <!-- Deaktiviert Fast Deployment, mach auch oft Probleme -->
+        <!-- <AndroidUseFastDeployment>False</AndroidUseFastDeployment>-->
+
+        <!-- Verhindert, dass Assemblies komprimiert werden -->
+        <AndroidPackageFormat>apk</AndroidPackageFormat>
+        <AndroidEnablePreloadAssembliesDefault>True</AndroidEnablePreloadAssembliesDefault>
+
+        <!-- Notwendig, damit Breakpoints funktionieren -->
+        <DebugType>portable</DebugType>
+    </PropertyGroup>
+
+    <!-- Einstellungen für den Release-Modus (Produktion) -->
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <!-- Im Release ist EmbedAssemblies standardmäßig True -->
+        <EmbedAssembliesIntoApk>True</EmbedAssembliesIntoApk>
+
+        <!-- Hier wollen wir Optimierungen (AOT, Trimming) -->
+        <RunAOTCompilation>True</RunAOTCompilation>
+        <AndroidManagedSymbols>true</AndroidManagedSymbols>
+        <Optimize>True</Optimize>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- App Icon -->
+        <!-- <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0572EC" />-->
+        <MauiIcon Include="Resources\AppIcon\appicon.png" />
+
+        <!-- Splash Screen -->
+        <!-- <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />-->
+        <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#000000" BaseSize="512,512" />
+
+        <!-- Images -->
+        <MauiImage Include="Resources\Images\*" />
+        <MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+
+        <!-- Custom Fonts -->
+        <MauiFont Include="Resources\Fonts\*" />
+
+        <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommunityToolkit.Maui" Version="9.1.1" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
+        <PackageReference Include="Plugin.Fingerprint" Version="2.1.5" />
+        <PackageReference Include="SkiaSharp" Version="3.119.2" />
+        <PackageReference Include="sqlite-net-sqlcipher" Version="1.9.172" />
+        <PackageReference Include="SQLitePCLRaw.provider.internal" Version="3.0.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Privault.Core\Privault.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <AdditionalFiles Include="Resources\Styles\Themes\Classic.Dark.xaml" />
+      <AdditionalFiles Include="Resources\Styles\Themes\Flat.Light.xaml" />
+    </ItemGroup>
+
+</Project>

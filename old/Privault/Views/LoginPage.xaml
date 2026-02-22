@@ -1,0 +1,98 @@
+<?xml version="1.0"
+      encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Privault.Core.ViewModels;assembly=Privault.Core"
+             xmlns:helpers="clr-namespace:Privault.Helpers"
+             x:Class="Privault.Views.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             Title="PriVault Login">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <helpers:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <!-- Das Haupt-Grid, das den gesamten Bildschirm einnimmt -->
+    <Grid RowDefinitions="*, Auto">
+
+        <!-- 1. Bereich: Logo (zentriert zwischen Top und Eingabefeld) -->
+        <Grid Grid.Row="0"
+              Style="{StaticResource LoginHeader}"
+              HorizontalOptions="Fill"
+              VerticalOptions="Fill">
+
+            <Image Source="logo.png"
+                   Aspect="AspectFit"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   MaximumHeightRequest="260"/>
+
+            <!-- optional wieder aktivieren, wenn du willst -->
+            <!--
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <Label Text="PriVault" Style="{StaticResource AppTitle}" />
+                <Label Text="Dein sicherer Tresor" Style="{StaticResource SubAppTitle}" />
+            </VerticalStackLayout>
+            -->
+        </Grid>
+
+        <!-- 2. Hauptinhalt (Eingabemaske) -->
+        <ScrollView Grid.Row="1"
+                    VerticalOptions="Fill">
+            <VerticalStackLayout VerticalOptions="Center"
+                                 Style="{StaticResource Body}">
+
+                <!-- Tresorname -->
+                <Grid ColumnDefinitions="*, Auto">
+                    <Entry Grid.Column="0"
+                           x:Name="VaultNameEntry"
+                           Placeholder="Tresor"
+                           Text="{Binding VaultName}"/>
+                    <Button Grid.Column="1"
+                            Text="folder_open"
+                            Command="{Binding PickVaultCommand}"
+                            Style="{StaticResource IconButton}"/>
+                </Grid>
+
+                <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                    <Entry x:Name="PasswordEntry"
+                           Placeholder="Master-Passwort"
+                           Text="{Binding Password}"
+                           IsPassword="True"
+                           ReturnCommand="{Binding LoginCommand}"/>
+                    <Label Text="🧬 Kein Passwort → Login per Fingerabdruck oder Gesichtserkennung"
+                           IsVisible="{Binding HasBiometricKey}"
+                           Style="{StaticResource Hint}"/>
+                </VerticalStackLayout>
+
+                <Button Text="Tresor öffnen"
+                        Command="{Binding LoginCommand}"
+                        IsVisible="{Binding IsExists}"
+                        Style="{StaticResource FullButton}"/>
+                <Button Text="Tresor anlegen"
+                        Command="{Binding LoginCommand}"
+                        IsVisible="{Binding IsExists, Converter={StaticResource InvertedBoolConverter}}"
+                        Style="{StaticResource FullButton}"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Ladeanzeige (Nicht blockierend) -->
+        <VerticalStackLayout Grid.Row="0"
+                             Grid.RowSpan="2"
+                             IsVisible="{Binding IsBusy}"
+                             Style="{StaticResource Loader}">
+            <ActivityIndicator IsRunning="{Binding IsBusy}"/>
+            <Label Text="Öffne Tresor..."
+                   IsVisible="{Binding IsExists}"
+                   Style="{StaticResource LoaderText}"/>
+            <Label Text="Erstelle Tresor..."
+                   IsVisible="{Binding IsExists, Converter={StaticResource InvertedBoolConverter}}"
+                   Style="{StaticResource LoaderText}"/>
+        </VerticalStackLayout>
+
+    </Grid>
+</ContentPage>

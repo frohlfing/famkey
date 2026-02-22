@@ -1,0 +1,87 @@
+-- Database Name: privault
+-- Server connection collation: utf8mb4_unicode_ci
+
+-- 1. Tabelle für die Tresore
+-- Mappt den Hash (vom Client) auf eine interne ID
+CREATE TABLE `vaults` (
+    `uuid` VARCHAR(36) PRIMARY KEY,                  -- Universally Unique Identifier des Tresors
+    `hash_name`  VARCHAR(64) NOT NULL,               -- Name des Tresor (SHA256-Hash), eindeutig pro Server
+    `is_test` TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = Test-Tresor
+    `created_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitstempel der Erstellung
+    UNIQUE KEY `uk_vaults_hash_name` (`hash_name`),
+    INDEX `idx_vaults_is_test_created_at` (`is_test`, `created_at`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- 2. Tabelle für die Benutzer
+CREATE TABLE `users` (
+    `uuid` VARCHAR(36) PRIMARY KEY,                  -- Universally Unique Identifier des Benutzers
+    `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
+    `hash_name` VARCHAR(64) NOT NULL,                -- Benutzername (SHA256-Hash), eindeutig pro Tresor 
+    `salt` TEXT NOT NULL,                            -- Salt des Benutzers (Base64)
+    `public_key` TEXT NOT NULL,                      -- RSA Public Key (Base64)
+    `encrypted_private_key` TEXT NOT NULL,           -- RSA Private Key (AES verschlüsselt)
+    `encrypted_friends` LONGTEXT DEFAULT NULL,       -- Freundesliste des Benutzers (AES verschlüsselt)
+    UNIQUE KEY `uk_users_vault_uuid_hash_name` (`vault_uuid`, `hash_name`),
+    FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Tabelle für Einträge (Payload)
+-- Wir nutzen UUID als Primärschlüssel für einfachen Sync
+CREATE TABLE `entries` (
+    `uuid` VARCHAR(36) PRIMARY KEY,                  -- Universally Unique Identifier des Eintrags
+    `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
+    `encrypted_data` LONGTEXT,                       -- Daten zum Eintrag (AES verschlüsselt)
+    `creator_uuid` VARCHAR(36) NOT NULL,             -- UUID des Benutzers, der den Eintrag erstellt hat
+    `updater_uuid` VARCHAR(36) NOT NULL,             -- UUID des Benutzers, der den Eintrag zuletzt aktualisiert hat
+    `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), -- Zeitstempel der letzten Änderung
+    INDEX `idx_entries_vault_uuid_updated_at` (`vault_uuid`, `updated_at`),               -- für pullSync
+    INDEX `idx_entries_updater_uuid_updated_at` (`updater_uuid`, `updated_at`),     -- für Rate-Limiting-Abfrage
+    FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- 4. Tabelle für Berechtigungen (Wer darf was lesen?)
+CREATE TABLE `permissions` (
+    `entry_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf entries.uuid
+    `user_uuid` VARCHAR(36) NOT NULL,                -- Referenz auf users.uuid
+    `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
+    `encrypted_key` TEXT NOT NULL,                   -- AES Entry Key (RSA verschlüsselt)
+    `access_level` INT NOT NULL DEFAULT 0,           -- 0=Kein Recht, 1=Lesen, 2=Lesen/Schreiben, 3=Vollzugriff
+    PRIMARY KEY (`entry_uuid`, `user_uuid`),                                      -- für pushSync
+    UNIQUE KEY `uk_permissions_user_uuid_entry_uuid` (`user_uuid`, `entry_uuid`), -- für pullSync
+    FOREIGN KEY (`entry_uuid`) REFERENCES `entries`(`uuid`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_uuid`) REFERENCES `users`(`uuid`) ON DELETE CASCADE,
+    FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. Tabelle für Anhänge
+CREATE TABLE `attachments` (
+   `uuid` VARCHAR(36) PRIMARY KEY,
+   `entry_uuid` VARCHAR(36) NOT NULL,
+   `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
+   `encrypted_meta` MEDIUMBLOB NOT NULL,            -- Meta-Daten (AES verschlüsselt)
+   `encrypted_content` LONGBLOB NOT NULL,           -- Dateiinhalt (AES verschlüsselt, max 4GB)
+   INDEX `idx_attachments_entry_uuid` (`entry_uuid`),
+   FOREIGN KEY (`entry_uuid`) REFERENCES `entries`(`uuid`) ON DELETE CASCADE,
+   FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. Tabelle für Grabsteine (gelöschte Einträge)
+CREATE TABLE `tombstones` (
+    `entry_uuid` VARCHAR(36) PRIMARY KEY,            -- Universally Unique Identifier des Eintrags
+    `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
+    `deleted_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitstempel der Löschung
+    INDEX `idx_tombstones_vault_uuid_deleted_at` (`vault_uuid`, `deleted_at`),
+    FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabelle zur Speicherung der DB-Schema-Version (
+CREATE TABLE `version` (
+   `major` INT NOT NULL, -- wird erhöht bei Schema-Änderungen, die nicht abwärtskompatibel sind
+   `minor` INT NOT NULL, -- wird erhöht, wenn das Schema abwärtskompatibel verändert wurde (z.B. neue optionale Felder)
+   `patch` INT NOT NULL, -- wird erhöht, wenn das Schema optimiert wurde (z.B. Index hinzugefügt/verändert)
+   `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), -- Zeitstempel der letzten Änderung
+   PRIMARY KEY (`major`,`minor`, `patch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Initialen Versionsstand setzen
+INSERT INTO `version` (`major`, `minor`, `patch`) VALUES (1, 0, 0);

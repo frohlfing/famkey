@@ -1,0 +1,4 @@
+AuthUserFile "/usr/www/privault/Host/public/dev/.htpasswd"
+AuthName "Geschützter Bereich"
+AuthType Basic
+require valid-user

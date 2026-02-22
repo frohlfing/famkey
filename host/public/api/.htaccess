@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Authorization an PHP durchreichen (wichtig für Bearer/Basic Auth)
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Verzeichnis oder Datei existiert nicht?
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Request an index.php weiterleiten
+RewriteRule ^ index.php [QSA,L]

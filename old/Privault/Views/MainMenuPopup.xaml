@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               x:Class="Privault.Views.MainMenuPopup"
+               Color="{DynamicResource SurfaceColor}">
+               <!-- Color="Transparent"> -->
+
+    <Border x:Name="Popup"
+            WidthRequest="220"
+            Style="{StaticResource PopupBorder}">
+        <VerticalStackLayout Style="{StaticResource PopupSurface}">
+            <Button Text="Synchronisieren"
+                    Command="{Binding SyncCommand}"
+                    Clicked="Button_OnClicked"/>
+            <Button Text="Einstellungen"
+                    Command="{Binding OpenSettingsCommand}"
+                    Clicked="Button_OnClicked"/>
+            <Button Text="Logout"
+                    Command="{Binding LogoutCommand}"
+                    Clicked="Button_OnClicked"/>
+        </VerticalStackLayout>
+    </Border>
+    
+</toolkit:Popup>

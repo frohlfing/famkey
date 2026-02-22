@@ -1,0 +1,342 @@
+<?xml version="1.0"
+      encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Privault.Core.ViewModels;assembly=Privault.Core"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="Privault.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             x:Name="MySettingsPage"
+             Shell.NavBarIsVisible="False"
+             Title="Einstellungen">
+
+    <Grid RowDefinitions="Auto, *">
+
+        <!-- Kopfzeile -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto, *, Auto"
+              Style="{StaticResource Header}">
+            <Button Grid.Column="0"
+                    Text="home"
+                    Command="{Binding CancelCommand}"
+                    ToolTipProperties.Text="Zurück"
+                    Style="{StaticResource IconButton}"/>
+            <Label Grid.Column="1"
+                   Text="Einstellungen"
+                   Style="{StaticResource HeaderTitle}"/>
+            <Button Grid.Column="2"
+                    Text="save"
+                    Command="{Binding SaveAndExitCommand}"
+                    ToolTipProperties.Text="Speichern"
+                    Style="{StaticResource IconButton}"/>
+        </Grid>
+
+        <!-- Hauptinhalt -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Style="{StaticResource Body}">
+
+                <!-- Sektion: Identifikation -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Identification"
+                           Style="{StaticResource SectionTitle}"/>
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Tresor"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Entry Text="{Binding VaultName}"
+                               IsReadOnly="{Binding IsRegistered}"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Benutzername"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Entry Text="{Binding UserName}"
+                               IsReadOnly="{Binding IsRegistered}"/>
+                    </VerticalStackLayout>
+                    <Button Text="Passwort ändern"
+                            Command="{Binding ChangeMasterPasswordCommand}"
+                            WidthRequest="220"
+                            HorizontalOptions="Start"/>
+                    <Label Text="Tresor und Benutzername können nach der initialen Synchronisation nicht mehr geändert werden."
+                           IsVisible="{Binding IsRegistered}"
+                           Style="{StaticResource Hint}"/>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Synchronisation -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Synchronisation"
+                           Style="{StaticResource SectionTitle}"/>
+
+                    <!-- Sync-Server URL -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Server"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Entry Grid.Column="0"
+                                   Text="{Binding Host}"
+                                   Placeholder="https://dein-server/api"
+                                   Keyboard="Url"
+                                   IsTextPredictionEnabled="False"/>
+                            <Button Grid.Column="1"
+                                    Text="flash_on"
+                                    Command="{Binding TestConnectionCommand}"
+                                    ToolTipProperties.Text="Testen"
+                                    Style="{StaticResource IconButton}"/>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- API-Token für den Serverzugriff -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="API-Token"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Entry Grid.Column="0"
+                                   Text="{Binding ApiToken}"
+                                   IsPassword="{Binding IsTokenHidden}"/>
+                            <Button Grid.Column="1"
+                                    Text="visibility"
+                                    Command="{Binding ToggleTokenVisibilityCommand}"
+                                    ToolTipProperties.Text="Passwort ein-/ausblenden"
+                                    Style="{StaticResource IconButton}"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Anmeldeoptionen -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Anmeldeoptionen"
+                           Style="{StaticResource SectionTitle}"/>
+
+                    <!-- Biometrie -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Biometrie verwenden"
+                               Style="{StaticResource FieldLabel}"/>
+
+                        <!-- Switch + Systemsetup -->
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Switch Grid.Column="0"
+                                    IsToggled="{Binding UseBiometric}"
+                                    IsVisible="{Binding IsBiometricAvailable}"/>
+                        </Grid>
+
+                        <Label Text="Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption verwenden"
+                               Style="{StaticResource Hint}"/>
+
+                        <!-- Sicherheitshinweis zu Biometrie-Änderungen -->
+                        <!--
+                        <Border IsVisible="{Binding IsBiometricAvailable}"
+                                Style="{StaticResource WarningBox}">
+                            <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                                <Label Text="⚠️ Sicherheits-Info"
+                                       Style="{StaticResource WarningBoxTitle}"/>
+                                <Label Text="Falls du in den Systemeinstellungen neue Fingerabdrücke oder Gesichter hinzufügst, wird der biometrische Login aus Sicherheitsgründen deaktiviert und muss einmalig per Master-Passwort neu verknüpft werden."
+                                       Style="{StaticResource Hint}"/>
+                            </VerticalStackLayout>
+                        </Border>
+                        -->
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Freunde -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0"
+                               Text="Freunde"
+                               VerticalOptions="Center"
+                               Style="{StaticResource SectionTitle}"/>
+                        <Button Grid.Column="1"
+                                Text="person_add"
+                                Command="{Binding AddFriendCommand}"
+                                ToolTipProperties.Text="Freund hinzufügen"
+                                Style="{StaticResource IconButton}"/>
+                    </Grid>
+                    <Label Text="Kontaktiere die Person persönlich, um den Fingerprint zu überprüfen."
+                           IsVisible="{Binding HasUnverifiedFriends}"
+                           Style="{StaticResource Hint}"/>
+
+                    <VerticalStackLayout Margin="0,5,0,0"
+                                         BindableLayout.ItemsSource="{Binding Friends}">
+                        <BindableLayout.EmptyView>
+                            <Label Text="Keine weiteren Personen im Tresor."
+                                   Style="{StaticResource EmptyState}"/>
+                        </BindableLayout.EmptyView>
+
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SettingsFriendViewModel">
+                                <Frame Style="{StaticResource Card}">
+                                    <Grid ColumnDefinitions="*, Auto"
+                                          Style="{StaticResource CardContentGrid}">
+                                        <VerticalStackLayout Grid.Column="0"
+                                                             Style="{StaticResource FieldGroup}">
+                                            <Label Text="{Binding User.Name}"
+                                                   Style="{StaticResource FieldLabel}"/>
+                                            <Label Text="{Binding Fingerprint}"
+                                                   Style="{StaticResource Fingerprint}"/>
+                                            <Label Text="⚠️"
+                                                   IsVisible="{Binding NeedsRekeying}"
+                                                   ToolTipProperties.Text="Fingerprint hat sich geändert"
+                                                   Style="{StaticResource WarnIcon}"/>
+                                            <HorizontalStackLayout VerticalOptions="Center"
+                                                                   Spacing="{DynamicResource FieldSpacing}">
+                                                <Label Text="Verifiziert"
+                                                       VerticalOptions="Center"/>
+                                                <Switch IsToggled="{Binding IsVerified}">
+                                                    <Switch.Behaviors>
+                                                        <toolkit:EventToCommandBehavior EventName="Toggled"
+                                                                                        Command="{Binding Source={x:Reference MySettingsPage}, Path=BindingContext.UpdateFriendVerificationCommand}"
+                                                                                        CommandParameter="{Binding .}"/>
+                                                    </Switch.Behaviors>
+                                                </Switch>
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <HorizontalStackLayout Grid.Column="1"
+                                                               VerticalOptions="Center">
+                                            <Button Text="person_off"
+                                                    Command="{Binding Source={x:Reference MySettingsPage}, Path=BindingContext.DeleteFriendCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    ToolTipProperties.Text="Person löschen"
+                                                    Style="{StaticResource IconButton}"/>
+                                        </HorizontalStackLayout>
+
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Passwort-Generator -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Passwort-Generator"
+                           Style="{StaticResource SectionTitle}"/>
+
+                    <!-- Länge der Passwörter -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Länge"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Entry Text="{Binding PwLength}"
+                               Keyboard="Numeric"
+                               WidthRequest="255"
+                               HorizontalOptions="Start"/>
+                    </VerticalStackLayout>
+
+                    <!-- Konfiguration der Sonderzeichen-Sätze -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Sonderzeichen"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Grid ColumnDefinitions="*, Auto, Auto, Auto"
+                              ColumnSpacing="5">
+                            <!-- Editierfeld -->
+                            <Entry Grid.Column="0"
+                                   Text="{Binding PwSpecialCharSet}"
+                                   Placeholder="Keine"/>
+                            <!-- Buttons -->
+                            <Button Grid.Column="1"
+                                    Text="star"
+                                    Command="{Binding SetSpecialCharsCommand}"
+                                    CommandParameter="Standard"
+                                    ToolTipProperties.Text="Standard"
+                                    Style="{StaticResource IconButton}"/>
+                            <Button Grid.Column="2"
+                                    Text="all_inclusive"
+                                    Command="{Binding SetSpecialCharsCommand}"
+                                    CommandParameter="All"
+                                    ToolTipProperties.Text="Alle Sonderzeichen"
+                                    Style="{StaticResource IconButton}"/>
+                            <Button Grid.Column="3"
+                                    Text="remove_selection"
+                                    Command="{Binding SetSpecialCharsCommand}"
+                                    CommandParameter="None"
+                                    ToolTipProperties.Text="Keine Sonderzeichen"
+                                    Style="{StaticResource IconButton}"/>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- Option zur Vermeidung verwechselbarer Zeichen -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Lesbarkeit optimieren"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Switch IsToggled="{Binding PwAvoidIlO0}"/>
+                        <Label Text="Vermeidet verwechselbare Zeichen wie I, l, O, 0"
+                               Style="{StaticResource Hint}"/>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Design -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Design"
+                           Style="{StaticResource SectionTitle}"/>
+                    <!-- Theme-Auswahl -->
+                    <Label Text="Theme"
+                           Style="{StaticResource FieldLabel}"/>
+                    <Grid ColumnDefinitions="*, *"
+                          Style="{StaticResource TwoColumnGrid}">
+                        <Picker Grid.Column="0"
+                                ItemsSource="{Binding ThemeKinds}"
+                                SelectedItem="{Binding ThemeKind}"/>
+                        <Picker Grid.Column="1"
+                                ItemsSource="{Binding ThemeModes}"
+                                SelectedItem="{Binding ThemeMode}"/>
+                    </Grid>
+                    <!-- Anpassbarer Platzhalter für nicht kategorisierte Einträge -->
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Label Text="Name für leere Kategorie"
+                               Style="{StaticResource FieldLabel}"/>
+                        <Entry Text="{Binding CategoryPlaceholder}"
+                               Placeholder="Allgemein"/>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Sektion: Systemeinstellungen -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Label Text="Systemeinstellungen"
+                           Style="{StaticResource SectionTitle}"/>
+
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Button Text="settings_alert"
+                                Command="{Binding OpenBiometricSettingsCommand}"
+                                WidthRequest="220"
+                                HorizontalOptions="Start"/>
+                        <Label Text="Erlaube PriVault, Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zu verwenden."
+                               Style="{StaticResource Hint}"/>
+                    </VerticalStackLayout>                    
+                    
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Button Text="Autofill konfigurieren"
+                                Command="{Binding OpenAutofillSettingsCommand}"
+                                WidthRequest="220"
+                                HorizontalOptions="Start"/>
+                        <Label Text="Erlaube PriVault, Passwörter direkt in anderen Apps und im Browser einzufügen."
+                               Style="{StaticResource Hint}"/>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Style="{StaticResource FieldGroup}">
+                        <Button Text="App-Info &amp; Rechte"
+                                Command="{Binding OpenAppSettingsCommand}"
+                                WidthRequest="220"
+                                HorizontalOptions="Start"/>
+                        <Label Text="Öffnet die Systemeinstellungen für Berechtigungen, Speicher und Benachrichtigungen."
+                               Style="{StaticResource Hint}"/>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Löschen-Button -->
+                <VerticalStackLayout Style="{StaticResource SectionGroup}">
+                    <Button Text="Tresor lokal löschen"
+                            Command="{Binding DeleteVaultCommand}"
+                            Style="{StaticResource DangerFullButton}"/>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Ladeanzeige (Nicht blockierend) -->
+        <VerticalStackLayout Grid.Row="0"
+                             Grid.RowSpan="2"
+                             IsVisible="{Binding IsLoading}"
+                             Style="{StaticResource Loader}">
+            <ActivityIndicator IsRunning="{Binding IsLoading}"/>
+            <Label Text="Lade Daten..."
+                   Style="{StaticResource LoaderText}"/>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
