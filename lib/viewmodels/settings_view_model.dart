@@ -5,7 +5,7 @@ import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/settings_entity.dart';
 import 'package:privault/models/entities/user_entity.dart';
 import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/config_service.dart'; // Wichtig
+import 'package:privault/services/config_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
@@ -19,7 +19,7 @@ class SettingsViewModel extends BaseViewModel {
   final WebService _webService;
   final CryptoService _cryptoService;
   final BiometricService _biometricService;
-  final ConfigService _configService; // Neu hinzugefügt
+  final ConfigService _configService;
 
   SettingsEntity? _settings;
   List<SettingsFriendViewModel> _friends = [];
@@ -43,7 +43,7 @@ class SettingsViewModel extends BaseViewModel {
     this._webService, 
     this._cryptoService,
     this._biometricService,
-    this._configService, // Injection
+    this._configService,
   );
 
   // Getters
@@ -59,6 +59,7 @@ class SettingsViewModel extends BaseViewModel {
   ThemeMode get themeMode => _themeMode;
   bool get isTokenHidden => _isTokenHidden;
   bool get isRegistered => _isRegistered;
+  String get vaultStoragePath => _configService.vaultStoragePath;
   List<SettingsFriendViewModel> get friends => _friends;
 
   // Setters
@@ -170,12 +171,12 @@ class SettingsViewModel extends BaseViewModel {
 
   Future<void> deleteVault() async {
     final nameToDelete = _sessionService.vaultName;
-    // 1. Physische Datei löschen
     await _databaseService.deleteCurrentDatabase();
-    // 2. Aus der Liste der Tresore in den SharedPreferences entfernen
-    _configService.removeVault(nameToDelete);
-    // 3. Biometrie-Key entfernen
+    if (_configService.lastVaultName == nameToDelete) {
+      _configService.lastVaultName = '';
+    }
     await _biometricService.removeMasterKey(nameToDelete);
+    _sessionService.clearSession();
   }
 
   void changeMasterPassword() {

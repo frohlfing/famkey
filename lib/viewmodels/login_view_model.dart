@@ -10,6 +10,7 @@ import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 enum LoginResult {
@@ -32,6 +33,7 @@ class LoginViewModel extends BaseViewModel {
   String _password = '';
   bool _isExists = false;
   bool _hasBiometricKey = false;
+  List<String> _existingVaults = [];
 
   LoginViewModel(
     this._biometricService,
@@ -41,17 +43,14 @@ class LoginViewModel extends BaseViewModel {
     this._sessionService,
   ) {
     _vaultName = _configService.lastVaultName;
-    if (_vaultName.isEmpty) {
-      _vaultName = Platform.environment['USERNAME'] ?? 'MyVault';
-    }
-    _updateState();
+    _refreshVaultList();
   }
 
   String get vaultName => _vaultName;
   String get password => _password;
   bool get isExists => _isExists;
   bool get hasBiometricKey => _hasBiometricKey;
-  List<String> get existingVaults => _configService.vaults.keys.toList();
+  List<String> get existingVaults => _existingVaults;
 
   set vaultName(String value) {
     if (_vaultName == value) return;
@@ -68,8 +67,31 @@ class LoginViewModel extends BaseViewModel {
     notifyListeners();
   }
 
+  Future<void> _refreshVaultList() async {
+    final path = _configService.vaultStoragePath;
+    if (path.isEmpty) {
+      _existingVaults = [];
+    } else {
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        final List<String> vaults = [];
+        await for (final file in dir.list()) {
+          if (file.path.endsWith('.db3.salt')) {
+            final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
+            final dbFile = File(p.join(path, '$baseName.db3'));
+            if (await dbFile.exists()) {
+              vaults.add(baseName);
+            }
+          }
+        }
+        _existingVaults = vaults;
+      }
+    }
+    _updateState();
+  }
+
   Future<void> _updateState() async {
-    _isExists = _configService.vaults.containsKey(_vaultName);
+    _isExists = _existingVaults.contains(_vaultName);
     _hasBiometricKey = await _biometricService.containsMasterKey(_vaultName);
     notifyListeners();
   }
@@ -108,7 +130,7 @@ class LoginViewModel extends BaseViewModel {
           _hasBiometricKey = false;
           setError("Biometrie-Schlüssel veraltet. Bitte mit Passwort einloggen.");
         } else {
-          setError("Falsches Master-Passwort.  $msg");
+          setError("Falsches Master-Passwort.");
         }
         return LoginResult.wrongPassword;
       }
@@ -121,11 +143,25 @@ class LoginViewModel extends BaseViewModel {
 
   Future<LoginResult> _createVault() async {
     final salt = _cryptoService.generateSalt();
-    final saltBase64 = base64.encode(salt);
     final masterKey = await _cryptoService.deriveKey(_password, salt);
     final hexMasterKey = _bytesToHex(masterKey);
 
     try {
+      final storagePath = _configService.vaultStoragePath;
+      final dbFile = File(p.join(storagePath, '$_vaultName.db3'));
+      final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
+
+      if (await dbFile.exists()) {
+        await dbFile.delete();
+      }
+      if (await saltFile.exists()) {
+        await saltFile.delete();
+      }
+
+      // 1. Salt-Datei schreiben
+      await saltFile.writeAsBytes(salt);
+
+      // 2. DB initialisieren (Nutzt den Hex-Key für PRAGMA hexkey)
       await _databaseService.initialize(_vaultName, hexMasterKey);
       
       final (pubKey, privKeyBytes) = await _cryptoService.generateRsaKeyPair();
@@ -140,18 +176,17 @@ class LoginViewModel extends BaseViewModel {
       );
 
       final newSettings = SettingsEntity(
-        salt: saltBase64,
+        salt: base64.encode(salt),
         encryptedPrivateKey: encryptedPrivKey,
-        useBiometric: false, 
+        useBiometric: false, // Default deaktiviert nach Anlegen
         lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
       );
 
       await _databaseService.saveUser(newUser);
       await _databaseService.saveSettings(newSettings);
       
-      _configService.addVault(_vaultName, saltBase64);
       _configService.lastVaultName = _vaultName;
-      await _updateState();
+      await _refreshVaultList();
 
       _sessionService.setSession(
         user: newUser,
@@ -167,9 +202,11 @@ class LoginViewModel extends BaseViewModel {
   }
 
   Future<LoginResult> _openVault() async {
-    final saltBase64 = _configService.vaults[_vaultName];
-    if (saltBase64 == null) return LoginResult.vaultNotFound;
+    final storagePath = _configService.vaultStoragePath;
+    final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
+    if (!await saltFile.exists()) return LoginResult.vaultNotFound;
 
+    final salt = await saltFile.readAsBytes();
     Uint8List? masterKey;
     bool isManualLogin = _password.isNotEmpty;
     
@@ -184,7 +221,7 @@ class LoginViewModel extends BaseViewModel {
         setError("Bitte das Master-Passwort eingeben.");
         return LoginResult.error;
       }
-      masterKey = await _cryptoService.deriveKey(_password, base64.decode(saltBase64));
+      masterKey = await _cryptoService.deriveKey(_password, salt);
     }
 
     final hexMasterKey = _bytesToHex(masterKey);
@@ -231,10 +268,12 @@ class LoginViewModel extends BaseViewModel {
   }
 
   Future<void> saveMasterKey(String password) async {
-    final saltBase64 = _configService.vaults[_vaultName];
-    if (saltBase64 == null) return;
+    final storagePath = _configService.vaultStoragePath;
+    final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
+    if (!await saltFile.exists()) return;
     
-    final masterKey = await _cryptoService.deriveKey(password, base64.decode(saltBase64));
+    final salt = await saltFile.readAsBytes();
+    final masterKey = await _cryptoService.deriveKey(password, salt);
     try {
       await _biometricService.saveMasterKey(_vaultName, masterKey);
       await _updateState();
@@ -245,10 +284,10 @@ class LoginViewModel extends BaseViewModel {
 
   Future<void> cleanUp() async {
     await _databaseService.deleteCurrentDatabase();
-    _configService.removeVault(_vaultName);
+    // Keine vaults_map mehr, Login scannt Verzeichnis live
     _sessionService.clearSession();
     vaultName = ''; 
-    await _updateState();
+    await _refreshVaultList();
   }
 
   String _bytesToHex(Uint8List bytes) {

@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
+import 'package:privault/services/config_service.dart';
 import 'package:privault/models/entities/user_entity.dart';
 import 'package:privault/models/entities/entry_entity.dart';
 import 'package:privault/models/entities/settings_entity.dart';
@@ -11,16 +11,19 @@ import 'package:privault/models/entities/tombstone_entity.dart';
 import 'package:privault/models/entities/attachment_entity.dart';
 
 class DatabaseService {
+  final ConfigService _configService;
   AppDatabase? _db;
   String? _currentDbPath;
+
+  DatabaseService(this._configService);
 
   bool get isInitialized => _db != null;
 
   Future<void> initialize(String vaultName, String password) async {
     if (_db != null) return;
     
-    final dbFolder = await getApplicationDocumentsDirectory();
-    _currentDbPath = p.join(dbFolder.path, '$vaultName.db3');
+    final storagePath = _configService.vaultStoragePath;
+    _currentDbPath = p.join(storagePath, '$vaultName.db3');
     
     _db = AppDatabase(vaultName, password);
   }
@@ -30,14 +33,19 @@ class DatabaseService {
     _db = null;
   }
 
+  /// Schließt die DB und löscht physisch die DB- und Salt-Datei.
   Future<void> deleteCurrentDatabase() async {
     final path = _currentDbPath;
-    await close();
+    await close(); // Schritt a: DB schließen
+    
     if (path != null) {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-      }
+      // Schritt c: DB-Datei löschen
+      final dbFile = File(path);
+      if (await dbFile.exists()) await dbFile.delete();
+      
+      // Schritt c: Salt-Datei löschen
+      final saltFile = File('$path.salt');
+      if (await saltFile.exists()) await saltFile.delete();
     }
   }
 
@@ -48,7 +56,7 @@ class DatabaseService {
     final query = _db!.select(_db!.users)..where((u) => u.id.equals(id));
     final user = await query.getSingleOrNull();
     if (user == null) return null;
-    
+
     return UserEntity(
       id: user.id,
       uuid: user.uuid,
@@ -248,7 +256,7 @@ class DatabaseService {
     await _db!.transaction(() async {
       int actualEntryId;
       final entryCompanion = _entryToCompanion(entry);
-      
+
       final existing = await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(entry.uuid))).getSingleOrNull();
       if (existing != null) {
         await (_db!.update(_db!.entries)..where((e) => e.uuid.equals(entry.uuid))).write(entryCompanion);
@@ -287,7 +295,7 @@ class DatabaseService {
     final row = await (_db!.select(_db!.permissions)
       ..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId)))
       .getSingleOrNull();
-    
+
     if (row == null) return null;
     return PermissionEntity(
       id: row.id,

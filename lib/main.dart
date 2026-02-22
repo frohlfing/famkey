@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,9 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 import 'package:path/path.dart' as p;
-// Wir nutzen einen bedingten Import oder laden die Library dynamisch nur auf Desktop
-import 'dart:ffi' if (dart.library.html) 'dart:ui'; 
-
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
@@ -34,7 +32,11 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   setupServiceLocator();
-  getIt.registerSingleton<ConfigService>(ConfigService(prefs));
+  
+  // WICHTIG: ConfigService initialisieren und Standardpfad setzen
+  final configService = ConfigService(prefs);
+  await configService.ensureDefaultPath();
+  getIt.registerSingleton<ConfigService>(configService);
 
   runApp(const PriVaultApp());
 }

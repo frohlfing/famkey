@@ -12,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _vaultController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _vaultFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
   @override
@@ -22,11 +23,14 @@ class _LoginScreenState extends State<LoginScreen> {
     
     viewModel.addListener(_onViewModelChanged);
 
-    if (viewModel.vaultName.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Punkt 3: Fokus setzen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (viewModel.vaultName.isNotEmpty && viewModel.isExists) {
         _passwordFocusNode.requestFocus();
-      });
-    }
+      } else {
+        _vaultFocusNode.requestFocus();
+      }
+    });
   }
 
   void _onViewModelChanged() {
@@ -43,28 +47,14 @@ class _LoginScreenState extends State<LoginScreen> {
     context.read<LoginViewModel>().removeListener(_onViewModelChanged);
     _vaultController.dispose();
     _passwordController.dispose();
+    _vaultFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin({bool forceCreate = false}) async {
     final viewModel = context.read<LoginViewModel>();
-    var result = await viewModel.login(forceCreate: forceCreate);
-
-    if (!mounted) return;
-
-    if (result == LoginResult.vaultNotFound) {
-      final create = await _showConfirmDialog(
-        'Tresor anlegen',
-        'Der Tresor "${viewModel.vaultName}" existiert auf diesem Gerät noch nicht.\nMöchtest du ihn anlegen?',
-        'Ja, anlegen'
-      );
-      if (create == true) {
-        // Kleine Verzögerung um AXTree-Fehler auf Windows zu vermeiden
-        await Future.delayed(const Duration(milliseconds: 50));
-        result = await viewModel.login(forceCreate: true);
-      }
-    }
+    final result = await viewModel.login(forceCreate: forceCreate);
 
     if (!mounted) return;
 
@@ -85,6 +75,17 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) Navigator.pushReplacementNamed(context, '/main');
         break;
 
+      case LoginResult.vaultNotFound:
+        final create = await _showConfirmDialog(
+          'Tresor anlegen',
+          'Der Tresor "${viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
+          'Ja, anlegen'
+        );
+        if (create == true) {
+          _handleLogin(forceCreate: true);
+        }
+        break;
+
       case LoginResult.corrupt:
         final delete = await _showConfirmDialog(
           'Tresor löschen',
@@ -93,10 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         if (delete == true) {
           await viewModel.cleanUp();
-          setState(() {
-            _vaultController.clear();
-            _passwordController.clear();
-          });
+          _passwordController.clear();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Der korrupte Tresor wurde gelöscht.'))
           );
@@ -151,6 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 
                 TextField(
                   controller: _vaultController,
+                  focusNode: _vaultFocusNode,
                   decoration: InputDecoration(
                     labelText: 'Tresor-Name',
                     border: const OutlineInputBorder(),
@@ -161,7 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           tooltip: 'Vorhandene Tresore',
                           onSelected: (String value) {
                             viewModel.vaultName = value;
-                            _vaultController.text = value;
                             _passwordFocusNode.requestFocus();
                           },
                           itemBuilder: (BuildContext context) {
@@ -210,11 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   onPressed: (viewModel.isBusy || !canLogin) ? null : () => _handleLogin(),
                   child: viewModel.isBusy
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : Text(viewModel.isExists ? 'Tresor öffnen' : 'Tresor neu anlegen'),
                 ),
               ],

@@ -2,10 +2,11 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:privault/core/service_locator.dart';
+import 'package:privault/services/config_service.dart';
 
 part 'database.g.dart';
 
@@ -108,11 +109,14 @@ class AppDatabase extends _$AppDatabase {
 
   static QueryExecutor _openConnection(String name, String password) {
     return LazyDatabase(() async {
-      final dbFolder = await getApplicationDocumentsDirectory();
-      final file = File(p.join(dbFolder.path, '$name.db3'));
+      // WICHTIG: Nutze den zentralen Speicherpfad aus dem ConfigService
+      final config = getIt<ConfigService>();
+      final storagePath = config.vaultStoragePath;
+      final file = File(p.join(storagePath, '$name.db3'));
 
       if (Platform.isWindows) {
-        final dllPath = p.join(Directory.current.path, 'privault_krypto.dll');
+        // DLL-Bindung für SQLCipher
+        final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
         if (File(dllPath).existsSync()) {
           open.overrideFor(
             OperatingSystem.windows,

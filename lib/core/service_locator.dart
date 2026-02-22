@@ -6,12 +6,14 @@ import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
 import 'package:privault/services/sync_service.dart';
 import 'package:privault/services/password_service.dart';
+import 'package:privault/services/config_service.dart';
 
 final getIt = GetIt.instance;
 
 void setupServiceLocator() {
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
-  getIt.registerLazySingleton<DatabaseService>(() => DatabaseService());
+  // DatabaseService benötigt nun den ConfigService
+  getIt.registerLazySingleton<DatabaseService>(() => DatabaseService(getIt<ConfigService>()));
   getIt.registerLazySingleton<SessionService>(() => SessionService(getIt<CryptoService>()));
   getIt.registerLazySingleton<BiometricService>(() => BiometricService());
   getIt.registerLazySingleton<PasswordService>(() => PasswordService());
