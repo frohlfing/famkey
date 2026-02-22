@@ -227,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TextField(
                     controller: _lengthController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Länge (8-64)', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: 'Länge', border: OutlineInputBorder()),
                     onChanged: (val) {
                       final parsed = int.tryParse(val);
                       if (parsed != null) viewModel.pwLength = parsed;

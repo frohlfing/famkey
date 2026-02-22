@@ -67,11 +67,17 @@ class LoginViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Löscht das Passwort und Fehler (wird bei Logout oder Screen-Start aufgerufen)
   void resetState() {
     _password = '';
     clearError();
-    notifyListeners();
+    refreshVaultList();
+  }
+
+  /// Löscht das Passwort aus dem RAM. 
+  /// [notify] kann auf false gesetzt werden, um "locked widget tree" Fehler zu vermeiden (z.B. in dispose).
+  void clearPassword({bool notify = true}) {
+    _password = '';
+    if (notify) notifyListeners();
   }
 
   Future<void> refreshVaultList() async {
@@ -92,7 +98,7 @@ class LoginViewModel extends BaseViewModel {
         _existingVaults = vaults;
       }
     }
-    _updateState();
+    await _updateState();
   }
 
   Future<void> _updateState() async {
@@ -103,7 +109,6 @@ class LoginViewModel extends BaseViewModel {
 
   Future<LoginResult> login({bool forceCreate = false}) async {
     if (_vaultName.isEmpty) return LoginResult.error;
-
     if (!_isExists && !forceCreate) return LoginResult.vaultNotFound;
 
     setBusy(true);
@@ -121,7 +126,6 @@ class LoginViewModel extends BaseViewModel {
       }
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      // Punkt 3: Fehlerbehandlung verfeinert
       if (msg.contains("database is locked") || msg.contains("file is not a database") || msg.contains("authentication failed")) {
         setError("Falsches Master-Passwort.");
         return LoginResult.wrongPassword;
@@ -139,9 +143,7 @@ class LoginViewModel extends BaseViewModel {
     final hexMasterKey = _bytesToHex(masterKey);
 
     try {
-      // Punkt 4: Sicherstellen, dass alte Dateien wirklich weg sind
       await _databaseService.deleteCurrentDatabase(); 
-      
       final storagePath = _configService.vaultStoragePath;
       final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
       await saltFile.writeAsBytes(salt);
@@ -173,6 +175,8 @@ class LoginViewModel extends BaseViewModel {
       await refreshVaultList();
 
       _sessionService.setSession(user: newUser, privateKey: privKeyBytes, vaultName: _vaultName, settings: newSettings.toMap());
+      
+      clearPassword(notify: true);
       return LoginResult.success;
     } finally {
       _cryptoService.wipeKey(masterKey);
@@ -207,7 +211,6 @@ class LoginViewModel extends BaseViewModel {
     try {
       await _databaseService.initialize(_vaultName, hexMasterKey);
       
-      // Test-Abfrage ob Passwort passt (vermeidet fälschliche Korrupt-Meldung)
       final settings = await _databaseService.getSettings();
       if (settings == null) return LoginResult.corrupt;
 
@@ -222,12 +225,12 @@ class LoginViewModel extends BaseViewModel {
           return LoginResult.askToEnableBiometrics;
         }
       } catch (e) {
-        // RSA-Entschlüsselung schlug fehl -> Passwort falsch
         setError("Falsches Master-Passwort.");
         return LoginResult.wrongPassword;
       }
 
       _configService.lastVaultName = _vaultName;
+      clearPassword(notify: true);
       return LoginResult.success;
     } catch (e) {
       await _databaseService.close();
@@ -255,7 +258,9 @@ class LoginViewModel extends BaseViewModel {
   Future<void> cleanUp() async {
     await _databaseService.deleteCurrentDatabase();
     _sessionService.clearSession();
-    vaultName = '';
+    _vaultName = '';
+    _password = '';
+    _configService.lastVaultName = '';
     await refreshVaultList();
   }
 

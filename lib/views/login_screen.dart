@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _viewModel = context.read<LoginViewModel>();
     _vaultController.text = _viewModel.vaultName;
     
-    // WICHTIG: Fehler beheben (setState während build) und Passwort leeren
+    // Fehler vermeiden: Status erst nach dem ersten Build-Zyklus zurücksetzen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _viewModel.resetState();
@@ -41,13 +41,15 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _vaultController.text = _viewModel.vaultName;
       });
-    } else {
-      setState(() {});
     }
+    // Synchronisiere Controller, falls Passwort im VM (z.B. nach Login) geleert wurde
+    if (_viewModel.password.isEmpty && _passwordController.text.isNotEmpty) {
+      _passwordController.clear();
+    }
+    setState(() {});
   }
 
   void _applyFocus() {
-    // Punkt 3: Fokus auf Tresorname, wenn dieser leer ist, sonst auf Passwortfeld
     if (_vaultController.text.isEmpty) {
       _vaultFocusNode.requestFocus();
     } else {
@@ -57,7 +59,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    // Wichtig: Listener zuerst entfernen
     _viewModel.removeListener(_onViewModelChanged);
+    // Sicherheit: Passwort "leise" löschen (verhindert 'widget tree locked' Fehler)
+    _viewModel.clearPassword(notify: false);
+    
     _vaultController.dispose();
     _passwordController.dispose();
     _vaultFocusNode.dispose();
@@ -76,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case LoginResult.success:
         Navigator.pushReplacementNamed(context, '/main');
         break;
-
+      
       case LoginResult.askToEnableBiometrics:
         final enable = await _showConfirmDialog(
           'Biometrie aktivieren',
@@ -135,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true), 
             child: Text(confirmLabel, style: TextStyle(color: confirmLabel.contains('löschen') ? Colors.red : null)),
           ),
         ],
@@ -146,8 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<LoginViewModel>();
-
-    // Punkt 1: Login möglich, wenn Passwort da ODER Biometrie für existierenden Tresor verfügbar
     final bool canLogin = viewModel.password.isNotEmpty || (viewModel.isExists && viewModel.hasBiometricKey);
 
     return Scaffold(
@@ -168,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 48),
-
+                
                 TextField(
                   controller: _vaultController,
                   focusNode: _vaultFocusNode,
@@ -177,11 +181,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Tresor-Name',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.storage),
-                    suffixIcon: viewModel.existingVaults.isNotEmpty
+                    suffixIcon: viewModel.existingVaults.isNotEmpty 
                       ? PopupMenuButton<String>(
                           icon: const Icon(Icons.list),
                           tooltip: 'Vorhandene Tresore',
-                          onOpened: () => viewModel.refreshVaultList(), // NEU: Live-Update beim Öffnen
+                          onOpened: () => viewModel.refreshVaultList(),
                           onSelected: (String value) {
                             if (mounted) {
                               viewModel.vaultName = value;
@@ -209,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Master-Passwort',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.key),
-                    suffixIcon: viewModel.hasBiometricKey
+                    suffixIcon: viewModel.hasBiometricKey 
                       ? const Icon(Icons.fingerprint, color: Colors.blue)
                       : null,
                   ),

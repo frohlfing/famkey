@@ -134,9 +134,10 @@ class SettingsViewModel extends BaseViewModel {
     if (_settings == null) return false;
     setBusy(true);
     try {
-      // 2) Wenn Biometrie deaktiviert wird -> Key löschen
+      // 2) Wenn Biometrie deaktiviert wird -> Key aus Secure Store löschen
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
+        debugPrint('🔐 Biometrie-Key entfernt, da Option deaktiviert wurde.');
       }
 
       final normalizedHost = _host.trim().replaceAll(RegExp(r'/+$'), '');
