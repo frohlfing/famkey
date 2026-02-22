@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:privault/core/base_view_model.dart';
@@ -79,6 +80,7 @@ class SettingsViewModel extends BaseViewModel {
     notifyListeners();
   }
 
+  // 1) Sonderzeichen-Presets repariert
   void setSpecialChars(String type) {
     switch (type) {
       case 'None': _pwSpecialCharSet = ''; break;
@@ -132,6 +134,7 @@ class SettingsViewModel extends BaseViewModel {
     if (_settings == null) return false;
     setBusy(true);
     try {
+      // 2) Wenn Biometrie deaktiviert wird -> Key löschen
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
       }
@@ -169,18 +172,15 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
+  // 5) Komplette Lösch-Sequenz
   Future<void> deleteVault() async {
     final nameToDelete = _sessionService.vaultName;
     await _databaseService.deleteCurrentDatabase();
+    await _biometricService.removeMasterKey(nameToDelete);
     if (_configService.lastVaultName == nameToDelete) {
       _configService.lastVaultName = '';
     }
-    await _biometricService.removeMasterKey(nameToDelete);
     _sessionService.clearSession();
-  }
-
-  void changeMasterPassword() {
-    print('Master-Passwort ändern angefordert');
   }
 
   Future<bool> testConnection() async {
@@ -228,7 +228,28 @@ class SettingsViewModel extends BaseViewModel {
     await loadFriends();
   }
 
-  void openBiometricSettings() => launchUrl(Uri.parse('package:com.android.settings'));
-  void openAutofillSettings() => launchUrl(Uri.parse('package:com.android.settings'));
-  void openAppSettings() => launchUrl(Uri.parse('app-settings:'));
+  // 3) Korrigierte Systemeinstellungen für Windows & Android
+  Future<void> openBiometricSettings() async {
+    if (Platform.isWindows) {
+      await launchUrl(Uri.parse('ms-settings:signinoptions'));
+    } else if (Platform.isAndroid) {
+      await launchUrl(Uri.parse('package:com.android.settings'));
+    }
+  }
+
+  Future<void> openAutofillSettings() async {
+    if (Platform.isWindows) {
+      await launchUrl(Uri.parse('https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e'));
+    } else if (Platform.isAndroid) {
+      await launchUrl(Uri.parse('package:com.android.settings'));
+    }
+  }
+
+  Future<void> openAppSettings() async {
+    if (Platform.isWindows) {
+      await launchUrl(Uri.parse('ms-settings:appsfeatures-app'));
+    } else if (Platform.isAndroid) {
+      await launchUrl(Uri.parse('app-settings:'));
+    }
+  }
 }

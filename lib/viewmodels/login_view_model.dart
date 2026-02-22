@@ -43,7 +43,7 @@ class LoginViewModel extends BaseViewModel {
     this._sessionService,
   ) {
     _vaultName = _configService.lastVaultName;
-    _refreshVaultList();
+    refreshVaultList();
   }
 
   String get vaultName => _vaultName;
@@ -67,7 +67,14 @@ class LoginViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  Future<void> _refreshVaultList() async {
+  /// Löscht das Passwort und Fehler (wird bei Logout oder Screen-Start aufgerufen)
+  void resetState() {
+    _password = '';
+    clearError();
+    notifyListeners();
+  }
+
+  Future<void> refreshVaultList() async {
     final path = _configService.vaultStoragePath;
     if (path.isEmpty) {
       _existingVaults = [];
@@ -79,9 +86,7 @@ class LoginViewModel extends BaseViewModel {
           if (file.path.endsWith('.db3.salt')) {
             final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
             final dbFile = File(p.join(path, '$baseName.db3'));
-            if (await dbFile.exists()) {
-              vaults.add(baseName);
-            }
+            if (await dbFile.exists()) vaults.add(baseName);
           }
         }
         _existingVaults = vaults;
@@ -97,14 +102,9 @@ class LoginViewModel extends BaseViewModel {
   }
 
   Future<LoginResult> login({bool forceCreate = false}) async {
-    if (_vaultName.isEmpty) {
-      setError("Bitte einen Namen für den Tresor eingeben.");
-      return LoginResult.error;
-    }
+    if (_vaultName.isEmpty) return LoginResult.error;
 
-    if (!_isExists && !forceCreate) {
-      return LoginResult.vaultNotFound;
-    }
+    if (!_isExists && !forceCreate) return LoginResult.vaultNotFound;
 
     setBusy(true);
     clearError();
@@ -113,7 +113,7 @@ class LoginViewModel extends BaseViewModel {
         return await _openVault();
       } else {
         if (_password.isEmpty) {
-          setError("Bitte ein Master-Passwort für den neuen Tresor festlegen.");
+          setError("Bitte ein Master-Passwort festlegen.");
           setBusy(false);
           return LoginResult.error;
         }
@@ -121,17 +121,9 @@ class LoginViewModel extends BaseViewModel {
       }
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains("database is locked") || 
-          msg.contains("file is not a database") || 
-          msg.contains("authentication failed")) {
-        
-        if (_password.isEmpty && _hasBiometricKey) {
-          await _biometricService.removeMasterKey(_vaultName);
-          _hasBiometricKey = false;
-          setError("Biometrie-Schlüssel veraltet. Bitte mit Passwort einloggen.");
-        } else {
-          setError("Falsches Master-Passwort.");
-        }
+      // Punkt 3: Fehlerbehandlung verfeinert
+      if (msg.contains("database is locked") || msg.contains("file is not a database") || msg.contains("authentication failed")) {
+        setError("Falsches Master-Passwort.");
         return LoginResult.wrongPassword;
       }
       setError("Fehler: $e");
@@ -147,21 +139,13 @@ class LoginViewModel extends BaseViewModel {
     final hexMasterKey = _bytesToHex(masterKey);
 
     try {
+      // Punkt 4: Sicherstellen, dass alte Dateien wirklich weg sind
+      await _databaseService.deleteCurrentDatabase(); 
+      
       final storagePath = _configService.vaultStoragePath;
-      final dbFile = File(p.join(storagePath, '$_vaultName.db3'));
       final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
-
-      if (await dbFile.exists()) {
-        await dbFile.delete();
-      }
-      if (await saltFile.exists()) {
-        await saltFile.delete();
-      }
-
-      // 1. Salt-Datei schreiben
       await saltFile.writeAsBytes(salt);
 
-      // 2. DB initialisieren (Nutzt den Hex-Key für PRAGMA hexkey)
       await _databaseService.initialize(_vaultName, hexMasterKey);
       
       final (pubKey, privKeyBytes) = await _cryptoService.generateRsaKeyPair();
@@ -178,7 +162,7 @@ class LoginViewModel extends BaseViewModel {
       final newSettings = SettingsEntity(
         salt: base64.encode(salt),
         encryptedPrivateKey: encryptedPrivKey,
-        useBiometric: false, // Default deaktiviert nach Anlegen
+        useBiometric: false, 
         lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
       );
 
@@ -186,15 +170,9 @@ class LoginViewModel extends BaseViewModel {
       await _databaseService.saveSettings(newSettings);
       
       _configService.lastVaultName = _vaultName;
-      await _refreshVaultList();
+      await refreshVaultList();
 
-      _sessionService.setSession(
-        user: newUser,
-        privateKey: privKeyBytes,
-        vaultName: _vaultName,
-        settings: newSettings.toMap(),
-      );
-
+      _sessionService.setSession(user: newUser, privateKey: privKeyBytes, vaultName: _vaultName, settings: newSettings.toMap());
       return LoginResult.success;
     } finally {
       _cryptoService.wipeKey(masterKey);
@@ -229,39 +207,32 @@ class LoginViewModel extends BaseViewModel {
     try {
       await _databaseService.initialize(_vaultName, hexMasterKey);
       
-      final user = await _databaseService.getUserById(1);
+      // Test-Abfrage ob Passwort passt (vermeidet fälschliche Korrupt-Meldung)
       final settings = await _databaseService.getSettings();
-      
-      if (user == null || settings == null) return LoginResult.corrupt;
+      if (settings == null) return LoginResult.corrupt;
+
+      final user = await _databaseService.getUserById(1);
+      if (user == null) return LoginResult.corrupt;
 
       try {
         final privKeyBytes = await _cryptoService.decrypt(settings.encryptedPrivateKey, masterKey);
-        _sessionService.setSession(
-          user: user,
-          privateKey: privKeyBytes,
-          vaultName: _vaultName,
-          settings: settings.toMap(),
-        );
+        _sessionService.setSession(user: user, privateKey: privKeyBytes, vaultName: _vaultName, settings: settings.toMap());
 
         if (isManualLogin && settings.useBiometric && !_hasBiometricKey) {
           return LoginResult.askToEnableBiometrics;
         }
-
       } catch (e) {
-        if (!isManualLogin && _hasBiometricKey) {
-           await _biometricService.removeMasterKey(_vaultName);
-           _hasBiometricKey = false;
-           setError("Veralteter Biometrie-Schlüssel gelöscht. Bitte mit Passwort anmelden.");
-           return LoginResult.wrongPassword;
-        }
-        return LoginResult.corrupt;
+        // RSA-Entschlüsselung schlug fehl -> Passwort falsch
+        setError("Falsches Master-Passwort.");
+        return LoginResult.wrongPassword;
       }
 
       _configService.lastVaultName = _vaultName;
       return LoginResult.success;
     } catch (e) {
       await _databaseService.close();
-      rethrow;
+      setError("Falsches Master-Passwort.");
+      return LoginResult.wrongPassword;
     } finally {
       _cryptoService.wipeKey(masterKey);
     }
@@ -271,7 +242,6 @@ class LoginViewModel extends BaseViewModel {
     final storagePath = _configService.vaultStoragePath;
     final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
     if (!await saltFile.exists()) return;
-    
     final salt = await saltFile.readAsBytes();
     final masterKey = await _cryptoService.deriveKey(password, salt);
     try {
@@ -284,10 +254,9 @@ class LoginViewModel extends BaseViewModel {
 
   Future<void> cleanUp() async {
     await _databaseService.deleteCurrentDatabase();
-    // Keine vaults_map mehr, Login scannt Verzeichnis live
     _sessionService.clearSession();
-    vaultName = ''; 
-    await _refreshVaultList();
+    vaultName = '';
+    await refreshVaultList();
   }
 
   String _bytesToHex(Uint8List bytes) {
