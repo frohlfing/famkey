@@ -225,6 +225,12 @@ class LoginViewModel extends BaseViewModel {
           return LoginResult.askToEnableBiometrics;
         }
       } catch (e) {
+        if (!isManualLogin && _hasBiometricKey) {
+           await _biometricService.removeMasterKey(_vaultName);
+           _hasBiometricKey = false;
+           setError("Veralteter Biometrie-Schlüssel gelöscht.");
+           return LoginResult.wrongPassword;
+        }
         setError("Falsches Master-Passwort.");
         return LoginResult.wrongPassword;
       }

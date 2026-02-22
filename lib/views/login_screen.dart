@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _viewModel = context.read<LoginViewModel>();
     _vaultController.text = _viewModel.vaultName;
     
-    // Fehler vermeiden: Status erst nach dem ersten Build-Zyklus zurücksetzen
+    // Initialer Reset
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _viewModel.resetState();
@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _vaultController.text = _viewModel.vaultName;
       });
     }
-    // Synchronisiere Controller, falls Passwort im VM (z.B. nach Login) geleert wurde
+    // Falls das Passwort im VM geleert wurde, auch den Controller leeren
     if (_viewModel.password.isEmpty && _passwordController.text.isNotEmpty) {
       _passwordController.clear();
     }

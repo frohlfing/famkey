@@ -51,7 +51,7 @@ class PriVaultApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
         ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt())),
         ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
-        ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt())),
+        ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
         ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
       ],
       child: MaterialApp(

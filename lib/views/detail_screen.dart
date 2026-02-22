@@ -29,6 +29,28 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  Color _getStrengthColor(int score) {
+    switch (score) {
+      case 0: return const Color(0xFFCBD5E1);
+      case 1: return const Color(0xFFDC2626);
+      case 2: return const Color(0xFFF59E0B);
+      case 3: return const Color(0xFF84CC16);
+      case 4: return const Color(0xFF16A34A);
+      default: return const Color(0xFFCBD5E1);
+    }
+  }
+
+  String _getStrengthText(int score) {
+    switch (score) {
+      case 0: return "";
+      case 1: return "Sehr schwach";
+      case 2: return "Schwach";
+      case 3: return "Gut";
+      case 4: return "Stark";
+      default: return "";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<DetailViewModel>();
@@ -36,6 +58,7 @@ class _DetailScreenState extends State<DetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Details'),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -57,7 +80,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Section
+                      // Header Section (Zentriert)
                       Center(
                         child: Column(
                           children: [
@@ -66,7 +89,7 @@ class _DetailScreenState extends State<DetailScreen> {
                             else
                               const Icon(Icons.vpn_key_outlined, size: 64, color: Colors.blueGrey),
                             const SizedBox(height: 16),
-                            Text(viewModel.title, style: Theme.of(context).textTheme.headlineMedium),
+                            Text(viewModel.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                             Text(viewModel.category, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey)),
                           ],
                         ),
@@ -84,23 +107,55 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                       const Divider(),
 
-                      // Password Card
-                      ListTile(
-                        title: const Text('Passwort'),
-                        subtitle: Text(viewModel.isPasswordHidden ? '••••••••' : viewModel.password),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                              onPressed: viewModel.togglePasswordVisibility,
+                      // Password Card mit Stärke-Meter
+                      Column(
+                        children: [
+                          ListTile(
+                            title: const Text('Passwort'),
+                            subtitle: Text(viewModel.isPasswordHidden ? '••••••••' : viewModel.password),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
+                                  onPressed: viewModel.togglePasswordVisibility,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy),
+                                  onPressed: () => _copyToClipboard(context, viewModel.password, 'Passwort'),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.copy),
-                              onPressed: () => _copyToClipboard(context, viewModel.password, 'Passwort'),
+                          ),
+                          if (viewModel.password.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(2),
+                                      child: LinearProgressIndicator(
+                                        value: (viewModel.passwordStrength + 1) / 5,
+                                        backgroundColor: Colors.grey.shade200,
+                                        valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
+                                        minHeight: 4,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    _getStrengthText(viewModel.passwordStrength),
+                                    style: TextStyle(
+                                      fontSize: 12, 
+                                      fontWeight: FontWeight.bold,
+                                      color: _getStrengthColor(viewModel.passwordStrength)
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
                       const Divider(),
 
@@ -128,7 +183,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           return ListTile(
                             leading: const Icon(Icons.attach_file),
                             title: Text(meta?.filename ?? 'Unbekannte Datei'),
-                            subtitle: Text('\${((meta?.size ?? 0) / 1024).toStringAsFixed(1)} KB'),
+                            subtitle: Text('${((meta?.size ?? 0) / 1024).toStringAsFixed(1)} KB'),
                             onTap: () => viewModel.openAttachment(att),
                           );
                         }).toList(),
@@ -146,6 +201,16 @@ class _DetailScreenState extends State<DetailScreen> {
                           child: Text(viewModel.notes),
                         ),
                       ],
+
+                      // Audit Hint
+                      if (viewModel.auditHint.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            viewModel.auditHint,
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                          ),
+                        ),
                     ],
                   ),
                 ),

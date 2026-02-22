@@ -10,13 +10,16 @@ import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:privault/services/password_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:intl/intl.dart';
 
 class DetailViewModel extends BaseViewModel {
   final CryptoService _cryptoService;
   final DatabaseService _databaseService;
   final SessionService _sessionService;
+  final PasswordService _passwordService;
 
   EntryEntity? _entry;
   Uint8List? _entryKey;
@@ -30,9 +33,10 @@ class DetailViewModel extends BaseViewModel {
   String _url = '';
   String _notes = '';
   String _favicon = '';
+  String _auditHint = '';
   bool _isPasswordHidden = true;
 
-  DetailViewModel(this._cryptoService, this._databaseService, this._sessionService);
+  DetailViewModel(this._cryptoService, this._databaseService, this._sessionService, this._passwordService);
 
   // Getters
   String get title => _title;
@@ -42,10 +46,12 @@ class DetailViewModel extends BaseViewModel {
   String get url => _url;
   String get notes => _notes;
   String get favicon => _favicon;
+  String get auditHint => _auditHint;
   bool get isPasswordHidden => _isPasswordHidden;
   List<AttachmentEntity> get attachments => _attachments;
 
   AttachmentMetaPayload? getAttachmentMeta(String uuid) => _attachmentMetas[uuid];
+  int get passwordStrength => _passwordService.estimateStrength(_password);
 
   void togglePasswordVisibility() {
     _isPasswordHidden = !_isPasswordHidden;
@@ -80,6 +86,19 @@ class DetailViewModel extends BaseViewModel {
       _notes = payload.notes;
       _favicon = _entry!.favicon;
 
+      // Audit Informationen laden (MAUI-Logik)
+      var creator = "Unbekannt";
+      var updater = "Unbekannt";
+      
+      final cu = _entry!.creatorId != 0 ? await _databaseService.getUserById(_entry!.creatorId) : null;
+      final uu = _entry!.updaterId != 0 ? await _databaseService.getUserById(_entry!.updaterId) : null;
+
+      if (cu != null) creator = cu.name;
+      if (uu != null) updater = uu.name;
+
+      final dateStr = DateFormat("dd.MM.yyyy HH:mm:ss").format(_entry!.updatedAt.toLocal());
+      _auditHint = "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
+
       // Anhänge laden
       _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id!);
       _attachmentMetas.clear();
@@ -101,21 +120,11 @@ class DetailViewModel extends BaseViewModel {
     try {
       final meta = _attachmentMetas[attachment.uuid];
       if (meta == null) throw Exception("Metadaten fehlen");
-
-      // 1. Datei im Speicher entschlüsseln
       final decryptedContent = await _cryptoService.decrypt(attachment.encryptedContent, _entryKey!);
-
-      // 2. Temporäre Datei erstellen (Flutter-Standard für Datei-Vorschau)
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('\${tempDir.path}/\${meta.filename}');
+      final tempFile = File('${tempDir.path}/${meta.filename}');
       await tempFile.writeAsBytes(decryptedContent);
-
-      // 3. Datei öffnen
       await OpenFilex.open(tempFile.path);
-
-      // Hinweis: Das Löschen der Temp-Datei sollte idealerweise nach dem Schließen
-      // der Datei-App passieren (wie in MAUI). In Flutter ist das systembedingt
-      // etwas schwieriger zu timen, aber für den 1:1 Port reicht das erst mal so.
     } catch (e) {
       setError("Anhang konnte nicht geöffnet werden: $e");
     } finally {
