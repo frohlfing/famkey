@@ -18,38 +18,43 @@ class _EditScreenState extends State<EditScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  
+  late EditViewModel _viewModel; // Referenz speichern
 
   @override
   void initState() {
     super.initState();
+    _viewModel = context.read<EditViewModel>(); // Sicher in initState holen
+    
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final viewModel = context.read<EditViewModel>();
-      await viewModel.initialize(widget.entryId);
+      await _viewModel.initialize(widget.entryId);
       
-      _categoryController.text = viewModel.category;
-      _titleController.text = viewModel.title;
-      _usernameController.text = viewModel.username;
-      _passwordController.text = viewModel.password;
-      _urlController.text = viewModel.url;
-      _notesController.text = viewModel.notes;
+      _categoryController.text = _viewModel.category;
+      _titleController.text = _viewModel.title;
+      _usernameController.text = _viewModel.username;
+      _passwordController.text = _viewModel.password;
+      _urlController.text = _viewModel.url;
+      _notesController.text = _viewModel.notes;
 
-      viewModel.addListener(_onViewModelChanged);
+      _viewModel.addListener(_onViewModelChanged);
     });
   }
 
   void _onViewModelChanged() {
-    final viewModel = context.read<EditViewModel>();
-    if (_passwordController.text != viewModel.password) {
-      _passwordController.text = viewModel.password;
+    if (!mounted) return;
+    if (_passwordController.text != _viewModel.password) {
+      _passwordController.text = _viewModel.password;
     }
-    if (_categoryController.text != viewModel.category) {
-      _categoryController.text = viewModel.category;
+    if (_categoryController.text != _viewModel.category) {
+      _categoryController.text = _viewModel.category;
     }
+    setState(() {}); // UI Refresh für dynamischen Titel
   }
 
   @override
   void dispose() {
-    context.read<EditViewModel>().removeListener(_onViewModelChanged);
+    // Sicherer Zugriff ohne Context
+    _viewModel.removeListener(_onViewModelChanged);
     _categoryController.dispose();
     _titleController.dispose();
     _usernameController.dispose();
@@ -162,9 +167,12 @@ class _EditScreenState extends State<EditScreen> {
                                 message: 'Passwort generieren',
                                 child: IconButton(icon: const Icon(Icons.refresh), onPressed: viewModel.generatePassword),
                               ),
-                              IconButton(
-                                icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                                onPressed: viewModel.togglePasswordVisibility,
+                              Tooltip(
+                                message: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
+                                child: IconButton(
+                                  icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
+                                  onPressed: viewModel.togglePasswordVisibility,
+                                ),
                               ),
                             ],
                           ),
@@ -229,12 +237,18 @@ class _EditScreenState extends State<EditScreen> {
                             content: const Text('Soll dieser Eintrag wirklich gelöscht werden?'),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-                              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen', style: TextStyle(color: Colors.red))),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                              ),
                             ],
                           ),
                         );
                         if (confirmed == true && mounted) {
-                          if (await viewModel.deleteEntry() && mounted) Navigator.pop(context, true);
+                          if (await viewModel.deleteEntry() && mounted) {
+                            // Direkt zurück zur Hauptseite springen (Pop bis zur Route vor Details)
+                            Navigator.of(context).popUntil((route) => route.settings.name == '/main');
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)),

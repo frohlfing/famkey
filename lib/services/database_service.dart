@@ -257,14 +257,16 @@ class DatabaseService {
       int actualEntryId;
       final entryCompanion = _entryToCompanion(entry);
 
-      final existing = await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(entry.uuid))).getSingleOrNull();
-      if (existing != null) {
-        await (_db!.update(_db!.entries)..where((e) => e.uuid.equals(entry.uuid))).write(entryCompanion);
-        actualEntryId = existing.id;
+      // 1. Eintrag speichern (wie MAUI: erst suchen ob Id oder Uuid existiert)
+      final existingEntry = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entry.id ?? -1) | e.uuid.equals(entry.uuid))).getSingleOrNull();
+      if (existingEntry != null) {
+        await (_db!.update(_db!.entries)..where((e) => e.id.equals(existingEntry.id))).write(entryCompanion);
+        actualEntryId = existingEntry.id;
       } else {
         actualEntryId = await _db!.into(_db!.entries).insert(entryCompanion);
       }
 
+      // 2. Berechtigung für den Benutzer speichern
       final permCompanion = PermissionsCompanion(
         entryId: Value(actualEntryId),
         userId: Value(userId),
@@ -272,7 +274,12 @@ class DatabaseService {
         accessLevel: Value(accessLevel),
       );
 
-      await _db!.into(_db!.permissions).insertOnConflictUpdate(permCompanion);
+      final existingPerm = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(actualEntryId) & p.userId.equals(userId))).getSingleOrNull();
+      if (existingPerm != null) {
+        await (_db!.update(_db!.permissions)..where((p) => p.id.equals(existingPerm.id))).write(permCompanion);
+      } else {
+        await _db!.into(_db!.permissions).insert(permCompanion);
+      }
     });
   }
 
