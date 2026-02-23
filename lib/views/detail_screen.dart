@@ -83,9 +83,11 @@ class _DetailScreenState extends State<DetailScreen> {
       case 'word': return Icons.description_outlined;
       case 'slides': return Icons.present_to_all_outlined;
       case 'excel': return Icons.table_chart_outlined;
+      case 'vcard': return Icons.contact_page_outlined;
       case 'archive': return Icons.inventory_2_outlined;
       case 'video': return Icons.movie_outlined;
       case 'audio': return Icons.audiotrack_outlined;
+      case 'text': return Icons.text_snippet_outlined;
       default: return Icons.insert_drive_file_outlined;
     }
   }
@@ -183,7 +185,6 @@ class _DetailScreenState extends State<DetailScreen> {
                                         value: (viewModel.passwordStrength + 1) / 5,
                                         backgroundColor: Colors.grey.shade200,
                                         valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
-                                        minHeight: 4,
                                       ),
                                     ),
                                   ),
@@ -237,7 +238,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       else
                         ...viewModel.attachments.map((att) {
                           final meta = viewModel.getAttachmentMeta(att.uuid);
-                          final iconType = viewModel.getIconType(meta?.filename ?? '');
+                          final iconType = viewModel.getIconType(meta?.filename ?? '', meta?.mime ?? '');
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
