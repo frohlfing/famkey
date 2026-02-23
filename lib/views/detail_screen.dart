@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
 import 'package:privault/models/entities/attachment_entity.dart';
 
@@ -31,6 +32,26 @@ class _DetailScreenState extends State<DetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$label in die Zwischenablage kopiert')),
     );
+  }
+
+  Future<void> _openUrl(BuildContext context, String url) async {
+    if (url.isEmpty) return;
+    final Uri uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('URL konnte nicht geöffnet werden')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Öffnen: $e')),
+        );
+      }
+    }
   }
 
   Color _getStrengthColor(int score) {
@@ -111,7 +132,6 @@ class _DetailScreenState extends State<DetailScreen> {
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                             Text(viewModel.category, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey)),
-
                           ],
                         ),
                       ),
@@ -190,7 +210,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           subtitle: Text(viewModel.url),
                           trailing: IconButton(
                             icon: const Icon(Icons.open_in_new),
-                            onPressed: () => {}, // _openUrl(context, viewModel.url),
+                            onPressed: () => _openUrl(context, viewModel.url),
                             tooltip: 'URL öffnen',
                           ),
                         ),
@@ -198,7 +218,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       ],
 
                       // Notes Section
-                      if (viewModel.url.isNotEmpty) ...[
+                      if (viewModel.notes.isNotEmpty) ...[
                         ListTile(
                           title: const Text('Notizen'),
                           subtitle: Text(viewModel.notes),
@@ -206,21 +226,8 @@ class _DetailScreenState extends State<DetailScreen> {
                         const Divider(),
                       ],
 
-                      //const Divider(height: 48),
-
                       // Anhänge Section
                       _buildSectionHeaderWithAction('Anhänge', Icons.add_circle_outline, 'Datei anhängen', viewModel.addAttachment),
-                      // Row(
-                      //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      //   children: [
-                      //     const Text('Anhänge', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      //     IconButton(
-                      //       icon: const Icon(Icons.add_circle_outline, color: Colors.blueGrey),
-                      //       onPressed: viewModel.addAttachment,
-                      //       tooltip: 'Datei anhängen',
-                      //     ),
-                      //   ],
-                      // ),
                       const SizedBox(height: 8),
                       if (viewModel.attachments.isEmpty)
                         const Padding(
@@ -240,7 +247,6 @@ class _DetailScreenState extends State<DetailScreen> {
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                                 onPressed: () async {
-                                  // Punkt: Sicherheitsabfrage vor dem Löschen
                                   final confirmed = await showDialog<bool>(
                                     context: context,
                                     builder: (context) => AlertDialog(
@@ -266,14 +272,12 @@ class _DetailScreenState extends State<DetailScreen> {
                           );
                         }).toList(),
 
-                      //const Divider(height: 48),
                       const Divider(),
 
                       // Audit Hint
                       if (viewModel.auditHint.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16.0),
-                          //padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Text(
                             viewModel.auditHint,
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
@@ -301,23 +305,4 @@ class _DetailScreenState extends State<DetailScreen> {
       ],
     );
   }
-
-  // Widget _buildDisplayField(BuildContext context, String label, String value, IconData icon,
-  //     {bool isPassword = false, VoidCallback? onToggle, bool isHidden = false, bool canOpen = false}) {
-  //   return ListTile(
-  //     leading: Icon(icon),
-  //     title: Text(label),
-  //     subtitle: Text(isPassword && isHidden ? '••••••••' : value),
-  //     trailing: Row(
-  //       mainAxisSize: MainAxisSize.min,
-  //       children: [
-  //         if (isPassword)
-  //           IconButton(icon: Icon(isHidden ? Icons.visibility : Icons.visibility_off), onPressed: onToggle),
-  //         if (canOpen)
-  //           IconButton(icon: const Icon(Icons.open_in_new), onPressed: () {}),
-  //         IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyToClipboard(context, value, label)),
-  //       ],
-  //     ),
-  //   );
-  // }
 }
