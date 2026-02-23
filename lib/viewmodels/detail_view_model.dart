@@ -14,6 +14,8 @@ import 'package:privault/services/password_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:uuid/uuid.dart';
 
 class DetailViewModel extends BaseViewModel {
   final CryptoService _cryptoService;
@@ -86,32 +88,136 @@ class DetailViewModel extends BaseViewModel {
       _notes = payload.notes;
       _favicon = _entry!.favicon;
 
-      // Audit Informationen laden (MAUI-Logik)
-      var creator = "Unbekannt";
-      var updater = "Unbekannt";
-      
-      final cu = _entry!.creatorId != 0 ? await _databaseService.getUserById(_entry!.creatorId) : null;
-      final uu = _entry!.updaterId != 0 ? await _databaseService.getUserById(_entry!.updaterId) : null;
-
-      if (cu != null) creator = cu.name;
-      if (uu != null) updater = uu.name;
-
-      final dateStr = DateFormat("dd.MM.yyyy HH:mm:ss").format(_entry!.updatedAt.toLocal());
-      _auditHint = "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
-
-      // Anhänge laden
-      _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id!);
-      _attachmentMetas.clear();
-      for (var att in _attachments) {
-        final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
-        _attachmentMetas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
-      }
+      await _updateAuditHint();
+      await _loadAttachments();
 
     } catch (e) {
       setError("Entschlüsselung fehlgeschlagen: $e");
     } finally {
       setBusy(false);
     }
+  }
+
+  Future<void> _updateAuditHint() async {
+    var creator = "Unbekannt";
+    var updater = "Unbekannt";
+    
+    final cu = _entry!.creatorId != 0 ? await _databaseService.getUserById(_entry!.creatorId) : null;
+    final uu = _entry!.updaterId != 0 ? await _databaseService.getUserById(_entry!.updaterId) : null;
+
+    if (cu != null) creator = cu.name;
+    if (uu != null) updater = uu.name;
+
+    final dateStr = DateFormat("dd.MM.yyyy HH:mm:ss").format(_entry!.updatedAt.toLocal());
+    _auditHint = "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
+  }
+
+  Future<void> _loadAttachments() async {
+    _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id!);
+    _attachmentMetas.clear();
+    for (var att in _attachments) {
+      final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
+      _attachmentMetas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
+    }
+    notifyListeners();
+  }
+
+  /// Fügt einen neuen Anhang hinzu (Verschlüsselung + DB-Speicherung)
+  Future<void> addAttachment() async {
+    if (_entry == null || _entryKey == null) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (result == null || result.files.isEmpty) return;
+
+      setBusy(true);
+      final file = result.files.first;
+      final bytes = file.bytes!;
+
+      // 1. Metadaten vorbereiten
+      final metaPayload = AttachmentMetaPayload(
+        filename: file.name,
+        mime: _getMimeType(file.name),
+        size: bytes.length,
+        timestamp: DateTime.now().toUtc(),
+        thumbnail: '', 
+      );
+
+      // 2. Verschlüsseln
+      final encryptedMeta = await _cryptoService.encrypt(
+        Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), 
+        _entryKey!
+      );
+      final encryptedContent = await _cryptoService.encrypt(bytes, _entryKey!);
+
+      // 3. Entity speichern
+      final attEntity = AttachmentEntity(
+        uuid: const Uuid().v4(),
+        entryId: _entry!.id!,
+        encryptedMeta: encryptedMeta,
+        encryptedContent: encryptedContent,
+        isSynced: false,
+      );
+
+      await _databaseService.saveAttachment(attEntity);
+      
+      // Haupteintrag aktualisieren für Sync-Trigger
+      _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
+      await _databaseService.saveEntry(_entry!);
+
+      await _loadAttachments();
+    } catch (e) {
+      setError("Anhang konnte nicht hinzugefügt werden: $e");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  Future<void> deleteAttachment(AttachmentEntity attachment) async {
+    setBusy(true);
+    try {
+      await _databaseService.deleteAttachment(attachment.id!);
+      await _loadAttachments();
+    } catch (e) {
+      setError("Fehler beim Löschen des Anhangs: $e");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  String _getMimeType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg': case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'pdf': return 'application/pdf';
+      default: return 'application/octet-stream';
+    }
+  }
+
+  /// Ermittelt den Datei-Typ für Icons (MAUI Portierung)
+  String getIconType(String filename) {
+    final file = filename.toLowerCase();
+    if (file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".jpeg") || file.endsWith(".gif") || file.endsWith(".bmp") || file.endsWith(".webp")) return "image";
+    if (file.endsWith(".pdf")) return "pdf";
+    if (file.endsWith(".doc") || file.endsWith(".docx")) return "word";
+    if (file.endsWith(".ppt") || file.endsWith(".pptx")) return "slides";
+    if (file.endsWith(".xls") || file.endsWith(".xlsx") || file.endsWith(".csv")) return "excel";
+    if (file.endsWith(".zip") || file.endsWith(".rar") || file.endsWith(".tar") || file.endsWith(".7z")) return "archive";
+    return "generic";
+  }
+
+  /// Formatiert Byte-Anzahl (MAUI Portierung)
+  String formatSize(int bytes) {
+    const scale = 1024;
+    const orders = ["B", "KB", "MB", "GB"];
+    double max = bytes.toDouble();
+    int order = 0;
+    while (max >= scale && order < orders.length - 1) {
+      order++;
+      max = max / scale;
+    }
+    return "${max.toStringAsFixed(2)} ${orders[order]}";
   }
 
   Future<void> openAttachment(AttachmentEntity attachment) async {
@@ -127,18 +233,6 @@ class DetailViewModel extends BaseViewModel {
       await OpenFilex.open(tempFile.path);
     } catch (e) {
       setError("Anhang konnte nicht geöffnet werden: $e");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  Future<void> deleteEntry() async {
-    if (_entry == null) return;
-    setBusy(true);
-    try {
-      await _databaseService.deleteEntry(_entry!.id!);
-    } catch (e) {
-      setError("Löschen fehlgeschlagen: $e");
     } finally {
       setBusy(false);
     }

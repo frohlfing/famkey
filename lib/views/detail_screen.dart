@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
+import 'package:privault/models/entities/attachment_entity.dart';
 
 class DetailScreen extends StatefulWidget {
   final int entryId;
@@ -14,11 +15,14 @@ class DetailScreen extends StatefulWidget {
 }
 
 class _DetailScreenState extends State<DetailScreen> {
+  late DetailViewModel _viewModel;
+
   @override
   void initState() {
     super.initState();
+    _viewModel = context.read<DetailViewModel>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DetailViewModel>().initialize(widget.entryId);
+      if (mounted) _viewModel.initialize(widget.entryId);
     });
   }
 
@@ -51,21 +55,34 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'image': return Icons.image_outlined;
+      case 'pdf': return Icons.picture_as_pdf_outlined;
+      case 'word': return Icons.description_outlined;
+      case 'excel': return Icons.table_chart_outlined;
+      case 'archive': return Icons.inventory_2_outlined;
+      case 'video': return Icons.movie_outlined;
+      case 'audio': return Icons.audiotrack_outlined;
+      default: return Icons.insert_drive_file_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<DetailViewModel>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Details'),
+        title: Text(viewModel.title, overflow: TextOverflow.ellipsis),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () async {
               final result = await Navigator.pushNamed(context, '/edit', arguments: widget.entryId);
-              if (result == true) {
-                viewModel.initialize(widget.entryId);
+              if (result == true && mounted) {
+                _viewModel.initialize(widget.entryId);
               }
             },
           ),
@@ -80,7 +97,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Section (Zentriert)
+                      // Header Section
                       Center(
                         child: Column(
                           children: [
@@ -89,123 +106,76 @@ class _DetailScreenState extends State<DetailScreen> {
                             else
                               const Icon(Icons.vpn_key_outlined, size: 64, color: Colors.blueGrey),
                             const SizedBox(height: 16),
-                            Text(viewModel.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            Text(viewModel.title, 
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                             Text(viewModel.category, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey)),
                           ],
                         ),
                       ),
                       const SizedBox(height: 32),
 
-                      // Username Card
-                      ListTile(
-                        title: const Text('Benutzername'),
-                        subtitle: Text(viewModel.username),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () => _copyToClipboard(context, viewModel.username, 'Benutzername'),
-                        ),
-                      ),
-                      const Divider(),
+                      // Datenfelder
+                      _buildCopyField(context, 'Benutzername', viewModel.username, Icons.person),
+                      _buildCopyField(context, 'Passwort', viewModel.password, Icons.key, isPassword: true, 
+                        onToggle: viewModel.togglePasswordVisibility, isHidden: viewModel.isPasswordHidden),
+                      
+                      if (viewModel.url.isNotEmpty)
+                        _buildCopyField(context, 'URL', viewModel.url, Icons.link, canOpen: true),
 
-                      // Password Card mit Stärke-Meter
-                      Column(
-                        children: [
-                          ListTile(
-                            title: const Text('Passwort'),
-                            subtitle: Text(viewModel.isPasswordHidden ? '••••••••' : viewModel.password),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                                  onPressed: viewModel.togglePasswordVisibility,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.copy),
-                                  onPressed: () => _copyToClipboard(context, viewModel.password, 'Passwort'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (viewModel.password.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(2),
-                                      child: LinearProgressIndicator(
-                                        value: (viewModel.passwordStrength + 1) / 5,
-                                        backgroundColor: Colors.grey.shade200,
-                                        valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
-                                        minHeight: 4,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    _getStrengthText(viewModel.passwordStrength),
-                                    style: TextStyle(
-                                      fontSize: 12, 
-                                      fontWeight: FontWeight.bold,
-                                      color: _getStrengthColor(viewModel.passwordStrength)
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      const Divider(),
-
-                      // URL Section
-                      if (viewModel.url.isNotEmpty) ...[
-                        ListTile(
-                          title: const Text('URL'),
-                          subtitle: Text(viewModel.url),
-                          trailing: const Icon(Icons.open_in_new),
-                          onTap: () {
-                            // URL opening logic
-                          },
-                        ),
-                        const Divider(),
-                      ],
+                      const Divider(height: 48),
 
                       // Anhänge Section
-                      if (viewModel.attachments.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Anhänge', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, color: Colors.blueGrey),
+                            onPressed: viewModel.addAttachment,
+                            tooltip: 'Anhang hinzufügen',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (viewModel.attachments.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Text('Anhänge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text('Keine Anhänge vorhanden.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                        )
+                      else
                         ...viewModel.attachments.map((att) {
                           final meta = viewModel.getAttachmentMeta(att.uuid);
-                          return ListTile(
-                            leading: const Icon(Icons.attach_file),
-                            title: Text(meta?.filename ?? 'Unbekannte Datei'),
-                            subtitle: Text('${((meta?.size ?? 0) / 1024).toStringAsFixed(1)} KB'),
-                            onTap: () => viewModel.openAttachment(att),
+                          final iconType = viewModel.getIconType(meta?.filename ?? '');
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: Icon(_getIconForType(iconType), size: 32, color: Colors.blueGrey),
+                              title: Text(meta?.filename ?? 'Datei'),
+                              subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () => viewModel.deleteAttachment(att),
+                              ),
+                              onTap: () => viewModel.openAttachment(att),
+                            ),
                           );
                         }).toList(),
-                        const Divider(),
-                      ],
 
-                      // Notes Section
+                      const Divider(height: 48),
+
+                      // Notizen
                       if (viewModel.notes.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Text('Notizen', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(viewModel.notes),
-                        ),
+                        const Text('Notizen', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Text(viewModel.notes),
+                        const SizedBox(height: 24),
                       ],
 
                       // Audit Hint
                       if (viewModel.auditHint.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Text(
                             viewModel.auditHint,
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
@@ -214,6 +184,25 @@ class _DetailScreenState extends State<DetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildCopyField(BuildContext context, String label, String value, IconData icon,
+      {bool isPassword = false, VoidCallback? onToggle, bool isHidden = false, bool canOpen = false}) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      subtitle: Text(isPassword && isHidden ? '••••••••' : value),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isPassword)
+            IconButton(icon: Icon(isHidden ? Icons.visibility : Icons.visibility_off), onPressed: onToggle),
+          if (canOpen)
+            IconButton(icon: const Icon(Icons.open_in_new), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyToClipboard(context, value, label)),
+        ],
+      ),
     );
   }
 }
