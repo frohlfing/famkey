@@ -25,6 +25,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _viewModel = context.read<SettingsViewModel>();
+
+    // Listener für Sonderzeichen-Buttons
     _viewModel.addListener(_onViewModelChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -42,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _onViewModelChanged() {
     if (!mounted) return;
+    // Nur das Sonderzeichen-Feld aktualisieren, wenn es vom VM abweicht
     if (_specialCharsController.text != _viewModel.pwSpecialCharSet) {
       _specialCharsController.text = _viewModel.pwSpecialCharSet;
     }
@@ -133,6 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Sektion: Identifikation
                 _buildSectionTitle('Identifikation'),
                 TextField(
                   controller: _vaultNameController,
@@ -153,8 +157,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   readOnly: true,
                   decoration: const InputDecoration(labelText: 'Speicherort', border: OutlineInputBorder(), prefixIcon: Icon(Icons.folder_open)),
                 ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Diese Funktion wird in einer zukünftigen Version implementiert (TODO).'))),
+                  icon: const Icon(Icons.password),
+                  label: const Text('Master-Passwort ändern'),
+                ),
                 const SizedBox(height: 32),
 
+                // Sektion: Synchronisation
                 _buildSectionTitle('Synchronisation'),
                 TextField(
                   controller: _hostController,
@@ -168,9 +180,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: InputDecoration(
                     labelText: 'API Token',
                     border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(viewModel.isTokenHidden ? Icons.visibility : Icons.visibility_off),
-                      onPressed: viewModel.toggleTokenVisibility,
+                    suffixIcon: Tooltip(
+                      message: viewModel.isTokenHidden ? 'Anzeigen' : 'Verbergen',
+                      child: IconButton(
+                        icon: Icon(viewModel.isTokenHidden ? Icons.visibility : Icons.visibility_off),
+                        onPressed: viewModel.toggleTokenVisibility,
+                      ),
                     ),
                   ),
                   onChanged: (value) => viewModel.apiToken = value,
@@ -229,9 +244,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: (value) => viewModel.pwSpecialCharSet = value,
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard')),
-                    IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All')),
-                    IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None')),
+                    Tooltip(message: 'Standard', child: IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard'))),
+                    Tooltip(message: 'Alle', child: IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All'))),
+                    Tooltip(message: 'Keine', child: IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None'))),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -253,7 +268,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Biometrie verwenden', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('Erlaubt das Entsperren des Tresors via Fingerabdruck.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            'Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ],
                       ),
                     ),
@@ -263,6 +281,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 32),
 
                 _buildSectionTitle('Design'),
+                const Text('Hinweis: Themes sind in dieser Version noch nicht aktiv.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 12),
                 SegmentedButton<ThemeMode>(
                   segments: const [
                     ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto)),
@@ -277,6 +297,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: _categoryController,
                   decoration: const InputDecoration(labelText: 'Name für leere Kategorie', border: OutlineInputBorder()),
                   onChanged: (value) => viewModel.categoryPlaceholder = value,
+                ),
+                const SizedBox(height: 32),
+
+                _buildSectionTitle('Systemeinstellungen'),
+                _buildSystemButton(
+                  Icons.fingerprint, 
+                  'Biometrie', 
+                  'Systemeinstellungen für Biometrie öffnen', 
+                  viewModel.openBiometricSettings
+                ),
+                _buildSystemButton(
+                  Icons.text_fields, 
+                  'Autofill', 
+                  'Hilfeseite für das automatische Ausfüllen öffnen', 
+                  viewModel.openAutofillSettings
+                ),
+                _buildSystemButton(
+                  Icons.info_outline, 
+                  'App-Info', 
+                  'Systemdetails dieser App anzeigen', 
+                  viewModel.openAppSettings
                 ),
                 const SizedBox(height: 64),
 
@@ -293,10 +334,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-        
         if (viewModel.isBusy)
           Container(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.1),
             child: const Center(
               child: CircularProgressIndicator(),
             ),
