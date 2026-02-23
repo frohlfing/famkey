@@ -14,10 +14,6 @@ class WebService {
   String _apiToken = '';
   String? _userUuid;
   Uint8List? _privateKeyBytes;
-  String? _publicKey;
-
-  /// Override deaktiviert für Live-Betrieb
-  bool useSignatureTestOverride = false;
 
   WebService(this._cryptoService, {required String baseUrl, required String apiToken})
       : _dio = Dio(BaseOptions(
@@ -41,14 +37,6 @@ class WebService {
     // Signature Interceptor
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        if (useSignatureTestOverride) {
-          debugPrint('🔧 WebService: [OVERRIDE] Sende MAUI-Test-Signatur');
-          options.headers['X-User-Uuid'] = "01ed288a-b0a9-41a4-a40a-d616d0280999";
-          options.headers['X-Timestamp'] = "1771835966";
-          options.headers['X-Signature'] = "GoUtqfklIR0BT54CCV1Gr0W8q2x2Il5Awz1i5tzMABcfrmJoO6rhy0qgn4ymYnnIBE5MO6TPT3oSvD5WaQwgd/Z3J30fPdwbBRrQ0RlUCIvZfP5Nlmd0/v/ikpAYdUVTaKaNVPR6Wo8bJRy+GA+q8bHIYiGR9levPO2UT2EmqAgFWjRbvheM+cLiVTxtsEVw5AlYaHjWguezrQNPPPHyCp+l3UCywOlkvCgzLn/kTaiJYYbqld4ZzbWUZlk41CeUJdYoyVncPHP2l4/mSMYIOwRwTN84Xfu9IvnjdlklpwYIEj+5WEljhEDHDI69H/pmQK2zf1fSgdIJL3L8RGs0RadRj2iR8HqII+BhAzZBPiZdXVP3/npK2Axq6yLwXTXnXFs4RkrjfFGkCPOlBnFTk7tSNbE+FUeDRrQ5vPMZYBMHDcqu+2bz0fnViIEReATN1DqJFbqrOmi5BHZB91qv5TZB4VewVlzSXLdeXjzx1b5PMaO/9C42/TADWkvHznjuL/4Xv14qSbpKCEmN6GRhjA4x8VlnVc1BfYYGVNrVarzCSk6AcinTPPewpK5w1TIQ0S3DP1gmwV21c/UiYmm1gK+3VgkD/4s4V90Dv3gRUgI6Htdt332YSj3LLQoBXuPiCBMlfhCSoqUN0s2plq1q7Yo1fOcdx4deNghfdJU5yKg=";
-          return handler.next(options);
-        }
-
         if (_userUuid != null && _privateKeyBytes != null) {
           final timestamp = (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000).toString();
           final payload = '$_userUuid:$timestamp';
@@ -62,12 +50,6 @@ class WebService {
             options.headers['X-User-Uuid'] = _userUuid;
             options.headers['X-Timestamp'] = timestamp;
             options.headers['X-Signature'] = signature.replaceAll('\r', '').replaceAll('\n', '').trim();
-            
-            debugPrint('🔐 [SIGN] Payload:    $payload');
-            if (kDebugMode) {
-              debugPrint('🔐 [SIGN] PublicKey:  $_publicKey');
-              debugPrint('🔐 [SIGN] Signature:  ${options.headers['X-Signature']}');
-            }
           } catch (e) {
             debugPrint("❌ [SIGN] FEHLER IM INTERCEPTOR: $e");
           }
@@ -99,13 +81,11 @@ class WebService {
   void setSignatureData({required String userUuid, required Uint8List privateKey, String? publicKey}) {
     _userUuid = userUuid;
     _privateKeyBytes = privateKey;
-    _publicKey = publicKey;
   }
 
   void clearSignatureData() {
     _userUuid = null;
     _privateKeyBytes = null;
-    _publicKey = null;
   }
 
   Future<VersionResponse> getServerVersion({String? host, String? apiToken}) async {
