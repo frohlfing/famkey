@@ -60,6 +60,7 @@ class _DetailScreenState extends State<DetailScreen> {
       case 'image': return Icons.image_outlined;
       case 'pdf': return Icons.picture_as_pdf_outlined;
       case 'word': return Icons.description_outlined;
+      case 'slides': return Icons.present_to_all_outlined;
       case 'excel': return Icons.table_chart_outlined;
       case 'archive': return Icons.inventory_2_outlined;
       case 'video': return Icons.movie_outlined;
@@ -74,7 +75,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(viewModel.title, overflow: TextOverflow.ellipsis),
+        title: const Text('Details'),
         centerTitle: true,
         actions: [
           IconButton(
@@ -115,13 +116,39 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // Datenfelder
-                      _buildCopyField(context, 'Benutzername', viewModel.username, Icons.person),
-                      _buildCopyField(context, 'Passwort', viewModel.password, Icons.key, isPassword: true, 
-                        onToggle: viewModel.togglePasswordVisibility, isHidden: viewModel.isPasswordHidden),
+                      _buildDisplayField(context, 'Benutzername', viewModel.username, Icons.person),
                       
+                      Column(
+                        children: [
+                          _buildDisplayField(context, 'Passwort', viewModel.password, Icons.key, isPassword: true,
+                            onToggle: viewModel.togglePasswordVisibility, isHidden: viewModel.isPasswordHidden),
+                          if (viewModel.password.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 72, right: 16, bottom: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(2),
+                                      child: LinearProgressIndicator(
+                                        value: (viewModel.passwordStrength + 1) / 5,
+                                        backgroundColor: Colors.grey.shade200,
+                                        valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
+                                        minHeight: 4,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(_getStrengthText(viewModel.passwordStrength),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _getStrengthColor(viewModel.passwordStrength))),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+
                       if (viewModel.url.isNotEmpty)
-                        _buildCopyField(context, 'URL', viewModel.url, Icons.link, canOpen: true),
+                        _buildDisplayField(context, 'URL', viewModel.url, Icons.link, canOpen: true),
 
                       const Divider(height: 48),
 
@@ -155,7 +182,26 @@ class _DetailScreenState extends State<DetailScreen> {
                               subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () => viewModel.deleteAttachment(att),
+                                onPressed: () async {
+                                  // Punkt: Sicherheitsabfrage vor dem Löschen
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Anhang löschen'),
+                                      content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true && mounted) {
+                                    viewModel.deleteAttachment(att);
+                                  }
+                                },
                               ),
                               onTap: () => viewModel.openAttachment(att),
                             ),
@@ -187,7 +233,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _buildCopyField(BuildContext context, String label, String value, IconData icon,
+  Widget _buildDisplayField(BuildContext context, String label, String value, IconData icon,
       {bool isPassword = false, VoidCallback? onToggle, bool isHidden = false, bool canOpen = false}) {
     return ListTile(
       leading: Icon(icon),
