@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/entry_entity.dart';
+import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/sync_service.dart';
 import 'package:privault/services/session_service.dart';
@@ -82,15 +85,46 @@ class MainViewModel extends BaseViewModel {
     }
   }
 
-  Future<SyncStatistics?> sync() async {
+  Future<SyncStatistics?> sync(BuildContext context) async {
     setBusy(true);
     clearError();
     try {
       final stats = await _syncService.sync();
       await loadEntries();
       return stats;
-    } catch (e) {
+    } on SaltMismatchException catch (e, stackTrace) {
+      debugPrint("SaltMismatchException: $e\n$stackTrace");
+      if (context.mounted) {
+        final password = await _showPasswordDialog(
+          context,
+          'Account verknüpfen',
+          e.userResponse.userUuid == _sessionService.user?.uuid
+              ? 'Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein:'
+              : 'Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen:',
+        );
+        if (password != null && password.isNotEmpty) {
+          try {
+            await _syncService.adoptRemoteIdentity(password, e.userResponse);
+            final statsAfterAdopt = await _syncService.sync(); // Retry nach Adoption
+            await loadEntries();
+            return statsAfterAdopt;
+          } catch (adoptEx, adoptStack) {
+            debugPrint("Identitätsübernahme fehlgeschlagen: $adoptEx\n$adoptStack");
+            setError("Identitätsübernahme fehlgeschlagen. Falsches Passwort?");
+          }
+        }
+      }
+      return null;
+    } catch (e, stackTrace) {
+      debugPrint("Sync fehlgeschlagen: $e\n$stackTrace");
       setError("Sync fehlgeschlagen: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Sync fehlgeschlagen: $e"),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4), // Fehler etwas länger anzeigen
+        ));
+      }
       return null;
     } finally {
       setBusy(false);
@@ -99,5 +133,54 @@ class MainViewModel extends BaseViewModel {
 
   void logout() {
     _sessionService.clearSession();
+  }
+
+  Future<String?> _showPasswordDialog(BuildContext context, String title, String message) {
+    final controller = TextEditingController();
+    bool isObscure = true;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(message, style: const TextStyle(fontSize: 14)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    obscureText: isObscure,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Master-Passwort',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(isObscure ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => isObscure = !isObscure),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null),
+                  child: const Text('Abbrechen'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(controller.text),
+                  child: const Text('Bestätigen'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

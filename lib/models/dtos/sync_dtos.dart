@@ -22,12 +22,41 @@ class SyncPullResponse {
   }
 }
 
+class FriendPermissionDto {
+  final String userUuid;
+  final String? encryptedKey;
+  final int accessLevel;
+
+  FriendPermissionDto({
+    required this.userUuid,
+    this.encryptedKey,
+    required this.accessLevel,
+  });
+
+  factory FriendPermissionDto.fromJson(Map<String, dynamic> json) {
+    return FriendPermissionDto(
+      userUuid: json['user_uuid'] as String,
+      encryptedKey: json['encrypted_key'] as String?,
+      accessLevel: json['access_level'] as int,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'user_uuid': userUuid,
+      'encrypted_key': encryptedKey,
+      'access_level': accessLevel,
+    };
+  }
+}
+
 class SyncEntryDto {
   final String entryUuid;
   final String encryptedData;
   final String? encryptedKey; // Local user's key
   final int accessLevel;
   final List<String> attachmentUuids;
+  final List<FriendPermissionDto> friends;
   final String creatorUuid;
   final String updaterUuid;
   final DateTime updatedAt;
@@ -38,6 +67,7 @@ class SyncEntryDto {
     this.encryptedKey,
     required this.accessLevel,
     required this.attachmentUuids,
+    required this.friends,
     required this.creatorUuid,
     required this.updaterUuid,
     required this.updatedAt,
@@ -50,6 +80,10 @@ class SyncEntryDto {
       encryptedKey: json['encrypted_key'] as String?,
       accessLevel: json['access_level'] as int,
       attachmentUuids: List<String>.from(json['attachment_uuids'] ?? []),
+      friends: (json['friends'] as List?)
+              ?.map((e) => FriendPermissionDto.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       creatorUuid: json['creator_uuid'] as String,
       updaterUuid: json['updater_uuid'] as String,
       updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
@@ -63,6 +97,7 @@ class SyncEntryDto {
       'encrypted_key': encryptedKey,
       'access_level': accessLevel,
       'attachment_uuids': attachmentUuids,
+      'friends': friends.map((e) => e.toJson()).toList(),
       'creator_uuid': creatorUuid,
       'updater_uuid': updaterUuid,
       'updated_at': updatedAt.toIso8601String(),

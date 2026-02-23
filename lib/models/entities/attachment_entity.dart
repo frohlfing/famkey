@@ -36,4 +36,22 @@ class AttachmentEntity {
       isSynced: (map['is_synced'] as int) == 1,
     );
   }
+
+  AttachmentEntity copyWith({
+    int? id,
+    String? uuid,
+    int? entryId,
+    String? encryptedMeta,
+    String? encryptedContent,
+    bool? isSynced,
+  }) {
+    return AttachmentEntity(
+      id: id ?? this.id,
+      uuid: uuid ?? this.uuid,
+      entryId: entryId ?? this.entryId,
+      encryptedMeta: encryptedMeta ?? this.encryptedMeta,
+      encryptedContent: encryptedContent ?? this.encryptedContent,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
 }

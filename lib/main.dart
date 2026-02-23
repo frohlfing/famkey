@@ -2,10 +2,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 import 'package:path/path.dart' as p;
-import 'dart:ffi' if (dart.library.html) 'dart:ui'; 
+import 'dart:ffi';
 
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
@@ -31,12 +30,10 @@ void main() async {
     }
   }
 
-  final prefs = await SharedPreferences.getInstance();
-  setupServiceLocator();
+  await setupServiceLocator();
   
-  final configService = ConfigService(prefs);
-  await configService.ensureDefaultPath(); // Punkt 1: Pfad initialisieren
-  getIt.registerSingleton<ConfigService>(configService);
+  final configService = getIt<ConfigService>();
+  await configService.ensureDefaultPath(); 
 
   runApp(const PriVaultApp());
 }

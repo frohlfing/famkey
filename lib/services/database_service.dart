@@ -115,6 +115,27 @@ class DatabaseService {
     }
   }
 
+  Future<void> deleteUser(int id) async {
+    if (_db == null) return;
+    await (_db!.delete(_db!.users)..where((u) => u.id.equals(id))).go();
+  }
+
+  Future<void> removeEntryKeysForUser(int userId) async {
+    if (_db == null) return;
+    final companion = const PermissionsCompanion(encryptedKey: Value(''));
+    await (_db!.update(_db!.permissions)..where((p) => p.userId.equals(userId))).write(companion);
+  }
+
+  Future<bool> hasAccessWithoutKey(int userId) async {
+    if (_db == null) return false;
+    final countExp = _db!.permissions.id.count();
+    final query = _db!.selectOnly(_db!.permissions)
+      ..addColumns([countExp])
+      ..where(_db!.permissions.userId.equals(userId) & _db!.permissions.encryptedKey.equals(''));
+    final result = await query.map((row) => row.read(countExp)).getSingle();
+    return (result ?? 0) > 0;
+  }
+
   // --- Entry Operations ---
 
   Future<List<EntryEntity>> getAllEntries() async {
@@ -226,6 +247,19 @@ class DatabaseService {
     )).toList();
   }
 
+  Future<List<AttachmentEntity>> getAttachmentsUnsynced() async {
+    if (_db == null) return [];
+    final list = await (_db!.select(_db!.attachments)..where((a) => a.isSynced.equals(false))).get();
+    return list.map((a) => AttachmentEntity(
+      id: a.id,
+      uuid: a.uuid,
+      entryId: a.entryId,
+      encryptedMeta: a.encryptedMeta,
+      encryptedContent: a.encryptedContent,
+      isSynced: a.isSynced,
+    )).toList();
+  }
+
   Future<void> saveAttachment(AttachmentEntity entity) async {
     if (_db == null) return;
     final companion = AttachmentsCompanion(
@@ -297,6 +331,18 @@ class DatabaseService {
     )).toList();
   }
 
+  Future<List<PermissionEntity>> getPermissions() async {
+    if (_db == null) return [];
+    final list = await _db!.select(_db!.permissions).get();
+    return list.map((p) => PermissionEntity(
+      id: p.id,
+      entryId: p.entryId,
+      userId: p.userId,
+      encryptedKey: p.encryptedKey,
+      accessLevel: p.accessLevel,
+    )).toList();
+  }
+
   Future<PermissionEntity?> getPermissionByEntryAndUser(int entryId, int userId) async {
     if (_db == null) return null;
     final row = await (_db!.select(_db!.permissions)
@@ -311,6 +357,37 @@ class DatabaseService {
       encryptedKey: row.encryptedKey,
       accessLevel: row.accessLevel,
     );
+  }
+
+  Future<void> savePermission(PermissionEntity entity) async {
+    if (_db == null) return;
+    final companion = PermissionsCompanion(
+      entryId: Value(entity.entryId),
+      userId: Value(entity.userId),
+      encryptedKey: Value(entity.encryptedKey),
+      accessLevel: Value(entity.accessLevel),
+    );
+
+    if (entity.id != null) {
+      await (_db!.update(_db!.permissions)..where((p) => p.id.equals(entity.id!))).write(companion);
+    } else {
+      await _db!.into(_db!.permissions).insert(companion);
+    }
+  }
+
+  Future<void> updatePermissions(List<PermissionEntity> permissions) async {
+    if (_db == null) return;
+    await _db!.transaction(() async {
+      for (final p in permissions) {
+        final companion = PermissionsCompanion(
+          encryptedKey: Value(p.encryptedKey),
+          accessLevel: Value(p.accessLevel),
+        );
+        if (p.id != null) {
+          await (_db!.update(_db!.permissions)..where((perm) => perm.id.equals(p.id!))).write(companion);
+        }
+      }
+    });
   }
 
   // --- Tombstone Operations ---
@@ -372,6 +449,16 @@ class DatabaseService {
       lastSyncAt: Value(s.lastSyncAt),
     );
     await _db!.into(_db!.settings).insertOnConflictUpdate(companion);
+  }
+
+  Future<void> rekey(Uint8List newMasterKey) async {
+    if (_db == null) return;
+    // SQLCipher rekey logic is usually handled by PRAGMA rekey,
+    // this would require direct access to the database connection/executor
+    // and specific SQLCipher drift setup.
+    // For now, executing raw PRAGMA (if supported by the specific sqlite3 implementation)
+    final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    await _db!.customStatement("PRAGMA rekey = \"x'$hexKey'\";");
   }
 
   // Helper

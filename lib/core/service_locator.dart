@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
@@ -10,7 +11,10 @@ import 'package:privault/services/config_service.dart';
 
 final getIt = GetIt.instance;
 
-void setupServiceLocator() {
+Future<void> setupServiceLocator() async {
+  final prefs = await SharedPreferences.getInstance();
+  getIt.registerLazySingleton<ConfigService>(() => ConfigService(prefs));
+
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
   // DatabaseService benötigt nun den ConfigService
   getIt.registerLazySingleton<DatabaseService>(() => DatabaseService(getIt<ConfigService>()));
@@ -29,5 +33,6 @@ void setupServiceLocator() {
     getIt<DatabaseService>(),
     getIt<SessionService>(),
     getIt<WebService>(),
+    getIt<ConfigService>(),
   ));
 }

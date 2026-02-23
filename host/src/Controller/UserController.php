@@ -76,7 +76,7 @@ final class UserController
             SELECT 
                 uuid AS user_uuid, 
                 vault_uuid, 
-                hash_name, 
+                hash_name AS user_hash, 
                 salt, 
                 public_key, 
                 encrypted_private_key,
@@ -157,7 +157,7 @@ final class UserController
             SELECT 
                 u.uuid AS user_uuid, 
                 u.vault_uuid, 
-                u.hash_name, 
+                u.hash_name AS user_hash, 
                 u.salt, 
                 u.public_key, 
                 u.encrypted_private_key,
@@ -289,7 +289,7 @@ final class UserController
             return Response::json([
                 'user_uuid' => $userUuid,
                 'vault_uuid' => $vaultUuid,
-                'hash_name' => $userHash,
+                'user_hash' => $userHash,
                 'salt' => $salt,
                 'public_key' => $publicKey,
                 'encrypted_private_key' => $encryptedPrivateKey,
