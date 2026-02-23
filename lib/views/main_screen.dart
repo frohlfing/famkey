@@ -27,14 +27,8 @@ class _MainScreenState extends State<MainScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.sync, color: Colors.blueGrey),
-              SizedBox(width: 10),
-              Text('Synchronisation'),
-            ],
-          ),
-          content: Text(stats.toString()),
+          title: const Text('Info'),
+          content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -157,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
         
         if (viewModel.isBusy)
           Container(
-            color: Colors.black.withValues(alpha: 0.05), // Fast transparentes Overlay
+            color: Colors.black.withValues(alpha: 0.1),
             child: const Center(
               child: CircularProgressIndicator(),
             ),
