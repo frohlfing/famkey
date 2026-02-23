@@ -242,7 +242,12 @@ class _DetailScreenState extends State<DetailScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: Icon(_getIconForType(iconType), size: 32, color: Colors.blueGrey),
+                              leading: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.memory(base64Decode(meta.thumbnail!), width: 48, height: 48, fit: BoxFit.cover),
+                                    )
+                                  : Icon(_getIconForType(iconType), size: 48, color: Colors.blueGrey),
                               title: Text(meta?.filename ?? 'Datei'),
                               subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
                               trailing: IconButton(

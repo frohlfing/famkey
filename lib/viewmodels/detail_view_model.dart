@@ -17,6 +17,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image/image.dart' as img;
 import 'dart:math' as math;
 
 class DetailViewModel extends BaseViewModel {
@@ -133,13 +134,20 @@ class DetailViewModel extends BaseViewModel {
       setBusy(true);
       final file = result.files.first;
       final bytes = file.bytes!;
+      final mimeType = _getMimeType(file.name);
+
+      // Thumbnail erzeugen falls Bild
+      String? thumbnailBase64;
+      if (mimeType.startsWith('image/')) {
+        thumbnailBase64 = await compute(_createThumbnail, bytes);
+      }
 
       final metaPayload = AttachmentMetaPayload(
         filename: file.name,
-        mime: file.extension ?? 'application/octet-stream',
+        mime: mimeType,
         size: bytes.length,
         timestamp: DateTime.now().toUtc(),
-        thumbnail: '', 
+        thumbnail: thumbnailBase64, 
       );
 
       final encryptedMeta = await _cryptoService.encrypt(
@@ -167,6 +175,36 @@ class DetailViewModel extends BaseViewModel {
     }
   }
 
+  /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
+  static String? _createThumbnail(Uint8List bytes) {
+    try {
+      final image = img.decodeImage(bytes);
+      if (image == null || image.width <= 0 || image.height <= 0) return null;
+
+      const int maxWidth = 128;
+      const int maxHeight = 128;
+
+      // 2) Aspect-Fit berechnen (wie in MAUI Logik)
+      final double scale = math.min(maxWidth / image.width, maxHeight / image.height);
+      final int newW = math.max(1, (image.width * scale).round());
+      final int newH = math.max(1, (image.height * scale).round());
+
+      // 3) Resize auf exakte Zielgröße (verhindert Trauerränder)
+      final thumbnail = img.copyResize(
+        image, 
+        width: newW, 
+        height: newH, 
+        interpolation: img.Interpolation.linear
+      );
+
+      // 4) Encode mit 80% Qualität
+      return base64Encode(img.encodeJpg(thumbnail, quality: 80));
+    } catch (e) {
+      debugPrint('Thumbnail-Fehler: $e');
+      return null;
+    }
+  }
+
   Future<void> deleteAttachment(AttachmentEntity attachment) async {
     setBusy(true);
     try {
@@ -176,6 +214,43 @@ class DetailViewModel extends BaseViewModel {
       setError("Fehler beim Löschen: $e");
     } finally {
       setBusy(false);
+    }
+  }
+
+  String _getMimeType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg': case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'gif': return 'image/gif';
+      case 'bmp': return 'image/bmp';
+      case 'webp': return 'image/webp';
+      case 'pdf': return 'application/pdf';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'ppt': return 'application/vnd.ms-powerpoint';
+      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'xls': return 'application/vnd.ms-excel';
+      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'csv': return 'text/csv';
+      case 'vcf': return 'text/vcard';
+      case 'mp3': return 'audio/mpeg';
+      case 'wav': return 'audio/wav';
+      case 'flac': return 'audio/flac';
+      case 'aac': return 'audio/aac';
+      case 'ogg': return 'audio/ogg';
+      case 'mp4': return 'video/mp4';
+      case 'avi': return 'video/x-msvideo';
+      case 'mov': return 'video/quicktime';
+      case 'mkv': return 'video/x-matroska';
+      case 'webm': return 'video/webm';
+      case 'zip': return 'application/zip';
+      case 'rar': return 'application/vnd.rar';
+      case 'tar': return 'application/x-tar';
+      case '7z': return 'application/x-7z-compressed';
+      case 'txt': return 'text/plain';
+      case 'md': return 'text/markdown';
+      default: return 'application/octet-stream';
     }
   }
 
@@ -231,11 +306,9 @@ class DetailViewModel extends BaseViewModel {
       final tempFile = File('${tempDir.path}/${meta.filename}');
       await tempFile.writeAsBytes(decryptedContent);
       
-      // Datei öffnen
       await OpenFilex.open(tempFile.path);
 
       // Best-effort Cleanup mit Retry (wie in MAUI)
-      // Wir starten einen Hintergrundprozess, der versucht die Datei zu löschen
       Future.microtask(() async {
         for (var i = 0; i < 10; i++) {
           await Future.delayed(const Duration(seconds: 2));
@@ -245,9 +318,7 @@ class DetailViewModel extends BaseViewModel {
               debugPrint('🔐 Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
               break;
             }
-          } catch (e) {
-            // Falls gesperrt, nächster Versuch im nächsten Durchlauf
-          }
+          } catch (e) {}
         }
       });
 

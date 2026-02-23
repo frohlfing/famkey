@@ -35,6 +35,9 @@ dependencies:
   uuid: ^4.3.3
   zxcvbn: 1.0.0
 
+  # Image processing for Thumbnails
+  image: ^4.3.0
+
   # Network
   dio: ^5.4.0
 
