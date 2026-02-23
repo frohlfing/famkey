@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _viewModel = context.read<LoginViewModel>();
     _vaultController.text = _viewModel.vaultName;
     
-    // Initialer Reset
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _viewModel.resetState();
@@ -42,7 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _vaultController.text = _viewModel.vaultName;
       });
     }
-    // Falls das Passwort im VM geleert wurde, auch den Controller leeren
     if (_viewModel.password.isEmpty && _passwordController.text.isNotEmpty) {
       _passwordController.clear();
     }
@@ -59,11 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // Wichtig: Listener zuerst entfernen
     _viewModel.removeListener(_onViewModelChanged);
-    // Sicherheit: Passwort "leise" löschen (verhindert 'widget tree locked' Fehler)
     _viewModel.clearPassword(notify: false);
-    
     _vaultController.dispose();
     _passwordController.dispose();
     _vaultFocusNode.dispose();
@@ -73,9 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin({bool forceCreate = false}) async {
     if (!mounted) return;
-
     final result = await _viewModel.login(forceCreate: forceCreate);
-
     if (!mounted) return;
 
     switch (result) {
@@ -118,14 +111,8 @@ class _LoginScreenState extends State<LoginScreen> {
             _vaultController.clear();
             _passwordController.clear();
           });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Der korrupte Tresor wurde gelöscht.')),
-            );
-          }
         }
         break;
-
       default:
         break;
     }
@@ -154,99 +141,108 @@ class _LoginScreenState extends State<LoginScreen> {
     final viewModel = context.watch<LoginViewModel>();
     final bool canLogin = viewModel.password.isNotEmpty || (viewModel.isExists && viewModel.hasBiometricKey);
 
-    return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(Icons.lock_person_outlined, size: 80, color: Colors.blueGrey),
-                const SizedBox(height: 16),
-                Text(
-                  'PriVault',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 48),
-                
-                TextField(
-                  controller: _vaultController,
-                  focusNode: _vaultFocusNode,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Tresor-Name',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.storage),
-                    suffixIcon: viewModel.existingVaults.isNotEmpty 
-                      ? PopupMenuButton<String>(
-                          icon: const Icon(Icons.list),
-                          tooltip: 'Vorhandene Tresore',
-                          onOpened: () => viewModel.refreshVaultList(),
-                          onSelected: (String value) {
-                            if (mounted) {
-                              viewModel.vaultName = value;
-                              _passwordFocusNode.requestFocus();
-                            }
-                          },
-                          itemBuilder: (BuildContext context) {
-                            return viewModel.existingVaults.map((String vault) {
-                              return PopupMenuItem<String>(value: vault, child: Text(vault));
-                            }).toList();
-                          },
-                        )
-                      : null,
-                  ),
-                  onChanged: (value) => viewModel.vaultName = value,
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: _passwordController,
-                  focusNode: _passwordFocusNode,
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    labelText: 'Master-Passwort',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.key),
-                    suffixIcon: viewModel.hasBiometricKey 
-                      ? const Icon(Icons.fingerprint, color: Colors.blue)
-                      : null,
-                  ),
-                  onChanged: (value) => viewModel.password = value,
-                  onSubmitted: canLogin ? (_) => _handleLogin() : null,
-                ),
-                const SizedBox(height: 24),
-
-                if (viewModel.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      viewModel.errorMessage!,
-                      style: const TextStyle(color: Colors.red),
+    return Stack(
+      children: [
+        Scaffold(
+          body: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.lock_person_outlined, size: 80, color: Colors.blueGrey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'PriVault',
                       textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
+                    const SizedBox(height: 48),
+                    
+                    TextField(
+                      controller: _vaultController,
+                      focusNode: _vaultFocusNode,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Tresor-Name',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.storage),
+                        suffixIcon: viewModel.existingVaults.isNotEmpty 
+                          ? PopupMenuButton<String>(
+                              icon: const Icon(Icons.list),
+                              onOpened: () => viewModel.refreshVaultList(),
+                              onSelected: (String value) {
+                                if (mounted) {
+                                  viewModel.vaultName = value;
+                                  _passwordFocusNode.requestFocus();
+                                }
+                              },
+                              itemBuilder: (BuildContext context) {
+                                return viewModel.existingVaults.map((String vault) {
+                                  return PopupMenuItem<String>(value: vault, child: Text(vault));
+                                }).toList();
+                              },
+                            )
+                          : null,
+                      ),
+                      onChanged: (value) => viewModel.vaultName = value,
+                    ),
+                    const SizedBox(height: 16),
 
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  ),
-                  onPressed: (viewModel.isBusy || !canLogin) ? null : () => _handleLogin(),
-                  child: viewModel.isBusy
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(viewModel.isExists ? 'Tresor öffnen' : 'Tresor neu anlegen'),
+                    TextField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocusNode,
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                      decoration: InputDecoration(
+                        labelText: 'Master-Passwort',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.key),
+                        suffixIcon: viewModel.hasBiometricKey 
+                          ? const Icon(Icons.fingerprint, color: Colors.blue)
+                          : null,
+                      ),
+                      onChanged: (value) => viewModel.password = value,
+                      onSubmitted: canLogin ? (_) => _handleLogin() : null,
+                    ),
+                    const SizedBox(height: 24),
+
+                    if (viewModel.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          viewModel.errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      ),
+                      onPressed: (viewModel.isBusy || !canLogin) ? null : () => _handleLogin(),
+                      child: const Text('Anmelden'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        
+        if (viewModel.isBusy)
+          Container(
+            color: Colors.black.withValues(alpha: 0.05),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -22,11 +22,25 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _handleSync(BuildContext context, MainViewModel viewModel) async {
     final stats = await viewModel.sync(context);
     if (!context.mounted) return;
+    
     if (stats != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(stats.hasChanges ? stats.toString() : 'Daten sind bereits auf dem neuesten Stand.'),
-          backgroundColor: Colors.green.shade800,
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.sync, color: Colors.blueGrey),
+              SizedBox(width: 10),
+              Text('Synchronisation'),
+            ],
+          ),
+          content: Text(stats.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
     }
@@ -110,43 +124,40 @@ class _MainScreenState extends State<MainScreen> {
               ),
               
               Expanded(
-                child: viewModel.isBusy && grouped.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : grouped.isEmpty
-                        ? const Center(child: Text('Keine Einträge gefunden.'))
-                        : ListView.builder(
-                            itemCount: grouped.length,
-                            itemBuilder: (context, index) {
-                              final category = grouped.keys.elementAt(index);
-                              final items = grouped[category]!;
-                              final isCollapsed = viewModel.isCategoryCollapsed(category);
+                child: grouped.isEmpty && !viewModel.isBusy
+                    ? const Center(child: Text('Keine Einträge gefunden.'))
+                    : ListView.builder(
+                        itemCount: grouped.length,
+                        itemBuilder: (context, index) {
+                          final category = grouped.keys.elementAt(index);
+                          final items = grouped[category]!;
+                          final isCollapsed = viewModel.isCategoryCollapsed(category);
 
-                              return Column(
-                                children: [
-                                  Material(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                    child: ListTile(
-                                      title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
-                                      dense: true,
-                                      onTap: () => viewModel.toggleCategory(category),
-                                    ),
-                                  ),
-                                  if (!isCollapsed)
-                                    ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
-                                ],
-                              );
-                            },
-                          ),
+                          return Column(
+                            children: [
+                              Material(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                child: ListTile(
+                                  title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
+                                  dense: true,
+                                  onTap: () => viewModel.toggleCategory(category),
+                                ),
+                              ),
+                              if (!isCollapsed)
+                                ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
+                            ],
+                          );
+                        },
+                      ),
               ),
             ],
           ),
         ),
         
-        // Transparentes Overlay für den Sync-Prozess (blockiert Eingaben)
         if (viewModel.isBusy)
           Container(
-            color: Colors.transparent, // Komplett transparent
+            color: Colors.black.withValues(alpha: 0.05), // Fast transparentes Overlay
             child: const Center(
               child: CircularProgressIndicator(),
             ),
