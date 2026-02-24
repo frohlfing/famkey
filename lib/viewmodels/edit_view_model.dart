@@ -37,25 +37,51 @@ class EditViewModel extends BaseViewModel {
 
   // Getters & Setters
   String get category => _category;
-  set category(String value) { _category = value; notifyListeners(); }
-  
+
+  set category(String value) {
+    _category = value;
+    notifyListeners();
+  }
+
   String get title => _title;
-  set title(String value) { _title = value; notifyListeners(); }
-  
+
+  set title(String value) {
+    _title = value;
+    notifyListeners();
+  }
+
   String get username => _username;
-  set username(String value) { _username = value; notifyListeners(); }
-  
+
+  set username(String value) {
+    _username = value;
+    notifyListeners();
+  }
+
   String get password => _password;
-  set password(String value) { _password = value; notifyListeners(); }
-  
+
+  set password(String value) {
+    _password = value;
+    notifyListeners();
+  }
+
   String get url => _url;
-  set url(String value) { _url = value; notifyListeners(); }
-  
+
+  set url(String value) {
+    _url = value;
+    notifyListeners();
+  }
+
   String get notes => _notes;
-  set notes(String value) { _notes = value; notifyListeners(); }
-  
+
+  set notes(String value) {
+    _notes = value;
+    notifyListeners();
+  }
+
   bool get isPasswordHidden => _isPasswordHidden;
+
   bool get isEditMode => _isEditMode;
+
   List<String> get existingCategories => _existingCategories;
 
   // Punkt 5: Passwortstärke berechnen
@@ -71,12 +97,7 @@ class EditViewModel extends BaseViewModel {
     clearError();
     try {
       final entries = await _databaseService.getAllEntries();
-      _existingCategories = entries
-          .map((e) => e.category)
-          .where((c) => c.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      _existingCategories = entries.map((e) => e.category).where((c) => c.isNotEmpty).toSet().toList()..sort();
 
       if (id != null) {
         _isEditMode = true;
@@ -103,7 +124,12 @@ class EditViewModel extends BaseViewModel {
         _entry = null;
         _entryKey = null;
         _originalPayload = EntryPayload();
-        _category = ''; _title = ''; _username = ''; _password = ''; _url = ''; _notes = '';
+        _category = '';
+        _title = '';
+        _username = '';
+        _password = '';
+        _url = '';
+        _notes = '';
       }
     } catch (e) {
       setError("Fehler beim Laden: $e");
@@ -144,16 +170,27 @@ class EditViewModel extends BaseViewModel {
       }
 
       final payload = EntryPayload(
-        category: _category, title: _title, username: _username, 
-        password: _password, url: _url, notes: _notes, favicon: faviconBase64,
+        category: _category,
+        title: _title,
+        username: _username,
+        password: _password,
+        url: _url,
+        notes: _notes,
+        favicon: faviconBase64,
       );
-      final encryptedData = await _cryptoService.encrypt(utf8.encode(json.encode(payload.toJson())) as Uint8List, _entryKey!);
+      final encryptedData = await _cryptoService.encrypt(
+        utf8.encode(json.encode(payload.toJson())) as Uint8List,
+        _entryKey!,
+      );
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
 
       final entity = EntryEntity(
         id: _entry?.id,
         uuid: _entry?.uuid ?? const Uuid().v4(),
-        category: _category, title: _title, url: _url, notes: _notes,
+        category: _category,
+        title: _title,
+        url: _url,
+        notes: _notes,
         favicon: faviconBase64,
         encryptedData: encryptedData,
         creatorId: _sessionService.user!.id ?? 1,

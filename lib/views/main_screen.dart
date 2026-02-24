@@ -26,12 +26,11 @@ class _MainScreenState extends State<MainScreen> {
     if (stats != null) {
       showDialog(
         context: context,
-        builder: (context) =>
-            AlertDialog(
-              title: const Text('Info'),
-              content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-            ),
+        builder: (context) => AlertDialog(
+          title: const Text('Info'),
+          content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
       );
     }
   }
@@ -51,60 +50,59 @@ class _MainScreenState extends State<MainScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             centerTitle: true,
-            leading: IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Neuer Eintrag',
-              onPressed: () async {
-                final result = await Navigator.pushNamed(context, '/edit');
-                if (result == true) viewModel.loadEntries();
+
+            leading: PopupMenuButton<String>(
+              onSelected: (value) async {
+                switch (value) {
+                  case 'sync':
+                    _handleSync(context, viewModel);
+                    break;
+                  case 'settings':
+                    Navigator.pushNamed(context, '/settings');
+                    break;
+                  case 'logout':
+                    viewModel.logout();
+                    Navigator.pushReplacementNamed(context, '/');
+                    break;
+                }
               },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'sync',
+                  child: ListTile(leading: Icon(Icons.sync), title: Text('Synchronisieren')),
+                ),
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: ListTile(leading: Icon(Icons.settings), title: Text('Einstellungen')),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: ListTile(
+                    leading: Icon(Icons.logout, color: Colors.red),
+                    title: Text('Abmelden', style: TextStyle(color: Colors.red)),
+                  ),
+                ),
+              ],
             ),
+
             actions: [
-              PopupMenuButton<String>(
-                onSelected: (value) async {
-                  switch (value) {
-                    case 'sync':
-                      _handleSync(context, viewModel);
-                      break;
-                    case 'settings':
-                      Navigator.pushNamed(context, '/settings');
-                      break;
-                    case 'logout':
-                      viewModel.logout();
-                      Navigator.pushReplacementNamed(context, '/');
-                      break;
-                  }
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Neuer Eintrag',
+                onPressed: () async {
+                  final result = await Navigator.pushNamed(context, '/edit');
+                  if (result == true) viewModel.loadEntries();
                 },
-                itemBuilder: (context) =>
-                [
-                  const PopupMenuItem(
-                    value: 'sync',
-                    child: ListTile(leading: Icon(Icons.sync), title: Text('Synchronisieren')),
-                  ),
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: ListTile(leading: Icon(Icons.settings), title: Text('Einstellungen')),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: ListTile(
-                      leading: Icon(Icons.logout, color: Colors.red),
-                      title: Text('Abmelden', style: TextStyle(color: Colors.red)),
-                    ),
-                  ),
-                ],
               ),
             ],
+
           ),
           body: Column(
             children: [
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                color: Theme
-                    .of(context)
-                    .appBarTheme
-                    .backgroundColor,
+                color: Theme.of(context).appBarTheme.backgroundColor,
                 child: Column(
                   children: [
                     TextField(
@@ -114,9 +112,7 @@ class _MainScreenState extends State<MainScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(vertical: 0),
                         filled: true,
-                        fillColor: Theme
-                            .of(context)
-                            .cardColor,
+                        fillColor: Theme.of(context).cardColor,
                       ),
                       onChanged: (val) => viewModel.searchQuery = val,
                     ),
@@ -136,35 +132,31 @@ class _MainScreenState extends State<MainScreen> {
                 child: grouped.isEmpty && !viewModel.isBusy
                     ? const Center(child: Text('Keine Einträge gefunden.'))
                     : ListView.builder(
-                  itemCount: grouped.length,
-                  itemBuilder: (context, index) {
-                    final category = grouped.keys.elementAt(index);
-                    final items = grouped[category]!;
-                    final isCollapsed = viewModel.isCategoryCollapsed(category);
+                        itemCount: grouped.length,
+                        itemBuilder: (context, index) {
+                          final category = grouped.keys.elementAt(index);
+                          final items = grouped[category]!;
+                          final isCollapsed = viewModel.isCategoryCollapsed(category);
 
-                    return Column(
-                      children: [
-                        Material(
-                          color: Theme
-                              .of(context)
-                              .colorScheme
-                              .surfaceContainerHighest
-                              .withValues(alpha: 0.3),
-                          child: ListTile(
-                            title: Text(
-                              category,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
-                            dense: true,
-                            onTap: () => viewModel.toggleCategory(category),
-                          ),
-                        ),
-                        if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
-                      ],
-                    );
-                  },
-                ),
+                          return Column(
+                            children: [
+                              Material(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                child: ListTile(
+                                  title: Text(
+                                    category,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
+                                  dense: true,
+                                  onTap: () => viewModel.toggleCategory(category),
+                                ),
+                              ),
+                              if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
+                            ],
+                          );
+                        },
+                      ),
               ),
             ],
           ),

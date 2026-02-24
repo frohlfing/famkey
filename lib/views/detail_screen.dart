@@ -27,6 +27,10 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
+  ///
+  /// - [context] BuildContext des Widgets
+  /// - [text] Text, der in die Zwischenablage kopiert werden soll
+  /// - [label] Beschriftung des Kopierten Texts
   void _copyToClipboard(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label in die Zwischenablage kopiert')));
