@@ -151,10 +151,11 @@ class EditViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  Future<bool> save() async {
+  /// Speichert den Eintrag und gibt die ID des Eintrags zurück.
+  Future<int?> save() async {
     if (_title.isEmpty) {
       setError("Titel darf nicht leer sein");
-      return false;
+      return null;
     }
 
     setBusy(true);
@@ -198,11 +199,11 @@ class EditViewModel extends BaseViewModel {
         updatedAt: DateTime.now().toUtc(),
       );
 
-      await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
-      return true;
+      final savedId = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
+      return savedId;
     } catch (e) {
       setError("Fehler beim Speichern: $e");
-      return false;
+      return null;
     } finally {
       setBusy(false);
     }

@@ -103,8 +103,22 @@ class _EditScreenState extends State<EditScreen> {
             tooltip: 'Speichern',
             icon: const Icon(Icons.check),
             onPressed: viewModel.isBusy ? null : () async {
-              final success = await viewModel.save();
-              if (success && context.mounted) Navigator.pop(context, true);
+              final savedId = await viewModel.save();
+              if (savedId != null && context.mounted) {
+                if (viewModel.isEditMode) {
+                  // Zurück zum DetailScreen (dieser aktualisiert sich durch das Resultat)
+                  Navigator.pop(context, true);
+                } else {
+                  // Bei Neuanlage: Direkt zum neuen DetailScreen navigieren und EditScreen vom Stack entfernen.
+                  // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
+                  Navigator.pushReplacementNamed(
+                    context, 
+                    '/detail', 
+                    arguments: savedId,
+                    result: true,
+                  );
+                }
+              }
             },
           ),
         ],

@@ -91,8 +91,12 @@ class _MainScreenState extends State<MainScreen> {
                 icon: const Icon(Icons.add),
                 tooltip: 'Neuer Eintrag',
                 onPressed: () async {
+                  // Wenn wir von hier aus einen neuen Eintrag erstellen,
+                  // warten wir auf das Resultat (true beim pushReplacement im EditScreen).
                   final result = await Navigator.pushNamed(context, '/edit');
-                  if (result == true) viewModel.loadEntries();
+                  if (result == true) {
+                    viewModel.loadEntries();
+                  }
                 },
               ),
             ],
@@ -185,6 +189,8 @@ class _MainScreenState extends State<MainScreen> {
           ),
           subtitle: Text(entry.url, maxLines: 1, overflow: TextOverflow.ellipsis),
           onTap: () async {
+            // Wenn wir aus dem DetailScreen zurückkommen (der ggf. Daten geändert hat),
+            // laden wir die Liste neu.
             await Navigator.pushNamed(context, '/detail', arguments: entry.id);
             viewModel.loadEntries();
           },

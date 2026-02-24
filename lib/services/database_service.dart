@@ -284,10 +284,10 @@ class DatabaseService {
 
   // --- Combined Operation (Matching MAUI logic) ---
 
-  Future<void> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
-    if (_db == null) return;
+  Future<int> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
+    if (_db == null) throw Exception("Datenbank nicht initialisiert");
 
-    await _db!.transaction(() async {
+    return await _db!.transaction(() async {
       int actualEntryId;
       final entryCompanion = _entryToCompanion(entry);
 
@@ -314,6 +314,8 @@ class DatabaseService {
       } else {
         await _db!.into(_db!.permissions).insert(permCompanion);
       }
+      
+      return actualEntryId;
     });
   }
 
