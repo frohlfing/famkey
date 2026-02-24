@@ -105,15 +105,28 @@ dotnet add package Plugin.Fingerprint
       - https://fontawesome.com/search?ic=free-collection
 2. In MauiProgram.cs eintragen
 
-### 2.7 SQLCipher‑fähigen JDBC‑Treiber für Rider
+### 2.7 SQLCipher-DLL für Windows
 
-Der Treiber kann hier heruntergeladen werden:
-https://github.com/Willena/sqlite-jdbc-crypt/releases/download/3.51.2.0/sqlite-jdbc-3.51.2.0.jar  
-RIDERs Speicherort für JDBC: `C:\Users\frank\AppData\Roaming\JetBrains\Rider2025.3\jdbc-drivers\sqlite-jdbc`
+SQLCipher (basiert auf SQLite 3.51.2) wird benötigt, um unter Windows die SQLite-DB verschlüsseln zu können.
+
+- Download: https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.2.7 (`sqlite3mc-2.2.7-sqlite-3.51.2-win64.zip`)
+- `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\privault\` kopieren
+
+### 2.8 Datenbank-Tool für Android Studio
+
+Database Navigator 3.7.2.0 von Oracle 
+https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduction-oracle-database-navigator.html
+
+Ein SQLCipher‑fähiger JDBC‑Treiber kann hier heruntergeladen werden:
+https://github.com/xerial/sqlite-jdbc/
+Speicherort: C:\Users\frank\Source\AndroidStudio\privault\drivers\sqlite-jdbc-3.51.2.0.jar 
 
 Als Client-DB wird diese SQLite-Datei verwendet:
-`jdbc:sqlite:/Users/frank/AppData/Local/Packages/com.companyname.privault_9zz4h110yvjzm/LocalState/test.db3`  
-Master-Passwort: 4711
+`jdbc:sqlite:/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test.db3`  
+- Master-Passwort: 4711
+- Parameter für Database Navigator: 
+   - cipher=sqlcipher
+   - key=test
 
 Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kann er ermittelt werden:
 ```csharp
@@ -126,21 +139,6 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
     var keyHex = Convert.ToHexString(masterKey); 
     System.Diagnostics.Debug.WriteLine("MASTER KEY (HEX): " + keyHex);
 ```
-
-**JDBC-Treiber in RIDER einrichten:**
-
-1. Database Tool Window öffnen und die heruntergeladene `sqlite-jdbc-3.51.2.0.jar` auswählen
-   → Data Source → Driver, Add Driver
-    - **Class:** org.sqlite.JDBC
-    - **JDBC‑URL:** jdbc:sqlite:/Users/frank/AppData/Local/Packages/com.companyname.privault_9zz4h110yvjzm/LocalState/test.db3
-    - **Advanced:**
-        - cipher=sqlcipher
-        - kdf_iter=256000
-        - key=x'B7C438860DD01B07B311E7CA2C951F6A774488B494DD6C0C923A0C435EBA8CD6'
-        - legacy=4
-        - page_size=4096
-
----
 
 ## 3. Setup für Android-Apps unter Windows
 

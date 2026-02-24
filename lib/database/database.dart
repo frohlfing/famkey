@@ -124,13 +124,14 @@ class AppDatabase extends _$AppDatabase {
         }
       }
 
+      if (kDebugMode) {
+        // Brauchen wir, um die DB per Database Navigator öffnen zu können
+        debugPrint("🔑 DB-Passwort: $password");
+      }
+
       final rawDb = sqlite3.open(file.path);
       rawDb.execute("PRAGMA cipher = 'sqlcipher';");
       rawDb.execute("PRAGMA hexkey = '$password';");
-
-      if (kDebugMode) {
-        debugPrint("🔑 DB-Passwort: x`$password`");
-      }
 
       return NativeDatabase.opened(rawDb);
     });
