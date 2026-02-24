@@ -453,12 +453,8 @@ class DatabaseService {
 
   Future<void> rekey(Uint8List newMasterKey) async {
     if (_db == null) return;
-    // SQLCipher rekey logic is usually handled by PRAGMA rekey,
-    // this would require direct access to the database connection/executor
-    // and specific SQLCipher drift setup.
-    // For now, executing raw PRAGMA (if supported by the specific sqlite3 implementation)
     final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    await _db!.customStatement("PRAGMA rekey = \"x'$hexKey'\";");
+    await _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
   }
 
   // Helper

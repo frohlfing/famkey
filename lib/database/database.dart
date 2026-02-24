@@ -7,6 +7,7 @@ import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
+import 'package:flutter/foundation.dart';
 
 part 'database.g.dart';
 
@@ -114,20 +115,22 @@ class AppDatabase extends _$AppDatabase {
       final storagePath = config.vaultStoragePath;
       final file = File(p.join(storagePath, '$name.db3'));
 
-      if (Platform.isWindows) {
-        // DLL-Bindung für SQLCipher
+      // DLL-Bindung für SQLCipher
+      if (!kIsWeb && Platform.isWindows) {
         final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
         if (File(dllPath).existsSync()) {
-          open.overrideFor(
-            OperatingSystem.windows,
-            () => DynamicLibrary.open(dllPath),
-          );
+          open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
+          debugPrint('✅ SQLiteMC DLL registriert');
         }
       }
 
       final rawDb = sqlite3.open(file.path);
       rawDb.execute("PRAGMA cipher = 'sqlcipher';");
       rawDb.execute("PRAGMA hexkey = '$password';");
+
+      if (kDebugMode) {
+        debugPrint("🔑 DB-Passwort: x`$password`");
+      }
 
       return NativeDatabase.opened(rawDb);
     });

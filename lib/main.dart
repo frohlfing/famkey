@@ -22,13 +22,13 @@ import 'package:privault/views/settings_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb && Platform.isWindows) {
-    final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
-    if (File(dllPath).existsSync()) {
-      open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
-      debugPrint('✅ SQLiteMC DLL registriert');
-    }
-  }
+  // if (!kIsWeb && Platform.isWindows) {
+  //   final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
+  //   if (File(dllPath).existsSync()) {
+  //     open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
+  //     debugPrint('✅ SQLiteMC DLL registriert');
+  //   }
+  // }
 
   await setupServiceLocator();
   
