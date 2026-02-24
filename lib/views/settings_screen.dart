@@ -71,7 +71,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Person suchen'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Name der Person')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name der Person'),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
           TextButton(
@@ -93,7 +97,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Tresor lokal löschen'),
         content: const Text('Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen')
+          ),
           TextButton(
             onPressed: () async {
               await _viewModel.deleteVault();
@@ -123,10 +130,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 message: 'Speichern',
                 child: IconButton(
                   icon: const Icon(Icons.check),
-                  onPressed: viewModel.isBusy ? null : () async {
-                    final success = await viewModel.save();
-                    if (success && mounted) Navigator.pop(context);
-                  },
+                  onPressed: viewModel.isBusy
+                      ? null
+                      : () async {
+                          final success = await viewModel.save();
+                          if (success && mounted) Navigator.pop(context);
+                        },
                 ),
               ),
             ],
@@ -141,26 +150,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextField(
                   controller: _vaultNameController,
                   enabled: !viewModel.isRegistered,
-                  decoration: const InputDecoration(labelText: 'Tresor-Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.shield_outlined)),
+                  decoration: const InputDecoration(
+                    labelText: 'Tresor-Name',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.shield_outlined),
+                  ),
                   onChanged: (value) => viewModel.vaultName = value,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _userNameController,
                   enabled: !viewModel.isRegistered,
-                  decoration: const InputDecoration(labelText: 'Benutzer-Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
+                  decoration: const InputDecoration(
+                    labelText: 'Benutzer-Name',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
                   onChanged: (value) => viewModel.userName = value,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _pathController,
                   readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Speicherort', border: OutlineInputBorder(), prefixIcon: Icon(Icons.folder_open)),
+                  decoration: const InputDecoration(
+                    labelText: 'Speicherort',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.folder_open),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Diese Funktion wird in einer zukünftigen Version implementiert (TODO).'))),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white
+                  ),
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Diese Funktion wird in einer zukünftigen Version implementiert (TODO).'),
+                    ),
+                  ),
                   icon: const Icon(Icons.password),
                   label: const Text('Master-Passwort ändern'),
                 ),
@@ -170,7 +198,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Synchronisation'),
                 TextField(
                   controller: _hostController,
-                  decoration: const InputDecoration(labelText: 'Host URL', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'Host URL',
+                      border: OutlineInputBorder()
+                  ),
                   onChanged: (value) => viewModel.host = value,
                 ),
                 const SizedBox(height: 16),
@@ -210,24 +241,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 _buildSectionHeaderWithAction('Freunde', Icons.person_add, 'Person suchen', _showAddFriendDialog),
                 if (viewModel.friends.isEmpty)
-                  const Padding(padding: EdgeInsets.all(16), child: Text('Keine weiteren Personen.', style: TextStyle(fontStyle: FontStyle.italic)))
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Keine weiteren Personen.', style: TextStyle(fontStyle: FontStyle.italic)),
+                  )
                 else
                   Column(
-                    children: viewModel.friends.map((f) => Card(
-                      key: ValueKey('friend_${f.user.uuid}'),
-                      child: ListTile(
-                        title: Text(f.name),
-                        subtitle: Text(f.fingerprint, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
-                        trailing:
-                        Tooltip(
-                            message: 'Person verifiziert',
-                            child: Switch(
-                              value: f.isVerified,
-                              onChanged: (_) => viewModel.toggleVerification(f),
+                    children: viewModel.friends
+                        .map(
+                          (f) => Card(
+                            key: ValueKey('friend_${f.user.uuid}'),
+                            child: ListTile(
+                              title: Text(f.name),
+                              subtitle: Text(
+                                f.fingerprint,
+                                style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                              ),
+                              trailing: Tooltip(
+                                message: 'Person verifiziert',
+                                child: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
+                              ),
                             ),
-                        ),
-                      ),
-                    )).toList(),
+                          ),
+                        )
+                        .toList(),
                   ),
                 const SizedBox(height: 32),
 
@@ -251,9 +288,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: (value) => viewModel.pwSpecialCharSet = value,
                       ),
                     ),
-                    Tooltip(message: 'Standard', child: IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard'))),
-                    Tooltip(message: 'Alle', child: IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All'))),
-                    Tooltip(message: 'Keine', child: IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None'))),
+                    Tooltip(
+                      message: 'Standard',
+                      child: IconButton(
+                        icon: const Icon(Icons.star_outline),
+                        onPressed: () => viewModel.setSpecialChars('Standard'),
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Alle',
+                      child: IconButton(
+                        icon: const Icon(Icons.all_inclusive),
+                        onPressed: () => viewModel.setSpecialChars('All'),
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Keine',
+                      child: IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () => viewModel.setSpecialChars('None'),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -288,7 +343,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 32),
 
                 _buildSectionTitle('Design'),
-                const Text('Hinweis: Themes sind in dieser Version noch nicht aktiv.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text(
+                  'Hinweis: Themes sind in dieser Version noch nicht aktiv.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
                 const SizedBox(height: 12),
                 SegmentedButton<ThemeMode>(
                   segments: const [
@@ -302,35 +360,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _categoryController,
-                  decoration: const InputDecoration(labelText: 'Name für leere Kategorie', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Name für leere Kategorie',
+                    border: OutlineInputBorder(),
+                  ),
                   onChanged: (value) => viewModel.categoryPlaceholder = value,
                 ),
                 const SizedBox(height: 32),
 
                 _buildSectionTitle('Systemeinstellungen'),
                 _buildSystemButton(
-                  Icons.fingerprint, 
-                  'Biometrie', 
-                  'Systemeinstellungen für Biometrie öffnen', 
-                  viewModel.openBiometricSettings
+                  Icons.fingerprint,
+                  'Biometrie',
+                  'Systemeinstellungen für Biometrie öffnen',
+                  viewModel.openBiometricSettings,
                 ),
                 _buildSystemButton(
-                  Icons.text_fields, 
-                  'Autofill', 
-                  'Hilfeseite für das automatische Ausfüllen öffnen', 
-                  viewModel.openAutofillSettings
+                  Icons.text_fields,
+                  'Autofill',
+                  'Hilfeseite für das automatische Ausfüllen öffnen',
+                  viewModel.openAutofillSettings,
                 ),
                 _buildSystemButton(
-                  Icons.info_outline, 
-                  'App-Info', 
-                  'Systemdetails dieser App anzeigen', 
-                  viewModel.openAppSettings
+                  Icons.info_outline,
+                  'App-Info',
+                  'Systemdetails dieser App anzeigen',
+                  viewModel.openAppSettings,
                 ),
                 const SizedBox(height: 64),
 
                 Center(
                   child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade900, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade900,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    ),
                     onPressed: _showDeleteConfirm,
                     icon: const Icon(Icons.delete_forever),
                     label: const Text('Tresor lokal löschen'),
@@ -344,9 +409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (viewModel.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           ),
       ],
     );
@@ -355,7 +418,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
-      child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+      ),
     );
   }
 
@@ -364,7 +430,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildSectionTitle(title),
-        Tooltip(message: tooltip, child: IconButton(icon: Icon(icon), onPressed: onPressed)),
+        Tooltip(
+          message: tooltip,
+          child: IconButton(icon: Icon(icon), onPressed: onPressed),
+        ),
       ],
     );
   }
