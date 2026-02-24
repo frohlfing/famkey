@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
-import 'package:privault/models/entities/attachment_entity.dart';
+import 'package:privault/models/entities/user_entity.dart';
 
 class DetailScreen extends StatefulWidget {
   final int entryId;
@@ -126,10 +126,10 @@ class _DetailScreenState extends State<DetailScreen> {
                         child: Column(
                           children: [
                             if (viewModel.favicon.isNotEmpty)
-                              Image.memory(base64Decode(viewModel.favicon), width: 64, height: 64)
-                            else
-                              const Icon(Icons.vpn_key_outlined, size: 64, color: Colors.blueGrey),
-                            const SizedBox(height: 16),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Image.memory(base64Decode(viewModel.favicon), width: 64, height: 64),
+                              ),
                             Text(viewModel.title, 
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -229,10 +229,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
                       // Anhänge Section
                       _buildSectionHeaderWithAction('Anhänge', Icons.add_circle_outline, 'Datei anhängen', viewModel.addAttachment),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       if (viewModel.attachments.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
                           child: Text('Keine Anhänge vorhanden.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                         )
                       else
@@ -262,7 +262,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
                                         TextButton(
                                           onPressed: () => Navigator.pop(context, true),
-                                          child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                                          child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
                                         ),
                                       ],
                                     ),
@@ -280,6 +280,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
                       const Divider(),
 
+                      // Geteilt mit Section
+                      _buildSharedWithSection(viewModel),
+                      const Divider(),
+
                       // Audit Hint
                       if (viewModel.auditHint.isNotEmpty)
                         Padding(
@@ -292,6 +296,106 @@ class _DetailScreenState extends State<DetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildSharedWithSection(DetailViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeaderWithAction('Geteilt mit', Icons.person_add_alt_1_outlined, 'Freigabe hinzufügen', () {
+          _showShareDialog(context, viewModel);
+        }),
+        const SizedBox(height: 4),
+        if (viewModel.sharedWith.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+            child: Text('Dieser Eintrag ist noch nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+          )
+        else
+          ...viewModel.sharedWith.map((user) {
+            final isWritable = viewModel.getAccessLevel(user.id!) == 2;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const Icon(Icons.person_outline, size: 48, color: Colors.blueGrey),
+                title: Text(user.name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Schreiben', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Switch(
+                      value: isWritable,
+                      onChanged: (bool value) {
+                        viewModel.updateAccessLevel(user, value ? 2 : 1);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: 'Zugriff entziehen',
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Zugriff entziehen'),
+                            content: Text('Möchtest du diesen Eintrag nicht mehr mit ${user.name} teilen?'),
+                            actions: [
+                              TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(ctx).pop(false)),
+                              TextButton(
+                                child: const Text('Ja, Zugriff entziehen', style: TextStyle(color: Colors.red)),
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          viewModel.revokeAccess(user);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+      ],
+    );
+  }
+
+  Future<void> _showShareDialog(BuildContext context, DetailViewModel viewModel) async {
+    final available = viewModel.availableContacts;
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Eintrag teilen'),
+          content: available.isEmpty
+              ? const Text('Keine weiteren Kontakte verfügbar.')
+              : SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: available.length,
+                    separatorBuilder: (ctx, i) => const Divider(),
+                    itemBuilder: (ctx, index) {
+                      final user = available[index];
+                      return ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        title: Text(user.name),
+                        onTap: () {
+                          viewModel.shareWith(user);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+          actions: <Widget>[
+            TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(context).pop()),
+          ],
+        );
+      },
     );
   }
 

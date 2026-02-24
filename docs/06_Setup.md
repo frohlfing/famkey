@@ -118,6 +118,7 @@ Database Navigator 3.7.2.0 von Oracle
 https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduction-oracle-database-navigator.html
 
 Ein SQLCipher‑fähiger JDBC‑Treiber kann hier heruntergeladen werden:
+https://github.com/Willena/sqlite-jdbc-crypt/releases/download/3.51.2.0/sqlite-jdbc-3.51.2.0.jar
 https://github.com/xerial/sqlite-jdbc/
 Speicherort: C:\Users\frank\Source\AndroidStudio\privault\drivers\sqlite-jdbc-3.51.2.0.jar 
 

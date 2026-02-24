@@ -218,7 +218,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: ListTile(
                         title: Text(f.name),
                         subtitle: Text(f.fingerprint, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
-                        trailing: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
+                        trailing:
+                        Tooltip(
+                            message: 'Person verifiziert',
+                            child: Switch(
+                              value: f.isVerified,
+                              onChanged: (_) => viewModel.toggleVerification(f),
+                            ),
+                        ),
                       ),
                     )).toList(),
                   ),

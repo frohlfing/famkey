@@ -6,6 +6,7 @@ import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/user_entity.dart';
 import 'package:privault/models/entities/entry_entity.dart';
 import 'package:privault/models/entities/attachment_entity.dart';
+import 'package:privault/models/entities/permission_entity.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -30,6 +31,10 @@ class DetailViewModel extends BaseViewModel {
   Uint8List? _entryKey;
   List<AttachmentEntity> _attachments = [];
   Map<String, AttachmentMetaPayload> _attachmentMetas = {};
+  
+  List<UserEntity> _sharedWith = [];
+  Map<int, int> _userAccessLevels = {}; 
+  List<UserEntity> _allContacts = [];
 
   String _title = '';
   String _category = '';
@@ -54,6 +59,14 @@ class DetailViewModel extends BaseViewModel {
   String get auditHint => _auditHint;
   bool get isPasswordHidden => _isPasswordHidden;
   List<AttachmentEntity> get attachments => _attachments;
+  List<UserEntity> get sharedWith => _sharedWith;
+
+  List<UserEntity> get availableContacts {
+    final sharedIds = _sharedWith.map((u) => u.id).toSet();
+    return _allContacts.where((u) => u.id != 1 && !sharedIds.contains(u.id)).toList();
+  }
+
+  int getAccessLevel(int userId) => _userAccessLevels[userId] ?? 1;
 
   AttachmentMetaPayload? getAttachmentMeta(String uuid) => _attachmentMetas[uuid];
   int get passwordStrength => _passwordService.estimateStrength(_password);
@@ -93,6 +106,8 @@ class DetailViewModel extends BaseViewModel {
 
       await _updateAuditHint();
       await _loadAttachments();
+      await _loadSharedUsers();
+      await _loadAllContacts();
 
     } catch (e) {
       setError("Entschlüsselung fehlgeschlagen: $e");
@@ -104,7 +119,7 @@ class DetailViewModel extends BaseViewModel {
   Future<void> _updateAuditHint() async {
     var creator = "Unbekannt";
     var updater = "Unbekannt";
-    
+
     final cu = _entry!.creatorId != 0 ? await _databaseService.getUserById(_entry!.creatorId) : null;
     final uu = _entry!.updaterId != 0 ? await _databaseService.getUserById(_entry!.updaterId) : null;
 
@@ -123,6 +138,94 @@ class DetailViewModel extends BaseViewModel {
       _attachmentMetas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
     }
     notifyListeners();
+  }
+
+  Future<void> _loadSharedUsers() async {
+    if (_entry == null) return;
+    final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id!);
+    List<UserEntity> shared = [];
+    _userAccessLevels.clear();
+    for (var p in permissions) {
+      if (p.userId == 1) continue; 
+      if (p.accessLevel == 0) continue; 
+      final user = await _databaseService.getUserById(p.userId);
+      if (user != null) {
+        shared.add(user);
+        _userAccessLevels[user.id!] = p.accessLevel;
+      }
+    }
+    _sharedWith = shared;
+    notifyListeners();
+  }
+
+  Future<void> _loadAllContacts() async {
+    _allContacts = await _databaseService.getUsers();
+    notifyListeners();
+  }
+
+  Future<void> shareWith(UserEntity targetUser) async {
+    if (_entry == null || _entryKey == null) return;
+    setBusy(true);
+    try {
+      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
+      
+      // Prüfen ob bereits ein Datensatz existiert (z.B. mit Level 0)
+      final existing = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, targetUser.id!);
+      
+      final perm = PermissionEntity(
+        id: existing?.id, // Falls vorhanden, wird geupdated statt neu angelegt
+        entryId: _entry!.id!,
+        userId: targetUser.id!,
+        encryptedKey: encryptedEntryKey,
+        accessLevel: 1, // Default: Nur Lesen
+      );
+      
+      await _databaseService.savePermission(perm);
+      
+      _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
+      await _databaseService.saveEntry(_entry!);
+      await _loadSharedUsers();
+    } catch (e) {
+      setError("Teilen fehlgeschlagen: $e");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  Future<void> updateAccessLevel(UserEntity user, int newLevel) async {
+    if (_entry == null || user.id == null) return;
+    setBusy(true);
+    try {
+      final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, user.id!);
+      if (perm != null) {
+        await _databaseService.savePermission(perm.copyWith(accessLevel: newLevel));
+        _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
+        await _databaseService.saveEntry(_entry!);
+        await _loadSharedUsers();
+      }
+    } catch (e) {
+      setError("Rechte konnten nicht geändert werden: $e");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  Future<void> revokeAccess(UserEntity user) async {
+    if (_entry == null || user.id == null) return;
+    setBusy(true);
+    try {
+      final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, user.id!);
+      if (perm != null) {
+        await _databaseService.savePermission(perm.copyWith(accessLevel: 0, encryptedKey: ""));
+        _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
+        await _databaseService.saveEntry(_entry!);
+        await _loadSharedUsers();
+      }
+    } catch (e) {
+      setError("Zugriff konnte nicht entzogen werden: $e");
+    } finally {
+      setBusy(false);
+    }
   }
 
   Future<void> addAttachment() async {
@@ -151,7 +254,7 @@ class DetailViewModel extends BaseViewModel {
       );
 
       final encryptedMeta = await _cryptoService.encrypt(
-        Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), 
+        Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))),
         _entryKey!
       );
       final encryptedContent = await _cryptoService.encrypt(bytes, _entryKey!);
@@ -191,9 +294,9 @@ class DetailViewModel extends BaseViewModel {
 
       // 3) Resize auf exakte Zielgröße (verhindert Trauerränder)
       final thumbnail = img.copyResize(
-        image, 
-        width: newW, 
-        height: newH, 
+        image,
+        width: newW,
+        height: newH,
         interpolation: img.Interpolation.linear
       );
 
@@ -279,7 +382,7 @@ class DetailViewModel extends BaseViewModel {
     if (mime.contains("video")) return "video";
     if (mime.contains("zip") || mime.contains("rar") || mime.contains("7z") || mime.contains("tar")) return "archive";
     if (mime.contains("text")) return "text";
-    
+
     return "generic";
   }
 
@@ -305,7 +408,7 @@ class DetailViewModel extends BaseViewModel {
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/${meta.filename}');
       await tempFile.writeAsBytes(decryptedContent);
-      
+
       await OpenFilex.open(tempFile.path);
 
       // Best-effort Cleanup mit Retry (wie in MAUI)
