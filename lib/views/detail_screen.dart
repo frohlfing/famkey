@@ -56,63 +56,40 @@ class _DetailScreenState extends State<DetailScreen> {
   /// Berechnet die Stärke des Passworts basierend auf den folgenden Regeln:
   Color _getStrengthColor(int score) {
     switch (score) {
-      case 0:
-        return const Color(0xFFCBD5E1);
-      case 1:
-        return const Color(0xFFDC2626);
-      case 2:
-        return const Color(0xFFF59E0B);
-      case 3:
-        return const Color(0xFF84CC16);
-      case 4:
-        return const Color(0xFF16A34A);
-      default:
-        return const Color(0xFFCBD5E1);
+      case 0: return const Color(0xFFCBD5E1);
+      case 1: return const Color(0xFFDC2626);
+      case 2: return const Color(0xFFF59E0B);
+      case 3: return const Color(0xFF84CC16);
+      case 4: return const Color(0xFF16A34A);
+      default: return const Color(0xFFCBD5E1);
     }
   }
 
   /// Gibt einen Text basierend auf der Stärke des Passworts zurück.
   String _getStrengthText(int score) {
     switch (score) {
-      case 0:
-        return "";
-      case 1:
-        return "Sehr schwach";
-      case 2:
-        return "Schwach";
-      case 3:
-        return "Gut";
-      case 4:
-        return "Stark";
-      default:
-        return "";
+      case 0: return "";
+      case 1: return "Sehr schwach";
+      case 2: return "Schwach";
+      case 3: return "Gut";
+      case 4: return "Stark";
+      default: return "";
     }
   }
 
   IconData _getIconForType(String type) {
     switch (type) {
-      case 'image':
-        return Icons.image_outlined;
-      case 'pdf':
-        return Icons.picture_as_pdf_outlined;
-      case 'word':
-        return Icons.description_outlined;
-      case 'slides':
-        return Icons.present_to_all_outlined;
-      case 'excel':
-        return Icons.table_chart_outlined;
-      case 'vcard':
-        return Icons.contact_page_outlined;
-      case 'archive':
-        return Icons.inventory_2_outlined;
-      case 'video':
-        return Icons.movie_outlined;
-      case 'audio':
-        return Icons.audiotrack_outlined;
-      case 'text':
-        return Icons.text_snippet_outlined;
-      default:
-        return Icons.insert_drive_file_outlined;
+      case 'image': return Icons.image_outlined;
+      case 'pdf': return Icons.picture_as_pdf_outlined;
+      case 'word': return Icons.description_outlined;
+      case 'slides': return Icons.present_to_all_outlined;
+      case 'excel': return Icons.table_chart_outlined;
+      case 'vcard': return Icons.contact_page_outlined;
+      case 'archive': return Icons.inventory_2_outlined;
+      case 'video': return Icons.movie_outlined;
+      case 'audio': return Icons.audiotrack_outlined;
+      case 'text': return Icons.text_snippet_outlined;
+      default: return Icons.insert_drive_file_outlined;
     }
   }
 
@@ -182,7 +159,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   ),
                   const Divider(),
 
-                  // Password Card mit Stärke-Meter
+                  // Password Section
                   Column(
                     children: [
                       ListTile(
@@ -215,9 +192,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                   child: LinearProgressIndicator(
                                     value: (viewModel.passwordStrength + 1) / 5,
                                     backgroundColor: Colors.grey.shade200,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _getStrengthColor(viewModel.passwordStrength),
-                                    ),
+                                    valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
                                   ),
                                 ),
                               ),
@@ -280,17 +255,23 @@ class _DetailScreenState extends State<DetailScreen> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
-                          leading: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image.memory(
-                                    base64Decode(meta.thumbnail!),
-                                    width: 48,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : Icon(_getIconForType(iconType), size: 48, color: Colors.blueGrey),
+                          leading: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () => viewModel.openAttachment(att),
+                              child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.memory(
+                                        base64Decode(meta.thumbnail!),
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Icon(_getIconForType(iconType), size: 48, color: Colors.blueGrey),
+                            ),
+                          ),
                           title: Text(meta?.filename ?? 'Datei'),
                           subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
                           trailing: IconButton(
@@ -319,7 +300,6 @@ class _DetailScreenState extends State<DetailScreen> {
                             },
                             tooltip: 'Anhang löschen',
                           ),
-                          onTap: () => viewModel.openAttachment(att),
                         ),
                       );
                     }),
@@ -374,9 +354,18 @@ class _DetailScreenState extends State<DetailScreen> {
             );
 
             if (!user.isVerified) {
-              leadingIcon = Tooltip(
-                message: 'Person ist nicht verifiziert!',
-                child: leadingIcon,
+              leadingIcon = MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () async {
+                    await Navigator.pushNamed(context, '/settings', arguments: {'focus_user_uuid': user.uuid});
+                    if (mounted) _viewModel.initialize(widget.entryId);
+                  },
+                  child: Tooltip(
+                    message: 'Person ist nicht verifiziert!',
+                    child: leadingIcon,
+                  ),
+                ),
               );
             }
 
@@ -458,19 +447,29 @@ class _DetailScreenState extends State<DetailScreen> {
                       );
 
                       if (!user.isVerified) {
-                        leadingIcon = Tooltip(
-                          message: 'Person ist nicht verifiziert!',
-                          child: leadingIcon,
+                        leadingIcon = MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () async {
+                              Navigator.of(context).pop(); // Dialog schließen
+                              await Navigator.pushNamed(context, '/settings', arguments: {'focus_user_uuid': user.uuid});
+                              if (mounted) _viewModel.initialize(widget.entryId);
+                            },
+                            child: Tooltip(
+                              message: 'Person ist nicht verifiziert!',
+                              child: leadingIcon,
+                            ),
+                          ),
                         );
                       }
 
                       return ListTile(
                         leading: leadingIcon,
-                        title: Text(user.name),
-                        onTap: () {
+                        onTap: user.isVerified ? () {
                           viewModel.shareWith(user);
                           Navigator.of(context).pop();
-                        },
+                        } : null,
+                        title: Text(user.name),
                       );
                     },
                   ),
