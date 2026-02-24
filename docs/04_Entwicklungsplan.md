@@ -41,6 +41,7 @@
 - ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - ✅ Ladeanzeige einbauen für Operationen, die länger dauern könnten (Bildschirm für Eingaben sperren)
+- ❌ Fehler loggen und unter Einstellungen ein Button zum Anzeigen/Löschen + Loglevel (Aus, Debug, Fehler)
 - ❌ Konsolenanwendung: Hex-Code des Master-Keys ausgeben
 - ❌ Dialog, um den Passwortgenerator aus der Detailansicht einstellen zu können (Einstellungen siehe Settings. Page)
 - ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
