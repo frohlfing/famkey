@@ -259,7 +259,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               trailing: Tooltip(
                                 message: 'Person verifiziert',
-                                child: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
+                                child: Switch(
+                                    value: f.isVerified,
+                                    onChanged: (_) => viewModel.toggleVerification(f)
+                                ),
                               ),
                             ),
                           ),

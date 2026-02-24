@@ -364,10 +364,26 @@ class _DetailScreenState extends State<DetailScreen> {
         else
           ...viewModel.sharedWith.map((user) {
             final isWritable = viewModel.getAccessLevel(user.id!) == 2;
+            Widget leadingIcon = Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
+                if (!user.isVerified)
+                  const Icon(Icons.warning, size: 18, color: Colors.amber),
+              ],
+            );
+
+            if (!user.isVerified) {
+              leadingIcon = Tooltip(
+                message: 'Person ist nicht verifiziert!',
+                child: leadingIcon,
+              );
+            }
+
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                leading: const Icon(Icons.person_outline, size: 48, color: Colors.blueGrey),
+                leading: leadingIcon,
                 title: Text(user.name),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -429,8 +445,27 @@ class _DetailScreenState extends State<DetailScreen> {
                     separatorBuilder: (ctx, i) => const Divider(),
                     itemBuilder: (ctx, index) {
                       final user = available[index];
+                      Widget leadingIcon = Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          const CircleAvatar(
+                            radius: 16,
+                            child: Icon(Icons.person, size: 20),
+                          ),
+                          if (!user.isVerified)
+                            const Icon(Icons.warning, size: 16, color: Colors.amber),
+                        ],
+                      );
+
+                      if (!user.isVerified) {
+                        leadingIcon = Tooltip(
+                          message: 'Person ist nicht verifiziert!',
+                          child: leadingIcon,
+                        );
+                      }
+
                       return ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        leading: leadingIcon,
                         title: Text(user.name),
                         onTap: () {
                           viewModel.shareWith(user);
