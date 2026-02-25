@@ -22,7 +22,7 @@ class SettingsFriendViewModel extends ChangeNotifier {
 
   final CryptoService _cryptoService;
   final DatabaseService _databaseService;
-  
+
   /// Die zugrundeliegende Benutzer-Entität.
   final UserEntity user;
 
@@ -41,7 +41,7 @@ class SettingsFriendViewModel extends ChangeNotifier {
 
   /// Ruft den Anzeigenamen des Freundes ab.
   String get name => user.name;
-  
+
   /// Gibt an, ob die Identität dieses Benutzers (per Fingerprint-Vergleich) manuell verifiziert wurde.
   bool get isVerified => user.isVerified;
 
