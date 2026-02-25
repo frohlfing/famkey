@@ -12,16 +12,37 @@ import 'package:privault/services/password_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
 
+/// Das [EditViewModel] ist für das Hinzufügen oder Bearbeiten eines Tresoreintrags verantwortlich.
+/// Es steuert den gesamten Lebenszyklus eines Eintrags: Erstellung, Entschlüsselung und Bearbeitung.
+///
+/// **Kernfunktionalitäten:**
+/// * Envelope Encryption: Entschlüsselung des AES-Eintragschlüssels via RSA-Privatschlüssel des Nutzers.
+/// * Zustandsverwaltung: Unterscheidung zwischen Schreib- und Vollzugriff (Besitzer).
+///
+/// **Sicherheitskonzept:**
+/// Der symmetrische Schlüssel (_entryKey) wird nur im Arbeitsspeicher gehalten und beim Verlassen der Seite
+/// sicher gelöscht. Anhänge werden erst bei Bedarf (Lazy Loading) entschlüsselt.
 class EditViewModel extends BaseViewModel {
+  // ------------------------------------------------------------------------
+  // --- Felder ---
+  // ------------------------------------------------------------------------
+
   final CryptoService _cryptoService;
   final DatabaseService _databaseService;
   final SessionService _sessionService;
   final PasswordService _passwordService;
   final Dio _dio = Dio();
 
+  /// Die aktuell geladene Datenbank-Entität. Ist null bei einem neuen Eintrag.
   EntryEntity? _entry;
+
+  /// Der entschlüsselte 32-Byte AES-Schlüssel für diesen spezifischen Eintrag.
+  /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
+
+  /// Speichert den ursprünglichen Zustand des Eintrags, um beim Abbrechen Änderungen zu erkennen (Dirty-Check).
   EntryPayload? _originalPayload;
+
   List<String> _existingCategories = [];
 
   String _category = '';
@@ -33,9 +54,16 @@ class EditViewModel extends BaseViewModel {
   bool _isPasswordHidden = true;
   bool _isEditMode = false;
 
+  // ------------------------------------------------------------------------
+  // --- Konstruktor ---
+  // ------------------------------------------------------------------------
+
   EditViewModel(this._cryptoService, this._databaseService, this._sessionService, this._passwordService);
 
-  // Getters & Setters
+  // ------------------------------------------------------------------------
+  // --- Eigenschaften (Getters & Setters) ---
+  // ------------------------------------------------------------------------
+
   String get category => _category;
 
   set category(String value) {
@@ -84,18 +112,26 @@ class EditViewModel extends BaseViewModel {
 
   List<String> get existingCategories => _existingCategories;
 
-  // Punkt 5: Passwortstärke berechnen
+  /// Berechnete Stärke des aktuell eingegebenen Passworts (0-4).
   int get passwordStrength => _passwordService.estimateStrength(_password);
 
+  // ------------------------------------------------------------------------
+  // --- Befehle ---
+  // ------------------------------------------------------------------------
+
+  /// Schaltet die Sichtbarkeit des Passwortfelds um.
   void togglePasswordVisibility() {
     _isPasswordHidden = !_isPasswordHidden;
     notifyListeners();
   }
 
+  /// Initialisiert das ViewModel. Lädt entweder einen bestehenden Eintrag oder
+  /// bereitet die Maske für eine Neuanlage vor.
   Future<void> initialize(int? id) async {
     setBusy(true);
     clearError();
     try {
+      // Vorhandene Kategorien für Vorschlagsliste laden
       final entries = await _databaseService.getAllEntries();
       _existingCategories = entries.map((e) => e.category).where((c) => c.isNotEmpty).toSet().toList()..sort();
 
@@ -103,14 +139,18 @@ class EditViewModel extends BaseViewModel {
         _isEditMode = true;
         _entry = await _databaseService.getEntryById(id);
         if (_entry != null) {
+          // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
           final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, 1);
           if (perm != null && _sessionService.privateKey != null) {
             _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+
+            // Payload mittels AES entschlüsseln
             final decryptedData = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
             final jsonStr = utf8.decode(decryptedData);
             final payload = EntryPayload.fromJson(json.decode(jsonStr));
             _originalPayload = payload;
 
+            // Daten in UI-Felder übernehmen
             _category = payload.category;
             _title = payload.title;
             _username = payload.username;
@@ -120,6 +160,7 @@ class EditViewModel extends BaseViewModel {
           }
         }
       } else {
+        // Neuer Eintrag: Alles leeren
         _isEditMode = false;
         _entry = null;
         _entryKey = null;
@@ -138,7 +179,7 @@ class EditViewModel extends BaseViewModel {
     }
   }
 
-  // Punkt 2: Passwort generieren (Nutzt den Service)
+  /// Generiert ein neues Zufallspasswort basierend auf den Benutzereinstellungen.
   void generatePassword() {
     final settingsMap = _sessionService.settings;
     if (settingsMap == null) return;
@@ -151,7 +192,8 @@ class EditViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Speichert den Eintrag und gibt die ID des Eintrags zurück.
+  /// Speichert den aktuellen Eintrag in der Datenbank. Verschlüsselt dabei alle sensiblen Felder.
+  /// Gibt die ID des gespeicherten Eintrags zurück.
   Future<int?> save() async {
     if (_title.isEmpty) {
       setError("Titel darf nicht leer sein");
@@ -160,16 +202,19 @@ class EditViewModel extends BaseViewModel {
 
     setBusy(true);
     try {
+      // 1. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
       if (_entryKey == null) {
         _entryKey = Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
       }
 
+      // 2. Favicon laden, falls URL sich geändert hat
       String faviconBase64 = _entry?.favicon ?? '';
       if (_url.isNotEmpty && (_entry == null || _url != _originalPayload?.url)) {
         final icon = await _downloadFavicon(_url);
         if (icon != null) faviconBase64 = icon;
       }
 
+      // 3. Payload bauen und verschlüsseln (AES)
       final payload = EntryPayload(
         category: _category,
         title: _title,
@@ -179,12 +224,12 @@ class EditViewModel extends BaseViewModel {
         notes: _notes,
         favicon: faviconBase64,
       );
-      final encryptedData = await _cryptoService.encrypt(
-        utf8.encode(json.encode(payload.toJson())) as Uint8List,
-        _entryKey!,
-      );
+      final encryptedData = await _cryptoService.encrypt(utf8.encode(json.encode(payload.toJson())) as Uint8List, _entryKey!);
+
+      // 4. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
 
+      // 5. Entity erstellen und speichern
       final entity = EntryEntity(
         id: _entry?.id,
         uuid: _entry?.uuid ?? const Uuid().v4(),
@@ -209,6 +254,7 @@ class EditViewModel extends BaseViewModel {
     }
   }
 
+  /// Löscht den aktuellen Eintrag.
   Future<bool> deleteEntry() async {
     if (_entry == null || _entry!.id == null) return false;
     setBusy(true);
@@ -223,6 +269,11 @@ class EditViewModel extends BaseViewModel {
     }
   }
 
+  // ------------------------------------------------------------------------
+  // --- Private Methoden ---
+  // ------------------------------------------------------------------------
+
+  /// Lädt das Favicon einer Website über den Google-Dienst.
   Future<String?> _downloadFavicon(String url) async {
     try {
       final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
