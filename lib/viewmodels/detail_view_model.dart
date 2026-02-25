@@ -45,6 +45,8 @@ class DetailViewModel extends BaseViewModel {
   String _favicon = '';
   String _auditHint = '';
   bool _isPasswordHidden = true;
+  
+  int _myAccessLevel = 1;
 
   DetailViewModel(this._cryptoService, this._databaseService, this._sessionService, this._passwordService);
 
@@ -60,6 +62,11 @@ class DetailViewModel extends BaseViewModel {
   bool get isPasswordHidden => _isPasswordHidden;
   List<AttachmentEntity> get attachments => _attachments;
   List<UserEntity> get sharedWith => _sharedWith;
+  
+  int get myAccessLevel => _myAccessLevel;
+  bool get canEdit => _myAccessLevel >= 2;
+  bool get canManageAttachments => _myAccessLevel >= 2;
+  bool get canManageShares => _myAccessLevel >= 3;
 
   List<UserEntity> get availableContacts {
     final sharedIds = _sharedWith.map((u) => u.id).toSet();
@@ -85,6 +92,8 @@ class DetailViewModel extends BaseViewModel {
 
       final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, 1);
       if (perm == null) throw Exception("Keine Berechtigung für diesen Eintrag");
+      
+      _myAccessLevel = perm.accessLevel;
 
       if (_sessionService.privateKey == null) throw Exception("Sitzungsschlüssel fehlt");
       
@@ -164,23 +173,32 @@ class DetailViewModel extends BaseViewModel {
   }
 
   Future<void> shareWith(UserEntity targetUser) async {
-    if (_entry == null || _entryKey == null) return;
+    if (_entry == null || _entryKey == null || targetUser.id == null) return;
     setBusy(true);
     try {
-      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
-      
-      // Prüfen ob bereits ein Datensatz existiert (z.B. mit Level 0)
       final existing = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, targetUser.id!);
       
-      final perm = PermissionEntity(
-        id: existing?.id, // Falls vorhanden, wird geupdated statt neu angelegt
-        entryId: _entry!.id!,
-        userId: targetUser.id!,
-        encryptedKey: encryptedEntryKey,
-        accessLevel: 1, // Default: Nur Lesen
-      );
-      
-      await _databaseService.savePermission(perm);
+      if (existing == null) {
+        // Neuer Eintrag
+        final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
+        final perm = PermissionEntity(
+          entryId: _entry!.id!,
+          userId: targetUser.id!,
+          encryptedKey: encryptedEntryKey,
+          accessLevel: 1, // Default: Nur Lesen (max 2 beim direkten Teilen)
+        );
+        await _databaseService.savePermission(perm);
+      } else {
+        // Fallback: Existiert bereits (Level 0), wird reaktiviert
+        String encryptedEntryKey = existing.encryptedKey;
+        if (encryptedEntryKey.isEmpty) {
+           encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
+        }
+        await _databaseService.savePermission(existing.copyWith(
+          accessLevel: 1,
+          encryptedKey: encryptedEntryKey
+        ));
+      }
       
       _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
       await _databaseService.saveEntry(_entry!);
@@ -193,12 +211,26 @@ class DetailViewModel extends BaseViewModel {
   }
 
   Future<void> updateAccessLevel(UserEntity user, int newLevel) async {
-    if (_entry == null || user.id == null) return;
+    if (_entry == null || user.id == null || _entryKey == null) return;
     setBusy(true);
     try {
       final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, user.id!);
-      if (perm != null) {
-        await _databaseService.savePermission(perm.copyWith(accessLevel: newLevel));
+      if (perm != null && perm.accessLevel != newLevel) {
+        // Limit auf max Level 2 (wie in MAUI)
+        final effectiveLevel = newLevel < 3 ? newLevel : 2;
+        
+        String encKey = perm.encryptedKey;
+        if (effectiveLevel == 0) {
+           encKey = "";
+        } else if (encKey.isEmpty) {
+           encKey = await _cryptoService.encryptRsa(_entryKey!, user.publicKey);
+        }
+
+        await _databaseService.savePermission(perm.copyWith(
+          accessLevel: effectiveLevel,
+          encryptedKey: encKey
+        ));
+        
         _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
         await _databaseService.saveEntry(_entry!);
         await _loadSharedUsers();
@@ -211,21 +243,7 @@ class DetailViewModel extends BaseViewModel {
   }
 
   Future<void> revokeAccess(UserEntity user) async {
-    if (_entry == null || user.id == null) return;
-    setBusy(true);
-    try {
-      final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, user.id!);
-      if (perm != null) {
-        await _databaseService.savePermission(perm.copyWith(accessLevel: 0, encryptedKey: ""));
-        _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
-        await _databaseService.saveEntry(_entry!);
-        await _loadSharedUsers();
-      }
-    } catch (e) {
-      setError("Zugriff konnte nicht entzogen werden: $e");
-    } finally {
-      setBusy(false);
-    }
+    await updateAccessLevel(user, 0);
   }
 
   Future<void> addAttachment() async {

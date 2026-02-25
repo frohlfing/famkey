@@ -53,7 +53,6 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
-  /// Berechnet die Stärke des Passworts basierend auf den folgenden Regeln:
   Color _getStrengthColor(int score) {
     switch (score) {
       case 0: return const Color(0xFFCBD5E1);
@@ -104,15 +103,16 @@ class _DetailScreenState extends State<DetailScreen> {
             title: const Text('Details'),
             centerTitle: true,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () async {
-                  final result = await Navigator.pushNamed(context, '/edit', arguments: widget.entryId);
-                  if (result == true && mounted) {
-                    _viewModel.initialize(widget.entryId);
-                  }
-                },
-              ),
+              if (viewModel.canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () async {
+                    final result = await Navigator.pushNamed(context, '/edit', arguments: widget.entryId);
+                    if (result == true && mounted) {
+                      _viewModel.initialize(widget.entryId);
+                    }
+                  },
+                ),
             ],
           ),
           body: viewModel.errorMessage != null
@@ -233,83 +233,89 @@ class _DetailScreenState extends State<DetailScreen> {
                   ],
 
                   // Anhänge Section
-                  _buildSectionHeaderWithAction(
-                    'Anhänge',
-                    Icons.add_circle_outline,
-                    'Datei anhängen',
-                    viewModel.addAttachment,
-                  ),
-                  const SizedBox(height: 4),
-                  if (viewModel.attachments.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
-                      child: Text(
-                        'Keine Anhänge vorhanden.',
-                        style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-                      ),
-                    )
-                  else
-                    ...viewModel.attachments.map((att) {
-                      final meta = viewModel.getAttachmentMeta(att.uuid);
-                      final iconType = viewModel.getIconType(meta?.filename ?? '', meta?.mime ?? '');
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () => viewModel.openAttachment(att),
-                              child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Image.memory(
-                                        base64Decode(meta.thumbnail!),
-                                        width: 48,
-                                        height: 48,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : Icon(_getIconForType(iconType), size: 48, color: Colors.blueGrey),
-                            ),
-                          ),
-                          title: Text(meta?.filename ?? 'Datei'),
-                          subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            iconSize: 26,
-                            tooltip: 'Anhang löschen',
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Anhang löschen'),
-                                  content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Abbrechen'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirmed == true && mounted) {
-                                viewModel.deleteAttachment(att);
-                              }
-                            },
-                          ),
+                  if (viewModel.canManageAttachments || viewModel.attachments.isNotEmpty) ...[
+                    if (viewModel.canManageAttachments)
+                      _buildSectionHeaderWithAction(
+                        'Anhänge',
+                        Icons.add_circle_outline,
+                        'Datei anhängen',
+                        viewModel.addAttachment,
+                      )
+                    else
+                      _buildSectionTitle('Anhänge'),
+                    const SizedBox(height: 4),
+                    if (viewModel.attachments.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                        child: Text(
+                          'Keine Anhänge vorhanden.',
+                          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
                         ),
-                      );
-                    }),
-
-                  const Divider(),
+                      )
+                    else
+                      ...viewModel.attachments.map((att) {
+                        final meta = viewModel.getAttachmentMeta(att.uuid);
+                        final iconType = viewModel.getIconType(meta?.filename ?? '', meta?.mime ?? '');
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                onTap: () => viewModel.openAttachment(att),
+                                child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Image.memory(
+                                          base64Decode(meta.thumbnail!),
+                                          width: 48,
+                                          height: 48,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : Icon(_getIconForType(iconType), size: 48, color: Colors.blueGrey),
+                              ),
+                            ),
+                            title: Text(meta?.filename ?? 'Datei'),
+                            subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
+                            trailing: viewModel.canManageAttachments ? IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              iconSize: 26,
+                              tooltip: 'Anhang löschen',
+                              onPressed: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Anhang löschen'),
+                                    content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Abbrechen'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true && mounted) {
+                                  viewModel.deleteAttachment(att);
+                                }
+                              },
+                            ) : null,
+                          ),
+                        );
+                      }),
+                    const Divider(),
+                  ],
 
                   // Geteilt mit Section
-                  _buildSharedWithSection(viewModel),
-                  const Divider(),
+                  if (viewModel.canManageShares || viewModel.sharedWith.isNotEmpty) ...[
+                    _buildSharedWithSection(viewModel),
+                    const Divider(),
+                  ],
 
                   // Audit Hint
                   if (viewModel.auditHint.isNotEmpty)
@@ -337,9 +343,12 @@ class _DetailScreenState extends State<DetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeaderWithAction('Geteilt mit', Icons.person_add_alt_1_outlined, 'Freigabe hinzufügen', () {
-          _showShareDialog(context, viewModel);
-        }),
+        if (viewModel.canManageShares)
+          _buildSectionHeaderWithAction('Geteilt mit', Icons.person_add_alt_1_outlined, 'Freigabe hinzufügen', () {
+            _showShareDialog(context, viewModel);
+          })
+        else
+          _buildSectionTitle('Geteilt mit'),
         const SizedBox(height: 4),
         if (viewModel.sharedWith.isEmpty)
           const Padding(
@@ -382,7 +391,7 @@ class _DetailScreenState extends State<DetailScreen> {
               child: ListTile(
                 leading: leadingIcon,
                 title: Text(user.name),
-                trailing: Row(
+                trailing: viewModel.canManageShares ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('Schreiben', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -420,7 +429,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       },
                     ),
                   ],
-                ),
+                ) : (isWritable ? const Text('Schreiben', style: TextStyle(color: Colors.grey)) : const Text('Nur Lesen', style: TextStyle(color: Colors.grey))),
               ),
             );
           }),
