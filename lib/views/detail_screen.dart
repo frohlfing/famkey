@@ -276,6 +276,8 @@ class _DetailScreenState extends State<DetailScreen> {
                           subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            iconSize: 26,
+                            tooltip: 'Anhang löschen',
                             onPressed: () async {
                               final confirmed = await showDialog<bool>(
                                 context: context,
@@ -298,7 +300,6 @@ class _DetailScreenState extends State<DetailScreen> {
                                 viewModel.deleteAttachment(att);
                               }
                             },
-                            tooltip: 'Anhang löschen',
                           ),
                         ),
                       );
@@ -378,15 +379,18 @@ class _DetailScreenState extends State<DetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('Schreiben', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Switch(
+                    Transform.scale(
+                      scale: 0.75,
+                      child: Switch(
                       value: isWritable,
                       onChanged: (bool value) {
                         viewModel.updateAccessLevel(user, value ? 2 : 1);
                       },
-                    ),
+                    )),
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      iconSize: 26,
                       tooltip: 'Zugriff entziehen',
                       onPressed: () async {
                         final confirmed = await showDialog<bool>(
@@ -447,29 +451,19 @@ class _DetailScreenState extends State<DetailScreen> {
                       );
 
                       if (!user.isVerified) {
-                        leadingIcon = MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () async {
-                              Navigator.of(context).pop(); // Dialog schließen
-                              await Navigator.pushNamed(context, '/settings', arguments: {'focus_user_uuid': user.uuid});
-                              if (mounted) _viewModel.initialize(widget.entryId);
-                            },
-                            child: Tooltip(
-                              message: 'Person ist nicht verifiziert!',
-                              child: leadingIcon,
-                            ),
-                          ),
+                        leadingIcon = Tooltip(
+                          message: 'Person ist nicht verifiziert!',
+                          child: leadingIcon,
                         );
                       }
 
                       return ListTile(
                         leading: leadingIcon,
-                        onTap: user.isVerified ? () {
+                        title: Text(user.name),
+                        onTap: () {
                           viewModel.shareWith(user);
                           Navigator.of(context).pop();
-                        } : null,
-                        title: Text(user.name),
+                        },
                       );
                     },
                   ),
