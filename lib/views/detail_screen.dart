@@ -97,25 +97,25 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<DetailViewModel>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Details'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () async {
-              final result = await Navigator.pushNamed(context, '/edit', arguments: widget.entryId);
-              if (result == true && mounted) {
-                _viewModel.initialize(widget.entryId);
-              }
-            },
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Details'),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () async {
+                  final result = await Navigator.pushNamed(context, '/edit', arguments: widget.entryId);
+                  if (result == true && mounted) {
+                    _viewModel.initialize(widget.entryId);
+                  }
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-      body: viewModel.isBusy
-          ? const Center(child: CircularProgressIndicator())
-          : viewModel.errorMessage != null
+          body: viewModel.errorMessage != null
           ? Center(
               child: Text(viewModel.errorMessage!, style: const TextStyle(color: Colors.red)),
             )
@@ -323,6 +323,13 @@ class _DetailScreenState extends State<DetailScreen> {
                 ],
               ),
             ),
+        ),
+        if (viewModel.isBusy)
+          Container(
+            color: Colors.black.withValues(alpha: 0.1),
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+      ],
     );
   }
 
