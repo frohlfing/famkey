@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/settings_entity.dart';
@@ -15,7 +13,15 @@ import 'package:privault/viewmodels/settings_friend_view_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+/// Die zentrale Logikschicht für die Einstellungsseite der Anwendung.
+///
+/// Es verwaltet die Konfiguration des aktuellen Tresors, die Synchronisationsparameter,
+/// das Erscheinungsbild sowie die Liste der Freunde.
 class SettingsViewModel extends BaseViewModel {
+  // ------------------------------------------------------------------------
+  // --- Felder ---
+  // ------------------------------------------------------------------------
+
   final DatabaseService _databaseService;
   final SessionService _sessionService;
   final WebService _webService;
@@ -39,65 +45,137 @@ class SettingsViewModel extends BaseViewModel {
   bool _isTokenHidden = true;
   bool _isRegistered = false;
 
+  // ------------------------------------------------------------------------
+  // --- Konstruktor ---
+  // ------------------------------------------------------------------------
+
   SettingsViewModel(
-    this._databaseService, 
-    this._sessionService, 
-    this._webService, 
+    this._databaseService,
+    this._sessionService,
+    this._webService,
     this._cryptoService,
     this._biometricService,
     this._configService,
   );
 
-  // Getters
+  // ------------------------------------------------------------------------
+  // --- Eigenschaften ---
+  // ------------------------------------------------------------------------
+
   String get vaultName => _vaultName;
+
   String get userName => _userName;
+
   String get host => _host;
+
   String get apiToken => _apiToken;
+
   bool get useBiometric => _useBiometric;
+
   int get pwLength => _pwLength;
+
   String get pwSpecialCharSet => _pwSpecialCharSet;
+
   bool get pwAvoidIlO0 => _pwAvoidIlO0;
+
   String get categoryPlaceholder => _categoryPlaceholder;
+
   ThemeMode get themeMode => _themeMode;
+
   bool get isTokenHidden => _isTokenHidden;
+
   bool get isRegistered => _isRegistered;
+
   String get vaultStoragePath => _configService.vaultStoragePath;
+
   List<SettingsFriendViewModel> get friends => _friends;
 
-  // Setters
-  set vaultName(String value) { _vaultName = value; notifyListeners(); }
-  set userName(String value) { _userName = value; notifyListeners(); }
-  set host(String value) { _host = value; notifyListeners(); }
-  set apiToken(String value) { _apiToken = value; notifyListeners(); }
-  set useBiometric(bool value) { _useBiometric = value; notifyListeners(); }
-  set pwLength(int value) { _pwLength = value; notifyListeners(); }
-  set pwSpecialCharSet(String value) { _pwSpecialCharSet = value; notifyListeners(); }
-  set pwAvoidIlO0(bool value) { _pwAvoidIlO0 = value; notifyListeners(); }
-  set categoryPlaceholder(String value) { _categoryPlaceholder = value; notifyListeners(); }
-  set themeMode(ThemeMode value) { _themeMode = value; notifyListeners(); }
+  // --- Setters ---
 
+  set vaultName(String value) {
+    _vaultName = value;
+    notifyListeners();
+  }
+
+  set userName(String value) {
+    _userName = value;
+    notifyListeners();
+  }
+
+  set host(String value) {
+    _host = value;
+    notifyListeners();
+  }
+
+  set apiToken(String value) {
+    _apiToken = value;
+    notifyListeners();
+  }
+
+  set useBiometric(bool value) {
+    _useBiometric = value;
+    notifyListeners();
+  }
+
+  set pwLength(int value) {
+    _pwLength = value;
+    notifyListeners();
+  }
+
+  set pwSpecialCharSet(String value) {
+    _pwSpecialCharSet = value;
+    notifyListeners();
+  }
+
+  set pwAvoidIlO0(bool value) {
+    _pwAvoidIlO0 = value;
+    notifyListeners();
+  }
+
+  set categoryPlaceholder(String value) {
+    _categoryPlaceholder = value;
+    notifyListeners();
+  }
+
+  set themeMode(ThemeMode value) {
+    _themeMode = value;
+    notifyListeners();
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Befehle ---
+  // ------------------------------------------------------------------------
+
+  /// Schaltet die Sichtbarkeit des API-Tokens um.
   void toggleTokenVisibility() {
     _isTokenHidden = !_isTokenHidden;
     notifyListeners();
   }
 
-  // 1) Sonderzeichen-Presets repariert
+  /// Setzt den Zeichensatz für den Passwortgenerator basierend auf vordefinierten Gruppen.
   void setSpecialChars(String type) {
     switch (type) {
-      case 'None': _pwSpecialCharSet = ''; break;
-      case 'Standard': _pwSpecialCharSet = '!@#\$%^&*()_+-=[]{}|;:,.<>?'; break;
-      case 'All': _pwSpecialCharSet = '!\"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'; break;
+      case 'None':
+        _pwSpecialCharSet = '';
+        break;
+      case 'Standard':
+        _pwSpecialCharSet = '!@#\$%^&*()_+-=[]{}|;:,.<>?';
+        break;
+      case 'All':
+        _pwSpecialCharSet = '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+        break;
     }
     notifyListeners();
   }
 
+  /// Lädt die Einstellungen aus der Datenbank und initialisiert die View-Properties.
   Future<void> loadSettings() async {
     setBusy(true);
     try {
       _settings = await _databaseService.getSettings();
       _vaultName = _sessionService.vaultName;
       _userName = _sessionService.user?.name ?? '';
-      
+
       if (_settings != null) {
         _host = _settings!.host;
         _apiToken = _settings!.apiToken;
@@ -116,33 +194,36 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
+  /// Lädt alle Freunde aus der Datenbank und bereitet die ViewModels für die Liste vor.
   Future<void> loadFriends() async {
     final allUsers = await _databaseService.getUsers();
     final myUuid = _sessionService.user?.uuid;
-    
+
     _friends = allUsers
         .where((u) => u.uuid != myUuid && !u.isHidden)
         .map((u) => SettingsFriendViewModel(_cryptoService, _databaseService, u))
         .toList();
-    
+
     for (var f in _friends) {
       await f.refreshStatus();
     }
     notifyListeners();
   }
 
+  /// Speichert alle geänderten Einstellungen in der Datenbank und aktualisiert die Session.
   Future<bool> save() async {
     if (_settings == null) return false;
     setBusy(true);
     try {
-      // 2) Wenn Biometrie deaktiviert wird -> Key aus Secure Store löschen
+      // Wenn Biometrie deaktiviert wurde -> Key aus Secure Store löschen
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
         debugPrint('🔐 Biometrie-Key entfernt, da Option deaktiviert wurde.');
       }
 
+      // Host-URL normalisieren (Trailing-Slash entfernen)
       final normalizedHost = _host.trim().replaceAll(RegExp(r'/+$'), '');
-      
+
       final updated = _settings!.copyWith(
         host: normalizedHost,
         apiToken: _apiToken.trim(),
@@ -153,12 +234,14 @@ class SettingsViewModel extends BaseViewModel {
         categoryPlaceholder: _categoryPlaceholder,
       );
       await _databaseService.saveSettings(updated);
-      
+
+      // Benutzername nur änderbar, wenn noch nicht registriert/gesynct
       if (!_isRegistered && _userName != _sessionService.user?.name) {
         final updatedUser = _sessionService.user!.copyWith(name: _userName);
         await _databaseService.saveUser(updatedUser);
       }
 
+      // Session aktualisieren, damit Änderungen sofort aktiv sind
       _sessionService.setSession(
         user: _sessionService.user!,
         privateKey: _sessionService.privateKey!,
@@ -174,7 +257,7 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
-  // 5) Komplette Lösch-Sequenz
+  /// Löscht den aktuellen Tresor lokal vom Gerät.
   Future<void> deleteVault() async {
     final nameToDelete = _sessionService.vaultName;
     await _databaseService.deleteCurrentDatabase();
@@ -185,6 +268,7 @@ class SettingsViewModel extends BaseViewModel {
     _sessionService.clearSession();
   }
 
+  /// Testet die Verbindung zum Sync-Server.
   Future<bool> testConnection() async {
     setBusy(true);
     clearError();
@@ -199,6 +283,7 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
+  /// Sucht und fügt einen neuen Freund über dessen Namen hinzu.
   void addFriend(String name) async {
     if (name.isEmpty) return;
     setBusy(true);
@@ -224,72 +309,68 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
+  /// Speichert den aktualisierten Verifizierungsstatus eines Kontakts.
   void toggleVerification(SettingsFriendViewModel friendVm) async {
     final updated = friendVm.user.copyWith(isVerified: !friendVm.isVerified);
     await _databaseService.saveUser(updated);
     await loadFriends();
   }
 
-  // 3) Korrigierte Systemeinstellungen für Windows, Android und iOS
-  
+  /// Öffnet die Systemeinstellungen für Biometrie.
   Future<void> openBiometricSettings() async {
     if (Platform.isWindows) {
       await launchUrl(Uri.parse('ms-settings:signinoptions'));
     } else if (Platform.isAndroid) {
-      // Intent für Sicherheitseinstellungen (Biometrie)
       await launchUrl(Uri.parse('intent:#Intent;action=android.settings.SECURITY_SETTINGS;end'));
     } else if (Platform.isIOS || Platform.isMacOS) {
       await launchUrl(Uri.parse('App-Prefs:root=FACEID_PASSCODE'));
     }
   }
 
+  /// Öffnet die Systemeinstellungen (oder eine Hilfeseite) für den Auto-Fill-Dienst.
   Future<void> openAutofillSettings() async {
     if (Platform.isWindows) {
-      await launchUrl(Uri.parse('https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e'), mode: LaunchMode.externalApplication);
+      await launchUrl(
+        Uri.parse(
+          'https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e',
+        ),
+        mode: LaunchMode.externalApplication,
+      );
     } else if (Platform.isAndroid) {
-      // Intent für Autofill-Einstellungen
       await launchUrl(Uri.parse('intent:#Intent;action=android.settings.REQUEST_SET_AUTOFILL_SERVICE;end'));
     } else if (Platform.isIOS || Platform.isMacOS) {
-      // iOS Passwords (Autofill Provider)
       await launchUrl(Uri.parse('App-Prefs:root=PASSWORDS'));
     }
   }
 
+  /// Öffnet die App-Info-Seite in den Systemeinstellungen.
   Future<void> openAppSettings() async {
     if (Platform.isWindows) {
       // Unter Windows gibt es keinen direkten Weg in die Detail-Ansicht einer fremden MSIX/EXE via URI.
-      // Der Standardweg öffnet "ms-settings:appsfeatures-app". 
+      // Der Standardweg öffnet "ms-settings:appsfeatures-app".
       // Man kann versuchen, direkt auf die Windows-App-Einstellungen für *diese* App zu zielen.
       try {
-         final packageInfo = await PackageInfo.fromPlatform();
-         final pfn = packageInfo.packageName;
+        final packageInfo = await PackageInfo.fromPlatform();
+        final pfn = packageInfo.packageName;
+        final advancedUri = Uri.parse('ms-settings:appsfeatures-app?PFN=$pfn');
 
-         // Versucht die Advanced App Settings für diese spezifische App zu öffnen
-         final advancedUri = Uri.parse('ms-settings:appsfeatures-app?PFN=$pfn');
-         // if (kDebugMode) {
-         //   debugPrint("advancedUri: $advancedUri");
-         // }
-         if (await canLaunchUrl(advancedUri)) {
-           await launchUrl(advancedUri);
-           return;
-         }
+        if (await canLaunchUrl(advancedUri)) {
+          await launchUrl(advancedUri);
+          return;
+        }
       } catch (_) {}
-      
+
       // Fallback: Die allgemeine Liste der installierten Apps
       await launchUrl(Uri.parse('ms-settings:appsfeatures'));
-      
     } else if (Platform.isAndroid) {
-      // Unter Android springen wir direkt in die App-Info für diese spezielle App.
       try {
         final packageInfo = await PackageInfo.fromPlatform();
         final packageName = packageInfo.packageName;
-        // Erzeugt ein Intent, das direkt zur Detailseite dieser App springt.
         await launchUrl(Uri.parse('intent:package:$packageName#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;end'));
       } catch (_) {
         await launchUrl(Uri.parse('intent:#Intent;action=android.settings.APPLICATION_SETTINGS;end'));
       }
     } else if (Platform.isIOS || Platform.isMacOS) {
-      // iOS: Öffnet direkt die Einstellungen dieser spezifischen App.
       await launchUrl(Uri.parse('app-settings:'));
     }
   }

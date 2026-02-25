@@ -26,10 +26,10 @@ class DatabaseService {
   /// Entspricht InitializeAsync aus MAUI.
   Future<void> initialize(String vaultName, String password) async {
     if (_db != null) return; // Bereits verbunden
-    
+
     final storagePath = _configService.vaultStoragePath;
     _currentDbPath = p.join(storagePath, '$vaultName.db3');
-    
+
     _db = AppDatabase(vaultName, password);
   }
 
@@ -86,11 +86,11 @@ class DatabaseService {
   Future<void> deleteCurrentDatabase() async {
     final path = _currentDbPath;
     await close();
-    
+
     if (path != null) {
       final dbFile = File(path);
       if (await dbFile.exists()) await dbFile.delete();
-      
+
       final saltFile = File('$path.salt');
       if (await saltFile.exists()) await saltFile.delete();
     }
@@ -142,15 +142,19 @@ class DatabaseService {
   Future<List<UserEntity>> getUsers() async {
     if (_db == null) return [];
     final list = await _db!.select(_db!.users).get();
-    return list.map((u) => UserEntity(
-      id: u.id,
-      uuid: u.uuid,
-      name: u.name,
-      publicKey: u.publicKey,
-      isVerified: u.isVerified,
-      isHidden: u.isHidden,
-      updatedAt: u.updatedAt,
-    )).toList();
+    return list
+        .map(
+          (u) => UserEntity(
+            id: u.id,
+            uuid: u.uuid,
+            name: u.name,
+            publicKey: u.publicKey,
+            isVerified: u.isVerified,
+            isHidden: u.isHidden,
+            updatedAt: u.updatedAt,
+          ),
+        )
+        .toList();
   }
 
   Future<void> saveUser(UserEntity entity) async {
@@ -177,7 +181,7 @@ class DatabaseService {
     await _db!.transaction(() async {
       // 1. Lösche alle Permissions, die der Benutzer selbst hat
       await (_db!.delete(_db!.permissions)..where((p) => p.userId.equals(id))).go();
-      
+
       // 2. Lösche ALLE Permissions für ALLE Einträge, die dieser Benutzer erstellt hat
       // (Wenn der Besitzer gelöscht wird, haben auch Freunde keinen Zugriff mehr)
       await _db!.customStatement("DELETE FROM permissions WHERE entry_id IN (SELECT id FROM entries WHERE creator_id = ?)", [id]);
@@ -185,9 +189,9 @@ class DatabaseService {
       // 3. Lösche alle Anhänge von Einträgen, die dieser Benutzer erstellt hat
       await _db!.customStatement("DELETE FROM attachments WHERE entry_id IN (SELECT id FROM entries WHERE creator_id = ?)", [id]);
 
-      // 4. Lösche die Einträge des Benutzers 
+      // 4. Lösche die Einträge des Benutzers
       await (_db!.delete(_db!.entries)..where((e) => e.creatorId.equals(id))).go();
-      
+
       // 5. UpdaterId bei verbliebenen Einträgen nullen
       await _db!.customStatement("UPDATE entries SET updater_id = 0 WHERE updater_id = ?", [id]);
 
@@ -202,25 +206,34 @@ class DatabaseService {
     final now = DateTime.now().toUtc();
     await _db!.transaction(() async {
       // 1. Alle Permissions des Users entwerten.
-      await _db!.customStatement("""
+      await _db!.customStatement(
+        """
           UPDATE permissions 
           SET access_level = 0, encrypted_key = '' 
           WHERE user_id = ? AND (access_level > 0 OR encrypted_key != '')
-      """, [userId]);
+      """,
+        [userId],
+      );
 
       // 2. Zeitstempel aller betroffenen Einträge aktualisieren
-      await _db!.customStatement("""
+      await _db!.customStatement(
+        """
           UPDATE entries 
           SET updated_at = ? 
           WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
-      """, [now.toIso8601String(), userId]);
+      """,
+        [now.toIso8601String(), userId],
+      );
 
       // 3. Benutzer-Status aktualisieren
-      await _db!.customStatement("""
+      await _db!.customStatement(
+        """
           UPDATE users 
           SET is_verified = 0, is_hidden = 1, updated_at = ? 
           WHERE id = ?
-      """, [now.toIso8601String(), userId]);
+      """,
+        [now.toIso8601String(), userId],
+      );
     });
   }
 
@@ -228,25 +241,31 @@ class DatabaseService {
   Future<void> removeEntryKeysForUser(int userId) async {
     if (_db == null) return;
     final now = DateTime.now().toUtc();
-    
+
     await _db!.transaction(() async {
       // 1. Alle Entry-Keys des Users in einem Rutsch entfernen.
       // Wir prüfen manuell, ob Zeilen betroffen waren (in Drift über custom Update oder Select)
-      final affectedRows = await _db!.customUpdate("""
+      final affectedRows = await _db!.customUpdate(
+        """
           UPDATE permissions 
           SET encrypted_key = '' 
           WHERE user_id = ? AND encrypted_key != ''
-      """, variables: [Variable.withInt(userId)]);
+      """,
+        variables: [Variable.withInt(userId)],
+      );
 
       // Wenn keine Keys entfernt wurden, müssen wir auch keine Zeitstempel aktualisieren.
       if (affectedRows == 0) return;
 
       // 2. Zeitstempel der betroffenen Einträge aktualisieren.
-      await _db!.customStatement("""
+      await _db!.customStatement(
+        """
           UPDATE entries 
           SET updated_at = ? 
           WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
-      """, [now.toIso8601String(), userId]);
+      """,
+        [now.toIso8601String(), userId],
+      );
     });
   }
 
@@ -268,19 +287,23 @@ class DatabaseService {
   Future<List<EntryEntity>> getAllEntries() async {
     if (_db == null) return [];
     final list = await _db!.select(_db!.entries).get();
-    return list.map((e) => EntryEntity(
-      id: e.id,
-      uuid: e.uuid,
-      category: e.category,
-      title: e.title,
-      url: e.url,
-      notes: e.notes,
-      favicon: e.favicon,
-      encryptedData: e.encryptedData,
-      creatorId: e.creatorId,
-      updaterId: e.updaterId,
-      updatedAt: e.updatedAt,
-    )).toList();
+    return list
+        .map(
+          (e) => EntryEntity(
+            id: e.id,
+            uuid: e.uuid,
+            category: e.category,
+            title: e.title,
+            url: e.url,
+            notes: e.notes,
+            favicon: e.favicon,
+            encryptedData: e.encryptedData,
+            creatorId: e.creatorId,
+            updaterId: e.updaterId,
+            updatedAt: e.updatedAt,
+          ),
+        )
+        .toList();
   }
 
   Future<EntryEntity?> getEntryById(int id) async {
@@ -324,19 +347,23 @@ class DatabaseService {
   Future<List<EntryEntity>> getEntriesSince(DateTime since) async {
     if (_db == null) return [];
     final list = await (_db!.select(_db!.entries)..where((e) => e.updatedAt.isBiggerThanValue(since))).get();
-    return list.map((e) => EntryEntity(
-      id: e.id,
-      uuid: e.uuid,
-      category: e.category,
-      title: e.title,
-      url: e.url,
-      notes: e.notes,
-      favicon: e.favicon,
-      encryptedData: e.encryptedData,
-      creatorId: e.creatorId,
-      updaterId: e.updaterId,
-      updatedAt: e.updatedAt,
-    )).toList();
+    return list
+        .map(
+          (e) => EntryEntity(
+            id: e.id,
+            uuid: e.uuid,
+            category: e.category,
+            title: e.title,
+            url: e.url,
+            notes: e.notes,
+            favicon: e.favicon,
+            encryptedData: e.encryptedData,
+            creatorId: e.creatorId,
+            updaterId: e.updaterId,
+            updatedAt: e.updatedAt,
+          ),
+        )
+        .toList();
   }
 
   Future<void> saveEntry(EntryEntity entity) async {
@@ -356,10 +383,10 @@ class DatabaseService {
     await _db!.transaction(() async {
       // 1. Alle Berechtigungen für diesen Eintrag löschen
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(id))).go();
-      
+
       // 2. Alle Anhänge (Metadaten und physische Blobs) dieses Eintrags löschen
       await (_db!.delete(_db!.attachments)..where((a) => a.entryId.equals(id))).go();
-      
+
       // 3. Den Eintrag selbst physisch löschen
       await (_db!.delete(_db!.entries)..where((e) => e.id.equals(id))).go();
     });
@@ -376,7 +403,9 @@ class DatabaseService {
       final entryCompanion = _entryToCompanion(entry);
 
       // 1. Eintrag speichern (wie MAUI: erst suchen ob Id oder Uuid existiert)
-      final existingEntry = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entry.id ?? -1) | e.uuid.equals(entry.uuid))).getSingleOrNull();
+      final existingEntry = await (_db!.select(
+        _db!.entries,
+      )..where((e) => e.id.equals(entry.id ?? -1) | e.uuid.equals(entry.uuid))).getSingleOrNull();
       if (existingEntry != null) {
         await (_db!.update(_db!.entries)..where((e) => e.id.equals(existingEntry.id))).write(entryCompanion);
         actualEntryId = existingEntry.id;
@@ -392,13 +421,15 @@ class DatabaseService {
         accessLevel: Value(accessLevel),
       );
 
-      final existingPerm = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(actualEntryId) & p.userId.equals(userId))).getSingleOrNull();
+      final existingPerm = await (_db!.select(
+        _db!.permissions,
+      )..where((p) => p.entryId.equals(actualEntryId) & p.userId.equals(userId))).getSingleOrNull();
       if (existingPerm != null) {
         await (_db!.update(_db!.permissions)..where((p) => p.id.equals(existingPerm.id))).write(permCompanion);
       } else {
         await _db!.into(_db!.permissions).insert(permCompanion);
       }
-      
+
       return actualEntryId;
     });
   }
@@ -410,27 +441,35 @@ class DatabaseService {
   Future<List<AttachmentEntity>> getAttachmentsByEntryId(int entryId) async {
     if (_db == null) return [];
     final list = await (_db!.select(_db!.attachments)..where((a) => a.entryId.equals(entryId))).get();
-    return list.map((a) => AttachmentEntity(
-      id: a.id,
-      uuid: a.uuid,
-      entryId: a.entryId,
-      encryptedMeta: a.encryptedMeta,
-      encryptedContent: a.encryptedContent,
-      isSynced: a.isSynced,
-    )).toList();
+    return list
+        .map(
+          (a) => AttachmentEntity(
+            id: a.id,
+            uuid: a.uuid,
+            entryId: a.entryId,
+            encryptedMeta: a.encryptedMeta,
+            encryptedContent: a.encryptedContent,
+            isSynced: a.isSynced,
+          ),
+        )
+        .toList();
   }
 
   Future<List<AttachmentEntity>> getAttachmentsUnsynced() async {
     if (_db == null) return [];
     final list = await (_db!.select(_db!.attachments)..where((a) => a.isSynced.equals(false))).get();
-    return list.map((a) => AttachmentEntity(
-      id: a.id,
-      uuid: a.uuid,
-      entryId: a.entryId,
-      encryptedMeta: a.encryptedMeta,
-      encryptedContent: a.encryptedContent,
-      isSynced: a.isSynced,
-    )).toList();
+    return list
+        .map(
+          (a) => AttachmentEntity(
+            id: a.id,
+            uuid: a.uuid,
+            entryId: a.entryId,
+            encryptedMeta: a.encryptedMeta,
+            encryptedContent: a.encryptedContent,
+            isSynced: a.isSynced,
+          ),
+        )
+        .toList();
   }
 
   Future<void> saveAttachment(AttachmentEntity entity) async {
@@ -462,32 +501,26 @@ class DatabaseService {
   Future<List<PermissionEntity>> getPermissionsByEntryId(int entryId) async {
     if (_db == null) return [];
     final list = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId))).get();
-    return list.map((p) => PermissionEntity(
-      id: p.id,
-      entryId: p.entryId,
-      userId: p.userId,
-      encryptedKey: p.encryptedKey,
-      accessLevel: p.accessLevel,
-    )).toList();
+    return list
+        .map(
+          (p) => PermissionEntity(id: p.id, entryId: p.entryId, userId: p.userId, encryptedKey: p.encryptedKey, accessLevel: p.accessLevel),
+        )
+        .toList();
   }
 
   Future<List<PermissionEntity>> getPermissions() async {
     if (_db == null) return [];
     final list = await _db!.select(_db!.permissions).get();
-    return list.map((p) => PermissionEntity(
-      id: p.id,
-      entryId: p.entryId,
-      userId: p.userId,
-      encryptedKey: p.encryptedKey,
-      accessLevel: p.accessLevel,
-    )).toList();
+    return list
+        .map(
+          (p) => PermissionEntity(id: p.id, entryId: p.entryId, userId: p.userId, encryptedKey: p.encryptedKey, accessLevel: p.accessLevel),
+        )
+        .toList();
   }
 
   Future<PermissionEntity?> getPermissionByEntryAndUser(int entryId, int userId) async {
     if (_db == null) return null;
-    final row = await (_db!.select(_db!.permissions)
-      ..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId)))
-      .getSingleOrNull();
+    final row = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId))).getSingleOrNull();
 
     if (row == null) return null;
     return PermissionEntity(
@@ -519,10 +552,7 @@ class DatabaseService {
     if (_db == null) return;
     await _db!.transaction(() async {
       for (final p in permissions) {
-        final companion = PermissionsCompanion(
-          encryptedKey: Value(p.encryptedKey),
-          accessLevel: Value(p.accessLevel),
-        );
+        final companion = PermissionsCompanion(encryptedKey: Value(p.encryptedKey), accessLevel: Value(p.accessLevel));
         if (p.id != null) {
           await (_db!.update(_db!.permissions)..where((perm) => perm.id.equals(p.id!))).write(companion);
         }
@@ -537,19 +567,14 @@ class DatabaseService {
   Future<List<TombstoneEntity>> getTombstonesSince(DateTime since) async {
     if (_db == null) return [];
     final list = await (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
-    return list.map((t) => TombstoneEntity(
-      id: t.id,
-      entryUuid: t.entryUuid,
-      deletedAt: t.deletedAt,
-    )).toList();
+    return list.map((t) => TombstoneEntity(id: t.id, entryUuid: t.entryUuid, deletedAt: t.deletedAt)).toList();
   }
 
   Future<void> saveTombstone(TombstoneEntity t) async {
     if (_db == null) return;
-    await _db!.into(_db!.tombstones).insertOnConflictUpdate(TombstonesCompanion(
-      entryUuid: Value(t.entryUuid),
-      deletedAt: Value(t.deletedAt),
-    ));
+    await _db!
+        .into(_db!.tombstones)
+        .insertOnConflictUpdate(TombstonesCompanion(entryUuid: Value(t.entryUuid), deletedAt: Value(t.deletedAt)));
   }
 
   // ------------------------------------------------------------------------

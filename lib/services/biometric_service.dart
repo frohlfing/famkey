@@ -5,14 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 
 /// Flutter-Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
-/// 
+///
 /// Dieser Service ist das Äquivalent zum `MauiBiometricService.cs`. Er kombiniert
 /// zwei Konzepte:
 /// 1. Hardware-gestützte Authentifizierung (`local_auth` als Ersatz für `Plugin.Fingerprint` / `UserConsentVerifier`)
 /// 2. Sichere Speicherung im OS-Keystore (`flutter_secure_storage` als Ersatz für MAUIs `SecureStorage`)
-/// 
-/// Der Master-Key wird nicht einfach auf der Festplatte abgelegt, sondern durch den 
-/// Hardware-Sicherheitschip des Betriebssystems (Keychain bei iOS, Keystore bei Android) 
+///
+/// Der Master-Key wird nicht einfach auf der Festplatte abgelegt, sondern durch den
+/// Hardware-Sicherheitschip des Betriebssystems (Keychain bei iOS, Keystore bei Android)
 /// geschützt. Nur eine erfolgreiche biometrische Abfrage schaltet den Schlüssel frei.
 class BiometricService {
   final LocalAuthentication _auth = LocalAuthentication();
@@ -41,14 +41,11 @@ class BiometricService {
   /// Speichert den [masterKey] im sicheren Speicher (Keystore/Keychain) des Betriebssystems.
   Future<void> saveMasterKey(String vaultName, Uint8List masterKey) async {
     final base64Key = base64.encode(masterKey);
-    await _storage.write(
-      key: _getKeyName(vaultName),
-      value: base64Key,
-    );
+    await _storage.write(key: _getKeyName(vaultName), value: base64Key);
   }
 
   /// Startet den System-Dialog (Biometrie) und gibt bei Erfolg den gespeicherten Master-Key zurück.
-  /// 
+  ///
   /// Liefert `null`, wenn der Vorgang abgebrochen wurde, die Biometrie fehlschlägt
   /// oder noch kein Schlüssel für diesen [vaultName] gespeichert wurde.
   Future<Uint8List?> getMasterKey(String vaultName) async {
@@ -58,14 +55,11 @@ class BiometricService {
       if (base64Key == null || base64Key.isEmpty) return null;
 
       // OS-Dialog aufrufen (Windows Hello, FaceID, Fingerabdruck)
-      // Hinweis: Windows unterstützt den 'biometricOnly' Parameter nicht. 
+      // Hinweis: Windows unterstützt den 'biometricOnly' Parameter nicht.
       // Wir setzen ihn nur auf Android/iOS auf true, um stärkere Sicherheit zu erzwingen.
       final bool authenticated = await _auth.authenticate(
         localizedReason: "Tresor '$vaultName' entschlüsseln",
-        options: AuthenticationOptions(
-          biometricOnly: !Platform.isWindows, 
-          stickyAuth: true,
-        ),
+        options: AuthenticationOptions(biometricOnly: !Platform.isWindows, stickyAuth: true),
       );
 
       return authenticated ? base64.decode(base64Key) : null;

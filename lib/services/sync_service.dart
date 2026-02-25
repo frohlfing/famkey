@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:privault/core/app_version.dart';
@@ -17,20 +16,19 @@ import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
-import 'package:privault/services/config_service.dart';
 
 /// Repräsentiert die Zusammenfassung eines Synchronisationsvorgangs.
 /// Enthält Zähler für heruntergeladene und hochgeladene Änderungen zur Benutzerinformation.
 class SyncStatistics {
   /// Anzahl der vom Server neu hinzugefügten Einträge.
   int pullAdded = 0;
-  
+
   /// Anzahl der vom Server aktualisierten Einträge.
   int pullUpdated = 0;
-  
+
   /// Anzahl der lokal gelöschten Einträge aufgrund von Server-Tombstones.
   int pullDeleted = 0;
-  
+
   /// Anzahl der erfolgreich zum Server übertragenen Änderungen (Updates und Deletes).
   int pushSent = 0;
 
@@ -39,11 +37,11 @@ class SyncStatistics {
 
   /// Erzeugt eine benutzerfreundliche Zusammenfassung der Statistik.
   @override
-  String toString() => 
-    '✳️ Hinzugefügt: $pullAdded\n'
-    '✏️ Aktualisiert: $pullUpdated\n'
-    '❌ Gelöscht: $pullDeleted\n'
-    '💾 Gesichert: $pushSent';
+  String toString() =>
+      '✳️ Hinzugefügt: $pullAdded\n'
+      '✏️ Aktualisiert: $pullUpdated\n'
+      '❌ Gelöscht: $pullDeleted\n'
+      '💾 Gesichert: $pushSent';
 }
 
 /// Dienst für die Synchronisation zwischen der lokalen SQLite-Datenbank und dem Remote-Server.
@@ -53,13 +51,12 @@ class SyncService {
   final DatabaseService _databaseService;
   final SessionService _sessionService;
   final WebService _webService;
-  final ConfigService _configService;
 
   /// Initialisiert eine neue Instanz des [SyncService] und injiziert die benötigten Dienste.
-  SyncService(this._cryptoService, this._databaseService, this._sessionService, this._webService, this._configService);
+  SyncService(this._cryptoService, this._databaseService, this._sessionService, this._webService);
 
   /// Führt die vollständige Synchronisation durch.
-  /// 
+  ///
   /// Ablauf:
   /// 1. Versionsprüfung
   /// 2. Benutzer validieren / Registrieren
@@ -81,17 +78,15 @@ class SyncService {
     try {
       // API-Konfiguration für die aktuelle Sitzung aktualisieren
       _webService.updateConfig(host: settingsEntity.host, apiToken: settingsEntity.apiToken);
-      _webService.setSignatureData(
-        userUuid: user.uuid,
-        privateKey: _sessionService.privateKey!,
-        publicKey: user.publicKey,
-      );
+      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
 
       // Versionsprüfung
       final serverVersion = await _webService.getServerVersion();
       if (serverVersion.major != AppVersion.major) {
         final v = AppVersion.major > 1 ? '${AppVersion.major}' : '';
-        throw Exception("Die Server-Version passt nicht zur App. Korrigiere die Host-URL in den Einstellungen: https://privault$v/api.frank-rohlfing.de");
+        throw Exception(
+          "Die Server-Version passt nicht zur App. Korrigiere die Host-URL in den Einstellungen: https://privault$v/api.frank-rohlfing.de",
+        );
       }
       if (serverVersion.minor < AppVersion.requiredServerMinor) {
         throw Exception("Der Server ist noch nicht auf dem aktuellen Stand. Versuche es später nochmal.");
@@ -105,7 +100,7 @@ class SyncService {
       if (userResponse == null) {
         // FALL A: User (und evtl. Tresor) existieren noch nicht.
         // -> Wir legen beides implizit an!
-        
+
         if (settingsEntity.apiToken.isEmpty) {
           throw Exception("Kein API-Token hinterlegt. Kann Tresor nicht anlegen.");
         }
@@ -126,8 +121,8 @@ class SyncService {
           user = user.copyWith(uuid: userResponse.userUuid);
           await _databaseService.saveUser(user);
         }
-        
-        // Sicherheits-Check!
+
+        // Sicherheitscheck!
         // Ist das Salt auf dem Server identisch zu meinem lokalen?
         // Wenn nicht, hat jemand anderes (oder ich am PC) das Passwort geändert (Notfall-Reset),
         // oder ich synchronisiere ein Zweitgerät das erst mal.
@@ -149,10 +144,7 @@ class SyncService {
       for (var tombstoneDto in pullResponse.deletes) {
         final entry = await _databaseService.getEntryByUuid(tombstoneDto.entryUuid);
         if (entry != null && entry.id != null) {
-          await _databaseService.saveTombstone(TombstoneEntity(
-            entryUuid: tombstoneDto.entryUuid,
-            deletedAt: tombstoneDto.deletedAt,
-          ));
+          await _databaseService.saveTombstone(TombstoneEntity(entryUuid: tombstoneDto.entryUuid, deletedAt: tombstoneDto.deletedAt));
           await _databaseService.deleteEntry(entry.id!);
           stats.pullDeleted++;
         }
@@ -170,7 +162,7 @@ class SyncService {
 
       // Vorbereitung: Alle lokalen User laden, um UUIDs in IDs aufzulösen
       final localUsers = await _databaseService.getUsers();
-      final userUuidMap = { for (var u in localUsers) u.uuid : u.id };
+      final userUuidMap = {for (var u in localUsers) u.uuid: u.id};
 
       // 2. Updates einspielen
       for (var entryDto in pullResponse.updates.where((u) => u.accessLevel > 0)) {
@@ -189,23 +181,23 @@ class SyncService {
             final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey!, utf8.decode(_sessionService.privateKey!));
             final decryptedData = await _cryptoService.decrypt(entryDto.encryptedData, entryKey);
             final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
-            category = payload.category; 
-            title = payload.title; 
-            url = payload.url; 
-            notes = payload.notes; 
+            category = payload.category;
+            title = payload.title;
+            url = payload.url;
+            notes = payload.notes;
             favicon = payload.favicon;
           } catch (e) {
             debugPrint("Fehler beim Extrahieren der Suchfelder für ${entryDto.entryUuid}: $e");
           }
         }
 
-        // UUIDs der Benutzer in interne IDs auflösen (0 falls User lokal noch unbekannt)
+        // UUIDs der Benutzer in interne IDs aufzulösen (0 falls User lokal noch unbekannt)
         final entity = EntryEntity(
           uuid: entryDto.entryUuid,
-          category: category, 
-          title: title, 
-          url: url, 
-          notes: notes, 
+          category: category,
+          title: title,
+          url: url,
+          notes: notes,
           favicon: favicon,
           encryptedData: entryDto.encryptedData,
           creatorId: userUuidMap[entryDto.creatorUuid] ?? 0,
@@ -215,7 +207,7 @@ class SyncService {
 
         // A: Eintrag & Eigene Permission (UserId 1) speichern
         await _databaseService.saveEntryWithPermissions(entity, 1, entryDto.encryptedKey ?? '', accessLevel: entryDto.accessLevel);
-        
+
         final savedEntry = await _databaseService.getEntryByUuid(entryDto.entryUuid);
         if (savedEntry != null && savedEntry.id != null) {
           // B: Freunde verarbeiten
@@ -223,26 +215,28 @@ class SyncService {
             // Wir speichern die Permission nur, wenn wir den User lokal kennen (aus dem Settings-Pull)
             final friendUserId = userUuidMap[remoteFriends.userUuid];
             if (friendUserId != null) {
-              await _databaseService.savePermission(PermissionEntity(
-                entryId: savedEntry.id!,
-                userId: friendUserId,
-                encryptedKey: remoteFriends.encryptedKey ?? '',
-                accessLevel: remoteFriends.accessLevel
-              ));
+              await _databaseService.savePermission(
+                PermissionEntity(
+                  entryId: savedEntry.id!,
+                  userId: friendUserId,
+                  encryptedKey: remoteFriends.encryptedKey ?? '',
+                  accessLevel: remoteFriends.accessLevel,
+                ),
+              );
             }
           }
-          
+
           // Anhänge verarbeiten
           final remoteAttachmentUuids = entryDto.attachmentUuids;
           final localAttachments = await _databaseService.getAttachmentsByEntryId(savedEntry.id!);
-          final localMap = { for (var a in localAttachments) a.uuid: a };
+          final localMap = {for (var a in localAttachments) a.uuid: a};
 
           for (var attUuid in remoteAttachmentUuids) {
             if (!localMap.containsKey(attUuid)) {
               // Hier laden wir nun das vollständige DTO mit Meta & Content
               try {
                 final attResponse = await _webService.downloadAttachment(attUuid);
-                
+
                 // Typsichere Extraktion aus der Map
                 final attachmentUuid = attResponse['attachment_uuid'] as String?;
                 final encryptedContent = attResponse['encrypted_content'] as String?;
@@ -279,30 +273,30 @@ class SyncService {
       // --- STEP B: PUSH (Hochladen) ---
       final localUpdates = await _databaseService.getEntriesSince(lastSyncAt);
       final localDeletes = await _databaseService.getTombstonesSince(lastSyncAt);
-      
+
       // Zusätzlich unsynced Attachments ermitteln
       final unsyncedAttachments = await _databaseService.getAttachmentsUnsynced();
 
       if (localUpdates.isNotEmpty || localDeletes.isNotEmpty || unsyncedAttachments.isNotEmpty) {
         // Vorbereitung: UUID Map laden, um IDs aufzulösen
         final users2 = await _databaseService.getUsers();
-        final userMap = { for (var u in users2) u.id : u.uuid };
-        
+        final userMap = {for (var u in users2) u.id: u.uuid};
+
         // Neue oder veränderte Einträge ermitteln
         final pushUpdates = <SyncEntryDto>[];
 
         for (var entry in localUpdates) {
           // Alle Berechtigungen für diesen Eintrag laden
           final perms = await _databaseService.getPermissionsByEntryId(entry.id!);
-          
+
           // Meine eigene Permission (ID 1) holen
           final myPerm = perms.where((p) => p.userId == 1).firstOrNull;
-          
+
           // WICHTIG: Nur pushen, wenn ich Schreibrechte (Level >= 2) habe!
           // Level 2 = Schreiben, Level 3 = Besitzer
           if (myPerm == null || myPerm.accessLevel < 2) continue;
 
-          // Dateianhänge 
+          // Dateianhänge
           final localAttachmentsForEntry = await _databaseService.getAttachmentsByEntryId(entry.id!);
           final attachmentUuids = localAttachmentsForEntry.map((a) => a.uuid).where((u) => u.trim().isNotEmpty).toSet().toList();
 
@@ -312,32 +306,30 @@ class SyncService {
               .map((p) {
                 final uUuid = userMap[p.userId];
                 if (uUuid == null || uUuid.isEmpty) return null;
-                return FriendPermissionDto( // HIER KORRIGIERT: FriendPermissionDto statt SyncFriendPermissionDto
-                  userUuid: uUuid,
-                  encryptedKey: p.encryptedKey,
-                  accessLevel: p.accessLevel,
-                );
+                return FriendPermissionDto(userUuid: uUuid, encryptedKey: p.encryptedKey, accessLevel: p.accessLevel);
               })
-              .whereNotNull() // Nur bekannte UUIDs, nulls filtern
+              .nonNulls // Nur bekannte UUIDs, nulls filtern
               .toList();
 
-          pushUpdates.add(SyncEntryDto(
-            entryUuid: entry.uuid,
-            encryptedData: entry.encryptedData,
-            encryptedKey: myPerm.encryptedKey,
-            accessLevel: myPerm.accessLevel,
-            attachmentUuids: attachmentUuids, 
-            friends: friends,
-            creatorUuid: userMap[entry.creatorId] ?? '',
-            updaterUuid: userMap[entry.updaterId] ?? '',
-            updatedAt: entry.updatedAt,
-          ));
+          pushUpdates.add(
+            SyncEntryDto(
+              entryUuid: entry.uuid,
+              encryptedData: entry.encryptedData,
+              encryptedKey: myPerm.encryptedKey,
+              accessLevel: myPerm.accessLevel,
+              attachmentUuids: attachmentUuids,
+              friends: friends,
+              creatorUuid: userMap[entry.creatorId] ?? '',
+              updaterUuid: userMap[entry.updaterId] ?? '',
+              updatedAt: entry.updatedAt,
+            ),
+          );
         }
 
         // Gelöschte Einträge ermitteln
         final pushDeletes = localDeletes.map((d) => SyncDeleteDto(entryUuid: d.entryUuid, deletedAt: d.deletedAt)).toList();
-        
-        // Änderungen an den Server pushen 
+
+        // Änderungen an den Server pushen
         if (pushUpdates.isNotEmpty || pushDeletes.isNotEmpty) {
           await _webService.pushSync(serverUserUuid, SyncPushRequest(updates: pushUpdates, deletes: pushDeletes));
           stats.pushSent = pushUpdates.length + pushDeletes.length;
@@ -347,12 +339,7 @@ class SyncService {
         for (var att in unsyncedAttachments) {
           final entry = await _databaseService.getEntryById(att.entryId);
           if (entry != null) {
-            await _webService.uploadAttachment(
-              entry.uuid,
-              att.uuid,
-              att.encryptedMeta,
-              att.encryptedContent,
-            );
+            await _webService.uploadAttachment(entry.uuid, att.uuid, att.encryptedMeta, att.encryptedContent);
             att = att.copyWith(isSynced: true);
             await _databaseService.saveAttachment(att);
           }
@@ -364,7 +351,7 @@ class SyncService {
       // Wir nehmen die Zeit, die der Server uns beim Pull gegeben hat.
       settingsEntity = settingsEntity.copyWith(lastSyncAt: pullResponse.serverTime);
       await _databaseService.saveSettings(settingsEntity);
-      
+
       // --- STEP D: SETTINGS PUSH ---
       // Wir laden die verschlüsselten Settings (inkl. Freunden) hoch
       await _pushFriends();
@@ -377,13 +364,13 @@ class SyncService {
 
   /// Übernimmt eine neue Identität vom Server, falls das Master-Passwort auf einem anderen Gerät geändert wurde.
   /// Führt eine Umschlüsselung der lokalen Datenbank und aller vorhandenen Berechtigungen durch.
-  /// 
+  ///
   /// Wird durch den [GuardService] (der das Masterpasswort über ein UI-Prompt abfragt) orchestriert.
   Future<void> adoptRemoteIdentity(String password, UserResponse userResponse) async {
     // 1. Private-Key des Servers entschlüsseln
     final remoteMasterKey = await _cryptoService.deriveKey(password, base64Decode(userResponse.salt));
     final remotePrivKey = await _cryptoService.decrypt(userResponse.encryptedPrivateKey, remoteMasterKey);
-    
+
     // 2. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
     final rsaKeyChanged = !const ListEquality().equals(_sessionService.privateKey, remotePrivKey);
     if (rsaKeyChanged) {
@@ -422,12 +409,12 @@ class SyncService {
 
     // 5. Session aktualisieren (Wichtig, damit folgende Operationen den neuen Key nutzen)
     _sessionService.setSession(
-      user: localUser, 
-      privateKey: remotePrivKey, 
-      vaultName: _sessionService.vaultName, 
-      settings: _sessionService.settings
+      user: localUser,
+      privateKey: remotePrivKey,
+      vaultName: _sessionService.vaultName,
+      settings: _sessionService.settings,
     );
-    
+
     // Clean up memory
     _cryptoService.wipeKey(remoteMasterKey);
   }
@@ -436,10 +423,10 @@ class SyncService {
   Future<void> _pullFriends(UserResponse userResponse) async {
     // Clientseitig gespeicherte Benutzer holen
     final localUsers = await _databaseService.getUsers();
-    
+
     // Öffentliche Schlüssel aller Benutzer vom Server holen
     final publicKeys = await _webService.getPublicKeys(userResponse.userUuid);
-    
+
     // Freundesliste vom Server holen
     final encryptedFriends = userResponse.encryptedFriends;
     if (encryptedFriends == null || encryptedFriends.isEmpty) return;
@@ -449,7 +436,7 @@ class SyncService {
     // Info-String "friends" sorgt für Kontextbindung.
     final syncKeyMaterial = _sessionService.privateKey;
     if (syncKeyMaterial == null) throw Exception("RSA PrivateKey nicht gefunden");
-    
+
     final aesKey = _cryptoService.deriveKeyFromKey(syncKeyMaterial, null, 'friends-list-encryption');
     List<FriendPayload> friends;
     try {
@@ -474,34 +461,32 @@ class SyncService {
       var localMatch = localUsers.where((u) => u.uuid == remoteFriend.uuid).firstOrNull;
       if (localMatch == null) {
         // Freund lokal hinzufügen
-        await _databaseService.saveUser(UserEntity(
-          uuid: remoteFriend.uuid, 
-          name: remoteFriend.name, 
-          publicKey: publicKey, 
-          isVerified: remoteFriend.isVerified, 
-          isHidden: remoteFriend.isHidden, 
-          updatedAt: remoteFriend.updatedAt
-        ));
+        await _databaseService.saveUser(
+          UserEntity(
+            uuid: remoteFriend.uuid,
+            name: remoteFriend.name,
+            publicKey: publicKey,
+            isVerified: remoteFriend.isVerified,
+            isHidden: remoteFriend.isHidden,
+            updatedAt: remoteFriend.updatedAt,
+          ),
+        );
       } else {
         // Freund lokal aktualisieren
-        
-        // Fingerprint-Check (Sicherheits-Veto)
+
+        // Fingerprint-Check (Sicherheitsveto)
         if (localMatch.publicKey != publicKey) {
           // Der lokal gespeicherte RSA-Key ist veraltet.
-          
+
           // Alle verschlüsselten Entry-Keys des Freundes werden geleert, da sie unbrauchbar geworden sind.
           await _databaseService.removeEntryKeysForUser(localMatch.id!);
-          
+
           // Neuen Key übernehmen, aber Vertrauen entziehen
-          localMatch = localMatch.copyWith(
-            publicKey: publicKey,
-            isVerified: false,
-            updatedAt: DateTime.now().toUtc()
-          );
+          localMatch = localMatch.copyWith(publicKey: publicKey, isVerified: false, updatedAt: DateTime.now().toUtc());
           await _databaseService.saveUser(localMatch);
-          
+
           // Hat der Freund Zugriffsrecht auf mindestens einen Eintrag?
-          // Dann muss der Entry-Key neu generiert werden, bevor die Synchronization fortgesetzt werden kann. 
+          // Dann muss der Entry-Key neu generiert werden, bevor die Synchronization fortgesetzt werden kann.
           if (!needsRekeying) {
             if (await _databaseService.hasAccessWithoutKey(localMatch.id!)) {
               needsRekeying = true;
@@ -512,16 +497,16 @@ class SyncService {
         // Metadaten Abgleich
         if (remoteFriend.updatedAt.isAfter(localMatch.updatedAt)) {
           localMatch = localMatch.copyWith(
-            name: remoteFriend.name, 
+            name: remoteFriend.name,
             isHidden: remoteFriend.isHidden,
-            isVerified: remoteFriend.isVerified, 
-            updatedAt: remoteFriend.updatedAt
+            isVerified: remoteFriend.isVerified,
+            updatedAt: remoteFriend.updatedAt,
           );
           await _databaseService.saveUser(localMatch);
         }
       }
     }
-    
+
     // 2. Freunde lokal löschen, die auf dem Server nicht mehr existieren.
     for (var localFriend in localUsers.where((u) => (u.id ?? 0) > 1)) {
       final existsOnServer = publicKeys.any((pk) => pk['user_uuid'] == localFriend.uuid);
@@ -529,11 +514,13 @@ class SyncService {
         await _databaseService.deleteUser(localFriend.id!);
       }
     }
-    
+
     // Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
     if (needsRekeying) {
-      throw Exception("Sicherheitsstopp: Die Identität eines Freundes hat sich geändert. "
-                      "Bitte verifiziere den neuen Fingerprint in den Einstellungen, bevor du synchronisierst.");
+      throw Exception(
+        "Sicherheitsstopp: Die Identität eines Freundes hat sich geändert. "
+        "Bitte verifiziere den neuen Fingerprint in den Einstellungen, bevor du synchronisierst.",
+      );
     }
   }
 
@@ -541,31 +528,28 @@ class SyncService {
   /// Nutzt eine hybride Verschlüsselung basierend auf dem privaten RSA-Schlüssel des Benutzers.
   Future<void> _pushFriends() async {
     final localUser = _sessionService.user!;
-    
+
     // Wir nutzen HKDF, um aus dem RSA-Private-Key einen stabilen AES-Key für die Freundesliste abzuleiten.
     final syncKeyMaterial = _sessionService.privateKey;
     if (syncKeyMaterial == null) throw Exception("RSA PrivateKey nicht gefunden");
-    
+
     final aesKey = _cryptoService.deriveKeyFromKey(syncKeyMaterial, null, 'friends-list-encryption');
     try {
       // 1. Alle lokal hinzugefügten Freunde laden
       final users = await _databaseService.getUsers();
-      final friends = users.where((u) => (u.id ?? 0) > 1).map((u) => FriendPayload(
-        uuid: u.uuid, 
-        name: u.name, 
-        isVerified: u.isVerified, 
-        isHidden: u.isHidden, 
-        updatedAt: u.updatedAt
-      )).toList();
-      
+      final friends = users
+          .where((u) => (u.id ?? 0) > 1)
+          .map((u) => FriendPayload(uuid: u.uuid, name: u.name, isVerified: u.isVerified, isHidden: u.isHidden, updatedAt: u.updatedAt))
+          .toList();
+
       // Wenn es keine Freunde gibt, ist kein Push erforderlich.
       if (friends.isEmpty) return;
-      
+
       // 2. Payload bauen
       final json = jsonEncode(friends.map((f) => f.toJson()).toList());
-      final plainBytes = utf8.encode(json) as Uint8List;
+      final plainBytes = utf8.encode(json);
       final encryptedBlob = await _cryptoService.encrypt(plainBytes, aesKey);
-      
+
       // 3. Hochladen
       await _webService.saveFriends(localUser.uuid, encryptedBlob);
     } finally {

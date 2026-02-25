@@ -33,6 +33,5 @@ Future<void> setupServiceLocator() async {
     getIt<DatabaseService>(),
     getIt<SessionService>(),
     getIt<WebService>(),
-    getIt<ConfigService>(),
   ));
 }

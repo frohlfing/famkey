@@ -1,11 +1,34 @@
-
+/// Repräsentiert eine Benutzeridentität innerhalb eines Tresors.
+///
+/// Diese Klasse verwaltet sowohl den Benutzer der App als auch alle hinzugefügten
+/// Freunde, mit denen Einträge geteilt werden können.
+///
+/// **Rollenverteilung:**
+/// * **Besitzer:** Der Hauptbenutzer der App hat lokal stets die `id = 1`.
+/// * **Freunde:** Weitere Benutzer, mit denen Einträge geteilt werden können.
 class UserEntity {
-  final int? id; // Nullable for new entries before DB insert
+  /// Die interne ID (Auto-Increment in der Datenbank).
+  /// Der Benutzer der App wird systemintern stets mit der ID 1 identifiziert.
+  /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
+  final int? id;
+
+  /// Die globale eindeutige ID des Benutzers (Universally Unique Identifier v4).
   final String uuid;
+
+  /// Der Name des Benutzers (eindeutig pro Tresor auf dem Server).
+  /// Ist im Normalfall UNVERÄNDERLICH nach der Registrierung.
   final String name;
+
+  /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
   final String publicKey;
+
+  /// Gibt an, ob die Identität dieses Benutzers (per Fingerprint-Vergleich) manuell verifiziert wurde.
   final bool isVerified;
+
+  /// Gibt an, ob der Benutzer in der UI ausgeblendet ist (z.B. gelöschte Freunde, die wegen Sync noch erhalten bleiben müssen).
   final bool isHidden;
+
+  /// Zeitpunkt der letzten Änderung (UTC).
   final DateTime updatedAt;
 
   UserEntity({
@@ -18,7 +41,7 @@ class UserEntity {
     required this.updatedAt,
   });
 
-  // Convert a UserEntity into a Map. The keys must correspond to the column names in the database.
+  /// Konvertiert eine [UserEntity] in eine Map (z.B. für SQLite oder JSON).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -31,7 +54,7 @@ class UserEntity {
     };
   }
 
-  // Extract a UserEntity object from a Map.
+  /// Erstellt ein [UserEntity] Objekt aus einer Map.
   factory UserEntity.fromMap(Map<String, dynamic> map) {
     return UserEntity(
       id: map['id'] as int?,
@@ -44,15 +67,8 @@ class UserEntity {
     );
   }
 
-  UserEntity copyWith({
-    int? id,
-    String? uuid,
-    String? name,
-    String? publicKey,
-    bool? isVerified,
-    bool? isHidden,
-    DateTime? updatedAt,
-  }) {
+  /// Erzeugt eine Kopie des Objekts mit modifizierten Eigenschaften.
+  UserEntity copyWith({int? id, String? uuid, String? name, String? publicKey, bool? isVerified, bool? isHidden, DateTime? updatedAt}) {
     return UserEntity(
       id: id ?? this.id,
       uuid: uuid ?? this.uuid,

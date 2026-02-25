@@ -1,14 +1,48 @@
+/// Repräsentiert einen Tresoreintrag in der SQLite-Datenbank.
+///
+/// **Datenstruktur:**
+/// * **Verschlüsselter Kern:** Die vollständigen und sensiblen Daten (Passwort, Benutzername etc.)
+///   liegen als AES-256-GCM verschlüsselter JSON-Blob in `encryptedData` vor.
+///   (Entspricht der `EntryPayload` Klasse).
+/// * **Unverschlüsselte Indizes:** Redundante Kopien von Titel, Kategorie und URL werden
+///   unverschlüsselt (aber SQLCipher-geschützt) gespeichert, um eine performante Suche,
+///   Sortierung und Gruppierung (z.B. für Auto-Fill und die Hauptliste) zu ermöglichen,
+///   ohne alle Daten entschlüsseln zu müssen.
 class EntryEntity {
+  /// Die interne ID (Auto-Increment in der Datenbank).
+  /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
   final int? id;
+
+  /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
   final String uuid;
+
+  /// Die Kategorie des Eintrags.
   final String category;
+
+  /// Der Anzeigename des Eintrags.
   final String title;
+
+  /// Die zugehörige Adresse der Webseite oder des Dienstes.
   final String url;
-  final String notes; // Corresponds to 'notes' column in C#
-  final String favicon; // Base64 string
-  final String encryptedData; // AES-256-GCM blob
+
+  /// Ergänzende Notiz (Metadaten).
+  final String notes;
+
+  /// Der binäre Dateninhalt des Website-Icons, gespeichert als Base64-kodierter String.
+  /// Ermöglicht die visuelle Identifikation in der Liste ohne zusätzliche Netzwerkanfragen.
+  final String favicon;
+
+  /// Der AES-256-GCM verschlüsselte Daten-Container (Ciphertext + Nonce + Auth-Tag).
+  /// Enthält das serialisierte JSON-Objekt der Klasse [EntryPayload].
+  final String encryptedData;
+
+  /// Die lokale ID des Benutzers, der diesen Eintrag erstellt hat.
   final int creatorId;
+
+  /// Die lokale ID des Benutzers, der den Eintrag zuletzt aktualisiert hat.
   final int updaterId;
+
+  /// Zeitpunkt der letzten Änderung (UTC).
   final DateTime updatedAt;
 
   EntryEntity({
@@ -25,6 +59,7 @@ class EntryEntity {
     required this.updatedAt,
   });
 
+  /// Konvertiert eine [EntryEntity] in eine Map (z.B. für SQLite oder JSON).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -41,6 +76,7 @@ class EntryEntity {
     };
   }
 
+  /// Erstellt ein [EntryEntity] Objekt aus einer Map.
   factory EntryEntity.fromMap(Map<String, dynamic> map) {
     return EntryEntity(
       id: map['id'] as int?,
@@ -57,6 +93,7 @@ class EntryEntity {
     );
   }
 
+  /// Erzeugt eine Kopie des Objekts mit modifizierten Eigenschaften.
   EntryEntity copyWith({
     int? id,
     String? uuid,

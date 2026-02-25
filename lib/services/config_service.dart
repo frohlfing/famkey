@@ -6,8 +6,8 @@ import 'package:path/path.dart' as p;
 
 /// Ein Wrapper um [SharedPreferences] für App-übergreifende (Tresor-unabhängige) Einstellungen.
 ///
-/// Hier werden Informationen gespeichert, die die App benötigt, *bevor* 
-/// eine SQLite-Datenbank überhaupt geöffnet werden kann (z.B. welcher Tresor 
+/// Hier werden Informationen gespeichert, die die App benötigt, *bevor*
+/// eine SQLite-Datenbank überhaupt geöffnet werden kann (z.B. welcher Tresor
 /// zuletzt geöffnet war, oder das Salt für das Passwort-Hashing).
 class ConfigService {
   // ------------------------------------------------------------------------
@@ -40,19 +40,22 @@ class ConfigService {
   /// Der Name des zuletzt erfolgreich geöffneten Tresors.
   /// Wird genutzt, um beim Neustart der App das Login-Feld vorauszufüllen.
   String get lastVaultName => _prefs.getString(_keyLastVault) ?? '';
+
   set lastVaultName(String value) => _prefs.setString(_keyLastVault, value);
 
   /// Zeigt an, ob in der Hauptliste aktuell nur die eigenen Einträge angezeigt werden sollen.
   bool get showOnlyMine => _prefs.getBool(_keyShowOnlyMine) ?? false;
+
   set showOnlyMine(bool value) => _prefs.setBool(_keyShowOnlyMine, value);
 
   /// Das aktuell vom Benutzer gewählte Farbschema (Theme).
   String get theme => _prefs.getString(_keyTheme) ?? '';
+
   set theme(String value) => _prefs.setString(_keyTheme, value);
 
   /// Eine Map, die Tresornamen auf das Base64-encodierte Salt des Masterschlüssels abbildet.
-  /// 
-  /// Das Salt muss bekannt sein, *bevor* die Datenbank geöffnet werden kann, 
+  ///
+  /// Das Salt muss bekannt sein, *bevor* die Datenbank geöffnet werden kann,
   /// da es zur Ableitung des AES-Master-Keys aus dem eingegebenen Passwort benötigt wird.
   Map<String, String> get vaults {
     final String jsonStr = _prefs.getString(_keyVaults) ?? '{}';
@@ -68,9 +71,10 @@ class ConfigService {
     final String jsonStr = jsonEncode(value);
     _prefs.setString(_keyVaults, jsonStr);
   }
-  
+
   /// (Flutter-Spezifisch) Der Basispfad, in dem die SQLite-Tresordateien abgelegt werden.
   String get vaultStoragePath => _prefs.getString(_keyStoragePath) ?? '';
+
   set vaultStoragePath(String value) => _prefs.setString(_keyStoragePath, value);
 
   // ------------------------------------------------------------------------

@@ -1,28 +1,46 @@
+/// Repräsentiert die Zugriffsberechtigung eines Benutzers für einen spezifischen Tresoreintrag.
+/// Diese Entität verwaltet die hybride Verschlüsselung, indem sie den AES-Entry-Key
+/// in RSA-verschlüsselter Form speichert.
+///
+/// Eine Berechtigung ist eindeutig über die Kombination aus [entryId] und [userId].
+///
+/// **Sicherheitskonzept:**
+/// Jede Permission enthält den 32-Byte AES-Key des Eintrags, der mit dem öffentlichen
+/// RSA-Schlüssel des jeweiligen Empfängers verschlüsselt wurde (`encryptedKey`).
+/// Nur der Besitzer des zugehörigen privaten RSA-Schlüssels kann den Entry-Key
+/// extrahieren und somit die Daten des Eintrags lesen.
 class PermissionEntity {
+  /// Die interne ID (Auto-Increment in der Datenbank).
+  /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
   final int? id;
+
+  /// Die interne ID des zugehörigen Eintrags.
   final int entryId;
+
+  /// Die lokale ID des Benutzers, dem dieser Zugriff gewährt wurde.
   final int userId;
+
+  /// Der AES-Entry-Key für den Eintrag (32 Bytes), verschlüsselt mit dem öffentlichen RSA-Key des Benutzers.
+  ///
+  /// Wenn beim Synchronisieren festgestellt wird, dass der RSA-Schlüssel des Benutzers veraltet ist,
+  /// wird dieser Wert geleert, da der Schlüssel nicht mehr entschlüsselt werden kann.
   final String encryptedKey;
+
+  /// Definiert die Berechtigungsstufe des Benutzers für diesen Eintrag.
+  /// * **0:** Kein Zugriff
+  /// * **1:** Nur Lesen
+  /// * **2:** Lesen und Schreiben
+  /// * **3:** Vollzugriff/Besitzerrecht (inkl. Löschen und Berechtigungen verwalten)
   final int accessLevel;
 
-  PermissionEntity({
-    this.id,
-    required this.entryId,
-    required this.userId,
-    required this.encryptedKey,
-    required this.accessLevel,
-  });
+  PermissionEntity({this.id, required this.entryId, required this.userId, required this.encryptedKey, required this.accessLevel});
 
+  /// Konvertiert eine [PermissionEntity] in eine Map (z.B. für SQLite oder JSON).
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'entry_id': entryId,
-      'user_id': userId,
-      'encrypted_key': encryptedKey,
-      'access_level': accessLevel,
-    };
+    return {'id': id, 'entry_id': entryId, 'user_id': userId, 'encrypted_key': encryptedKey, 'access_level': accessLevel};
   }
 
+  /// Erstellt ein [PermissionEntity] Objekt aus einer Map.
   factory PermissionEntity.fromMap(Map<String, dynamic> map) {
     return PermissionEntity(
       id: map['id'] as int?,
@@ -33,13 +51,8 @@ class PermissionEntity {
     );
   }
 
-  PermissionEntity copyWith({
-    int? id,
-    int? entryId,
-    int? userId,
-    String? encryptedKey,
-    int? accessLevel,
-  }) {
+  /// Erzeugt eine Kopie des Objekts mit modifizierten Eigenschaften.
+  PermissionEntity copyWith({int? id, int? entryId, int? userId, String? encryptedKey, int? accessLevel}) {
     return PermissionEntity(
       id: id ?? this.id,
       entryId: entryId ?? this.entryId,

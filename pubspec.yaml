@@ -1,6 +1,6 @@
 name: privault
 description: "Ein selbst-gehosteter Passwort-Manager für Desktop und Mobile"
-publish_to: 'none' 
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -16,6 +16,7 @@ dependencies:
   provider: ^6.1.2
   get_it: ^7.6.7
   package_info_plus: ^8.0.0
+  collection: ^1.18.0
 
   # Config & Secure Storage
   shared_preferences: ^2.2.2

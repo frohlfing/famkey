@@ -14,7 +14,7 @@ class CryptoService {
   // ------------------------------------------------------------------------
   // --- Konstanten ---
   // ------------------------------------------------------------------------
-    
+
   // Argon2id Parameter (BSI-konform)
   static const int argonMemorySize = 64 * 1024; // 64 MB RAM
   static const int argonIterations = 4;
@@ -29,10 +29,10 @@ class CryptoService {
   // ------------------------------------------------------------------------
   // --- Öffentliche Methoden ---
   // ------------------------------------------------------------------------
-    
+
   // --- AES ---
 
-  /// Leitet einen 32-Byte (256 Bit) Schlüssel aus einem Passwort und Salt 
+  /// Leitet einen 32-Byte (256 Bit) Schlüssel aus einem Passwort und Salt
   /// mittels Argon2id ab (PBKDF).
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
     final params = pc.Argon2Parameters(
@@ -49,7 +49,7 @@ class CryptoService {
 
     final result = Uint8List(32);
     final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    
+
     try {
       argon2.deriveKey(passwordBytes, 0, result, 0);
       return result;
@@ -59,7 +59,7 @@ class CryptoService {
   }
 
   /// Verschlüsselt Daten mit AES-256-GCM.
-  /// 
+  ///
   /// Generiert eine zufällige Nonce für jede Verschlüsselung.
   /// Das Ergebnis wird als Base64-String im Format `[Nonce] + [Tag] + [Ciphertext]` zurückgegeben.
   Future<String> encrypt(Uint8List data, Uint8List key) async {
@@ -70,11 +70,7 @@ class CryptoService {
     final secretKey = crypto_auth.SecretKey(key);
     final nonce = _aesGcm.newNonce();
 
-    final secretBox = await _aesGcm.encrypt(
-      data,
-      secretKey: secretKey,
-      nonce: nonce,
-    );
+    final secretBox = await _aesGcm.encrypt(data, secretKey: secretKey, nonce: nonce);
 
     final combined = Uint8List(nonceSize + tagSize + secretBox.cipherText.length);
     combined.setRange(0, nonceSize, secretBox.nonce);
@@ -100,16 +96,9 @@ class CryptoService {
     final cipherText = blob.sublist(nonceSize + tagSize);
 
     final secretKey = crypto_auth.SecretKey(key);
-    final secretBox = crypto_auth.SecretBox(
-      cipherText,
-      nonce: nonce,
-      mac: crypto_auth.Mac(tag),
-    );
+    final secretBox = crypto_auth.SecretBox(cipherText, nonce: nonce, mac: crypto_auth.Mac(tag));
 
-    final clearText = await _aesGcm.decrypt(
-      secretBox,
-      secretKey: secretKey,
-    );
+    final clearText = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
 
     return Uint8List.fromList(clearText);
   }
@@ -117,7 +106,7 @@ class CryptoService {
   // --- RSA ---
 
   /// Generiert ein RSA-4096 Schlüsselpaar.
-  /// 
+  ///
   /// Der Public Key wird im SPKI/X.509 Format (Base64), der Private Key als PKCS#8 Byte-Array zurückgegeben.
   Future<(String, Uint8List)> generateRsaKeyPair() async {
     final result = await frsa.RSA.generate(4096);
@@ -129,23 +118,13 @@ class CryptoService {
   /// Verschlüsselt Daten mit einem RSA Public Key (OAEP mit SHA-256 Padding, BSI Empfehlung).
   Future<String> encryptRsa(Uint8List data, String publicKeyPem) async {
     final pem = _ensurePemHeader(publicKeyPem, "PUBLIC KEY");
-    return await frsa.RSA.encryptOAEP(
-      base64.encode(data),
-      "",
-      frsa.Hash.SHA256,
-      pem,
-    );
+    return await frsa.RSA.encryptOAEP(base64.encode(data), "", frsa.Hash.SHA256, pem);
   }
 
   /// Entschlüsselt Daten mit einem RSA Private Key (OAEP mit SHA-256 Padding).
   Future<Uint8List> decryptRsa(String encryptedDataBase64, String privateKeyPem) async {
     final pem = _ensurePemHeader(privateKeyPem, "PRIVATE KEY");
-    final decrypted = await frsa.RSA.decryptOAEP(
-      encryptedDataBase64,
-      "",
-      frsa.Hash.SHA256,
-      pem,
-    );
+    final decrypted = await frsa.RSA.decryptOAEP(encryptedDataBase64, "", frsa.Hash.SHA256, pem);
     return base64.decode(decrypted);
   }
 
@@ -194,7 +173,7 @@ class CryptoService {
     final sig = signer.generateSignature(data);
     return base64.encode(sig.bytes);
   }
-  
+
   /// Explizite Schleife, um sensible Arrays im RAM zu überschreiben.
   void wipeKey(Uint8List? key) {
     if (key == null) return;
@@ -215,7 +194,7 @@ class CryptoService {
     final asn1Parser = pc_asn1.ASN1Parser(workingBytes);
     final topLevelSeq = asn1Parser.nextObject() as pc_asn1.ASN1Sequence;
     pc_asn1.ASN1Sequence rsaSeq;
-    
+
     if (topLevelSeq.elements!.length >= 3 && topLevelSeq.elements![2] is pc_asn1.ASN1OctetString) {
       final privKeyOctet = topLevelSeq.elements![2] as pc_asn1.ASN1OctetString;
       final rsaParser = pc_asn1.ASN1Parser(privKeyOctet.valueBytes!);
@@ -223,7 +202,7 @@ class CryptoService {
     } else {
       rsaSeq = topLevelSeq;
     }
-    
+
     BigInt getInt(int index) {
       final el = rsaSeq.elements![index];
       return (el as dynamic).integer ?? (el as dynamic).valueAsBigInteger;
@@ -240,21 +219,21 @@ class CryptoService {
     if (rawBase64.length == 704) {
       // Umwandlung von PKCS#1 zu X.509
       final pkcs1Bytes = base64.decode(rawBase64);
-      
+
       final algorithmSeq = pc_asn1.ASN1Sequence();
       algorithmSeq.add(pc_asn1.ASN1ObjectIdentifier.fromIdentifierString('1.2.840.113549.1.1.1'));
       algorithmSeq.add(pc_asn1.ASN1Null());
-      
+
       // Bei ASN1BitString heißt der Parameter stringValues
       final publicKeyBitString = pc_asn1.ASN1BitString(stringValues: pkcs1Bytes);
-      
+
       final spkiSeq = pc_asn1.ASN1Sequence();
       spkiSeq.add(algorithmSeq);
       spkiSeq.add(publicKeyBitString);
-      
+
       return base64.encode(spkiSeq.encode());
     }
-    
+
     return rawBase64;
   }
 

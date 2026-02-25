@@ -1,18 +1,26 @@
+/// Repräsentiert den Status und die Identitätsdaten eines Freundes.
+/// Ein Array dieser Objekte wird als JSON serialisiert und verschlüsselt auf dem
+/// Server abgelegt, um die Freundesliste zwischen Geräten zu synchronisieren.
 class FriendPayload {
+  /// Die globale eindeutige ID des Freundes.
   final String uuid;
+
+  /// Der Benutzername des Freundes.
   final String name;
+
+  /// Gibt an, ob der Freund bereits verifiziert wurde.
   final bool isVerified;
+
+  /// Gibt an, ob der Freund in der UI ausgeblendet wurde.
   final bool isHidden;
+
+  /// Zeitpunkt der letzten Änderung (UTC).
+  /// Dient zur Konfliktauflösung (Last-Write-Wins).
   final DateTime updatedAt;
 
-  FriendPayload({
-    required this.uuid,
-    required this.name,
-    required this.isVerified,
-    required this.isHidden,
-    required this.updatedAt,
-  });
+  FriendPayload({required this.uuid, required this.name, required this.isVerified, required this.isHidden, required this.updatedAt});
 
+  /// Erstellt eine [FriendPayload] aus einer JSON-Map.
   factory FriendPayload.fromJson(Map<String, dynamic> json) {
     return FriendPayload(
       uuid: json['uuid'] as String,
@@ -23,13 +31,8 @@ class FriendPayload {
     );
   }
 
+  /// Konvertiert eine [FriendPayload] in eine Map für die JSON-Serialisierung.
   Map<String, dynamic> toJson() {
-    return {
-      'uuid': uuid,
-      'name': name,
-      'isVerified': isVerified,
-      'isHidden': isHidden,
-      'updatedAt': updatedAt.toIso8601String(),
-    };
+    return {'uuid': uuid, 'name': name, 'isVerified': isVerified, 'isHidden': isHidden, 'updatedAt': updatedAt.toIso8601String()};
   }
 }

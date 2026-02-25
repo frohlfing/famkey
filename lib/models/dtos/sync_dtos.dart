@@ -1,37 +1,39 @@
+/// Repräsentiert die Antwort des Servers beim Herunterladen von Änderungen (Pull-Vorgang).
+/// Enthält neue oder aktualisierte Einträge sowie Informationen über gelöschte Objekte.
 class SyncPullResponse {
+  /// Eine Liste von neuen oder aktualisierten Tresoreinträgen.
   final List<SyncEntryDto> updates;
+
+  /// Eine Liste von gelöschten Einträgen (Tombstones).
   final List<SyncDeleteDto> deletes;
+
+  /// Der aktuelle Zeitstempel des Servers zum Zeitpunkt der Anfrage.
+  /// Dient als Basis für den nächsten inkrementellen Synchronisationsvorgang.
   final DateTime serverTime;
 
-  SyncPullResponse({
-    required this.updates,
-    required this.deletes,
-    required this.serverTime,
-  });
+  SyncPullResponse({required this.updates, required this.deletes, required this.serverTime});
 
   factory SyncPullResponse.fromJson(Map<String, dynamic> json) {
     return SyncPullResponse(
-      updates: (json['updates'] as List)
-          .map((e) => SyncEntryDto.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      deletes: (json['deletes'] as List)
-          .map((e) => SyncDeleteDto.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      updates: (json['updates'] as List).map((e) => SyncEntryDto.fromJson(e as Map<String, dynamic>)).toList(),
+      deletes: (json['deletes'] as List).map((e) => SyncDeleteDto.fromJson(e as Map<String, dynamic>)).toList(),
       serverTime: DateTime.parse(json['server_time'] as String).toUtc(),
     );
   }
 }
 
+/// Transportobjekt für eine Zugriffsberechtigung eines Freundes innerhalb eines Eintrags.
 class FriendPermissionDto {
+  /// Die globale UUID des Freundes.
   final String userUuid;
+
+  /// Der für diesen Freund RSA-verschlüsselte Entry-Key.
   final String? encryptedKey;
+
+  /// Die Berechtigungsstufe (1=Lesen, 2=Schreiben).
   final int accessLevel;
 
-  FriendPermissionDto({
-    required this.userUuid,
-    this.encryptedKey,
-    required this.accessLevel,
-  });
+  FriendPermissionDto({required this.userUuid, this.encryptedKey, required this.accessLevel});
 
   factory FriendPermissionDto.fromJson(Map<String, dynamic> json) {
     return FriendPermissionDto(
@@ -42,23 +44,39 @@ class FriendPermissionDto {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'user_uuid': userUuid,
-      'encrypted_key': encryptedKey,
-      'access_level': accessLevel,
-    };
+    return {'user_uuid': userUuid, 'encrypted_key': encryptedKey, 'access_level': accessLevel};
   }
 }
 
+/// Datenübertragungsobjekt für einen Tresoreintrag auf API-Ebene.
+/// Bündelt verschlüsselte Daten, Metadaten und Freigabeinformationen.
+/// Entspricht `EntryDto.cs` aus MAUI.
 class SyncEntryDto {
+  /// Die globale eindeutige Identifikationsnummer (UUID v4) des Eintrags.
   final String entryUuid;
+
+  /// Der AES-256-GCM verschlüsselte Daten-Container (Base64).
   final String encryptedData;
-  final String? encryptedKey; // Local user's key
+
+  /// Der für den aktuellen Benutzer verschlüsselte Entry-Key (RSA-Umschlag, Base64).
+  final String? encryptedKey;
+
+  /// Die Zugriffsebene des anfragenden Benutzers für diesen Eintrag.
   final int accessLevel;
+
+  /// Eine Liste von UUIDs zugehöriger Dateianhänge.
   final List<String> attachmentUuids;
+
+  /// Eine Liste von Freigaben für andere Freunde.
   final List<FriendPermissionDto> friends;
+
+  /// Die globale UUID des Benutzers, der diesen Eintrag ursprünglich erstellt hat.
   final String creatorUuid;
+
+  /// Die globale UUID des Benutzers, der die letzte Änderung vorgenommen hat.
   final String updaterUuid;
+
+  /// Zeitpunkt der letzten Änderung (UTC).
   final DateTime updatedAt;
 
   SyncEntryDto({
@@ -80,10 +98,7 @@ class SyncEntryDto {
       encryptedKey: json['encrypted_key'] as String?,
       accessLevel: json['access_level'] as int,
       attachmentUuids: List<String>.from(json['attachment_uuids'] ?? []),
-      friends: (json['friends'] as List?)
-              ?.map((e) => FriendPermissionDto.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      friends: (json['friends'] as List?)?.map((e) => FriendPermissionDto.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       creatorUuid: json['creator_uuid'] as String,
       updaterUuid: json['updater_uuid'] as String,
       updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
@@ -105,37 +120,37 @@ class SyncEntryDto {
   }
 }
 
+/// Transportobjekt für einen gelöschten Eintrag (Tombstone).
+/// Entspricht `TombstoneDto.cs` aus MAUI.
 class SyncDeleteDto {
+  /// Die globale UUID des gelöschten Eintrags.
   final String entryUuid;
+
+  /// Zeitpunkt der Löschung (UTC).
   final DateTime deletedAt;
 
   SyncDeleteDto({required this.entryUuid, required this.deletedAt});
 
   factory SyncDeleteDto.fromJson(Map<String, dynamic> json) {
-    return SyncDeleteDto(
-      entryUuid: json['entry_uuid'] as String,
-      deletedAt: DateTime.parse(json['deleted_at'] as String).toUtc(),
-    );
+    return SyncDeleteDto(entryUuid: json['entry_uuid'] as String, deletedAt: DateTime.parse(json['deleted_at'] as String).toUtc());
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'entry_uuid': entryUuid,
-      'deleted_at': deletedAt.toIso8601String(),
-    };
+    return {'entry_uuid': entryUuid, 'deleted_at': deletedAt.toIso8601String()};
   }
 }
 
+/// Repräsentiert die Anfrage an den Server beim Hochladen lokaler Änderungen (Push-Vorgang).
 class SyncPushRequest {
+  /// Eine Liste neuer oder lokal geänderter Tresoreinträge.
   final List<SyncEntryDto> updates;
+
+  /// Eine Liste lokaler Löschungen, die auf dem Server nachvollzogen werden sollen.
   final List<SyncDeleteDto> deletes;
 
   SyncPushRequest({required this.updates, required this.deletes});
 
   Map<String, dynamic> toJson() {
-    return {
-      'updates': updates.map((e) => e.toJson()).toList(),
-      'deletes': deletes.map((e) => e.toJson()).toList(),
-    };
+    return {'updates': updates.map((e) => e.toJson()).toList(), 'deletes': deletes.map((e) => e.toJson()).toList()};
   }
 }

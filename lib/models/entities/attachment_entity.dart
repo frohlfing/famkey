@@ -1,9 +1,29 @@
+/// Repräsentiert einen Dateianhang zu einem Tresoreintrag in der lokalen SQLite-Datenbank.
+/// Der gesamte Inhalt wird verschlüsselt gespeichert, um die Privatsphäre zu gewährleisten.
+///
+/// **Sicherheitshinweise:**
+/// * **Inhalt:** Der binäre Dateiinhalt ist mit dem AES-Schlüssel des zugehörigen Eintrags verschlüsselt.
+/// * **Metadaten:** Metadaten wie Dateiname und MIME-Typ liegen als verschlüsselter JSON-Blob vor.
 class AttachmentEntity {
+  /// Die interne ID (Auto-Increment in der Datenbank).
+  /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
   final int? id;
+
+  /// Die globale eindeutige ID des Anhangs (Universally Unique Identifier v4).
   final String uuid;
+
+  /// Die interne ID des zugehörigen Eintrags.
   final int entryId;
+
+  /// Der AES-256-GCM verschlüsselte Metadaten-Container (Ciphertext + Nonce + Auth-Tag).
+  /// Enthält das serialisierte JSON-Objekt der Klasse [AttachmentMetaPayload].
   final String encryptedMeta;
+
+  /// Der AES-256-GCM verschlüsselte Binärdaten-Container (Ciphertext + Nonce + Auth-Tag).
+  /// Enthält den binären Dateninhalt des Anhangs.
   final String encryptedContent;
+
+  /// `true`, wenn der Anhang erfolgreich zum Server synchronisiert wurde, sonst `false`.
   final bool isSynced;
 
   AttachmentEntity({
@@ -15,6 +35,7 @@ class AttachmentEntity {
     this.isSynced = false,
   });
 
+  /// Konvertiert eine [AttachmentEntity] in eine Map (z.B. für SQLite oder JSON).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -26,6 +47,7 @@ class AttachmentEntity {
     };
   }
 
+  /// Erstellt ein [AttachmentEntity] Objekt aus einer Map.
   factory AttachmentEntity.fromMap(Map<String, dynamic> map) {
     return AttachmentEntity(
       id: map['id'] as int?,
@@ -37,14 +59,8 @@ class AttachmentEntity {
     );
   }
 
-  AttachmentEntity copyWith({
-    int? id,
-    String? uuid,
-    int? entryId,
-    String? encryptedMeta,
-    String? encryptedContent,
-    bool? isSynced,
-  }) {
+  /// Erzeugt eine Kopie des Objekts mit modifizierten Eigenschaften.
+  AttachmentEntity copyWith({int? id, String? uuid, int? entryId, String? encryptedMeta, String? encryptedContent, bool? isSynced}) {
     return AttachmentEntity(
       id: id ?? this.id,
       uuid: uuid ?? this.uuid,

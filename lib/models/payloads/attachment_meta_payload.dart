@@ -1,28 +1,30 @@
+/// Repräsentiert die verschlüsselten Metadaten eines Dateianhangs.
+/// Dieses Objekt wird als JSON serialisiert und anschließend mittels AES-256-GCM verschlüsselt
+/// in der Spalte `encryptedMeta` der `AttachmentEntity` gespeichert.
 class AttachmentMetaPayload {
+  /// Der ursprüngliche Dateiname (z. B. "Urlaubsfoto.jpg").
   final String filename;
+
+  /// Der Internet Media Type der Datei (z. B. "image/jpeg").
   final String mime;
+
+  /// Die Größe der unverschlüsselten Datei in Bytes.
   final int size;
-  final String? thumbnail; // Base64 thumbnail
+
+  /// Der binäre Dateninhalt eines verkleinerten Vorschaubildes als Base64-String.
+  final String? thumbnail;
+
+  /// Zeitstempel der Datei (UTC).
   final DateTime timestamp;
 
-  AttachmentMetaPayload({
-    required this.filename,
-    required this.mime,
-    required this.size,
-    this.thumbnail,
-    required this.timestamp,
-  });
+  AttachmentMetaPayload({required this.filename, required this.mime, required this.size, this.thumbnail, required this.timestamp});
 
+  /// Konvertiert eine [AttachmentMetaPayload] in eine Map für die JSON-Serialisierung.
   Map<String, dynamic> toJson() {
-    return {
-      'filename': filename,
-      'mime': mime,
-      'size': size,
-      'thumbnail': thumbnail,
-      'timestamp': timestamp.toIso8601String(),
-    };
+    return {'filename': filename, 'mime': mime, 'size': size, 'thumbnail': thumbnail, 'timestamp': timestamp.toIso8601String()};
   }
 
+  /// Erstellt eine [AttachmentMetaPayload] aus einer JSON-Map.
   factory AttachmentMetaPayload.fromJson(Map<String, dynamic> json) {
     return AttachmentMetaPayload(
       filename: json['filename'] as String,

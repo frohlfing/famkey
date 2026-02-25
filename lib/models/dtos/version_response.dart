@@ -1,9 +1,21 @@
+/// Repräsentiert die Antwort des Servers auf eine Versionsabfrage.
 class VersionResponse {
   final String service;
+
+  /// Die Haupt-Versionsnummer.
+  /// Wird erhöht bei Schema-Änderungen, die nicht abwärtskompatibel sind.
   final int major;
+
+  /// Die Neben-Versionsnummer.
+  /// Wird erhöht, wenn das Schema abwärtskompatibel verändert wurde.
   final int minor;
+
+  /// Die Revisionsnummer (Patch).
+  /// Wird erhöht bei Fehlerbehebungen.
   final int patch;
-  final int requiredClientMinor; // Hinzugefügt für Version Check
+
+  /// Die vom Server mindestens erforderliche Client-Minor-Version.
+  final int requiredClientMinor;
 
   VersionResponse({
     required this.service,
