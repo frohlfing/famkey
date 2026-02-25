@@ -401,8 +401,8 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
 <pre>
 /Privault/ (Solution)
   ├── bin/                          # Shell-Scripte
-  ├── Docs/                         # Projektdokumentation (Markdown)
-  ├── Host/                         # Backend (PHP)
+  ├── docs/                         # Projektdokumentation (Markdown)
+  ├── host/                         # Backend (PHP)
   │    ├── coverage/                # Automatisch generierte Code-Coverage-Daten
   │    │    ├── clover.xml          # Clover-Report (XML) für IDE 
   │    │    └── data.json           # Coverage-Rohdaten

@@ -11,18 +11,29 @@ import 'package:fast_rsa/fast_rsa.dart' as frsa;
 import 'package:crypto/crypto.dart' as crypto_hash;
 
 class CryptoService {
-  // Argon2id Parameter (Matching C#)
-  static const int argonMemorySize = 64 * 1024; // 64 MB
+  // ------------------------------------------------------------------------
+  // --- Konstanten ---
+  // ------------------------------------------------------------------------
+    
+  // Argon2id Parameter (BSI-konform)
+  static const int argonMemorySize = 64 * 1024; // 64 MB RAM
   static const int argonIterations = 4;
   static const int argonParallelism = 4;
 
-  // AES-GCM Constants
-  static const int nonceSize = 12;
-  static const int tagSize = 16;
+  // AES-GCM Konstanten
+  static const int nonceSize = 12; // 96 Bit IV (Standard für GCM)
+  static const int tagSize = 16; // 128 Bit Authentication Tag
 
   final _aesGcm = crypto_auth.AesGcm.with256bits();
 
-  /// Derive a 32-byte key from a password and salt using Argon2id with PointyCastle.
+  // ------------------------------------------------------------------------
+  // --- Öffentliche Methoden ---
+  // ------------------------------------------------------------------------
+    
+  // --- AES ---
+
+  /// Leitet einen 32-Byte (256 Bit) Schlüssel aus einem Passwort und Salt 
+  /// mittels Argon2id ab (PBKDF).
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
     final params = pc.Argon2Parameters(
       pc.Argon2Parameters.ARGON2_id,
@@ -38,13 +49,24 @@ class CryptoService {
 
     final result = Uint8List(32);
     final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    argon2.deriveKey(passwordBytes, 0, result, 0);
-
-    return result;
+    
+    try {
+      argon2.deriveKey(passwordBytes, 0, result, 0);
+      return result;
+    } finally {
+      wipeKey(passwordBytes);
+    }
   }
 
-  /// Encrypt data using AES-256-GCM.
+  /// Verschlüsselt Daten mit AES-256-GCM.
+  /// 
+  /// Generiert eine zufällige Nonce für jede Verschlüsselung.
+  /// Das Ergebnis wird als Base64-String im Format `[Nonce] + [Tag] + [Ciphertext]` zurückgegeben.
   Future<String> encrypt(Uint8List data, Uint8List key) async {
+    if (key.length != 32) {
+      throw Exception("Key muss exakt 32 Bytes lang sein (AES-256).");
+    }
+
     final secretKey = crypto_auth.SecretKey(key);
     final nonce = _aesGcm.newNonce();
 
@@ -62,11 +84,15 @@ class CryptoService {
     return base64.encode(combined);
   }
 
-  /// Decrypt data using AES-256-GCM.
+  /// Entschlüsselt einen Base64-String (Format: `[Nonce] + [Tag] + [Ciphertext]`) mit AES-256-GCM.
   Future<Uint8List> decrypt(String encryptedDataBase64, Uint8List key) async {
+    if (key.length != 32) {
+      throw Exception("Key muss exakt 32 Bytes lang sein (AES-256).");
+    }
+
     final blob = base64.decode(encryptedDataBase64);
     if (blob.length < nonceSize + tagSize) {
-      throw Exception("Invalid data format");
+      throw Exception("Datenformat ungültig.");
     }
 
     final nonce = blob.sublist(0, nonceSize);
@@ -88,8 +114,11 @@ class CryptoService {
     return Uint8List.fromList(clearText);
   }
 
-  // --- RSA Section ---
+  // --- RSA ---
 
+  /// Generiert ein RSA-4096 Schlüsselpaar.
+  /// 
+  /// Der Public Key wird im SPKI/X.509 Format (Base64), der Private Key als PKCS#8 Byte-Array zurückgegeben.
   Future<(String, Uint8List)> generateRsaKeyPair() async {
     final result = await frsa.RSA.generate(4096);
     // Wir wandeln den Public Key in das X.509 Format (736 Zeichen) um
@@ -97,6 +126,7 @@ class CryptoService {
     return (x509PubKey, utf8.encode(result.privateKey));
   }
 
+  /// Verschlüsselt Daten mit einem RSA Public Key (OAEP mit SHA-256 Padding, BSI Empfehlung).
   Future<String> encryptRsa(Uint8List data, String publicKeyPem) async {
     final pem = _ensurePemHeader(publicKeyPem, "PUBLIC KEY");
     return await frsa.RSA.encryptOAEP(
@@ -107,6 +137,7 @@ class CryptoService {
     );
   }
 
+  /// Entschlüsselt Daten mit einem RSA Private Key (OAEP mit SHA-256 Padding).
   Future<Uint8List> decryptRsa(String encryptedDataBase64, String privateKeyPem) async {
     final pem = _ensurePemHeader(privateKeyPem, "PRIVATE KEY");
     final decrypted = await frsa.RSA.decryptOAEP(
@@ -118,6 +149,44 @@ class CryptoService {
     return base64.decode(decrypted);
   }
 
+  /// Erzeugt einen SHA-256 Fingerprint eines (Base64-kodierten) Public Keys.
+  /// Format: HH:HH:HH:...
+  String fingerprint(String publicKey) {
+    if (publicKey.trim().isEmpty) return "";
+    final hash = crypto_hash.sha256.convert(base64.decode(publicKey));
+    return hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(':');
+  }
+
+  // --- Sonstiges ---
+
+  /// Wir nutzen HKDF-SHA256, um aus einem inputKey (z.B. RSA PrivKey) einen symmetrischen Key abzuleiten.
+  /// Das Ergebnis ist ein pseudozufälliger 32-Byte (256 Bit) Schlüssel.
+  /// `salt` ist optional, aber empfohlen. `info` ist Kontext (z.B. "friends-list-encryption").
+  Uint8List deriveKeyFromKey(Uint8List keyMaterial, Uint8List? salt, String info) {
+    final hkdf = pc.HKDFKeyDerivator(pc.SHA256Digest());
+    final params = pc.HkdfParameters(keyMaterial, 32, salt, Uint8List.fromList(utf8.encode(info)));
+    hkdf.init(params);
+    final derivedKey = Uint8List(32);
+    // Das IKM wurde bereits über params/init gesetzt, daher hier null.
+    hkdf.deriveKey(null, 0, derivedKey, 0);
+    return derivedKey;
+  }
+
+  /// Berechnet einen einfachen SHA-256 Hash eines Strings (Rückgabe als Hex-String).
+  String computeHash(String input) {
+    final bytes = utf8.encode(input);
+    final digest = crypto_hash.sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  /// Generiert ein kryptografisch sicheres, 16 Byte langes Salt.
+  Uint8List generateSalt() {
+    final random = Random.secure();
+    return Uint8List.fromList(List<int>.generate(16, (i) => random.nextInt(256)));
+  }
+
+  /// Signiert Daten mit dem RSA Private Key.
+  /// Nutzt PKCS#1 v1.5 (für maximale Kompatibilität mit dem PHP-Backend).
   Future<String> signData(Uint8List data, Uint8List privateKeyBytes) async {
     final privateKey = _parsePrivateKeyBytes(privateKeyBytes);
     final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
@@ -125,6 +194,16 @@ class CryptoService {
     final sig = signer.generateSignature(data);
     return base64.encode(sig.bytes);
   }
+  
+  /// Explizite Schleife, um sensible Arrays im RAM zu überschreiben.
+  void wipeKey(Uint8List? key) {
+    if (key == null) return;
+    for (int i = 0; i < key.length; i++) {
+      key[i] = 0;
+    }
+  }
+
+  // --- Interne Helper ---
 
   RSAPrivateKey _parsePrivateKeyBytes(Uint8List bytes) {
     var workingBytes = bytes;
@@ -191,33 +270,5 @@ class CryptoService {
   String _ensurePemHeader(String key, String type) {
     if (key.startsWith('-----')) return key;
     return "-----BEGIN RSA $type-----\n$key\n-----END RSA $type-----";
-  }
-
-  void wipeKey(Uint8List? key) {
-    if (key == null) return;
-    for (int i = 0; i < key.length; i++) {
-      key[i] = 0;
-    }
-  }
-
-  String computeHash(String input) {
-    final bytes = utf8.encode(input);
-    final digest = crypto_hash.sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  Uint8List generateSalt() {
-    final random = Random.secure();
-    return Uint8List.fromList(List<int>.generate(16, (i) => random.nextInt(256)));
-  }
-
-  Uint8List deriveKeyFromKey(Uint8List keyMaterial, Uint8List? salt, String info) {
-    final hkdf = pc.HKDFKeyDerivator(pc.SHA256Digest());
-    final params = pc.HkdfParameters(keyMaterial, 32, salt, Uint8List.fromList(utf8.encode(info)));
-    hkdf.init(params);
-    final derivedKey = Uint8List(32);
-    // Das IKM wurde bereits über params/init gesetzt, daher hier null.
-    hkdf.deriveKey(null, 0, derivedKey, 0);
-    return derivedKey;
   }
 }

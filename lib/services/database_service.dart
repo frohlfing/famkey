@@ -10,17 +10,22 @@ import 'package:privault/models/entities/permission_entity.dart';
 import 'package:privault/models/entities/tombstone_entity.dart';
 import 'package:privault/models/entities/attachment_entity.dart';
 
+/// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
+/// Beinhaltet grundlegende CRUD-Operationen und Transaktionen für komplexe Vorgänge.
 class DatabaseService {
   final ConfigService _configService;
   AppDatabase? _db;
   String? _currentDbPath;
 
+  /// Initialisiert eine neue Instanz des [DatabaseService].
   DatabaseService(this._configService);
 
   bool get isInitialized => _db != null;
 
+  /// Baut die Verbindung zur Datenbank auf.
+  /// Entspricht InitializeAsync aus MAUI.
   Future<void> initialize(String vaultName, String password) async {
-    if (_db != null) return;
+    if (_db != null) return; // Bereits verbunden
     
     final storagePath = _configService.vaultStoragePath;
     _currentDbPath = p.join(storagePath, '$vaultName.db3');
@@ -28,28 +33,79 @@ class DatabaseService {
     _db = AppDatabase(vaultName, password);
   }
 
+  // ------------------------------------------------------------------------
+  // --- Verbindung & System ---
+  // ------------------------------------------------------------------------
+
+  /// Schließt die aktuelle Datenbankverbindung.
   Future<void> close() async {
     await _db?.close();
     _db = null;
   }
 
+  /// Erstellt eine Sicherheitskopie der aktuellen Datenbankdatei.
+  /// Wird z.B. vor kritischen Operationen wie `rekey` aufgerufen.
+  void createBackup() {
+    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    final file = File(_currentDbPath!);
+    if (file.existsSync()) {
+      file.copySync('$_currentDbPath.bak');
+    }
+  }
+
+  /// Entfernt eine zuvor erstellte Sicherheitskopie (bei erfolgreicher Operation).
+  void removeBackup() {
+    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    final backupPath = '$_currentDbPath.bak';
+    final file = File(backupPath);
+    if (file.existsSync()) {
+      try {
+        file.deleteSync();
+      } catch (_) {
+        // Ignorieren, wie in MAUI
+      }
+    }
+  }
+
+  /// Stellt die Sicherheitskopie wieder her (bei fehlgeschlagener Operation).
+  void restoreBackup() {
+    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    final backupPath = '$_currentDbPath.bak';
+    final backupFile = File(backupPath);
+    if (backupFile.existsSync()) {
+      backupFile.copySync(_currentDbPath!);
+      try {
+        backupFile.deleteSync();
+      } catch (_) {
+        // Ignorieren, wie in MAUI
+      }
+    }
+  }
+
   /// Schließt die DB und löscht physisch die DB- und Salt-Datei.
   Future<void> deleteCurrentDatabase() async {
     final path = _currentDbPath;
-    await close(); // Schritt a: DB schließen
+    await close();
     
     if (path != null) {
-      // Schritt c: DB-Datei löschen
       final dbFile = File(path);
       if (await dbFile.exists()) await dbFile.delete();
       
-      // Schritt c: Salt-Datei löschen
       final saltFile = File('$path.salt');
       if (await saltFile.exists()) await saltFile.delete();
     }
   }
 
+  /// Ändert das Verschlüsselungspasswort (bzw. den Key) der Datenbankdatei.
+  Future<void> rekey(Uint8List newMasterKey) async {
+    if (_db == null) return;
+    final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    await _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
+  }
+
+  // ------------------------------------------------------------------------
   // --- User Operations ---
+  // ------------------------------------------------------------------------
 
   Future<UserEntity?> getUserById(int id) async {
     if (_db == null) return null;
@@ -115,17 +171,86 @@ class DatabaseService {
     }
   }
 
+  /// Löscht einen Benutzer und alle damit verbundenen Daten (Einträge, Permissions, Anhänge).
   Future<void> deleteUser(int id) async {
     if (_db == null) return;
-    await (_db!.delete(_db!.users)..where((u) => u.id.equals(id))).go();
+    await _db!.transaction(() async {
+      // 1. Lösche alle Permissions, die der Benutzer selbst hat
+      await (_db!.delete(_db!.permissions)..where((p) => p.userId.equals(id))).go();
+      
+      // 2. Lösche ALLE Permissions für ALLE Einträge, die dieser Benutzer erstellt hat
+      // (Wenn der Besitzer gelöscht wird, haben auch Freunde keinen Zugriff mehr)
+      await _db!.customStatement("DELETE FROM permissions WHERE entry_id IN (SELECT id FROM entries WHERE creator_id = ?)", [id]);
+
+      // 3. Lösche alle Anhänge von Einträgen, die dieser Benutzer erstellt hat
+      await _db!.customStatement("DELETE FROM attachments WHERE entry_id IN (SELECT id FROM entries WHERE creator_id = ?)", [id]);
+
+      // 4. Lösche die Einträge des Benutzers 
+      await (_db!.delete(_db!.entries)..where((e) => e.creatorId.equals(id))).go();
+      
+      // 5. UpdaterId bei verbliebenen Einträgen nullen
+      await _db!.customStatement("UPDATE entries SET updater_id = 0 WHERE updater_id = ?", [id]);
+
+      // 6. Den Benutzer selbst löschen
+      await (_db!.delete(_db!.users)..where((u) => u.id.equals(id))).go();
+    });
   }
 
+  /// Verbirgt einen Benutzer und entwertet seine Schlüssel (Vertrauensentzug).
+  Future<void> hideUser(int userId) async {
+    if (_db == null) return;
+    final now = DateTime.now().toUtc();
+    await _db!.transaction(() async {
+      // 1. Alle Permissions des Users entwerten.
+      await _db!.customStatement("""
+          UPDATE permissions 
+          SET access_level = 0, encrypted_key = '' 
+          WHERE user_id = ? AND (access_level > 0 OR encrypted_key != '')
+      """, [userId]);
+
+      // 2. Zeitstempel aller betroffenen Einträge aktualisieren
+      await _db!.customStatement("""
+          UPDATE entries 
+          SET updated_at = ? 
+          WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
+      """, [now.toIso8601String(), userId]);
+
+      // 3. Benutzer-Status aktualisieren
+      await _db!.customStatement("""
+          UPDATE users 
+          SET is_verified = 0, is_hidden = 1, updated_at = ? 
+          WHERE id = ?
+      """, [now.toIso8601String(), userId]);
+    });
+  }
+
+  /// Löscht alle Entry-Keys eines Benutzers (z.B. bei Identitätswechsel).
   Future<void> removeEntryKeysForUser(int userId) async {
     if (_db == null) return;
-    final companion = const PermissionsCompanion(encryptedKey: Value(''));
-    await (_db!.update(_db!.permissions)..where((p) => p.userId.equals(userId))).write(companion);
+    final now = DateTime.now().toUtc();
+    
+    await _db!.transaction(() async {
+      // 1. Alle Entry-Keys des Users in einem Rutsch entfernen.
+      // Wir prüfen manuell, ob Zeilen betroffen waren (in Drift über custom Update oder Select)
+      final affectedRows = await _db!.customUpdate("""
+          UPDATE permissions 
+          SET encrypted_key = '' 
+          WHERE user_id = ? AND encrypted_key != ''
+      """, variables: [Variable.withInt(userId)]);
+
+      // Wenn keine Keys entfernt wurden, müssen wir auch keine Zeitstempel aktualisieren.
+      if (affectedRows == 0) return;
+
+      // 2. Zeitstempel der betroffenen Einträge aktualisieren.
+      await _db!.customStatement("""
+          UPDATE entries 
+          SET updated_at = ? 
+          WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
+      """, [now.toIso8601String(), userId]);
+    });
   }
 
+  /// Prüft, ob ein Benutzer Zugriff auf Einträge hat, aber sein Schlüssel fehlt.
   Future<bool> hasAccessWithoutKey(int userId) async {
     if (_db == null) return false;
     final countExp = _db!.permissions.id.count();
@@ -136,7 +261,9 @@ class DatabaseService {
     return (result ?? 0) > 0;
   }
 
+  // ------------------------------------------------------------------------
   // --- Entry Operations ---
+  // ------------------------------------------------------------------------
 
   Future<List<EntryEntity>> getAllEntries() async {
     if (_db == null) return [];
@@ -223,16 +350,62 @@ class DatabaseService {
     }
   }
 
+  /// Löscht einen Eintrag mit allen zugehörigen Berechtigungen und Anhängen.
   Future<void> deleteEntry(int id) async {
     if (_db == null) return;
     await _db!.transaction(() async {
-      await (_db!.delete(_db!.attachments)..where((a) => a.entryId.equals(id))).go();
+      // 1. Alle Berechtigungen für diesen Eintrag löschen
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(id))).go();
+      
+      // 2. Alle Anhänge (Metadaten und physische Blobs) dieses Eintrags löschen
+      await (_db!.delete(_db!.attachments)..where((a) => a.entryId.equals(id))).go();
+      
+      // 3. Den Eintrag selbst physisch löschen
       await (_db!.delete(_db!.entries)..where((e) => e.id.equals(id))).go();
     });
   }
 
+  // --- Combined Operation (Matching MAUI logic) ---
+
+  /// Speichert einen Eintrag zusammen mit einer initialen Berechtigung in einer Transaktion.
+  Future<int> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
+    if (_db == null) throw Exception("Datenbank nicht initialisiert");
+
+    return await _db!.transaction(() async {
+      int actualEntryId;
+      final entryCompanion = _entryToCompanion(entry);
+
+      // 1. Eintrag speichern (wie MAUI: erst suchen ob Id oder Uuid existiert)
+      final existingEntry = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entry.id ?? -1) | e.uuid.equals(entry.uuid))).getSingleOrNull();
+      if (existingEntry != null) {
+        await (_db!.update(_db!.entries)..where((e) => e.id.equals(existingEntry.id))).write(entryCompanion);
+        actualEntryId = existingEntry.id;
+      } else {
+        actualEntryId = await _db!.into(_db!.entries).insert(entryCompanion);
+      }
+
+      // 2. Berechtigung für den Benutzer speichern
+      final permCompanion = PermissionsCompanion(
+        entryId: Value(actualEntryId),
+        userId: Value(userId),
+        encryptedKey: Value(encryptedKey),
+        accessLevel: Value(accessLevel),
+      );
+
+      final existingPerm = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(actualEntryId) & p.userId.equals(userId))).getSingleOrNull();
+      if (existingPerm != null) {
+        await (_db!.update(_db!.permissions)..where((p) => p.id.equals(existingPerm.id))).write(permCompanion);
+      } else {
+        await _db!.into(_db!.permissions).insert(permCompanion);
+      }
+      
+      return actualEntryId;
+    });
+  }
+
+  // ------------------------------------------------------------------------
   // --- Attachment Operations ---
+  // ------------------------------------------------------------------------
 
   Future<List<AttachmentEntity>> getAttachmentsByEntryId(int entryId) async {
     if (_db == null) return [];
@@ -282,44 +455,9 @@ class DatabaseService {
     await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(id))).go();
   }
 
-  // --- Combined Operation (Matching MAUI logic) ---
-
-  Future<int> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
-    if (_db == null) throw Exception("Datenbank nicht initialisiert");
-
-    return await _db!.transaction(() async {
-      int actualEntryId;
-      final entryCompanion = _entryToCompanion(entry);
-
-      // 1. Eintrag speichern (wie MAUI: erst suchen ob Id oder Uuid existiert)
-      final existingEntry = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entry.id ?? -1) | e.uuid.equals(entry.uuid))).getSingleOrNull();
-      if (existingEntry != null) {
-        await (_db!.update(_db!.entries)..where((e) => e.id.equals(existingEntry.id))).write(entryCompanion);
-        actualEntryId = existingEntry.id;
-      } else {
-        actualEntryId = await _db!.into(_db!.entries).insert(entryCompanion);
-      }
-
-      // 2. Berechtigung für den Benutzer speichern
-      final permCompanion = PermissionsCompanion(
-        entryId: Value(actualEntryId),
-        userId: Value(userId),
-        encryptedKey: Value(encryptedKey),
-        accessLevel: Value(accessLevel),
-      );
-
-      final existingPerm = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(actualEntryId) & p.userId.equals(userId))).getSingleOrNull();
-      if (existingPerm != null) {
-        await (_db!.update(_db!.permissions)..where((p) => p.id.equals(existingPerm.id))).write(permCompanion);
-      } else {
-        await _db!.into(_db!.permissions).insert(permCompanion);
-      }
-      
-      return actualEntryId;
-    });
-  }
-
+  // ------------------------------------------------------------------------
   // --- Permission Operations ---
+  // ------------------------------------------------------------------------
 
   Future<List<PermissionEntity>> getPermissionsByEntryId(int entryId) async {
     if (_db == null) return [];
@@ -392,7 +530,9 @@ class DatabaseService {
     });
   }
 
+  // ------------------------------------------------------------------------
   // --- Tombstone Operations ---
+  // ------------------------------------------------------------------------
 
   Future<List<TombstoneEntity>> getTombstonesSince(DateTime since) async {
     if (_db == null) return [];
@@ -412,7 +552,9 @@ class DatabaseService {
     ));
   }
 
+  // ------------------------------------------------------------------------
   // --- Settings Operations ---
+  // ------------------------------------------------------------------------
 
   Future<SettingsEntity?> getSettings() async {
     if (_db == null) return null;
@@ -451,12 +593,6 @@ class DatabaseService {
       lastSyncAt: Value(s.lastSyncAt),
     );
     await _db!.into(_db!.settings).insertOnConflictUpdate(companion);
-  }
-
-  Future<void> rekey(Uint8List newMasterKey) async {
-    if (_db == null) return;
-    final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    await _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
   }
 
   // Helper

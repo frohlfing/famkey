@@ -53,6 +53,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Berechnet die Stärke des Passworts basierend auf den folgenden Regeln:
   Color _getStrengthColor(int score) {
     switch (score) {
       case 0: return const Color(0xFFCBD5E1);

@@ -13,6 +13,7 @@ import 'package:privault/services/web_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/viewmodels/settings_friend_view_model.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsViewModel extends BaseViewModel {
   final DatabaseService _databaseService;
@@ -229,27 +230,66 @@ class SettingsViewModel extends BaseViewModel {
     await loadFriends();
   }
 
-  // 3) Korrigierte Systemeinstellungen für Windows & Android
+  // 3) Korrigierte Systemeinstellungen für Windows, Android und iOS
+  
   Future<void> openBiometricSettings() async {
     if (Platform.isWindows) {
       await launchUrl(Uri.parse('ms-settings:signinoptions'));
     } else if (Platform.isAndroid) {
-      await launchUrl(Uri.parse('package:com.android.settings'));
+      // Intent für Sicherheitseinstellungen (Biometrie)
+      await launchUrl(Uri.parse('intent:#Intent;action=android.settings.SECURITY_SETTINGS;end'));
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      await launchUrl(Uri.parse('App-Prefs:root=FACEID_PASSCODE'));
     }
   }
 
   Future<void> openAutofillSettings() async {
     if (Platform.isWindows) {
-      await launchUrl(Uri.parse('https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e'));
+      await launchUrl(Uri.parse('https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e'), mode: LaunchMode.externalApplication);
     } else if (Platform.isAndroid) {
-      await launchUrl(Uri.parse('package:com.android.settings'));
+      // Intent für Autofill-Einstellungen
+      await launchUrl(Uri.parse('intent:#Intent;action=android.settings.REQUEST_SET_AUTOFILL_SERVICE;end'));
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      // iOS Passwords (Autofill Provider)
+      await launchUrl(Uri.parse('App-Prefs:root=PASSWORDS'));
     }
   }
 
   Future<void> openAppSettings() async {
     if (Platform.isWindows) {
-      await launchUrl(Uri.parse('ms-settings:appsfeatures-app'));
+      // Unter Windows gibt es keinen direkten Weg in die Detail-Ansicht einer fremden MSIX/EXE via URI.
+      // Der Standardweg öffnet "ms-settings:appsfeatures-app". 
+      // Man kann versuchen, direkt auf die Windows-App-Einstellungen für *diese* App zu zielen.
+      try {
+         final packageInfo = await PackageInfo.fromPlatform();
+         final pfn = packageInfo.packageName;
+
+         // Versucht die Advanced App Settings für diese spezifische App zu öffnen
+         final advancedUri = Uri.parse('ms-settings:appsfeatures-app?PFN=$pfn');
+         // if (kDebugMode) {
+         //   debugPrint("advancedUri: $advancedUri");
+         // }
+         if (await canLaunchUrl(advancedUri)) {
+           await launchUrl(advancedUri);
+           return;
+         }
+      } catch (_) {}
+      
+      // Fallback: Die allgemeine Liste der installierten Apps
+      await launchUrl(Uri.parse('ms-settings:appsfeatures'));
+      
     } else if (Platform.isAndroid) {
+      // Unter Android springen wir direkt in die App-Info für diese spezielle App.
+      try {
+        final packageInfo = await PackageInfo.fromPlatform();
+        final packageName = packageInfo.packageName;
+        // Erzeugt ein Intent, das direkt zur Detailseite dieser App springt.
+        await launchUrl(Uri.parse('intent:package:$packageName#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;end'));
+      } catch (_) {
+        await launchUrl(Uri.parse('intent:#Intent;action=android.settings.APPLICATION_SETTINGS;end'));
+      }
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      // iOS: Öffnet direkt die Einstellungen dieser spezifischen App.
       await launchUrl(Uri.parse('app-settings:'));
     }
   }
