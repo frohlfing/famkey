@@ -27,20 +27,55 @@ class DatabaseService {
   Future<void> initialize(String vaultName, String password) async {
     if (_db != null) return; // Bereits verbunden
 
-    final storagePath = _configService.vaultStoragePath;
-    _currentDbPath = p.join(storagePath, '$vaultName.db3');
+    // 1. Pfad bestimmen
+    _currentDbPath = getDatabasePath(vaultName);
 
     _db = AppDatabase(vaultName, password);
   }
 
+  /// Erstellt einen sicheren Dateipfad basierend auf dem Tresornamen.
+  String getDatabasePath(String vaultName)
+  {
+    final storagePath = _configService.vaultStoragePath;
+
+    // todo ungültige Zeichen ersetzen
+    // var safeName = string.Join("_", vaultName.Split(Path.GetInvalidFileNameChars()));
+
+    return p.join(storagePath, '$vaultName.db3');
+  }
+
   // ------------------------------------------------------------------------
-  // --- Verbindung & System ---
+  // --- Datenbankdatei / System ---
   // ------------------------------------------------------------------------
+
+  /// Gibt den Pfad zur Salt-Datei des aktuellen Tresors zurück.
+  String _getSaltPath(String vaultName) => '${getDatabasePath(vaultName)}.salt';
+
+  /// Liest das Salt für einen bestimmten Tresor aus dem Dateisystem.
+  Future<Uint8List?> getSalt(String vaultName) async {
+    final saltFile = File(_getSaltPath(vaultName));
+    if (await saltFile.exists()) {
+      return await saltFile.readAsBytes();
+    }
+    return null;
+  }
+
+  /// Speichert ein neues Salt für einen bestimmten Tresor im Dateisystem.
+  Future<void> saveSalt(String vaultName, Uint8List saltBytes) async {
+    final saltFile = File(_getSaltPath(vaultName));
+    await saltFile.writeAsBytes(saltBytes);
+  }
 
   /// Schließt die aktuelle Datenbankverbindung.
   Future<void> close() async {
     await _db?.close();
     _db = null;
+  }
+
+  /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
+  bool databaseExists(String vaultName) {
+    final path = getDatabasePath(vaultName);
+    return File(path).existsSync();
   }
 
   /// Erstellt eine Sicherheitskopie der aktuellen Datenbankdatei.
@@ -80,6 +115,23 @@ class DatabaseService {
         // Ignorieren, wie in MAUI
       }
     }
+  }
+
+  /// Benennt die Datenbankdatei eines Tresors (inklusive Salt) physisch auf dem Dateisystem um.
+  void renameDatabase(String oldName, String newName) {
+    if (_db != null) throw Exception("Erst Verbindung schließen!");
+    final oldPath = getDatabasePath(oldName);
+    final newPath = getDatabasePath(newName);
+    
+    // DB umbenennen
+    final oldFile = File(oldPath);
+    if (oldFile.existsSync()) oldFile.renameSync(newPath);
+
+    // Salt umbenennen
+    final oldSalt = File('$oldPath.salt');
+    if (oldSalt.existsSync()) oldSalt.renameSync('$newPath.salt');
+
+    _currentDbPath = newPath;
   }
 
   /// Schließt die DB und löscht physisch die DB- und Salt-Datei.
@@ -636,3 +688,8 @@ class DatabaseService {
     );
   }
 }
+
+// ------------------------------------------------------------------------
+// --- Private Methoden ---
+// ------------------------------------------------------------------------
+

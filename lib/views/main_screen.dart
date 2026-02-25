@@ -26,10 +26,18 @@ class _MainScreenState extends State<MainScreen> {
     if (stats != null) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Info'),
           content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('OK'),
+            )
+          ],
         ),
       );
     }

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/database_service.dart';
@@ -51,11 +50,19 @@ class GuardDialog extends StatefulWidget {
   /// Wird ebenfalls bei der "Adoption" vom Server bereitgestellt.
   final String? overrideValidationKey;
 
+  // Injizierte Services
+  final CryptoService cryptoService;
+  final SessionService sessionService;
+  final DatabaseService databaseService;
+
   const GuardDialog({
     super.key,
     required this.title,
     required this.message,
     required this.operation,
+    required this.cryptoService,
+    required this.sessionService,
+    required this.databaseService,
     this.forceLogout = false,
     this.overrideSalt,
     this.overrideValidationKey,
@@ -67,6 +74,9 @@ class GuardDialog extends StatefulWidget {
     required String title,
     required String message,
     required Future<void> Function(Uint8List masterKey) operation,
+    required CryptoService cryptoService,
+    required SessionService sessionService,
+    required DatabaseService databaseService,
     bool forceLogout = false,
     String? overrideSalt,
     String? overrideValidationKey,
@@ -74,13 +84,16 @@ class GuardDialog extends StatefulWidget {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false, // Darf aus Sicherheitsgründen nicht durch Klick daneben geschlossen werden
-      builder: (context) => GuardDialog(
+      builder: (dialogContext) => GuardDialog(
         title: title,
         message: message,
         operation: operation,
         forceLogout: forceLogout,
         overrideSalt: overrideSalt,
         overrideValidationKey: overrideValidationKey,
+        cryptoService: cryptoService,
+        sessionService: sessionService,
+        databaseService: databaseService,
       ),
     );
     return result ?? false;
@@ -111,65 +124,63 @@ class _GuardDialogState extends State<GuardDialog> {
       _errorMessage = null;
     });
 
-    final cryptoService = context.read<CryptoService>();
-    final sessionService = context.read<SessionService>();
-    final databaseService = context.read<DatabaseService>();
-    
     Uint8List? masterKey;
 
     try {
       // 1. Key ableiten
       // Zugriff auf die Map via String-Keys, da SettingsEntity im SessionService aktuell eine Map ist.
-      final saltString = widget.overrideSalt ?? sessionService.settings?['salt'];
+      final saltString = widget.overrideSalt ?? widget.sessionService.settings?['salt'];
       if (saltString == null || saltString.isEmpty) {
         throw Exception("Kein Salt vorhanden.");
       }
       final salt = base64Decode(saltString);
 
       // Zeitintensive Operation (Argon2id)
-      masterKey = await cryptoService.deriveKey(pw, salt);
+      masterKey = await widget.cryptoService.deriveKey(pw, salt);
 
       // 2. Passwort validieren
       // Wir testen, ob sich der RSA Private-Key mit dem abgeleiteten Master-Key entschlüsseln lässt.
-      final validationKey = widget.overrideValidationKey ?? sessionService.settings?['encrypted_private_key'];
+      final validationKey = widget.overrideValidationKey ?? widget.sessionService.settings?['encrypted_private_key'];
       if (validationKey == null || validationKey.isEmpty) {
         throw Exception("Kein privater RSA-Schlüssel zur Validierung vorhanden.");
       }
 
       try {
-        await cryptoService.decrypt(validationKey, masterKey);
+        await widget.cryptoService.decrypt(validationKey, masterKey);
       } catch (_) {
         throw Exception("Falsches Master-Passwort.");
       }
 
       // 3. Physisches Datenbank-Backup erstellen (Schutz vor PRAGMA rekey Korruption)
-      databaseService.createBackup();
+      widget.databaseService.createBackup();
 
       try {
         // 4. Die eigentliche, kritische Logik ausführen (z.B. Rekey der Datenbank)
         await widget.operation(masterKey);
 
         // 5. Erfolg: Das Backup wird nicht mehr benötigt und gelöscht.
-        databaseService.removeBackup();
+        widget.databaseService.removeBackup();
 
         if (widget.forceLogout) {
           // Alle Keys aus dem RAM löschen und zum Login zurückkehren
-          sessionService.clearSession();
-          if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-          }
+          widget.sessionService.clearSession();
+          if (!mounted) return;
+          if (!context.mounted) return;
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         } else {
           // Dialog erfolgreich schließen
-          if (mounted) Navigator.of(context).pop(true);
+          if (!mounted) return;
+          if (!context.mounted) return;
+          Navigator.of(context).pop(true);
         }
-        
+
       } catch (operationException) {
         // 6. Fehler während der kritischen Operation (z.B. App-Absturz simuliert oder I/O Error)
         // -> Rollback auf Dateisystem-Ebene!
-        databaseService.restoreBackup();
+        widget.databaseService.restoreBackup();
         throw Exception("Kritischer Fehler. Änderungen wurden verworfen: ${operationException.toString()}");
       }
-      
+  
     } catch (ex) {
       // Fehlerbehandlung für UI anzeigen
       setState(() {
@@ -179,7 +190,7 @@ class _GuardDialogState extends State<GuardDialog> {
       // 7. Hygiene: Unabhängig von Erfolg oder Fehler muss der in Schritt 1 
       // abgeleitete Master-Key sofort aus dem Arbeitsspeicher (RAM) gewischt werden.
       if (masterKey != null) {
-        cryptoService.wipeKey(masterKey);
+        widget.cryptoService.wipeKey(masterKey);
       }
       if (mounted) {
         setState(() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
+import 'package:privault/views/guard_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -69,7 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Person suchen'),
         content: TextField(
           controller: controller,
@@ -77,11 +78,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: const InputDecoration(labelText: 'Name der Person'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          TextButton(
+              onPressed: () {
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+              },
+              child: const Text('Abbrechen')
+          ),
           TextButton(
             onPressed: () {
               _viewModel.addFriend(controller.text);
-              Navigator.pop(context);
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
             },
             child: const Text('Suchen'),
           ),
@@ -93,20 +103,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showDeleteConfirm() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Tresor lokal löschen'),
         content: const Text('Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+              },
               child: const Text('Abbrechen')
           ),
           TextButton(
             onPressed: () async {
               await _viewModel.deleteVault();
-              if (mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-              }
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pushNamedAndRemoveUntil('/', (route) => false);
             },
             child: const Text('Löschen', style: TextStyle(color: Colors.red)),
           ),
@@ -133,8 +146,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: viewModel.isBusy
                       ? null
                       : () async {
-                          final success = await viewModel.save();
-                          if (success && mounted) Navigator.pop(context);
+                          bool success;
+                          if (viewModel.requiresGuardForSave) {
+                            success = await GuardDialog.execute(
+                              context,
+                              title: 'Identität bestätigen',
+                              message: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+                              cryptoService: viewModel.cryptoService,
+                              sessionService: viewModel.sessionService,
+                              databaseService: viewModel.databaseService,
+                              operation: (masterKey) async {
+                                final ok = await viewModel.saveAsync(masterKey: masterKey);
+                                if (!ok) {
+                                  throw Exception(viewModel.errorMessage ?? 'Speichern fehlgeschlagen.');
+                                }
+                              },
+                            );
+                          } else {
+                            success = await viewModel.saveAsync();
+                          }
+                          
+                          if (!context.mounted) return;
+                          if (success) Navigator.pop(context);
                         },
                 ),
               ),
@@ -180,19 +213,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      foregroundColor: Colors.white
-                  ),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Diese Funktion wird in einer zukünftigen Version implementiert (TODO).'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white
+                      ),
+                      onPressed: () async {
+                        // 1. Zuerst das NEUE Passwort abfragen (Optik identisch zum GuardDialog, aber kein Loading)
+                        final newPasswordController = TextEditingController();
+                        bool obscureNewPw = true;
+
+                        final newPassword = await showDialog<String>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (pwContext) => StatefulBuilder(
+                            builder: (builderContext, setState) => AlertDialog(
+                              title: const Text('Passwort ändern'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Bitte gib dein NEUES Master-Passwort ein.'),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: newPasswordController,
+                                    obscureText: obscureNewPw,
+                                    autofocus: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Neues Master-Passwort',
+                                      border: const OutlineInputBorder(),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(obscureNewPw ? Icons.visibility : Icons.visibility_off),
+                                        onPressed: () {
+                                          setState(() => obscureNewPw = !obscureNewPw);
+                                        },
+                                      ),
+                                    ),
+                                    onSubmitted: (_) {
+                                      if (newPasswordController.text.isNotEmpty) {
+                                        Navigator.pop(pwContext, newPasswordController.text);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(pwContext, null);
+                                  },
+                                  child: const Text('Abbrechen'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    if (newPasswordController.text.isNotEmpty) {
+                                      Navigator.pop(pwContext, newPasswordController.text);
+                                    }
+                                  },
+                                  child: const Text('Weiter'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+
+                        if (newPassword == null || newPassword.trim().isEmpty) return;
+
+                        if (!mounted) return;
+                        if (!context.mounted) return;
+
+                        // 2. Jetzt GuardDialog aufrufen, um das AKTUELLE Passwort zur Bestätigung zu verlangen.
+                        // Der GuardDialog kümmert sich um den Loading-Indikator!
+                        final success = await GuardDialog.execute(
+                          context,
+                          title: 'Passwort-Änderung bestätigen',
+                          message: 'Bitte gib dein AKTUELLES Master-Passwort ein, um die Änderung zu autorisieren:',
+                          cryptoService: viewModel.cryptoService,
+                          sessionService: viewModel.sessionService,
+                          databaseService: viewModel.databaseService,
+                          operation: (_) async {
+                            final ok = await viewModel.changeMasterPasswordAsync(newPassword);
+                            if (!ok) {
+                              throw Exception(viewModel.errorMessage ?? 'Passwortänderung fehlgeschlagen.');
+                            }
+                          },
+                          forceLogout: false, 
+                        );
+
+                        if (!mounted) return;
+                        if (!context.mounted) return;
+
+                        // 3. Erfolgsmeldung zeigen
+                        if (success) {
+                          showDialog(
+                            context: context,
+                            builder: (infoContext) => AlertDialog(
+                              title: const Text('Info'),
+                              content: const Text('Das Master-Passwort wurde geändert. Andere Geräte müssen bei der nächsten Synchronisation das neue Passwort eingeben.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    if (!infoContext.mounted) return;
+                                    Navigator.pop(infoContext);
+                                  },
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.password),
+                      label: const Text('Master-Passwort ändern'),
                     ),
-                  ),
-                  icon: const Icon(Icons.password),
-                  label: const Text('Master-Passwort ändern'),
-                ),
-                const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
                 // Sektion: Synchronisation
                 _buildSectionTitle('Synchronisation'),
@@ -225,14 +358,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ElevatedButton.icon(
                   onPressed: () async {
                     final ok = await viewModel.testConnection();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(ok ? 'Verbindung erfolgreich!' : 'Verbindung fehlgeschlagen.'),
-                          backgroundColor: ok ? Colors.green : Colors.red,
-                        ),
-                      );
-                    }
+                    
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(ok ? 'Verbindung erfolgreich!' : 'Verbindung fehlgeschlagen.'),
+                        backgroundColor: ok ? Colors.green : Colors.red,
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.swap_calls),
                   label: const Text('Verbindung testen'),

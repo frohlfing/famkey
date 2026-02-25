@@ -203,9 +203,7 @@ class EditViewModel extends BaseViewModel {
     setBusy(true);
     try {
       // 1. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
-      if (_entryKey == null) {
-        _entryKey = Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
-      }
+      _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
 
       // 2. Favicon laden, falls URL sich geändert hat
       String faviconBase64 = _entry?.favicon ?? '';
@@ -224,7 +222,9 @@ class EditViewModel extends BaseViewModel {
         notes: _notes,
         favicon: faviconBase64,
       );
-      final encryptedData = await _cryptoService.encrypt(utf8.encode(json.encode(payload.toJson())) as Uint8List, _entryKey!);
+      
+      final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
+      final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
 
       // 4. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);

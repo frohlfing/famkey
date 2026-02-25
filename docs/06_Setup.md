@@ -119,15 +119,24 @@ https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduc
 
 Ein SQLCipher‑fähiger JDBC‑Treiber kann hier heruntergeladen werden:
 https://github.com/Willena/sqlite-jdbc-crypt/releases/download/3.51.2.0/sqlite-jdbc-3.51.2.0.jar
-https://github.com/xerial/sqlite-jdbc/
 Speicherort: C:\Users\frank\Source\AndroidStudio\privault\drivers\sqlite-jdbc-3.51.2.0.jar 
 
 Als Client-DB wird diese SQLite-Datei verwendet:
-`jdbc:sqlite:/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test.db3`  
+`jdbc:sqlite:/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test1.db3`  
 - Master-Passwort: 4711
-- Parameter für Database Navigator: 
-   - cipher=sqlcipher
-   - key=test
+- Parameter für Database Navigator:
+  ```ini
+  cipher=sqlcipher
+  hexkey_mode=SSE
+  key=65e4917e2035121562eba4b67827e3b5e21a6d10c01000d8354ae3c64f447f22
+  ```
+- oder per JDBC-URL mit Query-Parametern
+  `/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test1.db3?cipher=sqlcipher&hexkey_mode=SSE&key=65e4917e2035121562eba4b67827e3b5e21a6d10c01000d8354ae3c64f447f22`
+  
+Die Eigenschaft `hexkey_mode` kann folgende Werte haben:
+- `NONE`: Text-basiertes Passwort (Standard)
+- `SSE`: SQLite3 Multiple Ciphers mit Hex-Schlüssel (nutzt `PRAGMA hexkey`)
+- `SQLCIPHER`: SQLCipher-Modus (nutzt `PRAGMA key = "x'..'"`)
 
 Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kann er ermittelt werden:
 ```csharp

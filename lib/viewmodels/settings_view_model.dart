@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/settings_entity.dart';
@@ -12,6 +13,7 @@ import 'package:privault/services/crypto_service.dart';
 import 'package:privault/viewmodels/settings_friend_view_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'dart:convert';
 
 /// Die zentrale Logikschicht für die Einstellungsseite der Anwendung.
 ///
@@ -89,6 +91,13 @@ class SettingsViewModel extends BaseViewModel {
   String get vaultStoragePath => _configService.vaultStoragePath;
 
   List<SettingsFriendViewModel> get friends => _friends;
+
+  bool get requiresGuardForSave => !_isRegistered && _vaultName.trim() != _sessionService.vaultName.trim();
+
+  // Getter für die Services (damit der UI-Layer sie an Dialoge weiterreichen kann)
+  CryptoService get cryptoService => _cryptoService;
+  SessionService get sessionService => _sessionService;
+  DatabaseService get databaseService => _databaseService;
 
   // --- Setters ---
 
@@ -212,9 +221,17 @@ class SettingsViewModel extends BaseViewModel {
 
   /// Speichert alle geänderten Einstellungen in der Datenbank und aktualisiert die Session.
   Future<bool> save() async {
+    return saveAsync();
+  }
+
+  /// Entspricht der MAUI-`SaveAsync`-Logik inkl. Guard-abhängiger Tresor-Umbenennung.
+  Future<bool> saveAsync({Uint8List? masterKey}) async {
     if (_settings == null) return false;
     setBusy(true);
     try {
+      final oldVaultName = _sessionService.vaultName.trim();
+      final currentVaultName = _vaultName.trim();
+
       // Wenn Biometrie deaktiviert wurde -> Key aus Secure Store löschen
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
@@ -241,11 +258,30 @@ class SettingsViewModel extends BaseViewModel {
         await _databaseService.saveUser(updatedUser);
       }
 
+      // MAUI-Logik: Tresorname vor Erstregistrierung geändert -> Guard erforderlich
+      if (!_isRegistered && currentVaultName != oldVaultName) {
+        if (masterKey == null) {
+          throw Exception('Bestätigung per Master-Passwort erforderlich.');
+        }
+
+        if (_databaseService.databaseExists(currentVaultName)) {
+          throw Exception("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits.");
+        }
+
+        _databaseService.renameDatabase(oldVaultName, currentVaultName);
+
+        if (_configService.lastVaultName == oldVaultName) {
+          _configService.lastVaultName = currentVaultName;
+        }
+
+        await _biometricService.removeMasterKey(oldVaultName);
+      }
+
       // Session aktualisieren, damit Änderungen sofort aktiv sind
       _sessionService.setSession(
         user: _sessionService.user!,
         privateKey: _sessionService.privateKey!,
-        vaultName: _vaultName,
+        vaultName: currentVaultName,
         settings: updated.toMap(),
       );
       return true;
@@ -253,6 +289,68 @@ class SettingsViewModel extends BaseViewModel {
       setError("Speichern fehlgeschlagen: $e");
       return false;
     } finally {
+      setBusy(false);
+    }
+  }
+
+  /// Entspricht der MAUI-`ChangeMasterPasswordAsync`-Operation.
+  /// Wird innerhalb des GuardDialogs aufgerufen (nachdem das alte Passwort validiert wurde).
+  Future<bool> changeMasterPasswordAsync(String newPassword) async {
+    setBusy(true);
+    clearError();
+    Uint8List? newMasterKey;
+    try {
+      // 1. Neues Salt generieren
+      final newSalt = _cryptoService.generateSalt();
+
+      // 2. Neuen Master-Key ableiten
+      newMasterKey = await _cryptoService.deriveKey(newPassword, newSalt);
+      String newEncryptedPrivKey;
+
+      if (_sessionService.privateKey == null) {
+        throw Exception("Privater Schlüssel fehlt in der Session.");
+      }
+
+      // 3. Private Key mit dem neuen Key verschlüsseln
+      newEncryptedPrivKey = await _cryptoService.encrypt(_sessionService.privateKey!, newMasterKey);
+
+      // 4. Datenbankdatei mit dem neuen Key umschlüsseln
+      await _databaseService.rekey(newMasterKey);
+
+      // 5. Master-Key im SecureStore aktualisieren
+      if (_useBiometric) {
+        await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
+      }
+
+      // 6. Settings in DB aktualisieren
+      if (_settings != null) {
+        final updatedSettings = _settings!.copyWith(
+          salt: base64Encode(newSalt),
+          encryptedPrivateKey: newEncryptedPrivKey,
+        );
+        await _databaseService.saveSettings(updatedSettings);
+
+        // 7. Server informieren
+        if (_isRegistered && _sessionService.user != null && _sessionService.user!.uuid.isNotEmpty) {
+          await _webService.changePassword(
+            _sessionService.user!.uuid,
+            updatedSettings.salt,
+            updatedSettings.encryptedPrivateKey,
+          );
+        }
+      }
+
+      // 8. Lokale Konfiguration (Salt-Datei im OS) aktualisieren
+      await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
+
+      return true;
+    } catch (e) {
+      setError("Passwort ändern fehlgeschlagen: $e");
+      return false;
+    } finally {
+      if (newMasterKey != null) {
+        _cryptoService.wipeKey(newMasterKey);
+      }
       setBusy(false);
     }
   }
