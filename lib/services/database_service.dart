@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
@@ -23,7 +24,6 @@ class DatabaseService {
   bool get isInitialized => _db != null;
 
   /// Baut die Verbindung zur Datenbank auf.
-  /// Entspricht InitializeAsync aus MAUI.
   Future<void> initialize(String vaultName, String password) async {
     if (_db != null) return; // Bereits verbunden
 
@@ -34,8 +34,7 @@ class DatabaseService {
   }
 
   /// Erstellt einen sicheren Dateipfad basierend auf dem Tresornamen.
-  String getDatabasePath(String vaultName)
-  {
+  String getDatabasePath(String vaultName) {
     final storagePath = _configService.vaultStoragePath;
 
     // todo ungültige Zeichen ersetzen
@@ -68,68 +67,76 @@ class DatabaseService {
 
   /// Schließt die aktuelle Datenbankverbindung.
   Future<void> close() async {
-    await _db?.close();
-    _db = null;
+    if (_db != null) {
+      await _db?.close();
+      _db = null;
+    }
   }
 
   /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
-  bool databaseExists(String vaultName) {
+  Future<bool> databaseExists(String vaultName) async {
     final path = getDatabasePath(vaultName);
-    return File(path).existsSync();
+    return await File(path).exists();
   }
 
   /// Erstellt eine Sicherheitskopie der aktuellen Datenbankdatei.
   /// Wird z.B. vor kritischen Operationen wie `rekey` aufgerufen.
-  void createBackup() {
+  Future<void> createBackup() async {
     if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
     final file = File(_currentDbPath!);
-    if (file.existsSync()) {
-      file.copySync('$_currentDbPath.bak');
+    if (await file.exists()) {
+      await file.copy('$_currentDbPath.bak');
     }
   }
 
   /// Entfernt eine zuvor erstellte Sicherheitskopie (bei erfolgreicher Operation).
-  void removeBackup() {
+  Future<void> removeBackup() async {
     if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
     final backupPath = '$_currentDbPath.bak';
-    final file = File(backupPath);
-    if (file.existsSync()) {
+    final backupFile = File(backupPath);
+    if (await backupFile.exists()) {
       try {
-        file.deleteSync();
+        await backupFile.delete();
       } catch (_) {
-        // Ignorieren, wie in MAUI
+        debugPrint("Backup-File konnte nicht gelöscht werden.");
       }
     }
   }
 
   /// Stellt die Sicherheitskopie wieder her (bei fehlgeschlagener Operation).
-  void restoreBackup() {
+  Future<void> restoreBackup() async {
     if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
     final backupPath = '$_currentDbPath.bak';
     final backupFile = File(backupPath);
-    if (backupFile.existsSync()) {
-      backupFile.copySync(_currentDbPath!);
+    if (await backupFile.exists()) {
+      await backupFile.copy(_currentDbPath!);
       try {
-        backupFile.deleteSync();
+        await backupFile.delete();
       } catch (_) {
-        // Ignorieren, wie in MAUI
+        debugPrint("Backup-File konnte kopiert, aber nicht gelöscht werden.");
       }
     }
   }
 
   /// Benennt die Datenbankdatei eines Tresors (inklusive Salt) physisch auf dem Dateisystem um.
-  void renameDatabase(String oldName, String newName) {
+  /// Die Datenbankverbindung muss geschlossen sein.
+  Future<void> renameDatabase(String oldName, String newName) async {
     if (_db != null) throw Exception("Erst Verbindung schließen!");
+
     final oldPath = getDatabasePath(oldName);
     final newPath = getDatabasePath(newName);
-    
+
     // DB umbenennen
     final oldFile = File(oldPath);
-    if (oldFile.existsSync()) oldFile.renameSync(newPath);
+    if (await oldFile.exists()) await oldFile.rename(newPath);
 
     // Salt umbenennen
     final oldSalt = File('$oldPath.salt');
-    if (oldSalt.existsSync()) oldSalt.renameSync('$newPath.salt');
+    if (await oldSalt.exists()) await oldSalt.rename('$newPath.salt');
+
+    // Backup der Datei umbenennen
+    final oldBak = File('$oldPath.bak');
+    if (await oldBak.exists()) await oldBak.rename('$newPath.bak');
 
     _currentDbPath = newPath;
   }
@@ -692,4 +699,3 @@ class DatabaseService {
 // ------------------------------------------------------------------------
 // --- Private Methoden ---
 // ------------------------------------------------------------------------
-

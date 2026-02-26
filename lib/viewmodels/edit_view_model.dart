@@ -222,7 +222,7 @@ class EditViewModel extends BaseViewModel {
         notes: _notes,
         favicon: faviconBase64,
       );
-      
+
       final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
       final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
 

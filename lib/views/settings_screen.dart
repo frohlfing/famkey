@@ -79,12 +79,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () {
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-              },
-              child: const Text('Abbrechen')
+            onPressed: () {
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+            },
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () {
@@ -108,12 +108,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: const Text('Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.'),
         actions: [
           TextButton(
-              onPressed: () {
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-              },
-              child: const Text('Abbrechen')
+            onPressed: () {
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+            },
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () async {
@@ -156,16 +156,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               sessionService: viewModel.sessionService,
                               databaseService: viewModel.databaseService,
                               operation: (masterKey) async {
-                                final ok = await viewModel.saveAsync(masterKey: masterKey);
+                                final ok = await viewModel.save(masterKey: masterKey);
                                 if (!ok) {
                                   throw Exception(viewModel.errorMessage ?? 'Speichern fehlgeschlagen.');
                                 }
                               },
                             );
                           } else {
-                            success = await viewModel.saveAsync();
+                            success = await viewModel.save();
                           }
-                          
+
                           if (!context.mounted) return;
                           if (success) Navigator.pop(context);
                         },
@@ -213,128 +213,124 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade700,
-                          foregroundColor: Colors.white
-                      ),
-                      onPressed: () async {
-                        // 1. Zuerst das NEUE Passwort abfragen (Optik identisch zum GuardDialog, aber kein Loading)
-                        final newPasswordController = TextEditingController();
-                        bool obscureNewPw = true;
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+                  onPressed: () async {
+                    // 1. Zuerst das NEUE Passwort abfragen (Optik identisch zum GuardDialog, aber kein Loading)
+                    final newPasswordController = TextEditingController();
+                    bool obscureNewPw = true;
 
-                        final newPassword = await showDialog<String>(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (pwContext) => StatefulBuilder(
-                            builder: (builderContext, setState) => AlertDialog(
-                              title: const Text('Passwort ändern'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Bitte gib dein NEUES Master-Passwort ein.'),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: newPasswordController,
-                                    obscureText: obscureNewPw,
-                                    autofocus: true,
-                                    decoration: InputDecoration(
-                                      labelText: 'Neues Master-Passwort',
-                                      border: const OutlineInputBorder(),
-                                      suffixIcon: IconButton(
-                                        icon: Icon(obscureNewPw ? Icons.visibility : Icons.visibility_off),
-                                        onPressed: () {
-                                          setState(() => obscureNewPw = !obscureNewPw);
-                                        },
-                                      ),
-                                    ),
-                                    onSubmitted: (_) {
-                                      if (newPasswordController.text.isNotEmpty) {
-                                        Navigator.pop(pwContext, newPasswordController.text);
-                                      }
+                    final newPassword = await showDialog<String>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (pwContext) => StatefulBuilder(
+                        builder: (builderContext, setState) => AlertDialog(
+                          title: const Text('Passwort ändern'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Bitte gib dein NEUES Master-Passwort ein.'),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: newPasswordController,
+                                obscureText: obscureNewPw,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Neues Master-Passwort',
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscureNewPw ? Icons.visibility : Icons.visibility_off),
+                                    onPressed: () {
+                                      setState(() => obscureNewPw = !obscureNewPw);
                                     },
                                   ),
-                                ],
+                                ),
+                                onSubmitted: (_) {
+                                  if (newPasswordController.text.isNotEmpty) {
+                                    Navigator.pop(pwContext, newPasswordController.text);
+                                  }
+                                },
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(pwContext, null);
-                                  },
-                                  child: const Text('Abbrechen'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (newPasswordController.text.isNotEmpty) {
-                                      Navigator.pop(pwContext, newPasswordController.text);
-                                    }
-                                  },
-                                  child: const Text('Weiter'),
-                                ),
-                              ],
-                            ),
+                            ],
                           ),
-                        );
-
-                        if (newPassword == null || newPassword.trim().isEmpty) return;
-
-                        if (!mounted) return;
-                        if (!context.mounted) return;
-
-                        // 2. Jetzt GuardDialog aufrufen, um das AKTUELLE Passwort zur Bestätigung zu verlangen.
-                        // Der GuardDialog kümmert sich um den Loading-Indikator!
-                        final success = await GuardDialog.execute(
-                          context,
-                          title: 'Passwort-Änderung bestätigen',
-                          message: 'Bitte gib dein AKTUELLES Master-Passwort ein, um die Änderung zu autorisieren:',
-                          cryptoService: viewModel.cryptoService,
-                          sessionService: viewModel.sessionService,
-                          databaseService: viewModel.databaseService,
-                          operation: (_) async {
-                            final ok = await viewModel.changeMasterPasswordAsync(newPassword);
-                            if (!ok) {
-                              throw Exception(viewModel.errorMessage ?? 'Passwortänderung fehlgeschlagen.');
-                            }
-                          },
-                          forceLogout: false, 
-                        );
-
-                        if (!mounted) return;
-                        if (!context.mounted) return;
-
-                        // 3. Erfolgsmeldung zeigen
-                        if (success) {
-                          showDialog(
-                            context: context,
-                            builder: (infoContext) => AlertDialog(
-                              title: const Text('Info'),
-                              content: const Text('Das Master-Passwort wurde geändert. Andere Geräte müssen bei der nächsten Synchronisation das neue Passwort eingeben.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    if (!infoContext.mounted) return;
-                                    Navigator.pop(infoContext);
-                                  },
-                                  child: const Text('OK'),
-                                ),
-                              ],
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(pwContext, null);
+                              },
+                              child: const Text('Abbrechen'),
                             ),
-                          );
+                            ElevatedButton(
+                              onPressed: () {
+                                if (newPasswordController.text.isNotEmpty) {
+                                  Navigator.pop(pwContext, newPasswordController.text);
+                                }
+                              },
+                              child: const Text('Weiter'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+
+                    if (newPassword == null || newPassword.trim().isEmpty) return;
+
+                    if (!mounted) return;
+                    if (!context.mounted) return;
+
+                    // 2. Jetzt GuardDialog aufrufen, um das AKTUELLE Passwort zur Bestätigung zu verlangen.
+                    // Der GuardDialog kümmert sich um den Loading-Indikator!
+                    final success = await GuardDialog.execute(
+                      context,
+                      title: 'Passwort-Änderung bestätigen',
+                      message: 'Bitte gib dein AKTUELLES Master-Passwort ein, um die Änderung zu autorisieren:',
+                      cryptoService: viewModel.cryptoService,
+                      sessionService: viewModel.sessionService,
+                      databaseService: viewModel.databaseService,
+                      operation: (_) async {
+                        final ok = await viewModel.changeMasterPassword(newPassword);
+                        if (!ok) {
+                          throw Exception(viewModel.errorMessage ?? 'Passwortänderung fehlgeschlagen.');
                         }
                       },
-                      icon: const Icon(Icons.password),
-                      label: const Text('Master-Passwort ändern'),
-                    ),
-                    const SizedBox(height: 32),
+                      forceLogout: false,
+                    );
+
+                    if (!mounted) return;
+                    if (!context.mounted) return;
+
+                    // 3. Erfolgsmeldung zeigen
+                    if (success) {
+                      showDialog(
+                        context: context,
+                        builder: (infoContext) => AlertDialog(
+                          title: const Text('Info'),
+                          content: const Text(
+                            'Das Master-Passwort wurde geändert. Andere Geräte müssen bei der nächsten Synchronisation das neue Passwort eingeben.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                if (!infoContext.mounted) return;
+                                Navigator.pop(infoContext);
+                              },
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.password),
+                  label: const Text('Master-Passwort ändern'),
+                ),
+                const SizedBox(height: 32),
 
                 // Sektion: Synchronisation
                 _buildSectionTitle('Synchronisation'),
                 TextField(
                   controller: _hostController,
-                  decoration: const InputDecoration(
-                      labelText: 'Host URL',
-                      border: OutlineInputBorder()
-                  ),
+                  decoration: const InputDecoration(labelText: 'Host URL', border: OutlineInputBorder()),
                   onChanged: (value) => viewModel.host = value,
                 ),
                 const SizedBox(height: 16),
@@ -358,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ElevatedButton.icon(
                   onPressed: () async {
                     final ok = await viewModel.testConnection();
-                    
+
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -386,16 +382,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             key: ValueKey('friend_${f.user.uuid}'),
                             child: ListTile(
                               title: Text(f.name),
-                              subtitle: Text(
-                                f.fingerprint,
-                                style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                              ),
+                              subtitle: Text(f.fingerprint, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
                               trailing: Tooltip(
                                 message: 'Person verifiziert',
-                                child: Switch(
-                                    value: f.isVerified,
-                                    onChanged: (_) => viewModel.toggleVerification(f)
-                                ),
+                                child: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
                               ),
                             ),
                           ),
@@ -426,24 +416,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     Tooltip(
                       message: 'Standard',
-                      child: IconButton(
-                        icon: const Icon(Icons.star_outline),
-                        onPressed: () => viewModel.setSpecialChars('Standard'),
-                      ),
+                      child: IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard')),
                     ),
                     Tooltip(
                       message: 'Alle',
-                      child: IconButton(
-                        icon: const Icon(Icons.all_inclusive),
-                        onPressed: () => viewModel.setSpecialChars('All'),
-                      ),
+                      child: IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All')),
                     ),
                     Tooltip(
                       message: 'Keine',
-                      child: IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () => viewModel.setSpecialChars('None'),
-                      ),
+                      child: IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None')),
                     ),
                   ],
                 ),
@@ -479,10 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 32),
 
                 _buildSectionTitle('Design'),
-                const Text(
-                  'Hinweis: Themes sind in dieser Version noch nicht aktiv.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                const Text('Hinweis: Themes sind in dieser Version noch nicht aktiv.', style: TextStyle(fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 12),
                 SegmentedButton<ThemeMode>(
                   segments: const [
@@ -496,10 +474,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _categoryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name für leere Kategorie',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Name für leere Kategorie', border: OutlineInputBorder()),
                   onChanged: (value) => viewModel.categoryPlaceholder = value,
                 ),
                 const SizedBox(height: 32),
@@ -517,12 +492,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Hilfeseite für das automatische Ausfüllen öffnen',
                   viewModel.openAutofillSettings,
                 ),
-                _buildSystemButton(
-                  Icons.info_outline,
-                  'App-Info',
-                  'Systemdetails dieser App anzeigen',
-                  viewModel.openAppSettings,
-                ),
+                _buildSystemButton(Icons.info_outline, 'App-Info', 'Systemdetails dieser App anzeigen', viewModel.openAppSettings),
                 const SizedBox(height: 64),
 
                 Center(

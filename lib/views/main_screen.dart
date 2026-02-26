@@ -36,7 +36,7 @@ class _MainScreenState extends State<MainScreen> {
                 Navigator.pop(dialogContext);
               },
               child: const Text('OK'),
-            )
+            ),
           ],
         ),
       );
@@ -108,7 +108,6 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
             ],
-
           ),
           body: Column(
             children: [
@@ -155,10 +154,7 @@ class _MainScreenState extends State<MainScreen> {
                               Material(
                                 color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                                 child: ListTile(
-                                  title: Text(
-                                    category,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
+                                  title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
                                   dense: true,
                                   onTap: () => viewModel.toggleCategory(category),
@@ -191,10 +187,7 @@ class _MainScreenState extends State<MainScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
           leading: _buildFavicon(entry.favicon),
-          title: Text(
-            entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag',
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
+          title: Text(entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag', style: const TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Text(entry.url, maxLines: 1, overflow: TextOverflow.ellipsis),
           onTap: () async {
             // Wenn wir aus dem DetailScreen zurückkommen (der ggf. Daten geändert hat),

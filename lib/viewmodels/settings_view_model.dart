@@ -96,7 +96,9 @@ class SettingsViewModel extends BaseViewModel {
 
   // Getter für die Services (damit der UI-Layer sie an Dialoge weiterreichen kann)
   CryptoService get cryptoService => _cryptoService;
+
   SessionService get sessionService => _sessionService;
+
   DatabaseService get databaseService => _databaseService;
 
   // --- Setters ---
@@ -220,27 +222,23 @@ class SettingsViewModel extends BaseViewModel {
   }
 
   /// Speichert alle geänderten Einstellungen in der Datenbank und aktualisiert die Session.
-  Future<bool> save() async {
-    return saveAsync();
-  }
-
-  /// Entspricht der MAUI-`SaveAsync`-Logik inkl. Guard-abhängiger Tresor-Umbenennung.
-  Future<bool> saveAsync({Uint8List? masterKey}) async {
+  /// Beinhaltet Logik für die Umbenennung des Tresors.
+  /// Falls `masterKey` übergeben wird (nach Guard-Dialog), führt es die Umbenennung aus.
+  Future<bool> save({Uint8List? masterKey}) async {
     if (_settings == null) return false;
     setBusy(true);
     try {
       final oldVaultName = _sessionService.vaultName.trim();
       final currentVaultName = _vaultName.trim();
 
-      // Wenn Biometrie deaktiviert wurde -> Key aus Secure Store löschen
+      // 1. Falls Biometrie deaktiviert wurde, SecureStore leeren
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
         debugPrint('🔐 Biometrie-Key entfernt, da Option deaktiviert wurde.');
       }
 
-      // Host-URL normalisieren (Trailing-Slash entfernen)
+      // 2. Alle Basis-Einstellungen in der DB speichern (Host, API, PW-Gen).
       final normalizedHost = _host.trim().replaceAll(RegExp(r'/+$'), '');
-
       final updated = _settings!.copyWith(
         host: normalizedHost,
         apiToken: _apiToken.trim(),
@@ -252,29 +250,48 @@ class SettingsViewModel extends BaseViewModel {
       );
       await _databaseService.saveSettings(updated);
 
-      // Benutzername nur änderbar, wenn noch nicht registriert/gesynct
+      // 3. Benutzername aktualisieren (falls nicht registriert)
       if (!_isRegistered && _userName != _sessionService.user?.name) {
         final updatedUser = _sessionService.user!.copyWith(name: _userName);
         await _databaseService.saveUser(updatedUser);
       }
 
-      // MAUI-Logik: Tresorname vor Erstregistrierung geändert -> Guard erforderlich
+      // 4. Farbschema in der Konfiguration speichern
+      //_configService.theme = _themeMode; // todo
+
+      // 5. Tresorname aktualisieren (falls nicht registriert)
       if (!_isRegistered && currentVaultName != oldVaultName) {
         if (masterKey == null) {
           throw Exception('Bestätigung per Master-Passwort erforderlich.');
         }
 
-        if (_databaseService.databaseExists(currentVaultName)) {
-          throw Exception("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits.");
+        if (await _databaseService.databaseExists(currentVaultName)) {
+          throw Exception("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits auf diesem Gerät.");
         }
 
-        _databaseService.renameDatabase(oldVaultName, currentVaultName);
+        // 1. Verbindung trennen & Umbenennen
+        await _databaseService.close();
+        await _databaseService.renameDatabase(oldVaultName, currentVaultName);
 
+        // 2. Session im Speicher aktualisieren
+        // (wird weiter unten durch setSession zusammen mit anderen Werten erledigt)
+
+        // 3. Neue Verbindung zur umbenannten Datei herstellen
+        final hexMasterKey = masterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        await _databaseService.initialize(currentVaultName, hexMasterKey);
+
+        // 4. Konfiguration (Login-Liste / Config) aktualisieren
         if (_configService.lastVaultName == oldVaultName) {
           _configService.lastVaultName = currentVaultName;
         }
 
-        await _biometricService.removeMasterKey(oldVaultName);
+        // 5. Master-Key im SecureStore umziehen
+        if (await _biometricService.containsMasterKey(oldVaultName)) {
+           await _biometricService.removeMasterKey(oldVaultName);
+           if (_useBiometric) {
+              await _biometricService.saveMasterKey(currentVaultName, masterKey);
+           }
+        }
       }
 
       // Session aktualisieren, damit Änderungen sofort aktiv sind
@@ -293,9 +310,8 @@ class SettingsViewModel extends BaseViewModel {
     }
   }
 
-  /// Entspricht der MAUI-`ChangeMasterPasswordAsync`-Operation.
   /// Wird innerhalb des GuardDialogs aufgerufen (nachdem das alte Passwort validiert wurde).
-  Future<bool> changeMasterPasswordAsync(String newPassword) async {
+  Future<bool> changeMasterPassword(String newPassword) async {
     setBusy(true);
     clearError();
     Uint8List? newMasterKey;
@@ -324,19 +340,12 @@ class SettingsViewModel extends BaseViewModel {
 
       // 6. Settings in DB aktualisieren
       if (_settings != null) {
-        final updatedSettings = _settings!.copyWith(
-          salt: base64Encode(newSalt),
-          encryptedPrivateKey: newEncryptedPrivKey,
-        );
+        final updatedSettings = _settings!.copyWith(salt: base64Encode(newSalt), encryptedPrivateKey: newEncryptedPrivKey);
         await _databaseService.saveSettings(updatedSettings);
 
         // 7. Server informieren
         if (_isRegistered && _sessionService.user != null && _sessionService.user!.uuid.isNotEmpty) {
-          await _webService.changePassword(
-            _sessionService.user!.uuid,
-            updatedSettings.salt,
-            updatedSettings.encryptedPrivateKey,
-          );
+          await _webService.changePassword(_sessionService.user!.uuid, updatedSettings.salt, updatedSettings.encryptedPrivateKey);
         }
       }
 
