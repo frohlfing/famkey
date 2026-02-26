@@ -101,10 +101,12 @@ class SyncService {
         // FALL A: User (und evtl. Tresor) existieren noch nicht.
         // -> Wir legen beides implizit an!
 
+        // Sicherstellen, dass der API-Token in den Einstellungen eingetragen ist
         if (settingsEntity.apiToken.isEmpty) {
           throw Exception("Kein API-Token hinterlegt. Kann Tresor nicht anlegen.");
         }
 
+        // Benutzer registrieren
         userResponse = await _webService.registerUser(
           vaultName: _sessionService.vaultName,
           userName: user.name,
@@ -365,31 +367,38 @@ class SyncService {
   /// Übernimmt eine neue Identität vom Server, falls das Master-Passwort auf einem anderen Gerät geändert wurde.
   /// Führt eine Umschlüsselung der lokalen Datenbank und aller vorhandenen Berechtigungen durch.
   ///
-  /// Wird durch den [GuardService] (der das Masterpasswort über ein UI-Prompt abfragt) orchestriert.
-  Future<void> adoptRemoteIdentity(String password, UserResponse userResponse) async {
+  /// Wird durch den [GuardService] (der das Masterpasswort über ein UI-Prompt abfragt) aufgerufen.
+  Future<void> adoptRemoteIdentity(dynamic userResponse, Uint8List remoteMasterKey) async {
     // 1. Private-Key des Servers entschlüsseln
-    final remoteMasterKey = await _cryptoService.deriveKey(password, base64Decode(userResponse.salt));
     final remotePrivKey = await _cryptoService.decrypt(userResponse.encryptedPrivateKey, remoteMasterKey);
 
     // 2. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
-    final rsaKeyChanged = !const ListEquality().equals(_sessionService.privateKey, remotePrivKey);
-    if (rsaKeyChanged) {
-      final allPermissions = await _databaseService.getPermissions();
-      final updatedPermissions = <PermissionEntity>[];
-      for (var perm in allPermissions) {
-        if (perm.encryptedKey.isNotEmpty && _sessionService.privateKey != null) {
-          try {
-            // Entschlüsseln mit altem (aktuellem) PrivateKey, verschlüsseln mit neuem PublicKey
-            final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
-            final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, userResponse.publicKey);
-            updatedPermissions.add(perm.copyWith(encryptedKey: newEncryptedKey));
-          } catch (e) {
-            debugPrint("Fehler beim Umschlüsseln der Permission ${perm.id}: $e");
-          }
+    // Wir prüfen die Byte-Arrays auf Gleichheit
+    bool rsaKeyChanged = false;
+    final localPrivKey = _sessionService.privateKey;
+    if (localPrivKey == null || localPrivKey.length != remotePrivKey.length) {
+      rsaKeyChanged = true;
+    } else {
+      for (int i = 0; i < localPrivKey.length; i++) {
+        if (localPrivKey[i] != remotePrivKey[i]) {
+          rsaKeyChanged = true;
+          break;
         }
       }
-      if (updatedPermissions.isNotEmpty) {
-        await _databaseService.updatePermissions(updatedPermissions);
+    }
+
+    if (rsaKeyChanged) {
+      final allPermissions = await _databaseService.getPermissions();
+      for (var perm in allPermissions) {
+        if (perm.encryptedKey.isEmpty) continue;
+        
+        // Entschlüsseln mit altem (aktuellem) PrivateKey, verschlüsseln mit neuem PublicKey
+        final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(localPrivKey!));
+        final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, userResponse.publicKey);
+        
+        // Neues Permission-Objekt erstellen
+        final updatedPerm = perm.copyWith(encryptedKey: newEncryptedKey);
+        await _databaseService.savePermission(updatedPerm); // Oder updatePermissions falls du Batch hast
       }
     }
 
@@ -398,25 +407,32 @@ class SyncService {
 
     // 4. Lokalen Benutzer und Settings aktualisieren
     var localUser = _sessionService.user!;
-    localUser = localUser.copyWith(uuid: userResponse.userUuid, publicKey: userResponse.publicKey);
+    localUser = localUser.copyWith(
+      uuid: userResponse.userUuid,
+      publicKey: userResponse.publicKey,
+    );
     await _databaseService.saveUser(localUser);
 
     var settings = await _databaseService.getSettings();
     if (settings != null) {
-      settings = settings.copyWith(salt: userResponse.salt, encryptedPrivateKey: userResponse.encryptedPrivateKey);
+      settings = settings.copyWith(
+        salt: userResponse.salt,
+        encryptedPrivateKey: userResponse.encryptedPrivateKey,
+      );
       await _databaseService.saveSettings(settings);
     }
 
-    // 5. Session aktualisieren (Wichtig, damit folgende Operationen den neuen Key nutzen)
+    // 5. Config/Salt-Mapping auf dem Dateisystem aktualisieren (statt _configService.Vaults)
+    final saltBytes = base64Decode(userResponse.salt);
+    await _databaseService.saveSalt(_sessionService.vaultName, saltBytes);
+
+    // 6. Session aktualisieren (Wichtig, damit folgende Operationen den neuen Key nutzen)
     _sessionService.setSession(
       user: localUser,
       privateKey: remotePrivKey,
       vaultName: _sessionService.vaultName,
-      settings: _sessionService.settings,
+      settings: settings?.toMap(),
     );
-
-    // Clean up memory
-    _cryptoService.wipeKey(remoteMasterKey);
   }
 
   /// Lädt die Freundesliste vom Server und verarbeitet Namensänderungen, Key-Wechsel und gelöschte Freunde.

@@ -123,6 +123,10 @@ class _GuardDialogState extends State<GuardDialog> {
       _errorMessage = null;
     });
 
+    // WICHTIG: Gib Flutter kurz Zeit, den UI-Frame mit dem Ladebalken
+    // zu rendern, BEVOR die schwere Argon2id-Ableitung den Main-Thread blockiert!
+    await Future.delayed(const Duration(milliseconds: 50));
+
     Uint8List? masterKey;
 
     try {

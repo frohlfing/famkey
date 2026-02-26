@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/main_view_model.dart';
 
+import '../models/exceptions/salt_mismatch_exception.dart';
+import 'guard_dialog.dart';
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -20,24 +23,72 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _handleSync(BuildContext context, MainViewModel viewModel) async {
-    final stats = await viewModel.sync(context);
-    if (!context.mounted) return;
+    try {
+      final stats = await viewModel.sync();
 
-    if (stats != null) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Info'),
-          content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('OK'),
-            ),
-          ],
+      if (!context.mounted) return;
+      if (stats != null) {
+        showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Info'),
+            content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } on SaltMismatchException catch (e) {
+      if (!context.mounted) return;
+
+      // Wenn das Passwort woanders geändert wurde, Adoption per UI-Dialog starten!
+      final isMyOwn = e.userResponse.userUuid == viewModel.sessionService.user?.uuid;
+      final title = "Account verknüpfen";
+      final message = isMyOwn
+          ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein:"
+          : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen:";
+
+      final success = await GuardDialog.execute(
+        context,
+        title: title,
+        message: message,
+        cryptoService: viewModel.cryptoService,
+        sessionService: viewModel.sessionService,
+        databaseService: viewModel.databaseService,
+        overrideSalt: e.userResponse.salt,
+        overrideValidationKey: e.userResponse.encryptedPrivateKey,
+        operation: (remoteMasterKey) async {
+          await viewModel.adoptIdentity(e.userResponse, remoteMasterKey);
+        },
+        forceLogout: false,
+      );
+
+      if (!context.mounted) return;
+
+      if (success) {
+        // Falls erfolgreich, Sync direkt noch einmal anstoßen
+        _handleSync(context, viewModel);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Identitätsübernahme abgebrochen. Synchronisation fehlgeschlagen.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
         ),
       );
     }

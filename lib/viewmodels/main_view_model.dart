@@ -1,109 +1,119 @@
 import 'package:flutter/material.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/entities/entry_entity.dart';
-import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:privault/services/database_service.dart';
-import 'package:privault/services/sync_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:privault/services/sync_service.dart';
+import 'package:privault/services/crypto_service.dart';
 
-/// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
-/// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
 class MainViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
   // --- Felder ---
   // ------------------------------------------------------------------------
 
   final DatabaseService _databaseService;
-  final SyncService _syncService;
   final SessionService _sessionService;
+  final SyncService _syncService;
+  final CryptoService _cryptoService;
 
   List<EntryEntity> _allEntries = [];
+  Map<String, List<EntryEntity>> _groupedEntries = {};
+  final Set<String> _collapsedCategories = {};
+
   String _searchQuery = '';
   bool _onlyMyEntries = false;
-
-  /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
-  final Set<String> _collapsedCategories = {};
 
   // ------------------------------------------------------------------------
   // --- Konstruktor ---
   // ------------------------------------------------------------------------
 
-  MainViewModel(this._databaseService, this._syncService, this._sessionService) {
-    // Auf Session-Änderungen reagieren (z.B. Rename des Tresors)
-    // Sobald sich im _sessionService etwas ändert (z. B. der Tresorname), ruft das ViewModel seine eigenen notifyListeners() auf.
-    _sessionService.addListener(notifyListeners);
-  }
-
-  @override
-  void dispose() {
-    _sessionService.removeListener(notifyListeners);
-    super.dispose();
-  }
+  MainViewModel(this._databaseService, this._sessionService, this._syncService, this._cryptoService);
 
   // ------------------------------------------------------------------------
   // --- Eigenschaften ---
   // ------------------------------------------------------------------------
 
-  /// Der Name des aktuell geöffneten Tresors.
   String get vaultName => _sessionService.vaultName;
 
-  /// Filter-Schalter: Falls `true`, werden nur vom aktuellen Benutzer erstellte Einträge angezeigt.
-  bool get onlyMyEntries => _onlyMyEntries;
+  Map<String, List<EntryEntity>> get groupedEntries => _groupedEntries;
 
-  /// Der aktuelle Suchtext für die Filterung der Liste.
   String get searchQuery => _searchQuery;
 
-  set onlyMyEntries(bool value) {
-    if (_onlyMyEntries == value) return;
-    _onlyMyEntries = value;
-    notifyListeners();
-  }
-
   set searchQuery(String value) {
-    final lower = value.toLowerCase();
-    if (_searchQuery == lower) return;
-    _searchQuery = lower;
-    notifyListeners();
+    _searchQuery = value;
+    _applyFilters();
   }
 
-  /// Liefert die Liste der Einträge unter Berücksichtigung von Suche und Benutzer-Filter.
-  List<EntryEntity> get filteredEntries {
-    return _allEntries.where((entry) {
-      // Suche über Titel, URL und Notizen (wie in MAUI)
-      final matchesSearch =
-          entry.title.toLowerCase().contains(_searchQuery) ||
-          entry.url.toLowerCase().contains(_searchQuery) ||
-          entry.notes.toLowerCase().contains(_searchQuery);
+  bool get onlyMyEntries => _onlyMyEntries;
 
-      final matchesUser = !_onlyMyEntries || entry.creatorId == _sessionService.user?.id;
-
-      return matchesSearch && matchesUser;
-    }).toList();
+  set onlyMyEntries(bool value) {
+    _onlyMyEntries = value;
+    _applyFilters();
   }
-
-  /// Gruppiert die gefilterten Einträge nach Kategorien für die Darstellung in der UI.
-  Map<String, List<EntryEntity>> get groupedEntries {
-    final Map<String, List<EntryEntity>> groups = {};
-    final placeholder = _sessionService.settings?['category_placeholder'] ?? 'Allgemein';
-
-    for (var entry in filteredEntries) {
-      final category = entry.category.isEmpty ? placeholder : entry.category;
-      if (!groups.containsKey(category)) {
-        groups[category] = [];
-      }
-      groups[category]!.add(entry);
-    }
-    return groups;
-  }
-
-  /// Prüft, ob eine Kategorie aktuell eingeklappt ist.
-  bool isCategoryCollapsed(String category) => _collapsedCategories.contains(category);
 
   // ------------------------------------------------------------------------
   // --- Befehle ---
   // ------------------------------------------------------------------------
 
-  /// Schaltet den Erweiterungszustand (aufgeklappt/zugeklappt) einer Kategorie um.
+  /// Lädt alle Einträge aus der Datenbank und wendet Filter an.
+  Future<void> loadEntries() async {
+    setBusy(true);
+    try {
+      _allEntries = await _databaseService.getAllEntries();
+      _applyFilters();
+    } catch (e) {
+      setError("Fehler beim Laden der Einträge: $e");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
+  /// (Gibt Exceptions wie SaltMismatchException bewusst weiter an die UI).
+  Future<SyncStatistics?> sync() async {
+    if (isBusy) return null;
+    setBusy(true);
+    clearError();
+    try {
+      final host = _sessionService.settings?['host'] ?? '';
+      if (host.isEmpty) {
+        throw Exception("Bitte konfiguriere erst den Sync-Server in den Einstellungen.");
+      }
+
+      // SyncService aufrufen
+      final stats = await _syncService.sync();
+
+      // Nach erfolgreichem Sync die lokale Liste neu laden
+      await loadEntries();
+      return stats;
+    } catch (e) {
+      debugPrint("Fehler beim Synchronisieren: $e");
+      rethrow;
+    }
+    finally {
+      setBusy(false);
+    }
+  }
+
+  /// Die Logik für die Adoption ohne Dialog (wird nach Passworteingabe in der UI aufgerufen).
+  Future<void> adoptIdentity(dynamic remoteUser, dynamic remoteMasterKey) async {
+    await _syncService.adoptRemoteIdentity(remoteUser, remoteMasterKey);
+  }
+
+  // Getter für Services, damit UI-Dialoge diese verwenden können.
+  CryptoService get cryptoService => _cryptoService;
+  SessionService get sessionService => _sessionService;
+  DatabaseService get databaseService => _databaseService;
+
+  /// Beendet die Sitzung.
+  void logout() {
+    _sessionService.clearSession();
+  }
+
+  bool isCategoryCollapsed(String category) {
+    return _collapsedCategories.contains(category);
+  }
+
   void toggleCategory(String category) {
     if (_collapsedCategories.contains(category)) {
       _collapsedCategories.remove(category);
@@ -113,122 +123,48 @@ class MainViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Lädt die Metadaten aller Einträge aus der lokalen Datenbank.
-  Future<void> loadEntries() async {
-    setBusy(true);
-    try {
-      _allEntries = await _databaseService.getAllEntries();
-      notifyListeners();
-    } catch (e) {
-      setError("Fehler beim Laden: $e");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
-  /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
-  Future<SyncStatistics?> sync(BuildContext context) async {
-    setBusy(true);
-    clearError();
-    try {
-      final stats = await _syncService.sync();
-      await loadEntries();
-      return stats;
-    } on SaltMismatchException catch (e, stackTrace) {
-      debugPrint("SaltMismatchException: $e\n$stackTrace");
-      if (context.mounted) {
-        // Bei Salt-Konflikt: Passwort-Prompt zur Identitätsübernahme (Adoption)
-        final password = await _showPasswordDialog(
-          context,
-          'Account verknüpfen',
-          e.userResponse.userUuid == _sessionService.user?.uuid
-              ? 'Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein:'
-              : 'Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen:',
-        );
-        if (password != null && password.isNotEmpty) {
-          try {
-            await _syncService.adoptRemoteIdentity(password, e.userResponse);
-            final statsAfterAdopt = await _syncService.sync(); // Erneuter Versuch nach Adoption
-            await loadEntries();
-            return statsAfterAdopt;
-          } catch (adoptEx, adoptStack) {
-            debugPrint("Identitätsübernahme fehlgeschlagen: $adoptEx\n$adoptStack");
-            setError("Identitätsübernahme fehlgeschlagen. Falsches Passwort?");
-          }
-        }
-      }
-      return null;
-    } catch (e, stackTrace) {
-      debugPrint("Sync fehlgeschlagen: $e\n$stackTrace");
-      setError("Sync fehlgeschlagen: $e");
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Sync fehlgeschlagen: $e"),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4), // Fehler etwas länger anzeigen
-          ),
-        );
-      }
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
-  void logout() {
-    _databaseService.close(); // Datenbankverbindung kappen (wie in MAUI)
-    _sessionService.clearSession(); // Schlüssel aus dem RAM löschen
-    _allEntries.clear();
-  }
-
   // ------------------------------------------------------------------------
   // --- Private Methoden ---
   // ------------------------------------------------------------------------
 
-  /// Hilfsdialog zur Abfrage des Master-Passworts während des Sync-Vorgangs.
-  Future<String?> _showPasswordDialog(BuildContext context, String title, String message) {
-    final controller = TextEditingController();
-    bool isObscure = true;
+  void _applyFilters() {
+    var filtered = _allEntries;
 
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(title),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(message, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    obscureText: isObscure,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: 'Master-Passwort',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(isObscure ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => isObscure = !isObscure),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Abbrechen')),
-                FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('Bestätigen')),
-              ],
-            );
-          },
-        );
-      },
-    );
+    // Nur meine Einträge? (Ersteller bin ich)
+    if (_onlyMyEntries) {
+      filtered = filtered.where((e) => e.creatorId == 1).toList();
+    }
+
+    // Suchtext?
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((e) {
+        return e.title.toLowerCase().contains(q) ||
+               e.url.toLowerCase().contains(q) ||
+               e.category.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    // Gruppieren
+    final Map<String, List<EntryEntity>> grouped = {};
+    for (var entry in filtered) {
+      final cat = entry.category.isEmpty ? "Allgemein" : entry.category;
+      if (!grouped.containsKey(cat)) {
+        grouped[cat] = [];
+      }
+      grouped[cat]!.add(entry);
+    }
+
+    // Sortieren (erst Kategorien, dann Einträge nach Titel)
+    final sortedKeys = grouped.keys.toList()..sort();
+    final Map<String, List<EntryEntity>> sortedGrouped = {};
+    for (var key in sortedKeys) {
+      final list = grouped[key]!;
+      list.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      sortedGrouped[key] = list;
+    }
+
+    _groupedEntries = sortedGrouped;
+    notifyListeners();
   }
 }
