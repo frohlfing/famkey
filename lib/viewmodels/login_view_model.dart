@@ -68,9 +68,7 @@ class LoginViewModel extends BaseViewModel {
 
   /// Initialisiert eine neue Instanz des [LoginViewModel].
   LoginViewModel(this._biometricService, this._configService, this._cryptoService, this._databaseService, this._sessionService) {
-    // Letzten Tresor vorausfüllen
-    _vaultName = _configService.lastVaultName;
-    refreshVaultList();
+    resetState();
   }
 
   // ------------------------------------------------------------------------
@@ -115,6 +113,7 @@ class LoginViewModel extends BaseViewModel {
   /// Setzt den Status der Login-Maske zurück.
   void resetState() {
     _password = '';
+    _vaultName = _configService.lastVaultName;
     clearError();
     refreshVaultList();
   }
@@ -240,11 +239,15 @@ class LoginViewModel extends BaseViewModel {
 
   /// Öffnet einen bestehenden Tresor, leitet den Master-Key ab und entschlüsselt die Sitzungsdaten.
   Future<LoginResult> _openVault() async {
-    final storagePath = _configService.vaultStoragePath;
-    final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
-    if (!await saltFile.exists()) return LoginResult.vaultNotFound;
+    // final storagePath = _configService.vaultStoragePath;
+    // final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
+    // if (!await saltFile.exists()) return LoginResult.vaultNotFound;
+    // final salt = await saltFile.readAsBytes();
 
-    final salt = await saltFile.readAsBytes();
+    // Salt über den Service laden
+    final salt = await _databaseService.getSalt(_vaultName);
+    if (salt == null) return LoginResult.vaultNotFound;
+
     Uint8List? masterKey;
     bool isManualLogin = _password.isNotEmpty;
 
@@ -313,10 +316,15 @@ class LoginViewModel extends BaseViewModel {
 
   /// Speichert den abgeleiteten Master-Key im biometrisch geschützten Secure-Store des Betriebssystems.
   Future<void> saveMasterKey(String password) async {
-    final storagePath = _configService.vaultStoragePath;
-    final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
-    if (!await saltFile.exists()) return;
-    final salt = await saltFile.readAsBytes();
+    // final storagePath = _configService.vaultStoragePath;
+    // final saltFile = File(p.join(storagePath, '$_vaultName.db3.salt'));
+    // if (!await saltFile.exists()) return;
+    // final salt = await saltFile.readAsBytes();
+
+    // Salt über den Service laden
+    final salt = await _databaseService.getSalt(_vaultName);
+    if (salt == null) return;
+
     final masterKey = await _cryptoService.deriveKey(password, salt);
     try {
       await _biometricService.saveMasterKey(_vaultName, masterKey);

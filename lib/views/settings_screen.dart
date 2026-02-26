@@ -139,37 +139,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Einstellungen'),
             centerTitle: true,
             actions: [
-              Tooltip(
-                message: 'Speichern',
-                child: IconButton(
-                  icon: const Icon(Icons.check),
-                  onPressed: viewModel.isBusy
-                      ? null
-                      : () async {
-                          bool success;
-                          if (viewModel.requiresGuardForSave) {
-                            success = await GuardDialog.execute(
-                              context,
-                              title: 'Identität bestätigen',
-                              message: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-                              cryptoService: viewModel.cryptoService,
-                              sessionService: viewModel.sessionService,
-                              databaseService: viewModel.databaseService,
-                              operation: (masterKey) async {
-                                final ok = await viewModel.save(masterKey: masterKey);
-                                if (!ok) {
-                                  throw Exception(viewModel.errorMessage ?? 'Speichern fehlgeschlagen.');
-                                }
-                              },
-                            );
-                          } else {
-                            success = await viewModel.save();
-                          }
-
-                          if (!context.mounted) return;
-                          if (success) Navigator.pop(context);
-                        },
-                ),
+              IconButton(
+                icon: const Icon(Icons.check),
+                tooltip: 'Speichern',
+                onPressed: viewModel.isBusy
+                    ? null
+                    : () async {
+                        bool success;
+                        if (viewModel.isTresorRenamed) {
+                          success = await GuardDialog.execute(
+                            context,
+                            title: 'Identität bestätigen',
+                            message: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+                            cryptoService: viewModel.cryptoService,
+                            sessionService: viewModel.sessionService,
+                            databaseService: viewModel.databaseService,
+                            operation: (masterKey) async {
+                              final ok = await viewModel.renameTresor(masterKey: masterKey);
+                              if (!ok) {
+                                throw Exception(viewModel.errorMessage ?? 'Der Tresor konnte nicht umbenannt werden.');
+                              }
+                            },
+                          );
+                        }
+                        success = await viewModel.save();
+                        if (!context.mounted) return;
+                        if (success) Navigator.pop(context);
+                      },
               ),
             ],
           ),
@@ -414,17 +410,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: (value) => viewModel.pwSpecialCharSet = value,
                       ),
                     ),
-                    Tooltip(
-                      message: 'Standard',
-                      child: IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard')),
+                    IconButton(
+                      icon: const Icon(Icons.star_outline),
+                      tooltip: 'Standard',
+                      onPressed: () => viewModel.setSpecialChars('Standard'),
                     ),
-                    Tooltip(
-                      message: 'Alle',
-                      child: IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All')),
-                    ),
-                    Tooltip(
-                      message: 'Keine',
-                      child: IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None')),
+                    IconButton(icon: const Icon(Icons.all_inclusive), tooltip: 'Alle', onPressed: () => viewModel.setSpecialChars('All')),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      tooltip: 'Keine',
+                      onPressed: () => viewModel.setSpecialChars('None'),
                     ),
                   ],
                 ),

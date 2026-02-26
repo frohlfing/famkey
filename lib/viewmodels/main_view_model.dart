@@ -8,13 +8,6 @@ import 'package:privault/services/session_service.dart';
 
 /// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
 /// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
-///
-/// **Kernfunktionalitäten:**
-/// * Effizientes Laden von Eintrags-Metadaten ohne vollständige Entschlüsselung.
-/// * Echtzeit-Filterung nach Text (Titel, URL, Notizen) und Urheberschaft.
-/// * Kategoriebasierte Gruppierung inklusive Verwaltung des Aufklapp-Zustands.
-/// * Integration des [SyncService] für den Datenabgleich mit dem Server.
-/// * Sicherer Logout-Prozess mit Bereinigung der Sitzungsdaten.
 class MainViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
   // --- Felder ---
@@ -35,7 +28,17 @@ class MainViewModel extends BaseViewModel {
   // --- Konstruktor ---
   // ------------------------------------------------------------------------
 
-  MainViewModel(this._databaseService, this._syncService, this._sessionService);
+  MainViewModel(this._databaseService, this._syncService, this._sessionService) {
+    // Auf Session-Änderungen reagieren (z.B. Rename des Tresors)
+    // Sobald sich im _sessionService etwas ändert (z. B. der Tresorname), ruft das ViewModel seine eigenen notifyListeners() auf.
+    _sessionService.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    _sessionService.removeListener(notifyListeners);
+    super.dispose();
+  }
 
   // ------------------------------------------------------------------------
   // --- Eigenschaften ---

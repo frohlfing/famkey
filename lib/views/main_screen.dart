@@ -45,6 +45,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Das watch sorgt dafür, dass Flutter den gesamten Screen neu zeichnet, sobald das MainViewModel eine Änderung meldet.
     final viewModel = context.watch<MainViewModel>();
     final grouped = viewModel.groupedEntries;
 
@@ -92,6 +93,7 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
               ],
+              tooltip: 'Menü anzeigen',
             ),
 
             actions: [

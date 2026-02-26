@@ -14,7 +14,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
-  
+
+  bool _obscurePassword = true;
   late LoginViewModel _viewModel;
 
   @override
@@ -22,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _viewModel = context.read<LoginViewModel>();
     _vaultController.text = _viewModel.vaultName;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _viewModel.resetState();
@@ -75,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case LoginResult.success:
         Navigator.pushReplacementNamed(context, '/main');
         break;
-      
+
       case LoginResult.askToEnableBiometrics:
         final enable = await _showConfirmDialog(
           'Biometrie aktivieren',
@@ -100,11 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
 
       case LoginResult.corrupt:
-        final delete = await _showConfirmDialog(
-          'Tresor löschen',
-          'Der Tresor ist korrupt. Soll er gelöscht werden?',
-          'Ja, löschen',
-        );
+        final delete = await _showConfirmDialog('Tresor löschen', 'Der Tresor ist korrupt. Soll er gelöscht werden?', 'Ja, löschen');
         if (delete == true && mounted) {
           await _viewModel.cleanUp();
           setState(() {
@@ -128,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(context, true),
             child: Text(confirmLabel, style: TextStyle(color: confirmLabel.contains('löschen') ? Colors.red : null)),
           ),
         ],
@@ -161,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 48),
-                    
+
                     TextField(
                       controller: _vaultController,
                       focusNode: _vaultFocusNode,
@@ -170,23 +167,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Tresor-Name',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.storage),
-                        suffixIcon: viewModel.existingVaults.isNotEmpty 
-                          ? PopupMenuButton<String>(
-                              icon: const Icon(Icons.list),
-                              onOpened: () => viewModel.refreshVaultList(),
-                              onSelected: (String value) {
-                                if (mounted) {
-                                  viewModel.vaultName = value;
-                                  _passwordFocusNode.requestFocus();
-                                }
-                              },
-                              itemBuilder: (BuildContext context) {
-                                return viewModel.existingVaults.map((String vault) {
-                                  return PopupMenuItem<String>(value: vault, child: Text(vault));
-                                }).toList();
-                              },
-                            )
-                          : null,
+                        suffixIcon: viewModel.existingVaults.isNotEmpty
+                            ? PopupMenuButton<String>(
+                                icon: const Icon(Icons.list),
+                                tooltip: 'Tresor auswählen',
+                                onOpened: () => viewModel.resetState(),
+                                onSelected: (String value) {
+                                  if (mounted) {
+                                    viewModel.vaultName = value;
+                                    _passwordFocusNode.requestFocus();
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) {
+                                  return viewModel.existingVaults.map((String vault) {
+                                    return PopupMenuItem<String>(value: vault, child: Text(vault));
+                                  }).toList();
+                                },
+                              )
+                            : null,
                       ),
                       onChanged: (value) => viewModel.vaultName = value,
                     ),
@@ -195,31 +193,49 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       controller: _passwordController,
                       focusNode: _passwordFocusNode,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Master-Passwort',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.key),
-                        suffixIcon: viewModel.hasBiometricKey 
-                          ? const Icon(Icons.fingerprint, color: Colors.blue)
-                          : null,
+                        errorText: viewModel.errorMessage,
+                        suffixIcon: SizedBox(
+                          width: 80, // Platz für beide Icons
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
+                                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              if (viewModel.hasBiometricKey)
+                                Tooltip(
+                                  message: 'Anmeldung per Biometrie möglich',
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 8.0),
+                                    child: Icon(Icons.fingerprint, color: Colors.blue),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                       onChanged: (value) => viewModel.password = value,
                       onSubmitted: canLogin ? (_) => _handleLogin() : null,
                     ),
                     const SizedBox(height: 24),
 
-                    if (viewModel.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          viewModel.errorMessage!,
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-
+                    // if (viewModel.errorMessage != null)
+                    //   Padding(
+                    //     padding: const EdgeInsets.only(bottom: 16),
+                    //     child: Text(
+                    //       viewModel.errorMessage!,
+                    //       style: const TextStyle(color: Colors.red),
+                    //       textAlign: TextAlign.center,
+                    //     ),
+                    //   ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
@@ -234,13 +250,11 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        
+
         if (viewModel.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.05),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           ),
       ],
     );

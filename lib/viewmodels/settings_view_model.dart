@@ -92,7 +92,7 @@ class SettingsViewModel extends BaseViewModel {
 
   List<SettingsFriendViewModel> get friends => _friends;
 
-  bool get requiresGuardForSave => !_isRegistered && _vaultName.trim() != _sessionService.vaultName.trim();
+  bool get isTresorRenamed => _vaultName.trim() != _sessionService.vaultName.trim();
 
   // Getter für die Services (damit der UI-Layer sie an Dialoge weiterreichen kann)
   CryptoService get cryptoService => _cryptoService;
@@ -221,16 +221,75 @@ class SettingsViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Speichert alle geänderten Einstellungen in der Datenbank und aktualisiert die Session.
-  /// Beinhaltet Logik für die Umbenennung des Tresors.
-  /// Falls `masterKey` übergeben wird (nach Guard-Dialog), führt es die Umbenennung aus.
-  Future<bool> save({Uint8List? masterKey}) async {
+  /// Benennt den Tresor um und aktualisiert die Session.
+  /// Diese Funktion wird durch den GuardDialog aufgerufen.
+  Future<bool> renameTresor({Uint8List? masterKey}) async {
+    if (_settings == null) return false;
+
+    // Bereinigung: Ungültige Zeichen für Dateisysteme entfernen (wie im DatabaseService)
+    final currentVaultName = _vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+    final oldVaultName = _sessionService.vaultName.trim();
+    if (currentVaultName == oldVaultName) return true;
+
+    setBusy(true);
+    try {
+      if (_isRegistered) {
+        throw Exception("Dieser Tresor wurde bereits synchronisiert und kann daher nicht mehr umbenannt werden.");
+      }
+
+      if (masterKey == null) {
+        throw Exception('Bestätigung per Master-Passwort erforderlich.');
+      }
+
+      if (await _databaseService.databaseExists(currentVaultName)) {
+        throw Exception("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits auf diesem Gerät.");
+      }
+
+      // 1. Verbindung trennen & Umbenennen
+      await _databaseService.close();
+      await _databaseService.renameDatabase(oldVaultName, currentVaultName);
+
+      // 2. Session im Speicher aktualisieren
+      _sessionService.setSession(
+        user: _sessionService.user!,
+        privateKey: _sessionService.privateKey!,
+        vaultName: currentVaultName,
+        settings: _settings?.toMap(),
+      );
+
+      // 3. Konfiguration (Login-Liste / Config) aktualisieren
+      if (_configService.lastVaultName == oldVaultName) {
+        _configService.lastVaultName = currentVaultName;
+      }
+
+      // 4. Neue Verbindung zur umbenannten Datei herstellen
+      final hexMasterKey = masterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      await _databaseService.initialize(currentVaultName, hexMasterKey);
+
+      // 5. Master-Key im SecureStore umziehen
+      if (await _biometricService.containsMasterKey(oldVaultName)) {
+        await _biometricService.removeMasterKey(oldVaultName);
+        if (_useBiometric) {
+          await _biometricService.saveMasterKey(currentVaultName, masterKey);
+        }
+      }
+
+      // ViewModel State aktualisieren
+      _vaultName = currentVaultName;
+      notifyListeners();
+
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /// Speichert alle geänderten Einstellungen (mit Ausnahme des Tresornamens)
+  /// in der Datenbank und aktualisiert die Session.
+  Future<bool> save() async {
     if (_settings == null) return false;
     setBusy(true);
     try {
-      final oldVaultName = _sessionService.vaultName.trim();
-      final currentVaultName = _vaultName.trim();
-
       // 1. Falls Biometrie deaktiviert wurde, SecureStore leeren
       if (_settings!.useBiometric && !_useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
@@ -259,46 +318,11 @@ class SettingsViewModel extends BaseViewModel {
       // 4. Farbschema in der Konfiguration speichern
       //_configService.theme = _themeMode; // todo
 
-      // 5. Tresorname aktualisieren (falls nicht registriert)
-      if (!_isRegistered && currentVaultName != oldVaultName) {
-        if (masterKey == null) {
-          throw Exception('Bestätigung per Master-Passwort erforderlich.');
-        }
-
-        if (await _databaseService.databaseExists(currentVaultName)) {
-          throw Exception("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits auf diesem Gerät.");
-        }
-
-        // 1. Verbindung trennen & Umbenennen
-        await _databaseService.close();
-        await _databaseService.renameDatabase(oldVaultName, currentVaultName);
-
-        // 2. Session im Speicher aktualisieren
-        // (wird weiter unten durch setSession zusammen mit anderen Werten erledigt)
-
-        // 3. Neue Verbindung zur umbenannten Datei herstellen
-        final hexMasterKey = masterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-        await _databaseService.initialize(currentVaultName, hexMasterKey);
-
-        // 4. Konfiguration (Login-Liste / Config) aktualisieren
-        if (_configService.lastVaultName == oldVaultName) {
-          _configService.lastVaultName = currentVaultName;
-        }
-
-        // 5. Master-Key im SecureStore umziehen
-        if (await _biometricService.containsMasterKey(oldVaultName)) {
-           await _biometricService.removeMasterKey(oldVaultName);
-           if (_useBiometric) {
-              await _biometricService.saveMasterKey(currentVaultName, masterKey);
-           }
-        }
-      }
-
       // Session aktualisieren, damit Änderungen sofort aktiv sind
       _sessionService.setSession(
         user: _sessionService.user!,
         privateKey: _sessionService.privateKey!,
-        vaultName: currentVaultName,
+        vaultName: _vaultName,
         settings: updated.toMap(),
       );
       return true;
@@ -342,6 +366,15 @@ class SettingsViewModel extends BaseViewModel {
       if (_settings != null) {
         final updatedSettings = _settings!.copyWith(salt: base64Encode(newSalt), encryptedPrivateKey: newEncryptedPrivKey);
         await _databaseService.saveSettings(updatedSettings);
+        _settings = updatedSettings; // Lokale Kopie im ViewModel aktualisieren
+
+        // Session im Speicher aktualisieren! Sonst verlangt der nächste GuardDialog das alte PW.
+        _sessionService.setSession(
+          user: _sessionService.user!,
+          privateKey: _sessionService.privateKey!,
+          vaultName: _vaultName,
+          settings: updatedSettings.toMap(),
+        );
 
         // 7. Server informieren
         if (_isRegistered && _sessionService.user != null && _sessionService.user!.uuid.isNotEmpty) {

@@ -34,13 +34,15 @@ class DatabaseService {
   }
 
   /// Erstellt einen sicheren Dateipfad basierend auf dem Tresornamen.
+  /// Bereinigt den Namen von ungültigen Dateisystemzeichen.
   String getDatabasePath(String vaultName) {
     final storagePath = _configService.vaultStoragePath;
 
-    // todo ungültige Zeichen ersetzen
-    // var safeName = string.Join("_", vaultName.Split(Path.GetInvalidFileNameChars()));
+    // Bereinigung: Alle Zeichen außer Buchstaben, Zahlen, Unterstrichen und Bindestrichen durch '_' ersetzen.
+    // Das entspricht der MAUI-Logik (InvalidFileNameChars).
+    final safeName = vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
 
-    return p.join(storagePath, '$vaultName.db3');
+    return p.join(storagePath, '$safeName.db3');
   }
 
   // ------------------------------------------------------------------------
