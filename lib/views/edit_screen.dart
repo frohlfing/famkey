@@ -18,17 +18,17 @@ class _EditScreenState extends State<EditScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  
+
   late EditViewModel _viewModel; // Referenz speichern
 
   @override
   void initState() {
     super.initState();
     _viewModel = context.read<EditViewModel>(); // Sicher in initState holen
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _viewModel.initialize(widget.entryId);
-      
+
       _categoryController.text = _viewModel.category;
       _titleController.text = _viewModel.title;
       _usernameController.text = _viewModel.username;
@@ -66,23 +66,35 @@ class _EditScreenState extends State<EditScreen> {
 
   Color _getStrengthColor(int score) {
     switch (score) {
-      case 0: return const Color(0xFFCBD5E1);
-      case 1: return const Color(0xFFDC2626);
-      case 2: return const Color(0xFFF59E0B);
-      case 3: return const Color(0xFF84CC16);
-      case 4: return const Color(0xFF16A34A);
-      default: return const Color(0xFFCBD5E1);
+      case 0:
+        return const Color(0xFFCBD5E1);
+      case 1:
+        return const Color(0xFFDC2626);
+      case 2:
+        return const Color(0xFFF59E0B);
+      case 3:
+        return const Color(0xFF84CC16);
+      case 4:
+        return const Color(0xFF16A34A);
+      default:
+        return const Color(0xFFCBD5E1);
     }
   }
 
   String _getStrengthText(int score) {
     switch (score) {
-      case 0: return "";
-      case 1: return "Sehr schwach";
-      case 2: return "Schwach";
-      case 3: return "Gut";
-      case 4: return "Stark";
-      default: return "";
+      case 0:
+        return "";
+      case 1:
+        return "Sehr schwach";
+      case 2:
+        return "Schwach";
+      case 3:
+        return "Gut";
+      case 4:
+        return "Stark";
+      default:
+        return "";
     }
   }
 
@@ -90,9 +102,7 @@ class _EditScreenState extends State<EditScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<EditViewModel>();
 
-    final displayTitle = viewModel.title.isEmpty 
-        ? (viewModel.isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag')
-        : viewModel.title;
+    final displayTitle = viewModel.title.isEmpty ? (viewModel.isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : viewModel.title;
 
     return Scaffold(
       appBar: AppBar(
@@ -102,24 +112,21 @@ class _EditScreenState extends State<EditScreen> {
           IconButton(
             tooltip: 'Speichern',
             icon: const Icon(Icons.check),
-            onPressed: viewModel.isBusy ? null : () async {
-              final savedId = await viewModel.save();
-              if (savedId != null && context.mounted) {
-                if (viewModel.isEditMode) {
-                  // Zurück zum DetailScreen (dieser aktualisiert sich durch das Resultat)
-                  Navigator.pop(context, true);
-                } else {
-                  // Bei Neuanlage: Direkt zum neuen DetailScreen navigieren und EditScreen vom Stack entfernen.
-                  // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
-                  Navigator.pushReplacementNamed(
-                    context, 
-                    '/detail', 
-                    arguments: savedId,
-                    result: true,
-                  );
-                }
-              }
-            },
+            onPressed: viewModel.isBusy
+                ? null
+                : () async {
+                    final savedId = await viewModel.save();
+                    if (savedId != null && context.mounted) {
+                      if (viewModel.isEditMode) {
+                        // Zurück zum DetailScreen (dieser aktualisiert sich durch das Resultat)
+                        Navigator.pop(context, true);
+                      } else {
+                        // Bei Neuanlage: Direkt zum neuen DetailScreen navigieren und EditScreen vom Stack entfernen.
+                        // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
+                        Navigator.pushReplacementNamed(context, '/detail', arguments: savedId, result: true);
+                      }
+                    }
+                  },
           ),
         ],
       ),
@@ -139,15 +146,19 @@ class _EditScreenState extends State<EditScreen> {
                       suffixIcon: viewModel.existingCategories.isNotEmpty
                           ? PopupMenuButton<String>(
                               icon: const Icon(Icons.filter_list),
-                              onSelected: (val) { viewModel.category = val; _categoryController.text = val; },
-                              itemBuilder: (context) => viewModel.existingCategories.map((c) => PopupMenuItem(value: c, child: Text(c))).toList(),
+                              onSelected: (val) {
+                                viewModel.category = val;
+                                _categoryController.text = val;
+                              },
+                              itemBuilder: (context) =>
+                                  viewModel.existingCategories.map((c) => PopupMenuItem(value: c, child: Text(c))).toList(),
                             )
                           : null,
                     ),
                     onChanged: (value) => viewModel.category = value,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   TextField(
                     controller: _titleController,
                     textInputAction: TextInputAction.next,
@@ -155,7 +166,7 @@ class _EditScreenState extends State<EditScreen> {
                     onChanged: (value) => viewModel.title = value,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   TextField(
                     controller: _usernameController,
                     textInputAction: TextInputAction.next,
@@ -163,7 +174,7 @@ class _EditScreenState extends State<EditScreen> {
                     onChanged: (value) => viewModel.username = value,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -177,16 +188,15 @@ class _EditScreenState extends State<EditScreen> {
                           suffixIcon: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Tooltip(
-                                message: 'Passwort generieren',
-                                child: IconButton(icon: const Icon(Icons.refresh), onPressed: viewModel.generatePassword),
+                              IconButton(
+                                icon: const Icon(Icons.refresh),
+                                tooltip: 'Passwort generieren',
+                                onPressed: viewModel.generatePassword,
                               ),
-                              Tooltip(
-                                message: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
-                                child: IconButton(
-                                  icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                                  onPressed: viewModel.togglePasswordVisibility,
-                                ),
+                              IconButton(
+                                icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
+                                tooltip: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
+                                onPressed: viewModel.togglePasswordVisibility,
                               ),
                             ],
                           ),
@@ -212,9 +222,9 @@ class _EditScreenState extends State<EditScreen> {
                             Text(
                               _getStrengthText(viewModel.passwordStrength),
                               style: TextStyle(
-                                fontSize: 12, 
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: _getStrengthColor(viewModel.passwordStrength)
+                                color: _getStrengthColor(viewModel.passwordStrength),
                               ),
                             ),
                           ],
@@ -222,7 +232,7 @@ class _EditScreenState extends State<EditScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   TextField(
                     controller: _urlController,
                     textInputAction: TextInputAction.next,
@@ -230,7 +240,7 @@ class _EditScreenState extends State<EditScreen> {
                     onChanged: (value) => viewModel.url = value,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   TextField(
                     controller: _notesController,
                     minLines: 3,
@@ -238,9 +248,9 @@ class _EditScreenState extends State<EditScreen> {
                     decoration: const InputDecoration(labelText: 'Notizen', border: OutlineInputBorder()),
                     onChanged: (value) => viewModel.notes = value,
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   if (viewModel.isEditMode)
                     ElevatedButton.icon(
                       onPressed: () async {
@@ -258,22 +268,32 @@ class _EditScreenState extends State<EditScreen> {
                             ],
                           ),
                         );
-                        if (confirmed == true && mounted) {
-                          if (await viewModel.deleteEntry() && mounted) {
+                        if (confirmed == true && context.mounted) {
+                          final navigator = Navigator.of(context);
+                          final success = await viewModel.deleteEntry();
+                          if (success && mounted) {
                             // Direkt zurück zur Hauptseite springen (Pop bis zur Route vor Details)
-                            Navigator.of(context).popUntil((route) => route.settings.name == '/main');
+                            navigator.popUntil((route) => route.settings.name == '/main');
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.all(16),
+                      ),
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Eintrag löschen'),
                     ),
-                  
+
                   if (viewModel.errorMessage != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
-                      child: Text(viewModel.errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                      child: Text(
+                        viewModel.errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                 ],
               ),

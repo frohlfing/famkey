@@ -1,11 +1,6 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sqlite3/open.dart';
-import 'package:path/path.dart' as p;
-import 'dart:ffi';
-
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
@@ -46,7 +41,7 @@ class PriVaultApp extends StatelessWidget {
         return MultiProvider(
             providers: [
                 ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt())),
+                ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
@@ -71,7 +66,7 @@ class PriVaultApp extends StatelessWidget {
                                     child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                            color: Colors.red.withOpacity(0.8),
+                                            color: Colors.red.withValues(alpha: 0.8),
                                             borderRadius: BorderRadius.circular(4),
                                             border: Border.all(color: Colors.white, width: 1),
                                         ),
