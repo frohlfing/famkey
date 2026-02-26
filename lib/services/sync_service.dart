@@ -101,10 +101,12 @@ class SyncService {
         // FALL A: User (und evtl. Tresor) existieren noch nicht.
         // -> Wir legen beides implizit an!
 
+        // Sicherstellen, dass der API-Token in den Einstellungen eingetragen ist
         if (settingsEntity.apiToken.isEmpty) {
           throw Exception("Kein API-Token hinterlegt. Kann Tresor nicht anlegen.");
         }
 
+        // Benutzer registrieren
         userResponse = await _webService.registerUser(
           vaultName: _sessionService.vaultName,
           userName: user.name,
@@ -365,7 +367,7 @@ class SyncService {
   /// Übernimmt eine neue Identität vom Server, falls das Master-Passwort auf einem anderen Gerät geändert wurde.
   /// Führt eine Umschlüsselung der lokalen Datenbank und aller vorhandenen Berechtigungen durch.
   ///
-  /// Wird durch den [GuardService] (der das Masterpasswort über ein UI-Prompt abfragt) orchestriert.
+  /// Wird durch den [GuardService] (der das Masterpasswort über ein UI-Prompt abfragt) aufgerufen.
   Future<void> adoptRemoteIdentity(String password, UserResponse userResponse) async {
     // 1. Private-Key des Servers entschlüsseln
     final remoteMasterKey = await _cryptoService.deriveKey(password, base64Decode(userResponse.salt));

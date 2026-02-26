@@ -68,34 +68,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showAddFriendDialog() {
     final controller = TextEditingController();
+    String? localError;
+
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Person suchen'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name der Person'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Person suchen'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Name der Person',
+                  //border: const OutlineInputBorder(),
+                  errorText: localError,
+                  //helperText: 'Gib den Namen exakt so ein, wie er beim Partner lautet.',
+                ),
+                onChanged: (_) {
+                  if (localError != null) {
+                    setDialogState(() => localError = null);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: _viewModel.isBusy
+                  ? null
+                  : () async {
+                final name = controller.text.trim();
+                if (name.isEmpty) return;
+
+                final success = await _viewModel.addFriend(name);
+                if (!mounted) return;
+
+                if (success) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text('\'$name\' wurde hinzugefügt.'), backgroundColor: Colors.green),
+                  );
+                } else {
+                  // Prüfen: War es ein technischer Fehler (Snackbar) oder "nicht gefunden" (Dialog)?
+                  if (_viewModel.errorMessage != null) {
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      SnackBar(content: Text(_viewModel.errorMessage!), backgroundColor: Colors.red),
+                    );
+                  } else {
+                    // Logischer Fehler -> Dialog bleibt offen, Feld wird rot
+                    setDialogState(() {
+                      localError = 'Person nicht gefunden.';
+                    });
+                  }
+                }
+              },
+              child: const Text('Suchen'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () {
-              _viewModel.addFriend(controller.text);
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: const Text('Suchen'),
-          ),
-        ],
       ),
     );
   }
@@ -139,37 +181,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Einstellungen'),
             centerTitle: true,
             actions: [
-              Tooltip(
-                message: 'Speichern',
-                child: IconButton(
-                  icon: const Icon(Icons.check),
-                  onPressed: viewModel.isBusy
-                      ? null
-                      : () async {
-                          bool success;
-                          if (viewModel.requiresGuardForSave) {
-                            success = await GuardDialog.execute(
-                              context,
-                              title: 'Identität bestätigen',
-                              message: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-                              cryptoService: viewModel.cryptoService,
-                              sessionService: viewModel.sessionService,
-                              databaseService: viewModel.databaseService,
-                              operation: (masterKey) async {
-                                final ok = await viewModel.save(masterKey: masterKey);
-                                if (!ok) {
-                                  throw Exception(viewModel.errorMessage ?? 'Speichern fehlgeschlagen.');
-                                }
-                              },
-                            );
-                          } else {
-                            success = await viewModel.save();
-                          }
-
-                          if (!context.mounted) return;
-                          if (success) Navigator.pop(context);
-                        },
-                ),
+              IconButton(
+                icon: const Icon(Icons.check),
+                tooltip: 'Speichern',
+                onPressed: viewModel.isBusy
+                    ? null
+                    : () async {
+                        bool success;
+                        if (viewModel.isTresorRenamed) {
+                          success = await GuardDialog.execute(
+                            context,
+                            title: 'Identität bestätigen',
+                            message: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+                            cryptoService: viewModel.cryptoService,
+                            sessionService: viewModel.sessionService,
+                            databaseService: viewModel.databaseService,
+                            operation: (masterKey) async {
+                              final ok = await viewModel.renameTresor(masterKey: masterKey);
+                              if (!ok) {
+                                throw Exception(viewModel.errorMessage ?? 'Der Tresor konnte nicht umbenannt werden.');
+                              }
+                            },
+                          );
+                        }
+                        success = await viewModel.save();
+                        if (!context.mounted) return;
+                        if (success) Navigator.pop(context);
+                      },
               ),
             ],
           ),
@@ -414,17 +452,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: (value) => viewModel.pwSpecialCharSet = value,
                       ),
                     ),
-                    Tooltip(
-                      message: 'Standard',
-                      child: IconButton(icon: const Icon(Icons.star_outline), onPressed: () => viewModel.setSpecialChars('Standard')),
+                    IconButton(
+                      icon: const Icon(Icons.star_outline),
+                      tooltip: 'Standard',
+                      onPressed: () => viewModel.setSpecialChars('Standard'),
                     ),
-                    Tooltip(
-                      message: 'Alle',
-                      child: IconButton(icon: const Icon(Icons.all_inclusive), onPressed: () => viewModel.setSpecialChars('All')),
-                    ),
-                    Tooltip(
-                      message: 'Keine',
-                      child: IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => viewModel.setSpecialChars('None')),
+                    IconButton(icon: const Icon(Icons.all_inclusive), tooltip: 'Alle', onPressed: () => viewModel.setSpecialChars('All')),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      tooltip: 'Keine',
+                      onPressed: () => viewModel.setSpecialChars('None'),
                     ),
                   ],
                 ),

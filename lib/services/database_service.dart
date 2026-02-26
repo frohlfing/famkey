@@ -10,6 +10,8 @@ import 'package:privault/models/entities/settings_entity.dart';
 import 'package:privault/models/entities/permission_entity.dart';
 import 'package:privault/models/entities/tombstone_entity.dart';
 import 'package:privault/models/entities/attachment_entity.dart';
+import '../core/app_version.dart';
+import '../models/entities/version_entity.dart';
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 /// Beinhaltet grundlegende CRUD-Operationen und Transaktionen für komplexe Vorgänge.
@@ -30,17 +32,81 @@ class DatabaseService {
     // 1. Pfad bestimmen
     _currentDbPath = getDatabasePath(vaultName);
 
+    // 2. Verbindung herstellen
     _db = AppDatabase(vaultName, password);
+
+    // 3. Migrationen
+    //await runMigrations();
   }
 
   /// Erstellt einen sicheren Dateipfad basierend auf dem Tresornamen.
+  /// Bereinigt den Namen von ungültigen Dateisystemzeichen.
   String getDatabasePath(String vaultName) {
     final storagePath = _configService.vaultStoragePath;
 
-    // todo ungültige Zeichen ersetzen
-    // var safeName = string.Join("_", vaultName.Split(Path.GetInvalidFileNameChars()));
+    // Bereinigung: Alle Zeichen außer Buchstaben, Zahlen, Unterstrichen und Bindestrichen durch '_' ersetzen.
+    // Das entspricht der MAUI-Logik (InvalidFileNameChars).
+    final safeName = vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
 
-    return p.join(storagePath, '$vaultName.db3');
+    return p.join(storagePath, '$safeName.db3');
+  }
+
+  /// Das Drift-Framework kümmert sich automatisch um Schema-Änderungen (wie das Hinzufügen von Spalten), wenn die @UseRowClass
+  /// Annotationen in den Tabellendefinitionen in database.dart aktualisiert und die Build-Runner-Codegenerierung ausgeführt wird.
+  /// Diese Methode konzentriert sich auf die Versionsprüfung des Tresors und das Auslösen von manuellen Datenmigrationen.
+  Future<void> runMigrations() async {
+    if (_db == null) return;
+
+    // 1. Version vergleichen
+    await _db!.customStatement(
+      'CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY, major INTEGER, minor INTEGER, patch INTEGER, updated_at TEXT);',
+    );
+
+    final versionResult = await _db!.customSelect('SELECT major, minor, patch, updated_at FROM versions WHERE id = 1;').getSingleOrNull();
+
+    final dbVersion = versionResult != null
+        ? VersionEntity(
+            major: versionResult.data['major'] as int,
+            minor: versionResult.data['minor'] as int,
+            patch: versionResult.data['patch'] as int,
+            updatedAt: DateTime.parse(versionResult.data['updated_at'] as String).toUtc(),
+          )
+        : VersionEntity(major: 0, minor: 0, patch: 0, updatedAt: DateTime.now().toUtc());
+
+    if (dbVersion.major > 0 || dbVersion.minor > 0) {
+      // Prüfung auf zu NEUE Version
+      if (dbVersion.major > AppVersion.major || (dbVersion.major == AppVersion.major && dbVersion.minor > AppVersion.minor)) {
+        throw Exception(
+          'Der Tresor wurde zuletzt mit der neueren Version priVault v${dbVersion.major}.${dbVersion.minor} bearbeitet.\n'
+          'Installiere diese Version oder höher, um den Tresor öffnen zu können.',
+        );
+      }
+
+      // Prüfung auf zu ALTE Version (Breaking Changes bei Major Update)
+      if (dbVersion.major < AppVersion.major) {
+        throw Exception(
+          'Der Tresor wurde zuletzt mit der älteren Version priVault v${dbVersion.major}.${dbVersion.minor} bearbeitet.\n'
+          'Du kannst den Tresor importieren, indem du einen neuen Tresor anlegst und die Importfunktion aufrufst.',
+        );
+      }
+    }
+
+    // 2. Migrationen ausführen (Drift übernimmt das Schema)
+    // Die komplexe Logik aus ExecuteMigration müsste hier bei Bedarf portiert werden.
+    if (dbVersion.major < AppVersion.major || dbVersion.minor < AppVersion.minor || dbVersion.patch < AppVersion.patch) {
+      // Hier könnten in Zukunft manuelle Daten-Transformationen stattfinden,
+      // die nicht von Drifts Schema-Migrationen abgedeckt werden.
+
+      // Versionsnummer im Tresor speichern
+      final companion = VersionsCompanion(
+        id: const Value(1),
+        major: const Value(AppVersion.major),
+        minor: const Value(AppVersion.minor),
+        patch: const Value(AppVersion.patch),
+        updatedAt: Value(DateTime.now().toUtc()),
+      );
+      await _db!.into(_db!.versions).insertOnConflictUpdate(companion);
+    }
   }
 
   // ------------------------------------------------------------------------
