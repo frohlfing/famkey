@@ -24,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _handleSync(BuildContext context, MainViewModel viewModel) async {
     try {
-      final stats = await viewModel.sync();
+      final stats = await viewModel.sync(context);
 
       if (!context.mounted) return;
       if (stats != null) {

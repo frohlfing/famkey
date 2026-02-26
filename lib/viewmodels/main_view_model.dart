@@ -5,6 +5,7 @@ import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/sync_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:privault/services/crypto_service.dart';
 
 /// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
 /// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
@@ -16,6 +17,7 @@ class MainViewModel extends BaseViewModel {
   final DatabaseService _databaseService;
   final SyncService _syncService;
   final SessionService _sessionService;
+  final CryptoService _cryptoService;
 
   List<EntryEntity> _allEntries = [];
   String _searchQuery = '';
@@ -28,7 +30,7 @@ class MainViewModel extends BaseViewModel {
   // --- Konstruktor ---
   // ------------------------------------------------------------------------
 
-  MainViewModel(this._databaseService, this._sessionService, this._syncService) {
+  MainViewModel(this._databaseService, this._sessionService, this._syncService, this._cryptoService) {
     // Auf Session-Änderungen reagieren (z.B. Rename des Tresors)
     // Sobald sich im _sessionService etwas ändert (z. B. der Tresorname), ruft das ViewModel seine eigenen notifyListeners() auf.
     _sessionService.addListener(notifyListeners);
@@ -176,6 +178,17 @@ class MainViewModel extends BaseViewModel {
       setBusy(false);
     }
   }
+
+  /// Die Logik für die Adoption ohne Dialog (wird nach Passworteingabe in der UI aufgerufen).
+  Future<void> adoptIdentity(dynamic remoteUser, dynamic remoteMasterKey) async {
+    await _syncService.adoptRemoteIdentity(remoteUser, remoteMasterKey);
+  }
+
+  // Getter für Services, damit UI-Dialoge diese verwenden können.
+  CryptoService get cryptoService => _cryptoService;
+  SessionService get sessionService => _sessionService;
+  DatabaseService get databaseService => _databaseService;
+
 
   /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
   void logout() {
