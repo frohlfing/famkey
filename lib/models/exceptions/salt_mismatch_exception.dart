@@ -14,17 +14,15 @@ import 'package:privault/models/dtos/user_response.dart';
 ///
 /// Die Exception transportiert die [UserResponse] vom Server, die alle notwendigen Daten
 /// (neues Salt, neuer verschlüsselter Private Key) für den Adoptionsprozess enthält.
-/// Der [GuardDialog] kann diese Daten nutzen, um den Benutzer nach seinem (neuen) Master-Passwort
-/// zu fragen und die lokale Datenbank neu zu verschlüsseln.
 class SaltMismatchException implements Exception {
-  /// Die vom Server empfangenen Benutzerdaten, die den Konflikt ausgelöst haben.
-  final UserResponse userResponse;
+    /// Die vom Server empfangenen Benutzerdaten, die den Konflikt ausgelöst haben.
+    final UserResponse userResponse;
 
-  /// Erstellt eine neue Instanz der [SaltMismatchException].
-  SaltMismatchException(this.userResponse);
+    /// Erstellt eine neue Instanz der [SaltMismatchException].
+    SaltMismatchException(this.userResponse);
 
-  @override
-  String toString() {
-    return 'SaltMismatchException: Das Master-Passwort wurde auf einem anderen Gerät geändert oder dies ist ein neues Gerät.';
-  }
+    @override
+    String toString() {
+        return 'SaltMismatchException: Dies ist ein neues Gerät oder Das Master-Passwort wurde auf einem anderen Gerät geändert.';
+    }
 }

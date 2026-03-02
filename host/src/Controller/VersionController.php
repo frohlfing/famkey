@@ -55,7 +55,7 @@ final class VersionController
     {
         $version = explode('.', VERSION);
         return Response::json([
-            'service' => 'priVault',
+            'service' => 'PriVault',
             'major' => (int)$version[0],
             'minor' => (int)$version[1],
             'patch' => (int)$version[2],

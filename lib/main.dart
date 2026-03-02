@@ -17,13 +17,26 @@ import 'package:privault/views/settings_screen.dart';
 void main() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // if (!kIsWeb && Platform.isWindows) {
-    //   final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
-    //   if (File(dllPath).existsSync()) {
-    //     open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
-    //     debugPrint('✅ SQLiteMC DLL registriert');
-    //   }
-    // }
+    // ------------------------------------------------------------------------
+    // Error Handling
+    // ------------------------------------------------------------------------
+
+    // unhandled Flutter framework errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+        debugPrint('❌ [UNHANDLED-FLUTTER] ${details.exceptionAsString()}');
+        if (details.stack != null) {
+            debugPrintStack(stackTrace: details.stack);
+        }
+    };
+
+    // Unhandled async errors (z.B. Futures, Isolates, PlatformDispatcher)
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        debugPrint('❌ [UNHANDLED-ASYNC] $error');
+        debugPrintStack(stackTrace: stack);
+        return true; // handled
+    };
+
+    // ------------------------------------------------------------------------
 
     await setupServiceLocator();
 
@@ -41,68 +54,84 @@ class PriVaultApp extends StatelessWidget {
         return MultiProvider(
             providers: [
                 ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt())),
+                ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
                 ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
             ],
-            child: MaterialApp(
-                title: 'PriVault',
-                debugShowCheckedModeBanner: false,
-                theme: ThemeData(
-                    colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
-                    useMaterial3: true,
-                    appBarTheme: const AppBarTheme(centerTitle: true),
-                ),
-                builder: (context, child) {
-                    return Stack(
-                        children: [
-                            child!,
-                            if (kDebugMode)
-                            Align(
-                                alignment: Alignment.bottomLeft,
-                                child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                            color: Colors.red.withValues(alpha: 0.8),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: Colors.white, width: 1),
-                                        ),
-                                        child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                    'DEBUG MODE',
-                                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            child: Consumer<SettingsViewModel>(
+                builder: (context, viewModel, _) {
+                    return MaterialApp(
+                        title: 'PriVault',
+                        debugShowCheckedModeBanner: false,
+                        themeMode: viewModel.themeMode,
+
+                        // Helles Design
+                        theme: ThemeData(
+                            colorScheme: ColorScheme.fromSeed(
+                                seedColor: Colors.blueGrey
+                            ),
+                            useMaterial3: true,
+                            appBarTheme: const AppBarTheme(centerTitle: true),
+                        ),
+
+                        // Dunkles Design
+                        darkTheme: ThemeData(
+                            colorScheme: ColorScheme.fromSeed(
+                                seedColor: Colors.blueGrey,
+                                brightness: Brightness.dark,
+                            ),
+                            useMaterial3: true,
+                            appBarTheme: const AppBarTheme(centerTitle: true),
+                        ),
+
+                        builder: (context, child) {
+                            return Stack(
+                                children: [
+                                    child!,
+                                    if (kDebugMode)
+                                    Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Padding(
+                                            padding: const EdgeInsets.all(12.0),
+                                            child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.red.withValues(alpha: 0.8),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: Colors.white, width: 1),
                                                 ),
-                                            ],
+                                                child: const Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                        Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
+                                                        SizedBox(width: 4),
+                                                        Text(
+                                                            'DEBUG MODE',
+                                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
                                         ),
                                     ),
-                                ),
-                            ),
-                        ],
+                                ],
+                            );
+                        },
+                        initialRoute: '/',
+                        onGenerateRoute: (settings) {
+                            if (settings.name == '/detail') {
+                                final entryId = settings.arguments as int;
+                                return MaterialPageRoute(builder: (context) => DetailScreen(entryId: entryId));
+                            }
+                            if (settings.name == '/edit') {
+                                final entryId = settings.arguments as int?;
+                                return MaterialPageRoute(builder: (context) => EditScreen(entryId: entryId));
+                            }
+                            return null;
+                        },
+                        routes: {'/':(context) => const LoginScreen(), '/main':(context) => const MainScreen(), '/settings':(context) => const SettingsScreen()},
                     );
-                },
-                initialRoute: '/',
-                onGenerateRoute: (settings) {
-                    if (settings.name == '/detail') {
-                        final entryId = settings.arguments as int;
-                        return MaterialPageRoute(builder: (context) => DetailScreen(entryId: entryId));
-                    }
-                    if (settings.name == '/edit') {
-                        final entryId = settings.arguments as int?;
-                        return MaterialPageRoute(builder: (context) => EditScreen(entryId: entryId));
-                    }
-                    return null;
-                },
-                routes: {
-                    '/':(context) => const LoginScreen(),
-                    '/main':(context) => const MainScreen(),
-                    '/settings':(context) => const SettingsScreen(),
                 },
             ),
         );

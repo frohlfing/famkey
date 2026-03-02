@@ -7,29 +7,44 @@
 /// Beim nächsten Synchronisationsvorgang meldet der Client dem Server:
 /// "Eintrag mit UUID X wurde gelöscht".
 class TombstoneEntity {
-  /// Die interne ID (Auto-Increment in der Datenbank).
-  /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
-  final int? id;
 
-  /// Die globale ID des gelöschten Eintrags (Universally Unique Identifier v4).
-  final String entryUuid;
+    /// Die interne ID (Auto-Increment in der Datenbank).
+    /// Nullable für neue Einträge, bevor sie in die Datenbank geschrieben werden.
+    final int? id;
 
-  /// Zeitpunkt (UTC) der Löschung.
-  final DateTime deletedAt;
+    /// Die globale ID des gelöschten Eintrags (Universally Unique Identifier v4).
+    final String entryUuid;
 
-  TombstoneEntity({this.id, required this.entryUuid, required this.deletedAt});
+    /// Zeitpunkt (UTC) der Löschung.
+    final DateTime deletedAt;
 
-  /// Konvertiert eine [TombstoneEntity] in eine Map (z.B. für SQLite oder JSON).
-  Map<String, dynamic> toMap() {
-    return {'id': id, 'entry_uuid': entryUuid, 'deleted_at': deletedAt.toIso8601String()};
-  }
+    /// Konstruktor
+    TombstoneEntity({
+        this.id, 
+        required this.entryUuid, 
+        required this.deletedAt
+    });
 
-  /// Erstellt ein [TombstoneEntity] Objekt aus einer Map.
-  factory TombstoneEntity.fromMap(Map<String, dynamic> map) {
-    return TombstoneEntity(
-      id: map['id'] as int?,
-      entryUuid: map['entry_uuid'] as String,
-      deletedAt: DateTime.parse(map['deleted_at'] as String).toUtc(),
-    );
-  }
+    /// Konvertiert eine [TombstoneEntity] in eine Map (z.B. für SQLite oder JSON).
+    Map<String, dynamic> toMap() {
+        return {'id': id, 'entry_uuid': entryUuid, 'deleted_at': deletedAt.toIso8601String()};
+    }
+
+    /// Erstellt ein [TombstoneEntity] Objekt aus einer Map.
+    factory TombstoneEntity.fromMap(Map<String, dynamic> map) {
+        return TombstoneEntity(
+            id: map['id'] as int?,
+            entryUuid: map['entry_uuid'] as String,
+            deletedAt: DateTime.parse(map['deleted_at'] as String).toUtc(),
+        );
+    }
+
+    /// Erzeugt eine Kopie des Objekts mit modifizierten Eigenschaften.
+    TombstoneEntity copyWith({int? id, String? entryUuid, DateTime? deletedAt}) {
+        return TombstoneEntity(
+            id: id ?? this.id,
+            entryUuid: entryUuid ?? this.entryUuid,
+            deletedAt: deletedAt ?? this.deletedAt,
+        );
+    }
 }
