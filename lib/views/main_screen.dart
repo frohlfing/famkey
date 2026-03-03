@@ -29,6 +29,7 @@ class _MainScreenState extends State<MainScreen> {
     // ------------------------------------------------------------------------
 
     late MainViewModel _viewModel;
+    final _searchController = TextEditingController();
 
     // ------------------------------------------------------------------------
     // --- Initialisierung & Lifecycle ---
@@ -133,9 +134,18 @@ class _MainScreenState extends State<MainScreen> {
                                 child: Column(
                                     children: [
                                         TextField(
+                                            controller: _searchController,
                                             decoration: InputDecoration(
                                                 hintText: 'Suchen...',
                                                 prefixIcon: const Icon(Icons.search),
+                                                // Das X-Icon zum Löschen:
+                                                suffixIcon: viewModel.searchQuery.isNotEmpty ? IconButton(
+                                                    icon: const Icon(Icons.clear),
+                                                    onPressed: () {
+                                                        _searchController.clear();
+                                                        viewModel.searchQuery = '';
+                                                    },
+                                                ) : null,
                                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                                                 filled: true,
@@ -167,13 +177,16 @@ class _MainScreenState extends State<MainScreen> {
 
                                             return Column(
                                                 children: [
-                                                    Material(
-                                                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                                        child: ListTile(
-                                                            title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                                            trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
-                                                            dense: true,
-                                                            onTap: () => viewModel.toggleCategory(category),
+                                                    Padding(
+                                                        padding: const EdgeInsets.only(top: 4, bottom: 2, left: 16, right: 16), // Hier den Abstand anpassen
+                                                        child: Material(
+                                                            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                                            child: ListTile(
+                                                                title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                                                trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
+                                                                dense: true,
+                                                                onTap: () => viewModel.toggleCategory(category),
+                                                            ),
                                                         ),
                                                     ),
                                                     if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
@@ -204,7 +217,7 @@ class _MainScreenState extends State<MainScreen> {
     /// navigiert dich direkt zur Detailansicht des jeweiligen Eintrags.
     Widget _buildEntryCard(BuildContext context, MainViewModel viewModel, dynamic entry) {
         return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.only(top: 0, bottom: 0, left: 24, right: 24),
             child: Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

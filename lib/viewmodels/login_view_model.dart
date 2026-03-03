@@ -109,27 +109,27 @@ class LoginViewModel extends BaseViewModel {
             }
             else {
                 if (_password.isEmpty) {
-                    setError("Bitte ein Master-Passwort festlegen.");
+                    notifyError("Bitte ein Master-Passwort festlegen.");
                     return LoginResult.error;
                 }
                 return await _createVault();
             }
         }
-        catch (e, stack) {
-            debugPrint("❌ LOGIN-EXCEPTION: $e\n$stack");
+        catch (e, st) {
             final msg = e.toString().toLowerCase();
 
             if (msg.contains("database is locked")) {
-                setError("Der Tresor ist blockiert. Bitte App neu starten.");
+                notifyError("Der Tresor ist blockiert. Bitte App neu starten.");
                 return LoginResult.error;
             }
 
             if (msg.contains("file is not a database") || msg.contains("authentication failed") || msg.contains("file is encrypted or is not a database")) {
-                setError("Falsches Master-Passwort oder Tresor beschädigt.");
+                notifyError("Falsches Master-Passwort oder Tresor beschädigt.");
                 return LoginResult.wrongPassword;
             }
 
-            setError("Fehler beim Anmelden: $e");
+            logError("Login-Exception: $e", st);
+            notifyUnexpectedError();
             return LoginResult.error;
         }
         finally {
@@ -141,7 +141,7 @@ class LoginViewModel extends BaseViewModel {
     /// und verschlüsselt den privaten Teil mit dem Master-Key.
     Future<LoginResult> _createVault() async {
         if (_password.isEmpty) {
-            setError("Bitte das Master-Passwort eingeben.");
+            notifyError("Bitte das Master-Passwort eingeben.");
             return LoginResult.error;
         }
 
@@ -205,7 +205,7 @@ class LoginViewModel extends BaseViewModel {
                 settings: newSettings
             );
 
-            clearPassword(notify: true);
+            clearPassword();
             return LoginResult.success;
         }
         finally {
@@ -228,14 +228,14 @@ class LoginViewModel extends BaseViewModel {
             // Master-Key aus Secure-Store holen (löst System-Dialog aus)
             masterKey = await _biometricService.getMasterKey(_vaultName);
             if (masterKey == null) {
-                setError("Biometrische Authentifizierung abgebrochen.");
+                notifyError("Biometrische Authentifizierung abgebrochen.");
                 return LoginResult.error;
             }
         }
         else {
             // Master-Key aus eingegebenes Master-Passwort und Salt ableiten (Argon2id)
             if (_password.isEmpty) {
-                setError("Bitte das Master-Passwort eingeben.");
+                notifyError("Bitte das Master-Passwort eingeben.");
                 return LoginResult.error;
             }
             masterKey = await _cryptoService.deriveKey(_password, salt);
@@ -248,14 +248,14 @@ class LoginViewModel extends BaseViewModel {
             // 3b. Einstellungen aus der DB lesen
             final settings = await _databaseService.getSettings();
             if (settings == null) {
-                debugPrint("❌ Settings in DB nicht gefunden!");
+                logError("Settings in DB nicht gefunden!");
                 return LoginResult.corrupt;
             }
 
             // 3b. Eigene Identität aus der DB lesen
             final user = await _databaseService.getUserById(1);
             if (user == null) {
-                debugPrint("❌ User mit ID 1 in DB nicht gefunden!");
+                logError("User mit ID 1 in DB nicht gefunden!");
                 return LoginResult.corrupt;
             }
 
@@ -268,30 +268,30 @@ class LoginViewModel extends BaseViewModel {
                     vaultName: _vaultName,
                     settings: settings
                 );
-
-                // Falls manuell eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen
-                if (isManualLogin && settings.useBiometric && !_hasBiometricKey) {
-                    return LoginResult.askToEnableBiometrics;
-                }
             }
             catch (e) {
-                debugPrint("❌ Entschlüsselung des PrivateKeys fehlgeschlagen: $e");
+                //logError("Entschlüsselung des PrivateKeys fehlgeschlagen: $e");
                 if (!isManualLogin && _hasBiometricKey) {
                     await _biometricService.removeMasterKey(_vaultName);
                     _hasBiometricKey = false;
-                    setError("Veralteter Biometrie-Schlüssel gelöscht.");
+                    notifyError("Biometrie zurückgesetzt (gespeicherter Schlüssel war veraltet).");
                     return LoginResult.wrongPassword;
                 }
-                setError("Falsches Master-Passwort.");
+                notifyError("Falsches Master-Passwort.");
                 return LoginResult.wrongPassword;
             }
 
             _configService.lastVaultName = _vaultName;
-            clearPassword(notify: true);
+            clearPassword();
+
+            // Falls manuell eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen
+            if (isManualLogin && settings.useBiometric && !_hasBiometricKey) {
+                return LoginResult.askToEnableBiometrics;
+            }
+
             return LoginResult.success;
         }
         catch (e) {
-            debugPrint("❌ Fehler beim Öffnen des Tresors: $e");
             await _databaseService.close();
             rethrow; // Wird im login() gefangen
         }

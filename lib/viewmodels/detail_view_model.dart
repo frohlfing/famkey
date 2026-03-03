@@ -117,8 +117,9 @@ class DetailViewModel extends BaseViewModel {
             await _loadSharedUsers();
             await _loadAllUsers();
         }
-        catch (e) {
-            setError("Entschlüsselung fehlgeschlagen: $e");
+        catch (e, st) {
+            logError("Entschlüsselung fehlgeschlagen: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -167,7 +168,7 @@ class DetailViewModel extends BaseViewModel {
     String get auditHint => _auditHint;
 
     /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
-    static String? _createThumbnail(Uint8List bytes) {
+    String? _createThumbnail(Uint8List bytes) {
         try {
             final image = img.decodeImage(bytes);
             if (image == null || image.width <= 0 || image.height <= 0) return null;
@@ -186,8 +187,9 @@ class DetailViewModel extends BaseViewModel {
             // 4) Encode mit 80% Qualität
             return base64Encode(img.encodeJpg(thumbnail, quality: 80));
         }
-        catch (e) {
-            debugPrint('Thumbnail-Fehler: $e');
+        catch (e, st) {
+            logError('Thumbnail-Fehler: $e', st);
+            notifyUnexpectedError();
             return null;
         }
     }
@@ -268,8 +270,9 @@ class DetailViewModel extends BaseViewModel {
 
             await _loadAttachments();
         }
-        catch (e) {
-            setError("Fehler beim Hinzufügen: $e");
+        catch (e, st) {
+            logError("Fehler beim Hinzufügen: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -300,20 +303,22 @@ class DetailViewModel extends BaseViewModel {
                         try {
                             if (await tempFile.exists()) {
                                 await tempFile.delete();
-                                debugPrint('🔐 Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
+                                logDebug('🔐 Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
                                 break;
                             }
                         }
                         catch (e) {
                             // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
-                            debugPrint('🔐 Fehler bei Cleanup der Temp-Datei (Versuch ${i + 1}): $e');
+                            logError('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
+                            notifyError("Fehler beim Entfernen der temporären Datei.");
                         }
                     }
                 }
             );
         }
-        catch (e) {
-            setError("Anhang konnte nicht geöffnet werden: $e");
+        catch (e, st) {
+            logError("Anhang konnte nicht geöffnet werden: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -327,8 +332,9 @@ class DetailViewModel extends BaseViewModel {
             await _databaseService.deleteAttachment(attachment.id!);
             await _loadAttachments();
         }
-        catch (e) {
-            setError("Fehler beim Löschen: $e");
+        catch (e, st) {
+            logError("Fehler beim Löschen: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -519,8 +525,9 @@ class DetailViewModel extends BaseViewModel {
             await _databaseService.saveEntry(_entry!);
             await _loadSharedUsers();
         }
-        catch (e) {
-            setError("Teilen fehlgeschlagen: $e");
+        catch (e, st) {
+            logError("Teilen fehlgeschlagen: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -552,8 +559,9 @@ class DetailViewModel extends BaseViewModel {
                 await _loadSharedUsers();
             }
         }
-        catch (e) {
-            setError("Rechte konnten nicht geändert werden: $e");
+        catch (e, st) {
+            logError("Rechte konnten nicht geändert werden: $e", st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);

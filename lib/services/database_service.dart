@@ -64,10 +64,10 @@ class DatabaseService {
 
     /// Schließt die aktuelle Datenbankverbindung.
     Future<void> close() async {
-      if (_db != null) {
-        await _db?.close();
-        _db = null;
-      }
+        if (_db != null) {
+            await _db?.close();
+            _db = null;
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -210,18 +210,21 @@ class DatabaseService {
     }
 
     /// Stellt die Sicherheitskopie wieder her (bei fehlgeschlagener Operation).
+    /// Die Datenbank muss geschlossen sein.
     Future<void> restoreBackup() async {
         if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
         final backupPath = '$_currentDbPath.bak';
         final backupFile = File(backupPath);
-        if (await backupFile.exists()) {
-            await backupFile.copy(_currentDbPath!);
-            try {
-                await backupFile.delete();
-            }
-            catch (_) {
-                debugPrint("Backup-File konnte kopiert, aber nicht gelöscht werden.");
-            }
+        if (!await backupFile.exists()) {
+            debugPrint("Es konnte keine Backup-Datei gefunden werden.");
+            return;
+        }
+        await backupFile.copy(_currentDbPath!);
+        try {
+            await backupFile.delete();
+        }
+        catch (_) {
+            debugPrint("Backup-File konnte kopiert, aber nicht gelöscht werden.");
         }
     }
 

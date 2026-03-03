@@ -7,26 +7,48 @@ class BaseViewModel extends ChangeNotifier {
     bool get isBusy => _isBusy;
     String? get errorMessage => _errorMessage;
 
-    /// Hilfsmethode, um den Busy-Status zu setzen
+    /// Setzt den Busy-Status und benachrichtigt die View
     void setBusy(bool value) {
         _isBusy = value;
         notifyListeners();
     }
 
-    /// Hilfsmethode, um Fehler zu setzen
-    void setError(String? value) {
-        if (value != null) {
-            // Stacktrace für Debugging-Zwecke ausgeben
-            debugPrint('❌ [VM-ERROR] $value');
-            debugPrintStack();
-        }
+    /// Setzt den Fehlertext und benachrichtigt die View
+    void notifyError(String value) {
         _errorMessage = value;
         notifyListeners();
     }
 
-    /// Hilfsmethode, um Fehler zurückzusetzen, bevor eine neue Operation startet
+    /// Setzt "Unerwarteter Fehler" als Fehlertext und benachrichtigt die View
+    void notifyUnexpectedError() {
+      _errorMessage = "Unerwarteter Fehler";
+      notifyListeners();
+    }
+
+    /// Setzt den Fehlertext zurück und benachrichtigt die View
     void clearError() {
-        _errorMessage = null;
-        notifyListeners();
+      _errorMessage = null;
+      notifyListeners();
+    }
+
+    /// Protokolliert den Fehler.
+    void logError(dynamic msg, [StackTrace? stackTrace]) {
+        // todo In Textdatei schreiben
+        debugPrint('❌ [VM-ERROR] $msg');
+        if (stackTrace != null) debugPrintStack(stackTrace: stackTrace, maxFrames: 3);
+    }
+
+    /// Protokolliert die Warnung.
+    void logWarn(dynamic msg, [StackTrace? stackTrace]) {
+      // todo In Textdatei schreiben
+      debugPrint('⚠️ [VM-WARN] $msg');
+      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace, maxFrames: 3);
+    }
+
+    /// Protokolliert den Hinweis.
+    void logDebug(dynamic msg, [StackTrace? stackTrace]) {
+      // todo In Textdatei schreiben
+      debugPrint('ℹ️ [VM-DEBUG] $msg');
+      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace, maxFrames: 3);
     }
 }

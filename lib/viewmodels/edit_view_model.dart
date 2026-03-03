@@ -108,8 +108,9 @@ class EditViewModel extends BaseViewModel {
                 _notes = '';
             }
         }
-        catch (e) {
-            setError("Fehler beim Laden: $e");
+        catch (e, st) {
+            logError('Fehler beim Initialisieren: $e', st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -120,7 +121,7 @@ class EditViewModel extends BaseViewModel {
     /// Gibt die ID des gespeicherten Eintrags zurück.
     Future<int?> save() async {
         if (_title.isEmpty) {
-            setError("Titel darf nicht leer sein");
+            notifyError("Titel darf nicht leer sein");
             return null;
         }
 
@@ -171,8 +172,9 @@ class EditViewModel extends BaseViewModel {
             final savedId = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
             return savedId;
         }
-        catch (e) {
-            setError("Fehler beim Speichern: $e");
+        catch (e, st) {
+            logError('Fehler beim Speichern: $e', st);
+            notifyUnexpectedError();
             return null;
         }
         finally {
@@ -188,8 +190,9 @@ class EditViewModel extends BaseViewModel {
             await _databaseService.deleteEntry(_entry!.id!);
             return true;
         }
-        catch (e) {
-            setError("Fehler beim Löschen: $e");
+        catch (e, st) {
+            logError('Fehler beim Löschen: $e', st);
+            notifyUnexpectedError();
             return false;
         }
         finally {

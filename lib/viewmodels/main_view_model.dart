@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:privault/core/app_version.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
@@ -114,8 +114,9 @@ class MainViewModel extends BaseViewModel {
             _allEntries = await _databaseService.getAllEntries();
             notifyListeners();
         }
-        catch (e) {
-            setError("Fehler beim Laden: $e");
+        catch (e, st) {
+            logError('Fehler beim Laden: $e', st);
+            notifyUnexpectedError();
         }
         finally {
             setBusy(false);
@@ -293,7 +294,7 @@ class MainViewModel extends BaseViewModel {
                 await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
             }
             catch (_) {
-                setError("Falsches Master-Passwort"); 
+                notifyError("Falsches Master-Passwort");
                 return AdoptIdentityResult.wrongPassword;
             }
 
@@ -370,12 +371,17 @@ class MainViewModel extends BaseViewModel {
             }
             catch (_) {
                 // Fehler während der Operation -> Rollback
-                await _databaseService.restoreBackup();
+                try {
+                    await _databaseService.close();
+                    await _databaseService.restoreBackup();
+                    await _databaseService.initialize(_sessionService.vaultName, masterKey);
+                } catch (_) {}
                 rethrow;
             }
         }
-        catch (e) {
-            setError("Fehler bei der Identitätsübernahme: $e");
+        catch (e, st) {
+            logError('Fehler bei der Identitätsübernahme: $e', st);
+            notifyUnexpectedError();
             return AdoptIdentityResult.error;
         }
         finally {
@@ -599,8 +605,9 @@ class MainViewModel extends BaseViewModel {
                     notes = payload.notes;
                     favicon = payload.favicon;
                 }
-                catch (e) {
-                    debugPrint("Fehler beim Extrahieren der Suchfelder für ${entryDto.entryUuid}: $e");
+                catch (e, st) {
+                    logError("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e", st);
+                    //throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");
                 }
             }
 
@@ -647,8 +654,7 @@ class MainViewModel extends BaseViewModel {
 
                     final encryptedContent = attResponse['encrypted_content'] as String?;
                     if (encryptedContent == null || encryptedContent.isEmpty) {
-                        debugPrint("Warnung: Anhang $attUuid konnte nicht geladen werden.");
-                        continue;
+                        throw Exception("Anhang $attUuid konnte nicht geladen werden.");
                     }
 
                     final attachmentUuid = attResponse['attachment_uuid'] as String?;

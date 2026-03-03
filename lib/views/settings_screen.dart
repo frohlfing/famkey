@@ -626,7 +626,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (!mounted) return;
 
                 if (result == AddFriendResult.success) {
-                    _showSnack('"$name" wurde hinzugefügt.', success: true);
+                    _showSnack('"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
                     break;
                 } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
                     // im Dialog anzeigen, NICHT SnackBar
