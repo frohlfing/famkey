@@ -151,9 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             Navigator.pop(context);
                                         }
                                         catch (e, st) {
-                                            debugPrint('❌ [SettingsScreen.save] $e');
-                                            debugPrintStack(stackTrace: st);
-                                            _showSnack('Unerwarteter Fehler');
+                                            _showException(e, stackTrace: st);
                                         }
                                     },
 
@@ -222,9 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                 }
                                             }
                                             catch (e, st) {
-                                                debugPrint('❌ [SettingsScreen.changeMasterPassword] $e');
-                                                debugPrintStack(stackTrace: st);
-                                                _showSnack('Unerwarteter Fehler');
+                                                _showException(e, stackTrace: st);
                                             }
                                         },
                                     icon: const Icon(Icons.password),
@@ -261,9 +257,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ElevatedButton.icon(
                                     onPressed: () async {
                                         final ok = await viewModel.testConnection();
-
                                         if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Verbindung erfolgreich!' : 'Verbindung fehlgeschlagen.'), backgroundColor: ok ? Colors.green : Colors.red));
+                                        if (ok) {
+                                            _showSnack('Verbindung erfolgreich.', success: true);
+                                        } else {
+                                            _showSnack('Verbindung fehlgeschlagen.');
+                                        }
                                     },
                                     icon: const Icon(Icons.swap_calls),
                                     label: const Text('Verbindung testen'),
@@ -532,18 +531,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // --- Interne Methoden ---
     // ------------------------------------------------------------------------
 
-    /// Zeigt eine kurzzeitige Benachrichtigung (SnackBar) am unteren Rand an.
-    /// [success] steuert, ob die Nachricht grün (Erfolg) oder rot (Fehler) erscheint.
+    /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+    /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
     void _showSnack(String message, {bool success = false}) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-            SnackBar(
-                content: Text(message),
-                backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-            ),
+          SnackBar(
+            content: Text(message),
+            backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+          ),
         );
+    }
+
+    /// Protokolliert eine Exception in der SnackBar an.
+    void _showException(dynamic ex, {StackTrace? stackTrace}) {
+      if (!mounted) return;
+      debugPrint("❌ MainScreen: $ex");
+      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+      _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
     }
 
     /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
@@ -596,38 +603,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                                     final success = await _viewModel.addFriend(name);
                                     if (!mounted) return;
-
-                                    if (success) {
+                                    if (!success) {
+                                      if (_viewModel.errorMessage == null) {
+                                        setDialogState(() => localError = 'Person nicht gefunden.');
+                                      }
+                                      else {
+                                        if (dialogContext.mounted) {
+                                          Navigator.pop(dialogContext);
+                                        }
+                                        _showSnack(_viewModel.errorMessage!);
+                                      }
+                                    } else {
                                         if (dialogContext.mounted) {
                                             Navigator.pop(dialogContext);
                                         }
-                                        ScaffoldMessenger.of(
-                                            this.context).showSnackBar(
-                                                SnackBar(
-                                                    content: Text('\'$name\' wurde hinzugefügt.'), 
-                                                    backgroundColor: Colors.green
-                                                )
-                                            );
-                                    }
-                                    else {
-                                        if (_viewModel.errorMessage != null) {
-                                            if (dialogContext.mounted) {
-                                                Navigator.pop(dialogContext);
-                                            }
-                                            ScaffoldMessenger.of(
-                                                this.context).showSnackBar(
-                                                    SnackBar(
-                                                        content: Text(_viewModel.errorMessage!), 
-                                                        backgroundColor: Colors.red
-                                                    )
-                                                );
-                                        }
-                                        else {
-                                            setDialogState(() {
-                                                    localError = 'Person nicht gefunden.';
-                                                }
-                                            );
-                                        }
+                                        _showSnack('"$name" wurde hinzugefügt.', success: true);
                                     }
                                 },
                             child: const Text('Suchen'),

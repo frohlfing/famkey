@@ -250,6 +250,88 @@ class _MainScreenState extends State<MainScreen> {
     // --- Interne Methoden ---
     // ------------------------------------------------------------------------
 
+    /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+    /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
+    void _showSnack(String message, {bool success = false}) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            SnackBar(
+                content: Text(message),
+                backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+            ),
+        );
+    }
+
+    /// Protokolliert eine Exception in der SnackBar an.
+    void _showException(dynamic ex, {StackTrace? stackTrace}) {
+        if (!mounted) return;
+        debugPrint("❌ MainScreen: $ex");
+        if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+        _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+    }
+
+    /// Öffnet einen modalen Dialog zur Passwortabfrage.
+    ///
+    /// Diese Funktion wird innerhalb des Sync-Prozesses benötigt, um 
+    /// kritische Identitätsänderungen zu autorisieren.
+    ///
+    /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
+    // todo ist identisch mit settings_screen._showPasswordDialog -> als widget auslagern
+    Future<String?> _showPasswordDialog(String title, String message, {String? errorText}) async {
+        final controller = TextEditingController();
+        bool obscureText = true; // Passwort ausgeblendet
+
+        return showDialog<String>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => StatefulBuilder(
+                builder: (context, setDialogState) => AlertDialog(
+                    title: Text(title),
+                    content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                            Text(message),
+                            const SizedBox(height: 16),
+                            TextField(
+                                controller: controller,
+                                obscureText: obscureText,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                    labelText: 'Master-Passwort',
+                                    border: const OutlineInputBorder(),
+                                    errorText: errorText,
+                                    suffixIcon: IconButton(
+                                        icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
+                                        onPressed: () => setDialogState(() => obscureText = !obscureText)
+                                    ),
+                                ),
+                                onSubmitted: (_) {
+                                    if (controller.text.isNotEmpty) {
+                                        Navigator.pop(dialogContext, controller.text);
+                                    }
+                                },
+                            ),
+                        ],
+                    ),
+                    actions: [
+                        TextButton(onPressed: () => Navigator.pop(dialogContext, null), child: const Text('Abbrechen')),
+                        ElevatedButton(
+                            onPressed: () {
+                                if (controller.text.isNotEmpty) {
+                                    Navigator.pop(dialogContext, controller.text);
+                                }
+                            },
+                            child: const Text('OK'),
+                        ),
+                    ],
+                ),
+            ),
+        );
+    }
+
     /// Koordiniert den Synchronisationsvorgang mit dem Server.
     ///
     /// Diese Methode verarbeitet nicht nur den Standard-Sync, sondern kümmert sich
@@ -314,89 +396,11 @@ class _MainScreenState extends State<MainScreen> {
                 }
             }
             catch (e, st) {
-                debugPrint('❌ [MainScreen.adoptIdentity] $e');
-                debugPrintStack(stackTrace: st);
-                _showSnack('Unerwarteter Fehler');
+                _showException(e, stackTrace: st);
             }
         }
-        catch (e, stackTrace) {
-            if (!context.mounted) return;
-            debugPrint("❌ Sync fehlgeschlagen: $e\n$stackTrace");
-            _showSnack("Sync fehlgeschlagen");
+        catch (e, st) {
+          _showException(e, stackTrace: st);
         }
-    }
-
-    /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-    /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-    void _showSnack(String message, {bool success = false}) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-            SnackBar(
-                content: Text(message),
-                backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-            ),
-        );
-    }
-
-    /// Öffnet einen modalen Dialog zur Passwortabfrage.
-    ///
-    /// Diese Funktion wird innerhalb des Sync-Prozesses benötigt, um 
-    /// kritische Identitätsänderungen zu autorisieren.
-    ///
-    /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
-    // todo ist identisch mit settings_screen._showPasswordDialog -> als widget auslagern
-    Future<String?> _showPasswordDialog(String title, String message, {String? errorText}) async {
-        final controller = TextEditingController();
-        bool obscureText = true; // Passwort ausgeblendet
-
-        return showDialog<String>(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => StatefulBuilder(
-                builder: (context, setDialogState) => AlertDialog(
-                    title: Text(title),
-                    content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                            Text(message),
-                            const SizedBox(height: 16),
-                            TextField(
-                                controller: controller,
-                                obscureText: obscureText,
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                    labelText: 'Master-Passwort',
-                                    border: const OutlineInputBorder(),
-                                    errorText: errorText,
-                                    suffixIcon: IconButton(
-                                        icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-                                        onPressed: () => setDialogState(() => obscureText = !obscureText)
-                                    ),
-                                ),
-                                onSubmitted: (_) {
-                                    if (controller.text.isNotEmpty) {
-                                        Navigator.pop(dialogContext, controller.text);
-                                    }
-                                },
-                            ),
-                        ],
-                    ),
-                    actions: [
-                        TextButton(onPressed: () => Navigator.pop(dialogContext, null), child: const Text('Abbrechen')),
-                        ElevatedButton(
-                            onPressed: () {
-                                if (controller.text.isNotEmpty) {
-                                    Navigator.pop(dialogContext, controller.text);
-                                }
-                            },
-                            child: const Text('OK'),
-                        ),
-                    ],
-                ),
-            ),
-        );
     }
 }

@@ -285,8 +285,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 content: Text(content),
                 actions: [
                     TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-                    TextButton(
+                    ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
+                        autofocus: true,
                         child: Text(confirmLabel, style: TextStyle(color: confirmLabel.contains('löschen') ? Colors.red : null)),
                     ),
                 ],

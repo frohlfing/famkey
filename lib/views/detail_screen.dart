@@ -441,6 +441,28 @@ class _DetailScreenState extends State<DetailScreen> {
     // --- Interne Methoden ---
     // ------------------------------------------------------------------------
 
+    /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+    /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
+    void _showSnack(String message, {bool success = false}) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+          ),
+        );
+    }
+
+    /// Protokolliert eine Exception in der SnackBar an.
+    void _showException(dynamic ex, {StackTrace? stackTrace}) {
+      if (!mounted) return;
+      debugPrint("❌ MainScreen: $ex");
+      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+      _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+    }
+
     /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
     ///
     /// - [context] BuildContext des Widgets
@@ -448,7 +470,7 @@ class _DetailScreenState extends State<DetailScreen> {
     /// - [label] Beschriftung des Kopierten Texts
     void _copyToClipboard(BuildContext context, String text, String label) {
         Clipboard.setData(ClipboardData(text: text));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label in die Zwischenablage kopiert')));
+        _showSnack('$label in die Zwischenablage kopiert', success: true);
     }
 
     /// Öffnet die angegebene URL in einem neuen Browser-Tab oder gibt eine SnackBar mit dem Ergebnis aus.
@@ -458,14 +480,13 @@ class _DetailScreenState extends State<DetailScreen> {
         try {
             if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                 if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('URL konnte nicht geöffnet werden')));
+                  _showSnack('URL konnte nicht geöffnet werden');
                 }
             }
         }
-        catch (e) {
-            if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler beim Öffnen: $e')));
-            }
+        catch (e, st) {
+            _showException(e, stackTrace: st);
+
         }
     }
 
