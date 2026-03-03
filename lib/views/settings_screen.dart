@@ -125,19 +125,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                         errorText: errorText
                                                     );
                                                     if (password == null) return;
-                                                    final success = await viewModel.renameVault(password);
+                                                    final result = await viewModel.renameVault(password);
                                                     if (!context.mounted) return;
-                                                    if (!success) {
-                                                        if (viewModel.errorMessage == 'Falsches Master-Passwort') {
-                                                            // im Dialog anzeigen, NICHT SnackBar
-                                                            errorText = viewModel.errorMessage;
-                                                            continue;
-                                                        }
+
+                                                    if (result == RenameVaultResult.success) {
+                                                        _showSnack('Tresor erfolgreich umbenannt.', success: true);
+                                                        break;
+                                                    } else if (result == RenameVaultResult.wrongPassword) {
+                                                        errorText = viewModel.errorMessage;
+                                                        continue;
+                                                    } else {
                                                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                                                         break;
                                                     }
-                                                    _showSnack('Tresor erfolgreich umbenannt.', success: true);
-                                                    break;
                                                 }
                                             }
                                             // Einstellungen speichern
@@ -204,19 +204,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                         _showSnack("Neues und altes Master-Passwort sind identisch");
                                                         return;
                                                     }
-                                                    final success = await viewModel.changeMasterPassword(newPassword, currentPassword);
+                                                    final result = await viewModel.changeMasterPassword(newPassword, currentPassword);
                                                     if (!context.mounted) return;
-                                                    if (!success) {
-                                                        if (viewModel.errorMessage == 'Falsches Master-Passwort') {
-                                                            // im Dialog anzeigen, NICHT SnackBar
-                                                            errorText = viewModel.errorMessage;
-                                                            continue;
-                                                        }
+
+                                                    if (result == ChangePasswordResult.success) {
+                                                        _showSnack('Passwort erfolgreich geändert.', success: true);
+                                                        break;
+                                                    } else if (result == ChangePasswordResult.wrongPassword) {
+                                                        errorText = viewModel.errorMessage;
+                                                        continue;
+                                                    } else {
                                                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                                                         break;
                                                     }
-                                                    _showSnack('Passwort erfolgreich geändert.', success: true);
-                                                    break;
                                                 }
                                             }
                                             catch (e, st) {
@@ -622,21 +622,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final name = await _showAddFriendDialog(errorText: errorText);
                 if (name == null) return;
 
-                final success = await _viewModel.addFriend(name);
+                final result = await _viewModel.addFriend(name);
                 if (!mounted) return;
 
-                if (!success) {
-                    if (_viewModel.errorMessage == 'Person nicht gefunden.' || 
-                        _viewModel.errorMessage == 'Person bereits hinzugefügt.') {
-                        // im Dialog anzeigen, NICHT SnackBar
-                        errorText = _viewModel.errorMessage;
-                        continue;
-                    }
+                if (result == AddFriendResult.success) {
+                    _showSnack('"$name" wurde hinzugefügt.', success: true);
+                    break;
+                } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
+                    // im Dialog anzeigen, NICHT SnackBar
+                    errorText = _viewModel.errorMessage;
+                    continue;
+                } else {
                     _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
                     break;
                 }
-                _showSnack('"$name" wurde hinzugefügt.', success: true);
-                break;
             }
         }
         catch (e, st) {

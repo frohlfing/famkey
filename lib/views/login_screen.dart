@@ -180,15 +180,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                         const SizedBox(height: 24),
 
-                                        // if (viewModel.errorMessage != null)
-                                        //   Padding(
-                                        //     padding: const EdgeInsets.only(bottom: 16),
-                                        //     child: Text(
-                                        //       viewModel.errorMessage!,
-                                        //       style: const TextStyle(color: Colors.red),
-                                        //       textAlign: TextAlign.center,
-                                        //     ),
-                                        //   ),
                                         ElevatedButton(
                                             style: ElevatedButton.styleFrom(
                                                 padding: const EdgeInsets.symmetric(vertical: 18),

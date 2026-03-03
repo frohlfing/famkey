@@ -54,6 +54,9 @@ class SyncStatistics {
     '💾 Gesichert: $pushSent';
 }
 
+/// Ergebnisse für die Identitätsübernahme
+enum AdoptIdentityResult { success, wrongPassword, error }
+
 /// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
 /// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
 class MainViewModel extends BaseViewModel {
@@ -265,7 +268,7 @@ class MainViewModel extends BaseViewModel {
     ///
     /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
     /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-    Future<bool> adoptIdentity(UserResponse userResponse, String password) async {
+    Future<AdoptIdentityResult> adoptIdentity(UserResponse userResponse, String password) async {
         if (_sessionService.settings == null) throw Exception("Settings nicht initialisiert.");
         if (_sessionService.user == null) throw Exception("User fehlt");
         if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
@@ -290,8 +293,8 @@ class MainViewModel extends BaseViewModel {
                 await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
             }
             catch (_) {
-                setError("Falsches Master-Passwort"); // die UI wird genau diesen Wortlaut abfangen und im Dialog anzeigen
-                return false;
+                setError("Falsches Master-Passwort"); 
+                return AdoptIdentityResult.wrongPassword;
             }
 
             // Physisches Datenbank-Backup erstellen
@@ -363,7 +366,7 @@ class MainViewModel extends BaseViewModel {
 
                 // Erfolg: Backup löschen
                 await _databaseService.removeBackup();
-                return true;
+                return AdoptIdentityResult.success;
             }
             catch (_) {
                 // Fehler während der Operation -> Rollback
@@ -373,7 +376,7 @@ class MainViewModel extends BaseViewModel {
         }
         catch (e) {
             setError("Fehler bei der Identitätsübernahme: $e");
-            return false;
+            return AdoptIdentityResult.error;
         }
         finally {
             if (masterKey != null) _cryptoService.wipeKey(masterKey);

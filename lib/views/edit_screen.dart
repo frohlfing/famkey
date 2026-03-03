@@ -338,36 +338,24 @@ class _EditScreenState extends State<EditScreen> {
     /// bis hin zu sattem Grün (stark).
     Color _getStrengthColor(int score) {
         switch (score) {
-            case 0:
-                return const Color(0xFFCBD5E1);
-            case 1:
-                return const Color(0xFFDC2626);
-            case 2:
-                return const Color(0xFFF59E0B);
-            case 3:
-                return const Color(0xFF84CC16);
-            case 4:
-                return const Color(0xFF16A34A);
-            default:
-            return const Color(0xFFCBD5E1);
+            case 0: return const Color(0xFFCBD5E1);
+            case 1: return const Color(0xFFDC2626);
+            case 2: return const Color(0xFFF59E0B);
+            case 3: return const Color(0xFF84CC16);
+            case 4: return const Color(0xFF16A34A);
+            default: return const Color(0xFFCBD5E1);
         }
     }
 
     /// Liefert den passenden Beschreibungstext für die visuelle Passwort-Stärke-Anzeige.
     String _getStrengthText(int score) {
         switch (score) {
-            case 0:
-                return "";
-            case 1:
-                return "Sehr schwach";
-            case 2:
-                return "Schwach";
-            case 3:
-                return "Gut";
-            case 4:
-                return "Stark";
-            default:
-            return "";
+            case 0: return "";
+            case 1: return "Sehr schwach";
+            case 2: return "Schwach";
+            case 3: return "Gut";
+            case 4: return "Stark";
+            default: return "";
         }
     }
 }

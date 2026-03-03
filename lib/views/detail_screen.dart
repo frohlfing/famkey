@@ -56,11 +56,6 @@ class _DetailScreenState extends State<DetailScreen> {
     // ------------------------------------------------------------------------
 
     /// Baut die zentrale Detailansicht eines Eintrags auf.
-    ///
-    /// Hier werden alle Informationen wie Titel, Benutzername, Passwort (mit Sichtbarkeits-Toggle), 
-    /// URL und Notizen übersichtlich dargestellt. Zudem ermöglicht die Methode den Zugriff 
-    /// auf Anhänge und Freigabeeinstellungen, während ein Lade-Indikator angezeigt wird, 
-    /// wenn das ViewModel beschäftigt ist.
     @override
     Widget build(BuildContext context) {
         final viewModel = context.watch<DetailViewModel>();
@@ -95,7 +90,11 @@ class _DetailScreenState extends State<DetailScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+
+                                // ------------------------------------------------------------------------
                                 // Header Section
+                                // ------------------------------------------------------------------------
+
                                 Center(
                                     child: Column(
                                         children: [
@@ -114,6 +113,10 @@ class _DetailScreenState extends State<DetailScreen> {
                                     ),
                                 ),
                                 const SizedBox(height: 32),
+
+                                // ------------------------------------------------------------------------
+                                // Stammdaten
+                                // ------------------------------------------------------------------------
 
                                 // Username Card
                                 ListTile(
@@ -200,23 +203,26 @@ class _DetailScreenState extends State<DetailScreen> {
                                     const Divider(),
                                 ],
 
+                                // ------------------------------------------------------------------------
                                 // Anhänge Section
+                                // ------------------------------------------------------------------------
+
                                 if (viewModel.canManageAttachments || viewModel.attachments.isNotEmpty) ...[
                                     if (viewModel.canManageAttachments)
-                                    _buildSectionHeaderWithAction('Anhänge', Icons.add_circle_outline, 'Datei anhängen', viewModel.addAttachment)
+                                        _buildSectionHeaderWithAction('Anhänge', Icons.add_circle_outline, 'Datei anhängen', viewModel.addAttachment)
                                     else
-                                    _buildSectionTitle('Anhänge'),
+                                        _buildSectionTitle('Anhänge'),
                                     const SizedBox(height: 4),
                                     if (viewModel.attachments.isEmpty)
-                                    const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
-                                        child: Text(
-                                            'Keine Anhänge vorhanden.',
-                                            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-                                        ),
-                                    )
+                                        const Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                                            child: Text(
+                                                'Keine Anhänge vorhanden.',
+                                                style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                                            ),
+                                        )
                                     else
-                                    ...viewModel.attachments.map((att) {
+                                        ...viewModel.attachments.map((att) {
                                             final meta = viewModel.getAttachmentMeta(att.uuid);
                                             final iconType = viewModel.getIconType(meta?.filename ?? '', meta?.mime ?? '');
                                             return Card(
@@ -246,25 +252,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                                                             iconSize: 26,
                                                             tooltip: 'Anhang löschen',
-                                                            onPressed: () async {
-                                                                final confirmed = await showDialog<bool>(
-                                                                    context: context,
-                                                                    builder: (context) => AlertDialog(
-                                                                        title: const Text('Anhang löschen'),
-                                                                        content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
-                                                                        actions: [
-                                                                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-                                                                            TextButton(
-                                                                                onPressed: () => Navigator.pop(context, true),
-                                                                                child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
-                                                                            ),
-                                                                        ],
-                                                                    ),
-                                                                );
-                                                                if (confirmed == true && mounted) {
-                                                                    viewModel.deleteAttachment(att);
-                                                                }
-                                                            },
+                                                            onPressed: () => _onDeleteAttachmentPressed(viewModel, att),
                                                         )
                                                         : null,
                                                 ),
@@ -274,9 +262,91 @@ class _DetailScreenState extends State<DetailScreen> {
                                     const Divider(),
                                 ],
 
+                                // ------------------------------------------------------------------------
                                 // Geteilt mit Section
+                                // ------------------------------------------------------------------------
+
                                 if (viewModel.canManageShares || viewModel.sharedWith.isNotEmpty) ...[
-                                    _buildSharedWithSection(viewModel),
+                                    Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                            if (viewModel.canManageShares)
+                                            _buildSectionHeaderWithAction('Geteilt mit', Icons.person_add_alt_1_outlined, 'Freigabe hinzufügen', () {
+                                                    _showShareDialog(context, viewModel);
+                                                }
+                                            )
+                                            else
+                                            _buildSectionTitle('Geteilt mit'),
+                                            const SizedBox(height: 4),
+                                            if (viewModel.sharedWith.isEmpty)
+                                            const Padding(
+                                                padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                                                child: Text(
+                                                    'Dieser Eintrag ist noch nicht geteilt.',
+                                                    style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                                                ),
+                                            )
+                                            else
+                                            ...viewModel.sharedWith.map((user) {
+                                                    final isWritable = viewModel.getAccessLevel(user.id!) == 2;
+                                                    Widget leadingIcon = Stack(
+                                                        alignment: Alignment.bottomRight,
+                                                        children: [
+                                                            const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
+                                                            if (!user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
+                                                        ],
+                                                    );
+
+                                                    if (!user.isVerified) {
+                                                        leadingIcon = MouseRegion(
+                                                            cursor: SystemMouseCursors.click,
+                                                            child: GestureDetector(
+                                                                onTap: () async {
+                                                                    await Navigator.pushNamed(context, '/settings', arguments: {'focus_user_uuid': user.uuid});
+                                                                    if (mounted) _viewModel.initialize(widget.entryId);
+                                                                },
+                                                                child: Tooltip(message: 'Person ist nicht verifiziert!', child: leadingIcon),
+                                                            ),
+                                                        );
+                                                    }
+
+                                                    return Card(
+                                                        margin: const EdgeInsets.only(bottom: 8),
+                                                        child: ListTile(
+                                                            leading: leadingIcon,
+                                                            title: Text(user.name),
+                                                            trailing: viewModel.canManageShares
+                                                                ? Row(
+                                                                    mainAxisSize: MainAxisSize.min,
+                                                                    children: [
+                                                                        const Text('Schreiben', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                                                        Transform.scale(
+                                                                            scale: 0.75,
+                                                                            child: Switch(
+                                                                                value: isWritable,
+                                                                                onChanged: (bool value) {
+                                                                                    viewModel.updateAccessLevel(user, value ? 2 : 1);
+                                                                                },
+                                                                            ),
+                                                                        ),
+                                                                        const SizedBox(width: 8),
+                                                                        IconButton(
+                                                                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                                                            iconSize: 26,
+                                                                            tooltip: 'Zugriff entziehen',
+                                                                            onPressed: () => _onRevokeAccessPressed(viewModel, user),
+                                                                        ),
+                                                                    ],
+                                                                )
+                                                                : (isWritable
+                                                                    ? const Text('Schreiben', style: TextStyle(color: Colors.grey))
+                                                                    : const Text('Nur Lesen', style: TextStyle(color: Colors.grey))),
+                                                        ),
+                                                    );
+                                                }
+                                            ),
+                                        ],
+                                    ),  
                                     const Divider(),
                                 ],
 
@@ -296,121 +366,15 @@ class _DetailScreenState extends State<DetailScreen> {
 
                 if (viewModel.isBusy) Container(
                     color: Colors.black.withValues(alpha: 0.1),
-                        child: const Center(child: CircularProgressIndicator()),
-                    ),
-                ],
+                    child: const Center(child: CircularProgressIndicator()),
+                ),
+            ],
         );
     }
 
     // ------------------------------------------------------------------------
     // --- Widgets ---
     // ------------------------------------------------------------------------
-
-    /// Erstellt den Bereich „Geteilt mit“, der alle Personen auflistet, die Zugriff 
-    /// auf diesen Eintrag haben.
-    ///
-    /// Hier kannst Du als Besitzer neue Freigaben hinzufügen, Schreibrechte verwalten
-    /// oder den Zugriff für einzelne Nutzer wieder entziehen.
-    Widget _buildSharedWithSection(DetailViewModel viewModel) {
-        return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-                if (viewModel.canManageShares)
-                _buildSectionHeaderWithAction('Geteilt mit', Icons.person_add_alt_1_outlined, 'Freigabe hinzufügen', () {
-                        _showShareDialog(context, viewModel);
-                    }
-                )
-                else
-                _buildSectionTitle('Geteilt mit'),
-                const SizedBox(height: 4),
-                if (viewModel.sharedWith.isEmpty)
-                const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
-                    child: Text(
-                        'Dieser Eintrag ist noch nicht geteilt.',
-                        style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-                    ),
-                )
-                else
-                ...viewModel.sharedWith.map((user) {
-                        final isWritable = viewModel.getAccessLevel(user.id!) == 2;
-                        Widget leadingIcon = Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                                const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
-                                if (!user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
-                            ],
-                        );
-
-                        if (!user.isVerified) {
-                            leadingIcon = MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                    onTap: () async {
-                                        await Navigator.pushNamed(context, '/settings', arguments: {'focus_user_uuid': user.uuid});
-                                        if (mounted) _viewModel.initialize(widget.entryId);
-                                    },
-                                    child: Tooltip(message: 'Person ist nicht verifiziert!', child: leadingIcon),
-                                ),
-                            );
-                        }
-
-                        return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                                leading: leadingIcon,
-                                title: Text(user.name),
-                                trailing: viewModel.canManageShares
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                            const Text('Schreiben', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                                            Transform.scale(
-                                                scale: 0.75,
-                                                child: Switch(
-                                                    value: isWritable,
-                                                    onChanged: (bool value) {
-                                                        viewModel.updateAccessLevel(user, value ? 2 : 1);
-                                                    },
-                                                ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            IconButton(
-                                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                                iconSize: 26,
-                                                tooltip: 'Zugriff entziehen',
-                                                onPressed: () async {
-                                                    final confirmed = await showDialog<bool>(
-                                                        context: context,
-                                                        builder: (ctx) => AlertDialog(
-                                                            title: const Text('Zugriff entziehen'),
-                                                            content: Text('Möchtest du diesen Eintrag nicht mehr mit ${user.name} teilen?'),
-                                                            actions: [
-                                                                TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(ctx).pop(false)),
-                                                                TextButton(
-                                                                    child: const Text('Ja, Zugriff entziehen', style: TextStyle(color: Colors.red)),
-                                                                    onPressed: () => Navigator.of(ctx).pop(true),
-                                                                ),
-                                                            ],
-                                                        ),
-                                                    );
-                                                    if (confirmed == true) {
-                                                        viewModel.revokeAccess(user);
-                                                    }
-                                                },
-                                            ),
-                                        ],
-                                    )
-                                    : (isWritable
-                                        ? const Text('Schreiben', style: TextStyle(color: Colors.grey))
-                                        : const Text('Nur Lesen', style: TextStyle(color: Colors.grey))),
-                            ),
-                        );
-                    }
-                ),
-            ],
-        );
-    }
 
     /// Hilfsmethode zur Erstellung einer einheitlichen, fettgedruckten Überschrift 
     /// für die verschiedenen Inhaltsabschnitte der Detailansicht.
@@ -444,23 +408,23 @@ class _DetailScreenState extends State<DetailScreen> {
     /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
     /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
     void _showSnack(String message, {bool success = false}) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-          ),
+            SnackBar(
+                content: Text(message),
+                backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+            ),
         );
     }
 
     /// Protokolliert eine Exception in der SnackBar an.
     void _showException(dynamic ex, {StackTrace? stackTrace}) {
-      if (!mounted) return;
-      debugPrint("❌ DetailScreen: $ex");
-      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-      _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+        if (!mounted) return;
+        debugPrint("❌ DetailScreen: $ex");
+        if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+        _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
     }
 
     /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
@@ -480,7 +444,7 @@ class _DetailScreenState extends State<DetailScreen> {
         try {
             if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                 if (context.mounted) {
-                  _showSnack('URL konnte nicht geöffnet werden');
+                    _showSnack('URL konnte nicht geöffnet werden');
                 }
             }
         }
@@ -531,6 +495,50 @@ class _DetailScreenState extends State<DetailScreen> {
             case 'audio': return Icons.audiotrack_outlined;
             case 'text': return Icons.text_snippet_outlined;
             default: return Icons.insert_drive_file_outlined;
+        }
+    }
+
+    /// Fragt nach Bestätigung und löscht dann den Anhang.
+    Future<void> _onDeleteAttachmentPressed(DetailViewModel viewModel, dynamic att) async {
+        final meta = viewModel.getAttachmentMeta(att.uuid);
+        final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+                title: const Text('Anhang löschen'),
+                content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
+                actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
+                    ),
+                ],
+            ),
+        );
+
+        if (confirmed == true && mounted) {
+            viewModel.deleteAttachment(att);
+        }
+    }
+
+    /// Fragt nach Bestätigung und entzieht dann den Zugriff für den Benutzer.
+    Future<void> _onRevokeAccessPressed(DetailViewModel viewModel, dynamic user) async {
+        final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+                title: const Text('Zugriff entziehen'),
+                content: Text('Möchtest du diesen Eintrag nicht mehr mit ${user.name} teilen?'),
+                actions: [
+                    TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(ctx).pop(false)),
+                    TextButton(
+                        child: const Text('Ja, Zugriff entziehen', style: TextStyle(color: Colors.red)),
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                ],
+            ),
+        );
+        if (confirmed == true && mounted) {
+            viewModel.revokeAccess(user);
         }
     }
 

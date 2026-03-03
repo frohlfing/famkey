@@ -15,6 +15,15 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:convert';
 
+/// Ergebnisse für Tresor-Umbenennung
+enum RenameVaultResult { success, identicalNames, alreadyExists, wrongPassword, error }
+
+/// Ergebnisse für Passwort-Änderung
+enum ChangePasswordResult { success, identicalPasswords, wrongPassword, error }
+
+/// Ergebnisse für das Hinzufügen von Freunden
+enum AddFriendResult { success, notFound, alreadyAdded, selfAdd, error }
+
 /// Verwaltet die Konfiguration des aktuellen Tresors, die Synchronisationsparameter,
 /// das Erscheinungsbild sowie die Liste der Freunde.
 class SettingsViewModel extends BaseViewModel {
@@ -208,7 +217,7 @@ class SettingsViewModel extends BaseViewModel {
     }
 
     /// Benennt den Tresor um und aktualisiert die Session. Das Master-Passwort wurde zuvor von der UI abgefragt.
-    Future<bool> renameVault(String password) async {
+    Future<RenameVaultResult> renameVault(String password) async {
         if (_settings == null) throw Exception("Settings nicht initialisiert.");
         if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
         if (_settings!.salt.isEmpty) throw Exception("Salt fehlt");
@@ -222,12 +231,12 @@ class SettingsViewModel extends BaseViewModel {
         // Trivial-Check
         if (currentVaultName == oldVaultName) {
             setError("Neuer und alter Name sind identisch.");
-            return false;
+            return RenameVaultResult.identicalNames;
         }
 
         if (await _databaseService.databaseExists(currentVaultName)) {
             setError("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits auf diesem Gerät.");
-            return false;
+            return RenameVaultResult.alreadyExists;
         }
 
         Uint8List? masterKey;
@@ -247,8 +256,8 @@ class SettingsViewModel extends BaseViewModel {
                 await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
             }
             catch (_) {
-                setError("Falsches Master-Passwort"); // die UI wird genau diesen Wortlaut abfangen und im Dialog anzeigen
-                return false;
+                setError("Falsches Master-Passwort"); 
+                return RenameVaultResult.wrongPassword;
             }
 
             // Physisches Datenbank-Backup erstellen
@@ -298,7 +307,7 @@ class SettingsViewModel extends BaseViewModel {
 
                 // Erfolg: Backup löschen
                 await _databaseService.removeBackup();
-                return true;
+                return RenameVaultResult.success;
             }
             catch (_) {
                 // Fehler während der Operation -> Rollback
@@ -308,7 +317,7 @@ class SettingsViewModel extends BaseViewModel {
         }
         catch (e) {
             setError("Umbenennung fehlgeschlagen: $e");
-            return false;
+            return RenameVaultResult.error;
         }
         finally {
             if (masterKey != null) _cryptoService.wipeKey(masterKey);
@@ -334,7 +343,7 @@ class SettingsViewModel extends BaseViewModel {
     }
 
     /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-    Future<bool> changeMasterPassword(String newPassword, String password) async {
+    Future<ChangePasswordResult> changeMasterPassword(String newPassword, String password) async {
         if (_settings == null) throw Exception("Settings nicht initialisiert.");
         if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
         if (_settings!.salt.isEmpty) throw Exception("Salt fehlt");
@@ -344,7 +353,7 @@ class SettingsViewModel extends BaseViewModel {
         // Trivial-Check
         if (newPassword == password) {
             setError("Neues und altes Master-Passwort sind identisch.");
-            return false;
+            return ChangePasswordResult.identicalPasswords;
         }
 
         Uint8List? masterKey;
@@ -365,14 +374,8 @@ class SettingsViewModel extends BaseViewModel {
                 await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
             }
             catch (_) {
-                setError("Falsches Master-Passwort"); // die UI wird genau diesen Wortlaut abfangen und im Dialog anzeigen
-                return false;
-            }
-
-            // Trivial-Check: neue und alte Passwörter sind identisch
-            if (newPassword == password) {
-                // Neue und alte Passwörter sind identisch
-                return true;
+                setError("Falsches Master-Passwort"); 
+                return ChangePasswordResult.wrongPassword;
             }
 
             // Physisches Datenbank-Backup erstellen
@@ -428,7 +431,7 @@ class SettingsViewModel extends BaseViewModel {
 
                 // Erfolg: Backup löschen
                 await _databaseService.removeBackup();
-                return true;
+                return ChangePasswordResult.success;
             }
             catch (_) {
                 // Fehler während der Operation -> Rollback
@@ -439,7 +442,8 @@ class SettingsViewModel extends BaseViewModel {
         catch (e, st) {
             debugPrint('❌ [changeMasterPassword] $e');
             debugPrintStack(stackTrace: st);
-            return false;
+            setError("Fehler beim Ändern des Passworts.");
+            return ChangePasswordResult.error;
         }
         finally {
             if (masterKey != null) _cryptoService.wipeKey(masterKey);
@@ -539,20 +543,20 @@ class SettingsViewModel extends BaseViewModel {
     bool needsRekeying(int userId) => _friendNeedsRekeying[userId] ?? false;
 
     /// Fügt den einen Freund über den angegebenen Namen hinzu.
-    Future<bool> addFriend(String name) async {
-        if (name.isEmpty) return false;
+    Future<AddFriendResult> addFriend(String name) async {
+        if (name.isEmpty) return AddFriendResult.error;
         final trimmedName = name.trim();
 
         // Du kannst dich nicht selbst als Freund hinzufügen
         if (trimmedName.toLowerCase() == _sessionService.user?.name.trim().toLowerCase()) {
             setError("Du kannst dich nicht selbst als Freund hinzufügen.");
-            return false;
+            return AddFriendResult.selfAdd;
         }
 
         // Prüfen ob bereits in der Liste
         if (_friends.any((f) => f.name.toLowerCase() == trimmedName.toLowerCase())) {
             setError("Person bereits hinzugefügt.");
-            return false;
+            return AddFriendResult.alreadyAdded;
         }
 
         // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
@@ -565,7 +569,7 @@ class SettingsViewModel extends BaseViewModel {
             final userResponse = await _webService.findUser(_sessionService.vaultName, trimmedName);
             if (userResponse == null) {
                 setError("Person nicht gefunden.");
-                return false;
+                return AddFriendResult.notFound;
             }
 
             // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
@@ -581,7 +585,7 @@ class SettingsViewModel extends BaseViewModel {
 
             // UI-Liste neu laden
             await loadFriends();
-            return true;
+            return AddFriendResult.success;
         }
         on DioException catch (de) {
             // Exception des HTTP-Clients
@@ -591,11 +595,11 @@ class SettingsViewModel extends BaseViewModel {
             else {
                 setError("Netzwerkfehler: ${de.message}");
             }
-            return false;
+            return AddFriendResult.error;
         }
         catch (e) {
             setError("Suche fehlgeschlagen: $e");
-            return false;
+            return AddFriendResult.error;
         }
         finally {
             setBusy(false);
@@ -872,7 +876,7 @@ class SettingsViewModel extends BaseViewModel {
 
     /// Konfiguriert den WebService mit den aktuell sichtbaren Einstellungen.
     ///
-    /// Wirf ein Exception, wenn die Host-URL oder API-Token nicht angegeben sind.
+    /// Wirft ein Exception, wenn die Host-URL oder API-Token nicht angegeben sind.
     void initWebService() {
         if (_host.isEmpty) {
             throw Exception("Für die Synchronisation muss eine gültige Host-URL hinterlegt sein. Bitte trage sie in den Einstellungen ein.");

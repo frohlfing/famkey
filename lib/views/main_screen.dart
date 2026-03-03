@@ -379,20 +379,21 @@ class _MainScreenState extends State<MainScreen> {
                     if (password == null) return;
 
                     // Die auf dem Server gespeicherte Identität übernehmen
-                    final success = await viewModel.adoptIdentity(userResponse, password);
+                    final result = await viewModel.adoptIdentity(userResponse, password);
                     if (!context.mounted) return;
-                    if (!success) {
-                        if (viewModel.errorMessage == 'Falsches Master-Passwort') {
-                            // im Dialog anzeigen, NICHT SnackBar
-                            errorText = viewModel.errorMessage;
-                            continue;
-                        }
+
+                    if (result == AdoptIdentityResult.success) {
+                        _showSnack('Account erfolgreich verknüpft.', success: true);
+                        _handleSync(context, viewModel); // Sync erneut starten
+                        break;
+                    } else if (result == AdoptIdentityResult.wrongPassword) {
+                        // im Dialog anzeigen, NICHT SnackBar
+                        errorText = viewModel.errorMessage;
+                        continue;
+                    } else {
                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                         break;
                     }
-                    _showSnack('Account erfolgreich verknüpft.', success: true);
-                    _handleSync(context, viewModel); // Sync erneut starten
-                    break;
                 }
             }
             catch (e, st) {
