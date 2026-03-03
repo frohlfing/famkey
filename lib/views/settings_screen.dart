@@ -273,7 +273,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 // --- Freunde ---
                                 // ------------------------------------------------------------------------
 
-                                _buildSectionHeaderWithAction('Freunde', Icons.person_add, 'Person suchen', _showAddFriendDialog),
+                                _buildSectionHeaderWithAction('Freunde', Icons.person_add, 'Person suchen', _handleAddFriend),
                                 if (viewModel.friends.isEmpty)
                                 const Padding(
                                     padding: EdgeInsets.all(16),
@@ -548,7 +548,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     /// Protokolliert eine Exception in der SnackBar an.
     void _showException(dynamic ex, {StackTrace? stackTrace}) {
       if (!mounted) return;
-      debugPrint("❌ MainScreen: $ex");
+      debugPrint("❌ SettingsScreen: $ex");
       if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
       _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
     }
@@ -566,13 +566,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
     }
 
-    /// Öffnet einen Dialog zur Suche nach anderen Personen. Bei Erfolg wird
-    /// der Nutzer zur Liste der "Freunde" hinzugefügt.    
-    void _showAddFriendDialog() {
+    /// Öffnet einen Dialog zur Suche nach anderen Personen.
+    Future<String?> _showAddFriendDialog({String? errorText}) async {
         final controller = TextEditingController();
-        String? localError;
 
-        showDialog(
+        return showDialog<String>(
             context: context,
             builder: (dialogContext) => StatefulBuilder(
                 builder: (context, setDialogState) => AlertDialog(
@@ -583,49 +581,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             TextField(
                                 controller: controller,
                                 autofocus: true,
-                                decoration: InputDecoration(labelText: 'Name der Person', errorText: localError),
-                                onChanged: (_) {
-                                    if (localError != null) {
-                                        setDialogState(() => localError = null);
+                                decoration: InputDecoration(
+                                    labelText: 'Name der Person', 
+                                    border: const OutlineInputBorder(),
+                                    errorText: errorText
+                                ),
+                                onSubmitted: (val) {
+                                    if (val.trim().isNotEmpty) {
+                                        Navigator.pop(dialogContext, val.trim());
                                     }
                                 },
                             ),
                         ],
                     ),
                     actions: [
-                        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Abbrechen')),
+                        TextButton(onPressed: () => Navigator.pop(dialogContext, null), child: const Text('Abbrechen')),
                         ElevatedButton(
-                            onPressed: _viewModel.isBusy
-                                ? null
-                                : () async {
-                                    final name = controller.text.trim();
-                                    if (name.isEmpty) return;
-
-                                    final success = await _viewModel.addFriend(name);
-                                    if (!mounted) return;
-                                    if (!success) {
-                                      if (_viewModel.errorMessage == null) {
-                                        setDialogState(() => localError = 'Person nicht gefunden.');
-                                      }
-                                      else {
-                                        if (dialogContext.mounted) {
-                                          Navigator.pop(dialogContext);
-                                        }
-                                        _showSnack(_viewModel.errorMessage!);
-                                      }
-                                    } else {
-                                        if (dialogContext.mounted) {
-                                            Navigator.pop(dialogContext);
-                                        }
-                                        _showSnack('"$name" wurde hinzugefügt.', success: true);
-                                    }
-                                },
+                            onPressed: () {
+                                final name = controller.text.trim();
+                                if (name.isNotEmpty) {
+                                    Navigator.pop(dialogContext, name);
+                                }
+                            },
                             child: const Text('Suchen'),
                         ),
                     ],
                 ),
             ),
         );
+    }
+
+    /// Verarbeitet das Hinzufügen eines Freundes.
+    ///
+    /// Öffnet den Such-Dialog und verarbeitet das Ergebnis. Bei Fehlern wie "nicht gefunden"
+    /// bleibt der Dialog offen, andere Fehler werden per SnackBar gemeldet.
+    Future<void> _handleAddFriend() async {
+        try {
+            String? errorText;
+            while (true) {
+                final name = await _showAddFriendDialog(errorText: errorText);
+                if (name == null) return;
+
+                final success = await _viewModel.addFriend(name);
+                if (!mounted) return;
+
+                if (!success) {
+                    if (_viewModel.errorMessage == 'Person nicht gefunden.' || 
+                        _viewModel.errorMessage == 'Person bereits hinzugefügt.') {
+                        // im Dialog anzeigen, NICHT SnackBar
+                        errorText = _viewModel.errorMessage;
+                        continue;
+                    }
+                    _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+                    break;
+                }
+                _showSnack('"$name" wurde hinzugefügt.', success: true);
+                break;
+            }
+        }
+        catch (e, st) {
+            _showException(e, stackTrace: st);
+        }
     }
 
     /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor und alle

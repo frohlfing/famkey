@@ -458,7 +458,7 @@ class _DetailScreenState extends State<DetailScreen> {
     /// Protokolliert eine Exception in der SnackBar an.
     void _showException(dynamic ex, {StackTrace? stackTrace}) {
       if (!mounted) return;
-      debugPrint("❌ MainScreen: $ex");
+      debugPrint("❌ DetailScreen: $ex");
       if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
       _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
     }

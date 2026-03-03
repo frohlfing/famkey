@@ -539,13 +539,19 @@ class SettingsViewModel extends BaseViewModel {
     bool needsRekeying(int userId) => _friendNeedsRekeying[userId] ?? false;
 
     /// Fügt den einen Freund über den angegebenen Namen hinzu.
-    // todo
     Future<bool> addFriend(String name) async {
         if (name.isEmpty) return false;
+        final trimmedName = name.trim();
 
         // Du kannst dich nicht selbst als Freund hinzufügen
-        if (name.trim().toLowerCase() == _sessionService.user?.name.trim().toLowerCase()) {
-            // todo Fehlertext
+        if (trimmedName.toLowerCase() == _sessionService.user?.name.trim().toLowerCase()) {
+            setError("Du kannst dich nicht selbst als Freund hinzufügen.");
+            return false;
+        }
+
+        // Prüfen ob bereits in der Liste
+        if (_friends.any((f) => f.name.toLowerCase() == trimmedName.toLowerCase())) {
+            setError("Person bereits hinzugefügt.");
             return false;
         }
 
@@ -556,15 +562,16 @@ class SettingsViewModel extends BaseViewModel {
         try {
             clearError();
 
-            final userResponse = await _webService.findUser(_sessionService.vaultName, name);
+            final userResponse = await _webService.findUser(_sessionService.vaultName, trimmedName);
             if (userResponse == null) {
-                return false; // die Person wurde nicht gefunden
+                setError("Person nicht gefunden.");
+                return false;
             }
 
             // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
             final newUser = UserEntity(
                 uuid: userResponse.userUuid,
-                name: name,
+                name: trimmedName,
                 publicKey: userResponse.publicKey,
                 isVerified: false,
                 isHidden: false,
