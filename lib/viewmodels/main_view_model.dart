@@ -9,6 +9,7 @@ import 'package:privault/models/entities/attachment_entity.dart';
 import 'package:privault/models/entities/entry_entity.dart';
 import 'package:privault/models/entities/permission_entity.dart';
 import 'package:privault/models/entities/tombstone_entity.dart';
+import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
 import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:privault/models/entities/user_entity.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
@@ -55,7 +56,9 @@ class SyncStatistics {
 }
 
 /// Ergebnisse für die Identitätsübernahme
-enum AdoptIdentityResult { success, wrongPassword, error }
+enum AdoptIdentityResult {
+    success, wrongPassword, error
+}
 
 /// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
 /// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
@@ -211,9 +214,14 @@ class MainViewModel extends BaseViewModel {
     // --- Synchronisation ---
     // ------------------------------------------------------------------------
 
+    /// Prüft, ob es mindestens einen (sichtbaren) Freund gibt, der noch nicht verifiziert ist.
+    Future<bool> hasUnverifiedFriend() async {
+        return await _databaseService.hasUnverifiedUser();
+    }
+
     /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
     /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
-    Future<SyncStatistics?> sync() async {
+    Future<SyncStatistics> sync() async {
         if (_sessionService.user == null) throw Exception("User ist in den Session nicht initialisiert.");
         if (_sessionService.settings == null) throw Exception("Settings ist in den Session nicht initialisiert.");
         setBusy(true);
@@ -238,26 +246,33 @@ class MainViewModel extends BaseViewModel {
                 throw SaltMismatchException(userResponse);
             }
 
-            // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren
+            // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
+            // Falls ein Freund einen neuen Fingerprint hat, werden seine Entry-Keys gelöscht und das Vertrauen entzogen.
             await _pullFriends(userResponse);
 
-            // 7. Einträge vom Server herunterladen und lokale Einträge aktualisieren
+            // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
+            final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
+            if (needsRekeying) {
+                throw EmptyEntryKeyException();
+            }
+
+            // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
             final serverTime = await _pullEntries(userResponse.userUuid);
 
-            // 8. Veränderte Einträge hochladen
+            // 9. Veränderte Einträge hochladen
             await _pushEntries(userResponse.userUuid);
 
-            // 9. Aktualisierte Freundesliste an den Server hochladen ---
+            // 10. Aktualisierte Freundesliste an den Server hochladen ---
             await _pushFriends();
 
-            // 10. Zeitstempel setzen
+            // 11. Zeitstempel setzen
             final updatedSettings = _sessionService.settings!.copyWith(lastSyncAt: serverTime);
             await _databaseService.saveSettings(updatedSettings);
 
-            // 11. Einträge aktualisieren
+            // 12. Einträge aktualisieren
             await loadEntries();
 
-            // 12. Sync-Statistik zurückgeben
+            // 13. Sync-Statistik zurückgeben
             return _stats;
         }
         finally {
@@ -375,7 +390,9 @@ class MainViewModel extends BaseViewModel {
                     await _databaseService.close();
                     await _databaseService.restoreBackup();
                     await _databaseService.initialize(_sessionService.vaultName, masterKey);
-                } catch (_) {}
+                }
+                catch (_) {
+                }
                 rethrow;
             }
         }
@@ -477,11 +494,38 @@ class MainViewModel extends BaseViewModel {
         // 2. Öffentliche Schlüssel aller Benutzer vom Server holen
         final publicKeys = await _webService.getPublicKeys(userResponse.userUuid);
 
-        // 3. Freundesliste vom Server holen
+        // 3. Prüfen, ob der Öffentliche Schlüssel der lokalen Freunde aktuell ist.
+        for (var localFriend in localUsers.where((u) => (u.id ?? 0) > 1)) {
+            // Den aktuellen öffentlichen Schlüssel holen
+            final pkEntry = publicKeys.where((pk) => pk['user_uuid'] == localFriend.uuid).firstOrNull;
+            final publicKey = pkEntry?['public_key'] as String?;
+
+            if (publicKey == null) {
+                // der Freund existiert auf dem Server nicht mehr
+                await _databaseService.deleteUser(localFriend.id!);
+                continue;
+            }
+
+            // Fingerprint-Check (Sicherheitsveto)
+            if (localFriend.publicKey != publicKey) {
+                // Der lokal gespeicherte RSA-Key ist veraltet.
+
+                // Alle verschlüsselten Entry-Keys des Freundes werden geleert, da sie unbrauchbar geworden sind.
+                await _databaseService.removeEntryKeysForUser(localFriend.id!);
+
+                // Neuen Key übernehmen, aber Vertrauen entziehen
+                localFriend = localFriend.copyWith(
+                    publicKey: publicKey,
+                    isVerified: false,
+                    updatedAt: DateTime.now().toUtc()
+                );
+                localFriend = await _databaseService.saveUser(localFriend);
+            }
+        }
+
+        // 4. Die auf dem Server gespeicherte Freundesliste entschlüsseln
         final encryptedFriends = userResponse.encryptedFriends;
         if (encryptedFriends == null || encryptedFriends.isEmpty) return;
-
-        // 4. Freundesliste entschlüsseln
         List<FriendPayload> friends;
         final aesKey = _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
         try {
@@ -496,8 +540,7 @@ class MainViewModel extends BaseViewModel {
             _cryptoService.wipeKey(aesKey);
         }
 
-        // 5. Vom Server geholte Freundesliste durchlaufen
-        var needsRekeying = false;
+        // 5. Die entschlüsselte Freundesliste durchlaufen und lokale Liste abgleichen
         for (var remoteFriend in friends) {
             // Den öffentlichen Schlüssel des Freundes holen
             final pkEntry = publicKeys.where((pk) => pk['user_uuid'] == remoteFriend.uuid).firstOrNull;
@@ -508,53 +551,26 @@ class MainViewModel extends BaseViewModel {
             var localMatch = localUsers.where((u) => u.uuid == remoteFriend.uuid).firstOrNull;
             if (localMatch == null) {
                 // Freund lokal hinzufügen
-                await _databaseService.saveUser(UserEntity(uuid: remoteFriend.uuid, name: remoteFriend.name, publicKey: publicKey, isVerified: remoteFriend.isVerified, isHidden: remoteFriend.isHidden, updatedAt: remoteFriend.updatedAt));
+                await _databaseService.saveUser(UserEntity(
+                    uuid: remoteFriend.uuid,
+                    name: remoteFriend.name,
+                    publicKey: publicKey,
+                    isVerified: remoteFriend.isVerified,
+                    isHidden: remoteFriend.isHidden,
+                    updatedAt: remoteFriend.updatedAt,
+                ));
             }
             else {
-                // Freund lokal aktualisieren
-
-                // Fingerprint-Check (Sicherheitsveto)
-                if (localMatch.publicKey != publicKey) {
-                    // Der lokal gespeicherte RSA-Key ist veraltet.
-
-                    // Alle verschlüsselten Entry-Keys des Freundes werden geleert, da sie unbrauchbar geworden sind.
-                    await _databaseService.removeEntryKeysForUser(localMatch.id!);
-
-                    // Neuen Key übernehmen, aber Vertrauen entziehen
-                    localMatch = localMatch.copyWith(publicKey: publicKey, isVerified: false, updatedAt: DateTime.now().toUtc());
-                    localMatch = await _databaseService.saveUser(localMatch);
-
-                    // Hat der Freund Zugriffsrecht auf mindestens einen Eintrag?
-                    // Dann muss der Entry-Key neu generiert werden, bevor die Synchronization fortgesetzt werden kann.
-                    if (!needsRekeying) {
-                        if (await _databaseService.hasPermissionsWithoutKeyByUserId(localMatch.id!)) {
-                            needsRekeying = true;
-                        }
-                    }
-                }
-
-                // Metadaten Abgleich
+                // Freund lokal aktualisieren, wenn der Eintrag auf dem Server aktueller ist
                 if (remoteFriend.updatedAt.isAfter(localMatch.updatedAt)) {
-                    localMatch = localMatch.copyWith(name: remoteFriend.name, isHidden: remoteFriend.isHidden, isVerified: remoteFriend.isVerified, updatedAt: remoteFriend.updatedAt);
+                    localMatch = localMatch.copyWith(
+                        name: remoteFriend.name,
+                        isVerified: remoteFriend.isVerified,
+                        isHidden: remoteFriend.isHidden,
+                        updatedAt: remoteFriend.updatedAt);
                     await _databaseService.saveUser(localMatch);
                 }
             }
-        }
-
-        // 6. Freunde lokal löschen, die auf dem Server nicht mehr existieren.
-        for (var localFriend in localUsers.where((u) => (u.id ?? 0) > 1)) {
-            final existsOnServer = publicKeys.any((pk) => pk['user_uuid'] == localFriend.uuid);
-            if (!existsOnServer) {
-                await _databaseService.deleteUser(localFriend.id!);
-            }
-        }
-
-        // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
-        if (needsRekeying) {
-            throw Exception(
-                "Sicherheitsstopp: Die Identität eines Freundes hat sich geändert. "
-                "Bitte verifiziere den neuen Fingerprint in den Einstellungen, bevor du synchronisierst.",
-            );
         }
     }
 

@@ -18,7 +18,7 @@ class SaltMismatchException implements Exception {
     /// Die vom Server empfangenen Benutzerdaten, die den Konflikt ausgelöst haben.
     final UserResponse userResponse;
 
-    /// Erstellt eine neue Instanz der [SaltMismatchException].
+    /// Konstruktor
     SaltMismatchException(this.userResponse);
 
     @override

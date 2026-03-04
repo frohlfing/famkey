@@ -133,10 +133,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                     if (result == RenameVaultResult.success) {
                                                         _showSnack('Tresor erfolgreich umbenannt.', success: true);
                                                         break;
-                                                    } else if (result == RenameVaultResult.wrongPassword) {
+                                                    }
+                                                    else if (result == RenameVaultResult.wrongPassword) {
                                                         errorText = viewModel.errorMessage;
                                                         continue;
-                                                    } else {
+                                                    }
+                                                    else {
                                                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                                                         break;
                                                     }
@@ -212,10 +214,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                     if (result == ChangePasswordResult.success) {
                                                         _showSnack('Passwort erfolgreich geändert.', success: true);
                                                         break;
-                                                    } else if (result == ChangePasswordResult.wrongPassword) {
+                                                    }
+                                                    else if (result == ChangePasswordResult.wrongPassword) {
                                                         errorText = viewModel.errorMessage;
                                                         continue;
-                                                    } else {
+                                                    }
+                                                    else {
                                                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                                                         break;
                                                     }
@@ -262,7 +266,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         if (!context.mounted) return;
                                         if (ok) {
                                             _showSnack('Verbindung erfolgreich.', success: true);
-                                        } else {
+                                        }
+                                        else {
                                             _showSnack('Verbindung fehlgeschlagen.');
                                         }
                                     },
@@ -289,10 +294,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                 key: ValueKey('friend_${f.uuid}'),
                                                 child: ListTile(
                                                     title: Text(f.name),
-                                                    subtitle: Text(viewModel.getFingerprint(f.publicKey), style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
+                                                    subtitle: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                            Text(viewModel.getFingerprint(f.publicKey), style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
+                                                            if (f.id != null && viewModel.needsRekeying(f.id!)) const Padding(
+                                                              padding: EdgeInsets.only(top: 4),
+                                                              child: Text('Fingerprint hat sich geändert!', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                                                            ),
+                                                        ],
+                                                    ),
                                                     trailing: Tooltip(
                                                         message: 'Person verifiziert',
-                                                        child: Switch(value: f.isVerified, onChanged: (_) => _handleVerification(f)),
+                                                        child: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
                                                     ),
                                                 ),
                                             ),
@@ -536,23 +550,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
     /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
     void _showSnack(String message, {bool success = false}) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-          ),
+            SnackBar(
+                content: Text(message),
+                backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+            ),
         );
     }
 
     /// Protokolliert eine Exception in der SnackBar an.
     void _showException(dynamic ex, {StackTrace? stackTrace}) {
-      if (!mounted) return;
-      debugPrint("❌ SettingsScreen: $ex");
-      if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-      _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+        if (!mounted) return;
+        debugPrint("❌ SettingsScreen: $ex");
+        if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+        _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
     }
 
     /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
@@ -630,11 +644,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (result == AddFriendResult.success) {
                     _showSnack('"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
                     break;
-                } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
+                }
+                else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
                     // im Dialog anzeigen, NICHT SnackBar
                     errorText = _viewModel.errorMessage;
                     continue;
-                } else {
+                }
+                else {
                     _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
                     break;
                 }
@@ -644,23 +660,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _showException(e, stackTrace: st);
         }
     }
-
-    // Verifizierung setzen bzw. entfernen
-    Future<void> _handleVerification(UserEntity friend) async {
-        // Wenn verifiziert wird, fehlende Entry-Keys generieren.
-        if (!friend.isVerified) {
-            try {
-                final rekeyingCount = await _viewModel.rekeyEntriesForFriend(friend);
-                if (rekeyingCount > 0) _showSnack("$rekeyingCount Schlüssel für ${friend.name} wurden aktualisiert", success: true);
-            } catch (e, st) {
-                _showException(e, stackTrace: st);
-            }
-        }
-
-        // Verifizierungsstatus speichern
-        _viewModel.toggleVerification(friend);
-    }
-
 
     /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor und alle
     /// damit verbundenen Daten unwiderruflich vom Gerät gelöscht werden.

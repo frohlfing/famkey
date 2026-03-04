@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/main_view_model.dart';
 import '../models/exceptions/salt_mismatch_exception.dart';
@@ -140,12 +141,12 @@ class _MainScreenState extends State<MainScreen> {
                                                 prefixIcon: const Icon(Icons.search),
                                                 // Das X-Icon zum Löschen:
                                                 suffixIcon: viewModel.searchQuery.isNotEmpty ? IconButton(
-                                                    icon: const Icon(Icons.clear),
-                                                    onPressed: () {
-                                                        _searchController.clear();
-                                                        viewModel.searchQuery = '';
-                                                    },
-                                                ) : null,
+                                                        icon: const Icon(Icons.clear),
+                                                        onPressed: () {
+                                                            _searchController.clear();
+                                                            viewModel.searchQuery = '';
+                                                        },
+                                                    ) : null,
                                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                                                 filled: true,
@@ -353,29 +354,45 @@ class _MainScreenState extends State<MainScreen> {
     /// führt dich diese Funktion durch den Prozess der Identitätsübernahme (Identity Adoption),
     /// damit deine lokalen Daten wieder mit dem Server harmonieren.
     Future<void> _handleSync(BuildContext context, MainViewModel viewModel) async {
+        // if (await _viewModel.hasUnverifiedFriend()) {
+        //     if (!context.mounted) return;
+        //     showDialog(
+        //         context: context,
+        //         builder: (dialogContext) => AlertDialog(
+        //             title: const Text('Verifizierung der Freunde erforderlich'),
+        //             content: const Text('Für die Synchronisation müssen deine Freunde verifiziert sein. Gehe hierzu in den Einstellungen und überprüfe die Fingerprints.'),
+        //             actions: [
+        //                 TextButton(
+        //                   onPressed: () => Navigator.pop(dialogContext),
+        //                   child: const Text('OK'),
+        //               ),
+        //             ],
+        //         ),
+        //     );
+        //     return;
+        // }
+
         try {
             // Sync starten
             final stats = await viewModel.sync();
             if (!context.mounted) return;
             // Sync-Statistik anzeigen
-            if (stats != null) {
-                showDialog(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                        title: const Text('Info'),
-                        content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
-                        actions: [
-                            TextButton(
-                                onPressed: () {
-                                    if (!dialogContext.mounted) return;
-                                    Navigator.pop(dialogContext);
-                                },
-                                child: const Text('OK'),
-                            ),
-                        ],
-                    ),
-                );
-            }
+            showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                    title: const Text('Info'),
+                    content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
+                    actions: [
+                        TextButton(
+                            onPressed: () {
+                                if (!dialogContext.mounted) return;
+                                Navigator.pop(dialogContext);
+                            },
+                            child: const Text('OK'),
+                        ),
+                    ],
+                ),
+            );
         }
         on SaltMismatchException catch (sme) {
             // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
@@ -399,11 +416,13 @@ class _MainScreenState extends State<MainScreen> {
                         _showSnack('Account erfolgreich verknüpft.', success: true);
                         _handleSync(context, viewModel); // Sync erneut starten
                         break;
-                    } else if (result == AdoptIdentityResult.wrongPassword) {
+                    }
+                    else if (result == AdoptIdentityResult.wrongPassword) {
                         // im Dialog anzeigen, NICHT SnackBar
                         errorText = viewModel.errorMessage;
                         continue;
-                    } else {
+                    }
+                    else {
                         _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
                         break;
                     }
@@ -413,8 +432,27 @@ class _MainScreenState extends State<MainScreen> {
                 _showException(e, stackTrace: st);
             }
         }
+        on EmptyEntryKeyException catch (_) {
+            const message = "Der Fingerprint eines Freundes hat sich geändert. Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.";
+            if (await _viewModel.hasUnverifiedFriend()) {
+                if (!context.mounted) return;
+                showDialog(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                        title: const Text('Sicherheitsstopp'),
+                        content: const Text(message),
+                        actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                child: const Text('OK'),
+                            ),
+                        ],
+                    ),
+                );
+            }
+        }
         catch (e, st) {
-          _showException(e, stackTrace: st);
+            _showException(e, stackTrace: st);
         }
     }
 }

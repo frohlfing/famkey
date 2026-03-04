@@ -333,6 +333,19 @@ class DatabaseService {
         );
     }
 
+    /// Prüft, ob es mindestens einen (sichtbaren) Benutzer gibt, der noch nicht verifiziert ist.
+    ///
+    /// Der Benutzer der App ist immer verifiziert. Es werden also ausschließlich die Freunde betrachtet.
+    Future<bool> hasUnverifiedUser() async {
+        if (_db == null) return false;
+        final countExp = _db!.users.id.count();
+        final query = _db!.selectOnly(_db!.users)
+            ..addColumns([countExp])
+            ..where(_db!.users.isVerified.equals(false) & _db!.users.isHidden.equals(false));
+        final result = await query.map((row) => row.read(countExp)).getSingleOrNull();
+        return (result ?? 0) > 0;
+    }
+
     /// Speichert einen neuen Benutzer oder aktualisiert einen bestehenden Datensatz.
     /// Zurückgegeben wird die Entität mit der aktualisierten ID.
     Future<UserEntity> saveUser(UserEntity user) async {
@@ -387,7 +400,7 @@ class DatabaseService {
                     SET updated_at = ? 
                     WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
                     """,
-                    [now.toIso8601String(), userId],
+                    [now.millisecondsSinceEpoch, userId],
                 );
 
                 // 3. Benutzer-Status aktualisieren
@@ -397,7 +410,7 @@ class DatabaseService {
                     SET is_verified = 0, is_hidden = 1, updated_at = ? 
                     WHERE id = ?
                     """,
-                    [now.toIso8601String(), userId],
+                    [now.millisecondsSinceEpoch, userId],
                 );
             }
         );
@@ -477,6 +490,24 @@ class DatabaseService {
                 ),
             )
             .toList();
+    }
+
+    /// Liefert die Liste der bereits gespeicherten Kategorien.
+    Future<List<String>> getCategories() async {
+        if (_db == null) return [];
+
+        final query = _db!.selectOnly(_db!.entries, distinct: true)
+          ..addColumns([_db!.entries.category]) // Nur die Spalte 'category' selektieren
+          ..where(_db!.entries.category.isNotValue('')); // Filtert leere Strings aus
+
+        final rows = await query.get();
+
+        // Die Ergebnisse mappen und sortieren
+        final categories = rows
+            .map((row) => row.read(_db!.entries.category)!)
+            .toList();
+
+        return categories..sort();
     }
 
     /// Lädt einen Eintrag anhand seiner internen ID.
@@ -687,15 +718,40 @@ class DatabaseService {
             .toList();
     }
 
-    /// Prüft, ob ein Benutzer Zugriff auf Einträge hat, aber seine Entry-Keys geleert wurden (durch `removeEntryKeysForUser`).
-    Future<bool> hasPermissionsWithoutKeyByUserId(int userId) async {
+    /// Prüft, ob es Berechtigungen mit geleerten Entry-Keys gibt (durch `removeEntryKeysForUser`).
+    /// In diesem Fall darf keine Synchronisation durchgeführt werden (da der betroffene Freund den Eintrag nicht öffnen könnte).
+    Future<bool> hasPermissionsWithoutKey() async {
         if (_db == null) return false;
         final countExp = _db!.permissions.id.count();
         final query = _db!.selectOnly(_db!.permissions)
-        ..addColumns([countExp])
-        ..where(_db!.permissions.userId.equals(userId) & _db!.permissions.encryptedKey.equals(''));
+           ..addColumns([countExp])
+           ..where(_db!.permissions.encryptedKey.equals(''));
         final result = await query.map((row) => row.read(countExp)).getSingle();
         return (result ?? 0) > 0;
+    }
+
+    // /// Prüft, ob ein Benutzer Zugriff auf Einträge hat, aber seine Entry-Keys geleert wurden (durch `removeEntryKeysForUser`).
+    // Future<bool> hasPermissionsWithoutKeyByUserId(int userId) async {
+    //     if (_db == null) return false;
+    //     final countExp = _db!.permissions.id.count();
+    //     final query = _db!.selectOnly(_db!.permissions)
+    //         ..addColumns([countExp])
+    //         ..where(_db!.permissions.userId.equals(userId) & _db!.permissions.encryptedKey.equals(''));
+    //     final result = await query.map((row) => row.read(countExp)).getSingle();
+    //     return (result ?? 0) > 0;
+    // }
+
+    /// Liefert eine Liste aller IDs von Benutzern, die Zugriff auf Einträge mit geleerten Entry-Key haben.
+    Future<List<int>> getUserIdsWithEmptyEntryKeys() async {
+        if (_db == null) return [];
+        final query = _db!.selectOnly(_db!.permissions, distinct: true)
+          ..addColumns([_db!.permissions.userId])
+          ..where(_db!.permissions.encryptedKey.equals(''));
+        final rows = await query.get();
+        return rows
+            .map((row) => row.read(_db!.permissions.userId))
+            .whereType<int>()
+            .toList();
     }
 
     /// Lädt eine Berechtigung anhand seiner internen ID.
@@ -729,6 +785,7 @@ class DatabaseService {
     /// Speichert eine neue oder aktualisierte Berechtigung.
     Future<void> savePermission(PermissionEntity permission) async {
         if (_db == null) return;
+
         final companion = PermissionsCompanion(
             entryId: Value(permission.entryId),
             userId: Value(permission.userId),
@@ -747,6 +804,7 @@ class DatabaseService {
     /// Aktualisiert eine Liste von Berechtigungen.
     Future<void> updatePermissions(List<PermissionEntity> permissions) async {
         if (_db == null) return;
+
         await _db!.transaction(() async {
                 for (final p in permissions) {
                     final companion = PermissionsCompanion(encryptedKey: Value(p.encryptedKey), accessLevel: Value(p.accessLevel));
@@ -756,6 +814,12 @@ class DatabaseService {
                 }
             }
         );
+    }
+
+    /// Löscht eine Berechtigung.
+    Future<void> deletePermission(int permissionId) async {
+      if (_db == null) return;
+      await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go();
     }
 
     /// Leert alle Entry-Keys eines Benutzers.
@@ -789,7 +853,7 @@ class DatabaseService {
                         SET updated_at = ? 
                         WHERE id IN (SELECT entry_id FROM permissions WHERE user_id = ?)
                     """,
-                    [now.toIso8601String(), userId],
+                    [now.millisecondsSinceEpoch, userId],
                 );
             }
         );

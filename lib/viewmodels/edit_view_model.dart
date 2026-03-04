@@ -66,8 +66,7 @@ class EditViewModel extends BaseViewModel {
         clearError();
         try {
             // Vorhandene Kategorien für Vorschlagsliste laden
-            final entries = await _databaseService.getEntries();
-            _existingCategories = entries.map((e) => e.category).where((c) => c.isNotEmpty).toSet().toList()..sort();
+            _existingCategories = await _databaseService.getCategories();
 
             if (id != null) {
                 _isEditMode = true;

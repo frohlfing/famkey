@@ -16,13 +16,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:convert';
 
 /// Ergebnisse für Tresor-Umbenennung
-enum RenameVaultResult { success, identicalNames, alreadyExists, wrongPassword, error }
+enum RenameVaultResult {
+    success, identicalNames, alreadyExists, wrongPassword, error
+}
 
 /// Ergebnisse für Passwort-Änderung
-enum ChangePasswordResult { success, identicalPasswords, wrongPassword, error }
+enum ChangePasswordResult {
+    success, identicalPasswords, wrongPassword, error
+}
 
 /// Ergebnisse für das Hinzufügen von Freunden
-enum AddFriendResult { success, notFound, alreadyAdded, selfAdd, error }
+enum AddFriendResult {
+    success, notFound, alreadyAdded, selfAdd, error
+}
 
 /// Verwaltet die Konfiguration des aktuellen Tresors, die Synchronisationsparameter,
 /// das Erscheinungsbild sowie die Liste der Freunde.
@@ -134,17 +140,15 @@ class SettingsViewModel extends BaseViewModel {
             await _databaseService.saveSettings(updated);
 
             // 3. Benutzername aktualisieren (falls nicht registriert)
+            var user = _sessionService.user!;
             if (!_isRegistered && _userName != _sessionService.user?.name) {
-                final updatedUser = _sessionService.user!.copyWith(name: _userName);
-                await _databaseService.saveUser(updatedUser);
+                user = user.copyWith(name: _userName);
+                await _databaseService.saveUser(user);
             }
 
-            // 4. Farbschema in der Konfiguration speichern
-            //_configService.theme = _themeMode; // todo
-
-            // 5. Session aktualisieren
+            // 4. Session aktualisieren
             _sessionService.setSession(
-                user: _sessionService.user!,
+                user: user,
                 privateKey: _sessionService.privateKey!,
                 vaultName: _vaultName,
                 settings: updated
@@ -548,10 +552,14 @@ class SettingsViewModel extends BaseViewModel {
         final allUsers = await _databaseService.getUsers();
         _friends = allUsers.where((u) => u.uuid != _sessionService.user?.uuid && !u.isHidden).toList();
 
+        // 1. Alle IDs auf einmal abrufen, die ein Rekeying benötigen
+        final idsWithMissingKeys = await _databaseService.getUserIdsWithEmptyEntryKeys();
+
         _friendNeedsRekeying.clear();
         for (var f in _friends) {
             if (f.id != null) {
-                _friendNeedsRekeying[f.id!] = await _databaseService.hasPermissionsWithoutKeyByUserId(f.id!);
+              _friendNeedsRekeying[f.id!] = idsWithMissingKeys.contains(f.id);
+              // _friendNeedsRekeying[f.id!] = await _databaseService.hasPermissionsWithoutKeyByUserId(f.id!);
             }
         }
         notifyListeners();
@@ -632,38 +640,19 @@ class SettingsViewModel extends BaseViewModel {
         }
     }
 
-    // /// Speichert den aktualisierten Verifizierungsstatus des Freundes.
-    // void toggleVerification(SettingsFriendViewModel friendVm) async {
-    //   final isVerified = !friendVm.isVerified;
-    //   try {
-    //     // Wenn verifiziert wird, fehlende Entry-Keys generieren.
-    //     if (isVerified) {
-    //       await rekeyEntriesForFriend(friendVm.user);
-    //       await friendVm.refreshStatus();
-    //     }
-    //
-    //     // Änderung speichern
-    //     final updatedUser = friendVm.user.copyWith(isVerified: isVerified, updatedAt: DateTime.now().toUtc());
-    //     await _databaseService.saveUser(updatedUser);
-    //
-    //     // UI-Liste aktualisieren
-    //     await loadFriends();
-    //   }
-    //   catch (e) {
-    //     setError("Fehler beim Speichern der Verifizierung: $e");
-    //   }
-    // }
-
     /// Speichert den aktualisierten Verifizierungsstatus des Freundes.
     void toggleVerification(UserEntity friend) async {
         final isVerified = !friend.isVerified;
+        setBusy(true);
         try {
-            // // Wenn verifiziert wird, fehlende Entry-Keys generieren.
-            // if (isVerified) {
-            //     await rekeyEntriesForFriend(friend);
-            // }
-            //
-            // // Änderung speichern
+            clearError();
+
+            // Wenn verifiziert wird, fehlende Entry-Keys generieren.
+            if (isVerified) {
+                await _rekeyEntriesForFriend(friend);
+            }
+
+            // Änderung speichern
             final updatedUser = friend.copyWith(isVerified: isVerified, updatedAt: DateTime.now().toUtc());
             await _databaseService.saveUser(updatedUser);
 
@@ -673,43 +662,11 @@ class SettingsViewModel extends BaseViewModel {
         catch (e, st) {
             logError("Fehler beim Speichern der Verifizierung: $e", st);
             notifyUnexpectedError();
+            notifyListeners();
         }
-    }
-
-    /// Verschlüsselt alle Entry-Keys, die aufgrund eines Identitätswechsels geleert wurden.
-    ///
-    /// Diese Methode wird aufgerufen, wenn ein Freund verifiziert wird.
-    /// Zurückgegeben wird die Anzahl der neu verschlüsselten Einträge.
-    Future<int> rekeyEntriesForFriend(UserEntity friend) async {
-        if (_sessionService.privateKey == null) throw Exception("PrivateKey nicht initialisiert.");
-
-        // 1. Die geleerten Berechtigungen des Freundes laden
-        var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id!);
-        for (var perm in dirtyPermissions)
-        {
-            try
-            {
-                // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
-                var myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
-                if (myPerm == null) continue;
-
-                // 3. Entry-Key mit meinem Private-Key entschlüsseln
-                var entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
-
-                // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
-                final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);
-
-                // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
-                perm = perm.copyWith(encryptedKey: encryptedKey);
-                await _databaseService.savePermission(perm);
-            }
-            catch (e, st)
-            {
-              logError("Rekeying fehlgeschlagen: $e", st);
-              notifyUnexpectedError();
-            }
+        finally {
+          setBusy(false);
         }
-        return dirtyPermissions.length;
     }
 
     /// Entfernt einen Freund aus der Liste.
@@ -908,5 +865,45 @@ class SettingsViewModel extends BaseViewModel {
         }
 
         _webService.updateConfig(host: _host, apiToken: _apiToken);
+    }
+
+    /// Verschlüsselt alle Entry-Keys, die aufgrund eines Identitätswechsels geleert wurden.
+    ///
+    /// Diese Methode wird aufgerufen, wenn ein Freund verifiziert wird.
+    Future<void> _rekeyEntriesForFriend(UserEntity friend) async {
+        if (_sessionService.privateKey == null) throw Exception("PrivateKey nicht initialisiert.");
+
+        setBusy(true);
+        try {
+            clearError();
+            // 1. Die geleerten Berechtigungen des Freundes laden
+            var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id!);
+            for (var perm in dirtyPermissions) {
+                // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
+                var myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
+                if (myPerm == null) continue;
+
+                // 3. Entry-Key mit meinem Private-Key entschlüsseln
+                var entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+
+                // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
+                final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);
+
+                // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
+                perm = perm.copyWith(encryptedKey: encryptedKey);
+                await _databaseService.savePermission(perm);
+            }
+            if (_friendNeedsRekeying[friend.id!] ?? false) {
+                _friendNeedsRekeying[friend.id!] = false;
+                notifyListeners();
+            }
+        }
+        catch (e, st) {
+            logError("Rekeying fehlgeschlagen: $e", st);
+            notifyUnexpectedError();
+        }
+        finally {
+            setBusy(false);
+        }
     }
 }
