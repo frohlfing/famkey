@@ -66,15 +66,15 @@ class EditViewModel extends BaseViewModel {
         clearError();
         try {
             // Vorhandene Kategorien für Vorschlagsliste laden
-            final entries = await _databaseService.getAllEntries();
+            final entries = await _databaseService.getEntries();
             _existingCategories = entries.map((e) => e.category).where((c) => c.isNotEmpty).toSet().toList()..sort();
 
             if (id != null) {
                 _isEditMode = true;
-                _entry = await _databaseService.getEntryById(id);
+                _entry = await _databaseService.getEntry(id);
                 if (_entry != null) {
                     // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
-                    final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, 1);
+                    final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, 1);
                     if (perm != null && _sessionService.privateKey != null) {
                         _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
 

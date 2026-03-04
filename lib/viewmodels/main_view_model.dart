@@ -111,7 +111,7 @@ class MainViewModel extends BaseViewModel {
     Future<void> loadEntries() async {
         setBusy(true);
         try {
-            _allEntries = await _databaseService.getAllEntries();
+            _allEntries = await _databaseService.getEntries();
             notifyListeners();
         }
         catch (e, st) {
@@ -527,7 +527,7 @@ class MainViewModel extends BaseViewModel {
                     // Hat der Freund Zugriffsrecht auf mindestens einen Eintrag?
                     // Dann muss der Entry-Key neu generiert werden, bevor die Synchronization fortgesetzt werden kann.
                     if (!needsRekeying) {
-                        if (await _databaseService.hasAccessWithoutKey(localMatch.id!)) {
+                        if (await _databaseService.hasPermissionsWithoutKeyByUserId(localMatch.id!)) {
                             needsRekeying = true;
                         }
                     }
@@ -731,7 +731,7 @@ class MainViewModel extends BaseViewModel {
 
             // 14. Unsynced Attachments hochladen (darf erst nach dem Push erfolgen, damit der Anhang an den Eintrag gehängt werden kann)
             for (var att in unsyncedAttachments) {
-                final entry = await _databaseService.getEntryById(att.entryId);
+                final entry = await _databaseService.getEntry(att.entryId);
                 if (entry != null) {
                     await _webService.uploadAttachment(entry.uuid, att.uuid, att.encryptedMeta, att.encryptedContent);
                     att = att.copyWith(isSynced: true);

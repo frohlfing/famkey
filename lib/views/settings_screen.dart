@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
 
+import '../models/entities/user_entity.dart';
+
 /// Der [SettingsScreen] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
 /// Hier werden sowohl sicherheitsrelevante als auch optische Einstellungen verwaltet:
@@ -290,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                                     subtitle: Text(viewModel.getFingerprint(f.publicKey), style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
                                                     trailing: Tooltip(
                                                         message: 'Person verifiziert',
-                                                        child: Switch(value: f.isVerified, onChanged: (_) => viewModel.toggleVerification(f)),
+                                                        child: Switch(value: f.isVerified, onChanged: (_) => _handleVerification(f)),
                                                     ),
                                                 ),
                                             ),
@@ -642,6 +644,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _showException(e, stackTrace: st);
         }
     }
+
+    // Verifizierung setzen bzw. entfernen
+    Future<void> _handleVerification(UserEntity friend) async {
+        // Wenn verifiziert wird, fehlende Entry-Keys generieren.
+        if (!friend.isVerified) {
+            try {
+                final rekeyingCount = await _viewModel.rekeyEntriesForFriend(friend);
+                if (rekeyingCount > 0) _showSnack("$rekeyingCount Schlüssel für ${friend.name} wurden aktualisiert", success: true);
+            } catch (e, st) {
+                _showException(e, stackTrace: st);
+            }
+        }
+
+        // Verifizierungsstatus speichern
+        _viewModel.toggleVerification(friend);
+    }
+
 
     /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor und alle
     /// damit verbundenen Daten unwiderruflich vom Gerät gelöscht werden.

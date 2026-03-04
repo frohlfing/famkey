@@ -253,7 +253,7 @@ class LoginViewModel extends BaseViewModel {
             }
 
             // 3b. Eigene Identität aus der DB lesen
-            final user = await _databaseService.getUserById(1);
+            final user = await _databaseService.getUser(1);
             if (user == null) {
                 logError("User mit ID 1 in DB nicht gefunden!");
                 return LoginResult.corrupt;

@@ -88,11 +88,11 @@ class DetailViewModel extends BaseViewModel {
         setBusy(true);
         clearError();
         try {
-            _entry = await _databaseService.getEntryById(id);
+            _entry = await _databaseService.getEntry(id);
             if (_entry == null) throw Exception("Eintrag nicht gefunden");
 
             // 1. Berechtigung prüfen
-            final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, 1);
+            final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, 1);
             if (perm == null) throw Exception("Keine Berechtigung für diesen Eintrag");
             _myAccessLevel = perm.accessLevel;
 
@@ -199,8 +199,8 @@ class DetailViewModel extends BaseViewModel {
         var creator = "Unbekannt";
         var updater = "Unbekannt";
 
-        final cu = _entry!.creatorId != 0 ? await _databaseService.getUserById(_entry!.creatorId) : null;
-        final uu = _entry!.updaterId != 0 ? await _databaseService.getUserById(_entry!.updaterId) : null;
+        final cu = _entry!.creatorId != 0 ? await _databaseService.getUser(_entry!.creatorId) : null;
+        final uu = _entry!.updaterId != 0 ? await _databaseService.getUser(_entry!.updaterId) : null;
 
         if (cu != null) creator = cu.name;
         if (uu != null) updater = uu.name;
@@ -499,7 +499,7 @@ class DetailViewModel extends BaseViewModel {
         if (_entry == null || _entryKey == null || targetUser.id == null) return;
         setBusy(true);
         try {
-            final existing = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, targetUser.id!);
+            final existing = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, targetUser.id!);
 
             if (existing == null) {
                 // Neues Zugriffsrecht: Entry-Key mit RSA-PubKey des Empfängers verschlüsseln
@@ -539,7 +539,7 @@ class DetailViewModel extends BaseViewModel {
         if (_entry == null || user.id == null || _entryKey == null) return;
         setBusy(true);
         try {
-            final perm = await _databaseService.getPermissionByEntryAndUser(_entry!.id!, user.id!);
+            final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, user.id!);
             if (perm != null && perm.accessLevel != newLevel) {
                 // Limit auf max Level 2 (wie in MAUI)
                 final effectiveLevel = newLevel < 3 ? newLevel : 2; // Max Level 2 beim Teilen
@@ -582,7 +582,7 @@ class DetailViewModel extends BaseViewModel {
         for (var p in permissions) {
             if (p.userId == 1) continue;
             if (p.accessLevel == 0) continue;
-            final user = await _databaseService.getUserById(p.userId);
+            final user = await _databaseService.getUser(p.userId);
             if (user != null) {
                 shared.add(user);
                 _userAccessLevels[user.id!] = p.accessLevel;

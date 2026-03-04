@@ -70,11 +70,11 @@ class SettingsViewModel extends BaseViewModel {
 
     /// Konstruktor
     SettingsViewModel(this._databaseService, this._sessionService, this._webService, this._cryptoService, this._biometricService, this._configService) {
-      // Theme aus ConfigService laden
-      _themeMode = ThemeMode.values.firstWhere(
+        // Theme aus ConfigService laden
+        _themeMode = ThemeMode.values.firstWhere(
             (m) => m.name == _configService.theme,
-        orElse: () => ThemeMode.system,
-      );
+            orElse: () => ThemeMode.system,
+        );
     }
 
     /// Lädt die Einstellungen aus der Datenbank
@@ -210,14 +210,14 @@ class SettingsViewModel extends BaseViewModel {
             return response.service.contains("PriVault");
         }
         on DioException catch (de) {
-          // Exception des HTTP-Clients
-          if (de.response?.statusCode == 401) {
-              notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
-          }
-          else {
-              notifyError("Netzwerkfehler: ${de.message}");
-          }
-          return false;
+            // Exception des HTTP-Clients
+            if (de.response?.statusCode == 401) {
+                notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
+            }
+            else {
+                notifyError("Netzwerkfehler: ${de.message}");
+            }
+            return false;
         }
         catch (e) {
             notifyError("Verbindung fehlgeschlagen");
@@ -327,7 +327,9 @@ class SettingsViewModel extends BaseViewModel {
                     await _databaseService.close();
                     await _databaseService.restoreBackup();
                     await _databaseService.initialize(_sessionService.vaultName, masterKey);
-                } catch (_) {}
+                }
+                catch (_) {
+                }
                 rethrow;
             }
         }
@@ -457,7 +459,9 @@ class SettingsViewModel extends BaseViewModel {
                     await _databaseService.close();
                     await _databaseService.restoreBackup();
                     await _databaseService.initialize(_sessionService.vaultName, masterKey);
-                } catch (_) {}
+                }
+                catch (_) {
+                }
                 rethrow;
             }
         }
@@ -547,7 +551,7 @@ class SettingsViewModel extends BaseViewModel {
         _friendNeedsRekeying.clear();
         for (var f in _friends) {
             if (f.id != null) {
-                _friendNeedsRekeying[f.id!] = await _databaseService.hasAccessWithoutKey(f.id!);
+                _friendNeedsRekeying[f.id!] = await _databaseService.hasPermissionsWithoutKeyByUserId(f.id!);
             }
         }
         notifyListeners();
@@ -654,12 +658,12 @@ class SettingsViewModel extends BaseViewModel {
     void toggleVerification(UserEntity friend) async {
         final isVerified = !friend.isVerified;
         try {
-            // Wenn verifiziert wird, fehlende Entry-Keys generieren.
-            if (isVerified) {
-                await rekeyEntriesForFriend(friend);
-            }
-
-            // Änderung speichern
+            // // Wenn verifiziert wird, fehlende Entry-Keys generieren.
+            // if (isVerified) {
+            //     await rekeyEntriesForFriend(friend);
+            // }
+            //
+            // // Änderung speichern
             final updatedUser = friend.copyWith(isVerified: isVerified, updatedAt: DateTime.now().toUtc());
             await _databaseService.saveUser(updatedUser);
 
@@ -672,46 +676,40 @@ class SettingsViewModel extends BaseViewModel {
         }
     }
 
-    /// Verschlüsselt alle Entry-Keys für einen Freund neu, die aufgrund eines Key-Wechsels geleert wurden.
-    // todo
-    Future<void> rekeyEntriesForFriend(UserEntity friend) async {
-        //   var myPrivateKey = _sessionService.PrivateKey;
-        //   if (myPrivateKey == null) return;
-        //
-        //   // 1. Die geleerten Berechtigungen des Freundes laden (Pending State)
-        //   var allPermissions = await _databaseService.GetPermissionsByUserIdAsync(friend.Id);
-        //   var dirtyPermissions = allPermissions.Where(p => string.IsNullOrEmpty(p.EncryptedKey) && p.AccessLevel > 0).ToList();
-        // if (dirtyPermissions.Count == 0) return;
-        //
-        // var successCount = 0;
-        //   foreach (var perm in dirtyPermissions)
-        //   {
-        //   try
-        //   {
-        //   // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
-        //   var myPerm = await _databaseService.GetPermissionByEntryIdAndUserIdAsync(perm.EntryId, 1); // 1 = Me
-        //   if (myPerm == null) continue;
-        //
-        //   // 3. Entry-Key mit meinem Private-Key entschlüsseln
-        //   var entryKey = _cryptoService.DecryptRsa(myPerm.EncryptedKey, myPrivateKey);
-        //
-        //   // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
-        //   perm.EncryptedKey = _cryptoService.EncryptRsa(entryKey, friend.PublicKey);
-        //
-        //   // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
-        //   await _databaseService.SavePermissionAsync(perm);
-        //   successCount++;
-        //   }
-        //   catch (Exception ex)
-        //   {
-        //   System.Diagnostics.Debug.WriteLine($"Rekeying fehlgeschlagen: {ex.Message}");
-        //   }
-        //   }
-        //
-        //   if (successCount > 0)
-        //   {
-        //   await _uiService.ToastAsync($"{successCount} Schlüssel für {friend.Name} wurden aktualisiert.");
-        //   }
+    /// Verschlüsselt alle Entry-Keys, die aufgrund eines Identitätswechsels geleert wurden.
+    ///
+    /// Diese Methode wird aufgerufen, wenn ein Freund verifiziert wird.
+    /// Zurückgegeben wird die Anzahl der neu verschlüsselten Einträge.
+    Future<int> rekeyEntriesForFriend(UserEntity friend) async {
+        if (_sessionService.privateKey == null) throw Exception("PrivateKey nicht initialisiert.");
+
+        // 1. Die geleerten Berechtigungen des Freundes laden
+        var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id!);
+        for (var perm in dirtyPermissions)
+        {
+            try
+            {
+                // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
+                var myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
+                if (myPerm == null) continue;
+
+                // 3. Entry-Key mit meinem Private-Key entschlüsseln
+                var entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+
+                // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
+                final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);
+
+                // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
+                perm = perm.copyWith(encryptedKey: encryptedKey);
+                await _databaseService.savePermission(perm);
+            }
+            catch (e, st)
+            {
+              logError("Rekeying fehlgeschlagen: $e", st);
+              notifyUnexpectedError();
+            }
+        }
+        return dirtyPermissions.length;
     }
 
     /// Entfernt einen Freund aus der Liste.
