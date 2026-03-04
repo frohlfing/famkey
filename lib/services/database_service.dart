@@ -725,7 +725,7 @@ class DatabaseService {
         final countExp = _db!.permissions.id.count();
         final query = _db!.selectOnly(_db!.permissions)
            ..addColumns([countExp])
-           ..where(_db!.permissions.encryptedKey.equals(''));
+           ..where(_db!.permissions.encryptedKey.equals('') & _db!.permissions.accessLevel.isNotValue(0));
         final result = await query.map((row) => row.read(countExp)).getSingle();
         return (result ?? 0) > 0;
     }
@@ -746,7 +746,7 @@ class DatabaseService {
         if (_db == null) return [];
         final query = _db!.selectOnly(_db!.permissions, distinct: true)
           ..addColumns([_db!.permissions.userId])
-          ..where(_db!.permissions.encryptedKey.equals(''));
+          ..where(_db!.permissions.encryptedKey.equals('') & _db!.permissions.accessLevel.isNotValue(0));
         final rows = await query.get();
         return rows
             .map((row) => row.read(_db!.permissions.userId))

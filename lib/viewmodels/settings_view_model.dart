@@ -672,43 +672,41 @@ class SettingsViewModel extends BaseViewModel {
     /// Entfernt einen Freund aus der Liste.
     ///
     /// Der Datensatz wird gelöscht, wenn keine Verknüpfungen bestehen, ansonsten wird er ausgeblendet.
-    // todo
-    // Future<void> deleteFriend(UserEntity? friend) async {
-    //   if (friend == null) return;
-    //
-    //   var confirm = await _uiService.ConfirmAsync(
-    //       "Person löschen",
-    //       $"Möchtest du '{friend.Name}' wirklich aus deiner Liste löschen? Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.",
-    //       "Ja, löschen",
-    //       "Nein, abbrechen");
-    //
-    //   if (!confirm) return;
-    //
-    //   try
-    //   {
-    //     // Prüfen, ob der User überhaupt Berechtigungen hat
-    //     var perms = await _databaseService.GetPermissionsByUserIdAsync(friend.Id);
-    //
-    //     if (perms.Count == 0)
-    //     {
-    //       // Es werden keine Einträge mit dem Freund geteilt, daher kann er gelöscht werden.
-    //       await _databaseService.DeleteUserAsync(friend.Id);
-    //     }
-    //     else
-    //     {
-    //       // Der Freund wird nicht gelöscht, sondern ausgeblendet, damit beim Synchronisieren alle geteilten Einträge entfernt werden können.
-    //       await _databaseService.HideUserAsync(friend.Id);
-    //     }
-    //
-    //     // Aus der UI-Liste entfernen
-    //     await loadFriends();
-    //     await _uiService.ToastAsync($"{friend.Name} wurde entfernt");
-    //   }
-    //   catch (Exception ex)
-    //   {
-    //   await _uiService.ErrorAsync("Löschen fehlgeschlagen: " + ex.Message);
-    //   }
-    // }
+    Future<void> deleteFriend(UserEntity? friend) async {
+        if (friend == null) return;
+
+        // var confirm = await _uiService.ConfirmAsync(
+        //     "Person löschen",
+        //     $"Möchtest du '{friend.Name}' wirklich aus deiner Liste löschen? Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.",
+        //     "Ja, löschen",
+        //     "Nein, abbrechen");
+        //
+        // if (!confirm) return;
+
+        try
+        {
+            // Prüfen, ob der User überhaupt Berechtigungen hat
+            var perms = await _databaseService.getPermissionsByUserId(friend.id!);
+            if (perms.isEmpty)
+            {
+                // Es werden keine Einträge mit dem Freund geteilt, daher kann er gelöscht werden.
+                await _databaseService.deleteUser(friend.id!);
+            }
+            else
+            {
+                // Der Freund wird nicht gelöscht, sondern ausgeblendet, damit beim Synchronisieren alle geteilten Einträge entfernt werden können.
+                await _databaseService.hideUser(friend.id!);
+            }
+
+            // Aus der UI-Liste entfernen
+            await loadFriends();
+        }
+        catch (e, st)
+        {
+            logError("Löschen fehlgeschlagen: $e", st);
+            notifyUnexpectedError();
+        }
+    }
 
     // ------------------------------------------------------------------------
     // --- Eigenschaften & Methoden für "Passwort-Generator" ---

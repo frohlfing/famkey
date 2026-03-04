@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
 
-import '../models/entities/user_entity.dart';
-
 /// Der [SettingsScreen] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
 /// Hier werden sowohl sicherheitsrelevante als auch optische Einstellungen verwaltet:
