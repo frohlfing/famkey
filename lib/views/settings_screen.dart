@@ -25,7 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   final TextEditingController _vaultNameController = TextEditingController();
   final TextEditingController _userNameController = TextEditingController();
-  final TextEditingController _pathController = TextEditingController();
   final TextEditingController _hostController = TextEditingController();
   final TextEditingController _tokenController = TextEditingController();
   final TextEditingController _specialCharsController = TextEditingController();
@@ -55,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _viewModel.load();
       _vaultNameController.text = _viewModel.vaultName;
       _userNameController.text = _viewModel.userName;
-      _pathController.text = _viewModel.vaultStoragePath;
       _hostController.text = _viewModel.host;
       _tokenController.text = _viewModel.apiToken;
       _specialCharsController.text = _viewModel.pwSpecialCharSet;
@@ -70,7 +68,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _viewModel.removeListener(_onViewModelChanged);
     _vaultNameController.dispose();
     _userNameController.dispose();
-    _pathController.dispose();
     _hostController.dispose();
     _tokenController.dispose();
     _specialCharsController.dispose();
@@ -79,7 +76,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
+  /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
+  /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
   ///
   /// Aktualisiert insbesondere das Feld für Sonderzeichen, falls dieses extern
   /// (via Buttons) geändert wurde.
@@ -89,7 +87,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_specialCharsController.text != _viewModel.pwSpecialCharSet) {
       _specialCharsController.text = _viewModel.pwSpecialCharSet;
     }
-    setState(() {});
   }
 
   // ------------------------------------------------------------------------
@@ -108,6 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ///   gerade eine asynchrone Operation (z. B. Speichern oder Verbindungstest) ausführt.
   @override
   Widget build(BuildContext context) {
+    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
     final viewModel = context.watch<SettingsViewModel>();
 
     return Stack(
@@ -116,52 +114,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           appBar: AppBar(
             title: const Text('Einstellungen'),
             centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: _handleCancel,
+              tooltip: "Zurück",
+            ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.check),
                 tooltip: 'Speichern',
-                onPressed: viewModel.isBusy
-                    ? null
-                    : () async {
-                        try {
-                          // Tresor umbenennen
-                          if (viewModel.isVaultRenamed) {
-                            String? errorText;
-                            while (true) {
-                              final password = await _showPasswordDialog(
-                                'Tresor umbenennen',
-                                'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-                                errorText: errorText,
-                              );
-                              if (password == null) return;
-                              final result = await viewModel.renameVault(password);
-                              if (!context.mounted) return;
-
-                              if (result == RenameVaultResult.success) {
-                                _showSnack('Tresor erfolgreich umbenannt.', success: true);
-                                break;
-                              } else if (result == RenameVaultResult.wrongPassword) {
-                                errorText = viewModel.errorMessage;
-                                continue;
-                              } else {
-                                _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
-                                break;
-                              }
-                            }
-                          }
-                          // Einstellungen speichern
-                          final success = await viewModel.save();
-                          if (!context.mounted) return;
-                          if (!success) {
-                            _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
-                            return;
-                          }
-                          _showSnack('Einstellungen gespeichert.', success: true);
-                          Navigator.pop(context);
-                        } catch (e, st) {
-                          _showException(e, stackTrace: st);
-                        }
-                      },
+                onPressed: _handleSave,
               ),
             ],
           ),
@@ -171,206 +133,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start, // Button linksbündig
               children: [
                 // ------------------------------------------------------------------------
-                // --- Identifikation ---
+                // --- Tresor ---
                 // ------------------------------------------------------------------------
-                _buildSectionTitle('Identifikation'),
+                _buildSectionTitle('Tresor'),
                 TextField(
                   controller: _vaultNameController,
                   enabled: !viewModel.isRegistered,
                   decoration: const InputDecoration(
-                    labelText: 'Tresor-Name',
-                    border: OutlineInputBorder(),
+                    labelText: 'Tresorname',
                     prefixIcon: Icon(Icons.shield_outlined),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.vaultName = value,
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _userNameController,
-                  enabled: !viewModel.isRegistered,
-                  decoration: const InputDecoration(
-                    labelText: 'Benutzer-Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  onChanged: (value) => viewModel.userName = value,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _pathController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Speicherort',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.folder_open),
-                  ),
-                ),
                 const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade800,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: viewModel.isBusy
-                      ? null
-                      : () async {
-                          try {
-                            // Passwort ändern
-                            final newPassword = await _showPasswordDialog(
-                              'Passwort ändern',
-                              'Bitte gib dein NEUES Master-Passwort ein.',
-                            );
-                            if (newPassword == null) return;
-                            String? errorText;
-                            while (true) {
-                              final currentPassword = await _showPasswordDialog(
-                                'Passwort-Änderung autorisieren',
-                                'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
-                                errorText: errorText,
-                              );
-                              if (currentPassword == null) return;
-                              if (currentPassword == newPassword) {
-                                _showSnack("Neues und altes Master-Passwort sind identisch");
-                                return;
-                              }
-                              final result = await viewModel.changeMasterPassword(
-                                newPassword,
-                                currentPassword,
-                              );
-                              if (!context.mounted) return;
-
-                              if (result == ChangePasswordResult.success) {
-                                _showSnack('Passwort erfolgreich geändert.', success: true);
-                                break;
-                              } else if (result == ChangePasswordResult.wrongPassword) {
-                                errorText = viewModel.errorMessage;
-                                continue;
-                              } else {
-                                _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
-                                break;
-                              }
-                            }
-                          } catch (e, st) {
-                            _showException(e, stackTrace: st);
-                          }
-                        },
-                  icon: const Icon(Icons.password),
-                  label: const Text('Master-Passwort ändern'),
-                ),
-                const SizedBox(height: 32),
-
-                // ------------------------------------------------------------------------
-                // --- Synchronisation ---
-                // ------------------------------------------------------------------------
-
-                // Sektion: Synchronisation
-                _buildSectionTitle('Synchronisation'),
-                TextField(
-                  controller: _hostController,
-                  decoration: const InputDecoration(
-                    labelText: 'Host URL',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) => viewModel.host = value,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _tokenController,
-                  obscureText: viewModel.isTokenHidden,
-                  decoration: InputDecoration(
-                    labelText: 'API Token',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: Tooltip(
-                      message: viewModel.isTokenHidden ? 'Anzeigen' : 'Verbergen',
-                      child: IconButton(
-                        icon: Icon(
-                          viewModel.isTokenHidden ? Icons.visibility : Icons.visibility_off,
-                        ),
-                        onPressed: viewModel.toggleTokenVisibility,
-                      ),
-                    ),
-                  ),
-                  onChanged: (value) => viewModel.apiToken = value,
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final ok = await viewModel.testConnection();
-                    if (!context.mounted) return;
-                    if (ok) {
-                      _showSnack('Verbindung erfolgreich.', success: true);
-                    } else {
-                      _showSnack('Verbindung fehlgeschlagen.');
-                    }
-                  },
-                  icon: const Icon(Icons.swap_calls),
-                  label: const Text('Verbindung testen'),
-                ),
-                const SizedBox(height: 32),
-
-                // ------------------------------------------------------------------------
-                // --- Passwort-Generator ---
-                // ------------------------------------------------------------------------
-                _buildSectionTitle('Passwort-Generator'),
-                TextField(
-                  controller: _lengthController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Länge',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (val) {
-                    final parsed = int.tryParse(val);
-                    if (parsed != null) viewModel.pwLength = parsed;
-                  },
-                ),
-                const SizedBox(height: 16),
                 Row(
                   children: [
+                    const Icon(Icons.folder_open_outlined, size: 20, color: Colors.blueGrey),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
-                        controller: _specialCharsController,
-                        decoration: const InputDecoration(
-                          labelText: 'Sonderzeichen',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) => viewModel.pwSpecialCharSet = value,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Speicherort der Tresore',
+                            style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            viewModel.vaultStoragePath,
+                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.star_outline),
-                      tooltip: 'Standard',
-                      onPressed: () => viewModel.setSpecialChars('Standard'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.all_inclusive),
-                      tooltip: 'Alle',
-                      onPressed: () => viewModel.setSpecialChars('All'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      tooltip: 'Keine',
-                      onPressed: () => viewModel.setSpecialChars('None'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
-                    Switch(
-                      value: viewModel.pwAvoidIlO0,
-                      onChanged: (val) => viewModel.pwAvoidIlO0 = val,
                     ),
                   ],
                 ),
                 const SizedBox(height: 32),
 
                 // ------------------------------------------------------------------------
-                // --- Anmeldeoptionen ---
+                // --- Login ---
                 // ------------------------------------------------------------------------
-                _buildSectionTitle('Anmeldeoptionen'),
+                _buildSectionTitle('Login'),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -395,6 +198,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: _handlePasswordChange,
+                  icon: const Icon(Icons.password_outlined),
+                  label: const Text('Master-Passwort ändern'),
+                ),
+                const SizedBox(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Sync-Server ---
+                // ------------------------------------------------------------------------
+                _buildSectionTitle('Sync-Server'),
+                TextField(
+                  controller: _userNameController,
+                  enabled: !viewModel.isRegistered,
+                  decoration: const InputDecoration(
+                    labelText: 'Benutzername',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => viewModel.userName = value,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _hostController,
+                  decoration: const InputDecoration(
+                    labelText: 'Host URL',
+                    prefixIcon: Icon(Icons.cloud_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => viewModel.host = value,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _tokenController,
+                  obscureText: viewModel.isTokenHidden,
+                  decoration: InputDecoration(
+                    labelText: 'API Token',
+                    prefixIcon: Icon(Icons.vpn_key_outlined),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(viewModel.isTokenHidden ? Icons.visibility : Icons.visibility_off),
+                      tooltip: viewModel.isTokenHidden ? 'Anzeigen' : 'Verbergen',
+                      onPressed: viewModel.toggleTokenVisibility,
+                    ),
+                  ),
+                  onChanged: (value) => viewModel.apiToken = value,
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: _handleTestConnection,
+                  icon: const Icon(Icons.swap_calls_outlined),
+                  label: const Text('Verbindung testen'),
+                ),
+                const SizedBox(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Passwort-Generator ---
+                // ------------------------------------------------------------------------
+                _buildSectionTitle('Passwort-Generator'),
+
+                TextField(
+                  controller: _lengthController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Länge',
+                    prefixIcon: const Icon(Icons.onetwothree_outlined),
+                    border: const OutlineInputBorder(),
+                    // Minus- und Plus-Button für die Länge
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove),
+                          onPressed: () {
+                            final val = int.tryParse(_lengthController.text) ?? 0;
+                            if (val > 1) {
+                              final newVal = val - 1;
+                              _lengthController.text = newVal.toString();
+                              viewModel.pwLength = newVal;
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () {
+                            final val = int.tryParse(_lengthController.text) ?? 0;
+                            final newVal = val + 1;
+                            _lengthController.text = newVal.toString();
+                            viewModel.pwLength = newVal;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  onChanged: (val) {
+                    final parsed = int.tryParse(val);
+                    if (parsed != null) viewModel.pwLength = parsed;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                TextField(
+                  controller: _specialCharsController,
+                  decoration: InputDecoration(
+                    labelText: 'Sonderzeichen',
+                    prefixIcon: Icon(Icons.emoji_symbols_outlined),
+                    border: OutlineInputBorder(),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.star),
+                          tooltip: 'Standard',
+                          onPressed: () => viewModel.setSpecialChars('Standard'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.all_inclusive),
+                          tooltip: 'Alle',
+                          onPressed: () => viewModel.setSpecialChars('All'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle),
+                          tooltip: 'Keine',
+                          onPressed: () => viewModel.setSpecialChars('None'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  onChanged: (value) => viewModel.pwSpecialCharSet = value,
+                ),
+                const SizedBox(height: 8),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
+                    Switch(
+                      value: viewModel.pwAvoidIlO0,
+                      onChanged: (val) => viewModel.pwAvoidIlO0 = val,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
 
                 // ------------------------------------------------------------------------
@@ -407,13 +357,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _handleAddFriend,
                 ),
                 if (viewModel.friends.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                      'Keine weiteren Personen.',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  )
+                  Text('Dieser Tresor wird nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic))
+                // const Padding(
+                //   padding: EdgeInsets.all(8),
+                //   child: Text(
+                //     'Keine weiteren Personen.',
+                //     style: TextStyle(fontStyle: FontStyle.italic),
+                //   ),
+                // )
                 else
                   Column(
                     children: viewModel.friends
@@ -460,10 +411,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    iconSize: 26,
+                                    icon: const Icon(Icons.delete),
                                     tooltip: 'Löschen',
-                                    onPressed: () => _onDeleteFriendPressed(viewModel, friend),
+                                    onPressed: () => _handleDeleteFriend(friend),
                                   ),
                                 ],
                               ),
@@ -485,17 +435,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ButtonSegment(
                       value: ThemeMode.system,
                       label: Text('System'),
-                      icon: Icon(Icons.brightness_auto),
+                      icon: Icon(Icons.brightness_auto_outlined),
                     ),
                     ButtonSegment(
                       value: ThemeMode.light,
                       label: Text('Hell'),
-                      icon: Icon(Icons.light_mode),
+                      icon: Icon(Icons.light_mode_outlined),
                     ),
                     ButtonSegment(
                       value: ThemeMode.dark,
                       label: Text('Dunkel'),
-                      icon: Icon(Icons.dark_mode),
+                      icon: Icon(Icons.dark_mode_outlined),
                     ),
                   ],
                   selected: {viewModel.themeMode},
@@ -508,6 +458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: _categoryController,
                   decoration: const InputDecoration(
                     labelText: 'Name für leere Kategorie',
+                    prefixIcon: Icon(Icons.label_outlined),
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.categoryPlaceholder = value,
@@ -520,14 +471,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Systemeinstellungen'),
 
                 _buildSystemButton(
-                  Icons.fingerprint,
+                  Icons.fingerprint_outlined,
                   'Biometrie',
                   'Systemeinstellungen für Biometrie öffnen',
                   viewModel.openBiometricSettings,
                 ),
 
                 _buildSystemButton(
-                  Icons.text_fields,
+                  Icons.text_fields_outlined,
                   'Autofill',
                   'Hilfeseite für das automatische Ausfüllen öffnen',
                   viewModel.openAutofillSettings,
@@ -549,8 +500,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     ),
-                    onPressed: _showDeleteConfirm,
-                    icon: const Icon(Icons.delete_forever),
+                    onPressed: _handleDeleteTresor,
+                    icon: const Icon(Icons.delete_outlined),
                     label: const Text('Tresor lokal löschen'),
                   ),
                 ),
@@ -587,19 +538,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Erstellt eine Sektion-Überschrift, die zusätzlich einen Aktion-Button
   /// auf der rechten Seite enthält (z. B. zum Hinzufügen von Freunden).
-  Widget _buildSectionHeaderWithAction(
-    String title,
-    IconData icon,
-    String tooltip,
-    VoidCallback onPressed,
-  ) {
+  Widget _buildSectionHeaderWithAction(String title, IconData icon, String tooltip, VoidCallback onPressed) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildSectionTitle(title),
-        Tooltip(
-          message: tooltip,
-          child: IconButton(icon: Icon(icon), onPressed: onPressed),
+        Padding(
+          padding: EdgeInsets.only(top: 0, bottom: 0, left: 0, right: 28),
+          child: IconButton(icon: Icon(icon), tooltip: tooltip, onPressed: onPressed),
         ),
       ],
     );
@@ -626,30 +572,208 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Interne Methoden ---
+  // --- Handler ---
   // ------------------------------------------------------------------------
 
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
+  // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
+  Future<void> _handleCancel() async {
+    if (_viewModel.isBusy) return;
+
+    if (_viewModel.isDirty) {
+      final confirmed = await _showConfirmDialog(
+        'Eintrag speichern',
+        'Möchtest du die Änderungen speichern?',
+        ok: 'Ja, speichern',
+        cancel: 'Nein, verwerfen',
       );
+      if (confirmed == true) {
+        _handleSave();
+        return;
+      }
+    }
+
+    if (mounted) Navigator.pop(context);
   }
 
-  /// Protokolliert eine Exception in der SnackBar an.
-  void _showException(dynamic ex, {StackTrace? stackTrace}) {
-    if (!mounted) return;
-    debugPrint("❌ SettingsScreen: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+  /// Testet, ob Host-URL und API-Token korrekt sind
+  Future<void> _handleSave() async {
+    if (_viewModel.isBusy) return;
+
+    try {
+      // Tresor umbenennen
+      if (_viewModel.isVaultRenamed) {
+        String? errorText;
+        while (true) {
+          final password = await _showPasswordDialog(
+            'Tresor umbenennen',
+            'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+            errorText: errorText,
+          );
+          if (password == null) return;
+          final result = await _viewModel.renameVault(password);
+          if (!context.mounted) return;
+
+          if (result == RenameVaultResult.success) {
+            _showSnack('Tresor erfolgreich umbenannt.', success: true);
+            break;
+          } else if (result == RenameVaultResult.wrongPassword) {
+            errorText = _viewModel.errorMessage;
+            continue;
+          } else {
+            _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+            break;
+          }
+        }
+      }
+
+      // Einstellungen speichern
+      final success = await _viewModel.save();
+      if (!context.mounted) return;
+      if (!success) {
+        _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+        return;
+      }
+      _showSnack('Einstellungen gespeichert.', success: true);
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e, st) {
+      _showException(e, stackTrace: st);
+    }
   }
+
+  /// Fragt ein neues und das bisherige Passwort ab und ändert es schließlich.
+  Future<void> _handlePasswordChange() async {
+    if (_viewModel.isBusy) return;
+
+    try {
+      // Neues Passwort abfragen
+      final newPassword = await _showPasswordDialog(
+        'Passwort ändern',
+        'Bitte gib dein NEUES Master-Passwort ein.',
+      );
+      if (newPassword == null) return;
+
+      String? errorText;
+      while (true) {
+        // Bisheriges Passwort abfragen
+        final currentPassword = await _showPasswordDialog(
+          'Passwort-Änderung autorisieren',
+          'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
+          errorText: errorText,
+        );
+        if (currentPassword == null) return;
+
+        // Trivial-Check: Die Passwörter dürfen nicht identisch sein
+        if (currentPassword == newPassword) {
+          _showSnack("Neues und altes Master-Passwort sind identisch");
+          return;
+        }
+
+        // Passwort ändern
+        final result = await _viewModel.changeMasterPassword(
+          newPassword,
+          currentPassword,
+        );
+        if (!context.mounted) return;
+
+        // Ergebnis auswerten
+        if (result == ChangePasswordResult.success) {
+          _showSnack('Passwort erfolgreich geändert.', success: true);
+          break;
+        } else if (result == ChangePasswordResult.wrongPassword) {
+          errorText = _viewModel.errorMessage;
+          continue;
+        } else {
+          _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+          break;
+        }
+      }
+    } catch (e, st) {
+      _showException(e, stackTrace: st);
+    }
+  }
+
+  /// Testet, ob Host-URL und API-Token korrekt sind
+  Future<void> _handleTestConnection() async {
+    if (_viewModel.isBusy) return;
+
+    final ok = await _viewModel.testConnection();
+    if (!context.mounted) return;
+    if (ok) {
+      _showSnack('Verbindung erfolgreich.', success: true);
+    } else {
+      _showSnack('Verbindung fehlgeschlagen.');
+    }
+  }
+
+  /// Öffnet den Freund-Such-Dialog und verarbeitet das Ergebnis.
+  /// Bei Fehlern wie "nicht gefunden" bleibt der Dialog offen,
+  /// andere Fehler werden per SnackBar gemeldet.
+  Future<void> _handleAddFriend() async {
+    if (_viewModel.isBusy) return;
+
+    try {
+      String? errorText;
+      while (true) {
+        final name = await _showAddFriendDialog(errorText: errorText);
+        if (name == null) return;
+
+        final result = await _viewModel.addFriend(name);
+        if (!mounted) return;
+
+        if (result == AddFriendResult.success) {
+          _showSnack(
+            '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.',
+            success: true,
+          );
+          break;
+        } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
+          // im Dialog anzeigen, NICHT SnackBar
+          errorText = _viewModel.errorMessage;
+          continue;
+        } else {
+          _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+          break;
+        }
+      }
+    } catch (e, st) {
+      _showException(e, stackTrace: st);
+    }
+  }
+
+  /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
+  Future<void> _handleDeleteFriend(dynamic user) async {
+    if (_viewModel.isBusy) return;
+
+    final confirmed = await _showConfirmDialog(
+      'Person entfernen',
+      'Möchtest du die Person aus deiner Liste löschen?\n'
+          'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
+      ok: 'Ja, löschen',
+    );
+    if (confirmed == true && mounted) {
+      _viewModel.deleteFriend(user);
+    }
+  }
+
+  /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
+  Future<void> _handleDeleteTresor() async {
+    if (_viewModel.isBusy) return;
+
+    final confirmed = await _showConfirmDialog(
+      'Tresor lokal löschen',
+      'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
+      ok: 'Ja, löschen',
+    );
+    if (confirmed == true && mounted) {
+      _viewModel.deleteVault();
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Dialoge ---
+  // ------------------------------------------------------------------------
 
   /// Öffnet einen Dialog zur Suche nach anderen Personen.
   Future<String?> _showAddFriendDialog({String? errorText}) async {
@@ -699,87 +823,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// Verarbeitet das Hinzufügen eines Freundes.
-  ///
-  /// Öffnet den Such-Dialog und verarbeitet das Ergebnis. Bei Fehlern wie "nicht gefunden"
-  /// bleibt der Dialog offen, andere Fehler werden per SnackBar gemeldet.
-  Future<void> _handleAddFriend() async {
-    try {
-      String? errorText;
-      while (true) {
-        final name = await _showAddFriendDialog(errorText: errorText);
-        if (name == null) return;
-
-        final result = await _viewModel.addFriend(name);
-        if (!mounted) return;
-
-        if (result == AddFriendResult.success) {
-          _showSnack(
-            '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.',
-            success: true,
-          );
-          break;
-        } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
-          // im Dialog anzeigen, NICHT SnackBar
-          errorText = _viewModel.errorMessage;
-          continue;
-        } else {
-          _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
-          break;
-        }
-      }
-    } catch (e, st) {
-      _showException(e, stackTrace: st);
-    }
-  }
-
-  /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
-  Future<void> _onDeleteFriendPressed(SettingsViewModel viewModel, dynamic user) async {
-    final confirmed = await showDialog<bool>(
+  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel}) async {
+    return showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Person entfernen'),
-        content: Text('Möchtest du die Person aus deiner Liste löschen?\nDas Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.'),
+        title: Text(title),
+        content: Text(message),
         actions: [
-          TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(ctx).pop(false)),
           TextButton(
-            child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
+            child: Text(cancel ?? 'Abbrechen'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          TextButton(
+            child: Text(ok ?? 'OK'),
             onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      viewModel.deleteFriend(user);
-    }
-  }
-
-  /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor und alle
-  /// damit verbundenen Daten unwiderruflich vom Gerät gelöscht werden.
-  void _showDeleteConfirm() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Tresor lokal löschen'),
-        content: const Text(
-          'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _viewModel.deleteVault();
-              if (!dialogContext.mounted) return;
-              Navigator.of(dialogContext).pushNamedAndRemoveUntil('/', (route) => false);
-            },
-            child: const Text('Löschen', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -846,5 +905,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Sonstige interne Methoden ---
+  // ------------------------------------------------------------------------
+
+  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
+  void _showSnack(String message, {bool success = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+        ),
+      );
+  }
+
+  /// Protokolliert eine Exception in der SnackBar an.
+  void _showException(dynamic ex, {StackTrace? stackTrace}) {
+    if (!mounted) return;
+    debugPrint("❌ SettingsScreen: $ex");
+    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
   }
 }

@@ -56,7 +56,8 @@ class _DetailScreenState extends State<DetailScreen> {
   //   _viewModel.removeListener(_onViewModelChanged);
   // }
 
-  // /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
+  // /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
+  // /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
   // void _onViewModelChanged() {
   // }
 
@@ -67,6 +68,7 @@ class _DetailScreenState extends State<DetailScreen> {
   /// Baut die zentrale Detailansicht eines Eintrags auf.
   @override
   Widget build(BuildContext context) {
+    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
     final viewModel = context.watch<DetailViewModel>();
 
     return Stack(
@@ -104,7 +106,7 @@ class _DetailScreenState extends State<DetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ------------------------------------------------------------------------
-                // Header Section
+                // Header
                 // ------------------------------------------------------------------------
                 Center(
                   child: Column(
@@ -160,9 +162,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: Icon(
-                              viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off,
-                            ),
+                            icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
                             onPressed: viewModel.togglePasswordVisibility,
                             tooltip: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
                           ),
@@ -228,7 +228,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 ],
 
                 // ------------------------------------------------------------------------
-                // Anhänge Section
+                // Anhänge
                 // ------------------------------------------------------------------------
                 if (viewModel.canManageAttachments || viewModel.attachments.isNotEmpty) ...[
                   if (viewModel.canManageAttachments)
@@ -243,7 +243,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   const SizedBox(height: 4),
                   if (viewModel.attachments.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                      padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
                       child: Text(
                         'Keine Anhänge vorhanden.',
                         style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
@@ -284,8 +284,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
                           trailing: viewModel.canManageAttachments
                               ? IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                  iconSize: 26,
+                                  icon: const Icon(Icons.delete),
                                   tooltip: 'Anhang löschen',
                                   onPressed: () => _onDeleteAttachmentPressed(viewModel, att),
                                 )
@@ -297,7 +296,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 ],
 
                 // ------------------------------------------------------------------------
-                // Geteilt mit Section
+                // Geteilt mit
                 // ------------------------------------------------------------------------
                 if (viewModel.canManageShares || viewModel.sharedWith.isNotEmpty) ...[
                   Column(
@@ -317,7 +316,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       const SizedBox(height: 4),
                       if (viewModel.sharedWith.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                          padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
                           child: Text(
                             'Dieser Eintrag ist noch nicht geteilt.',
                             style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
@@ -378,8 +377,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                          iconSize: 26,
+                                          icon: const Icon(Icons.delete),
                                           tooltip: 'Zugriff entziehen',
                                           onPressed: () => _onRevokeAccessPressed(viewModel, friend),
                                         ),
@@ -448,17 +446,15 @@ class _DetailScreenState extends State<DetailScreen> {
   /// Erstellt eine Sektion-Überschrift, die zusätzlich eine Aktion (Icon-Button)
   /// auf der rechten Seite enthält – beispielsweise zum Hinzufügen von Anhängen
   /// oder neuen Freigaben.
-  Widget _buildSectionHeaderWithAction(
-    String title,
-    IconData icon,
-    String tooltip,
-    VoidCallback onPressed,
-  ) {
+  Widget _buildSectionHeaderWithAction(String title, IconData icon, String tooltip, VoidCallback onPressed) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildSectionTitle(title),
-        IconButton(icon: Icon(icon), tooltip: tooltip, onPressed: onPressed),
+        Padding(
+          padding: EdgeInsets.only(top: 0, bottom: 0, left: 0, right: 24),
+          child: IconButton(icon: Icon(icon), tooltip: tooltip, onPressed: onPressed),
+        ),
       ],
     );
   }

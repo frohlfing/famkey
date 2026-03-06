@@ -99,7 +99,7 @@ dotnet add package Plugin.Fingerprint
 ### 2.6 Material Icons / FontAwesome
 1. TTF-Datei herunterladen und nach Resources/Fonts/ kopieren
    - Material Symbol Icons (Outlined, Regular):
-      - https://fonts.google.com/icons?icon.style=Outlined
+      - https://fonts.google.com/icons?icon.set=Material+Icons&icon.style=Outlined
    - FontAwesome:
       - https://fonts.google.com/icons
       - https://fontawesome.com/search?ic=free-collection

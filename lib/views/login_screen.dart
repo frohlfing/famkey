@@ -66,7 +66,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
+  /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
+  /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
   ///
   /// Synchronisiert die Textfelder, falls sich der Tresorname (z.B. durch Auswahl
   /// aus der Liste) geändert hat oder der Login-Status zurückgesetzt wurde.
@@ -80,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_viewModel.password.isEmpty && _passwordController.text.isNotEmpty) {
       _passwordController.clear();
     }
-    setState(() {});
   }
 
   /// Setzt den Fokus intelligent beim Öffnen des Screens.
@@ -104,7 +104,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Das Layout ist zentriert und für mobile Geräte sowie Desktop-Ansichten optimiert.
   @override
   Widget build(BuildContext context) {
+    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
     final viewModel = context.watch<LoginViewModel>();
+
     final bool canLogin = viewModel.password.isNotEmpty || (viewModel.isExists && viewModel.hasBiometricKey);
 
     return Stack(
@@ -134,8 +136,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Tresor-Name',
+                        prefixIcon: const Icon(Icons.shield_outlined),
                         border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.storage),
                         suffixIcon: viewModel.existingVaults.isNotEmpty
                             ? PopupMenuButton<String>(
                                 icon: const Icon(Icons.list),
@@ -166,8 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Master-Passwort',
+                        prefixIcon: const Icon(Icons.key_outlined),
                         border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.key),
                         errorText: viewModel.errorMessage,
                         suffixIcon: SizedBox(
                           width: 80, // Platz für beide Icons
@@ -196,13 +198,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                       ),
                       onPressed: (viewModel.isBusy || !canLogin) ? null : () => _handleLogin(),
-                      child: const Text('Anmelden'),
+                      icon: const Icon(Icons.login_outlined),
+                      label: const Text('Anmelden'),
                     ),
                   ],
                 ),

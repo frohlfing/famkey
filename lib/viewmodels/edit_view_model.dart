@@ -52,7 +52,7 @@ class EditViewModel extends BaseViewModel {
   bool _isEditMode = false;
 
   // ------------------------------------------------------------------------
-  // --- Initialisierung & Menü / Header-Buttons ---
+  // --- Initialisierung ---
   // ------------------------------------------------------------------------
 
   /// Konstruktor
@@ -63,7 +63,7 @@ class EditViewModel extends BaseViewModel {
     clearError(notify: false);
     _entry = null;
     _entryKey = null;
-    _originalPayload = EntryPayload();
+    _originalPayload = null;
     _existingCategories = [];
     _category = '';
     _title = '';
@@ -91,7 +91,7 @@ class EditViewModel extends BaseViewModel {
           // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
           final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, 1);
           if (perm != null && _sessionService.privateKey != null) {
-            _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey,utf8.decode(_sessionService.privateKey!));
+            _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
 
             // Payload mittels AES entschlüsseln
             final decryptedData = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
@@ -113,7 +113,7 @@ class EditViewModel extends BaseViewModel {
         _isEditMode = false;
         _entry = null;
         _entryKey = null;
-        _originalPayload = EntryPayload();
+        _originalPayload = null;
         _category = '';
         _title = '';
         _username = '';
@@ -130,6 +130,20 @@ class EditViewModel extends BaseViewModel {
       setBusy(false);
     }
   }
+
+  // ------------------------------------------------------------------------
+  // --- Speichern ---
+  // ------------------------------------------------------------------------
+
+  /// Gibt an, ob etwas verändert wurde.
+  bool get isDirty =>
+      _originalPayload == null || // Neuer Eintrag
+      category != _originalPayload!.category ||
+      title != _originalPayload!.title ||
+      username != _originalPayload!.username ||
+      password != _originalPayload!.password ||
+      url != _originalPayload!.url ||
+      notes != _originalPayload!.notes;
 
   /// Speichert den aktuellen Eintrag in der Datenbank. Verschlüsselt dabei alle sensiblen Felder.
   /// Gibt die ID des gespeicherten Eintrags zurück.
@@ -184,6 +198,10 @@ class EditViewModel extends BaseViewModel {
       );
 
       final savedId = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
+
+      // 6. Den Original-Stand für Dirty-Check aktualisieren
+      _originalPayload = payload;
+
       return savedId;
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);

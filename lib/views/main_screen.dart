@@ -54,7 +54,8 @@ class _MainScreenState extends State<MainScreen> {
   //   _viewModel.removeListener(_onViewModelChanged);
   // }
 
-  // /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
+  // /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
+  // /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
   // void _onViewModelChanged() {
   // }
 
@@ -69,8 +70,9 @@ class _MainScreenState extends State<MainScreen> {
   /// der Einträge zusammengeführt.
   @override
   Widget build(BuildContext context) {
-    // Das watch sorgt dafür, dass Flutter den gesamten Screen neu zeichnet, sobald das MainViewModel eine Änderung meldet.
+    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
     final viewModel = context.watch<MainViewModel>();
+
     final grouped = viewModel.groupedEntries;
 
     return Stack(
@@ -102,17 +104,17 @@ class _MainScreenState extends State<MainScreen> {
               itemBuilder: (context) => [
                 const PopupMenuItem(
                   value: 'sync',
-                  child: ListTile(leading: Icon(Icons.sync), title: Text('Synchronisieren')),
+                  child: ListTile(leading: Icon(Icons.cloud_sync_outlined), title: Text('Synchronisieren')),
                 ),
                 const PopupMenuItem(
                   value: 'settings',
-                  child: ListTile(leading: Icon(Icons.settings), title: Text('Einstellungen')),
+                  child: ListTile(leading: Icon(Icons.settings_outlined), title: Text('Einstellungen')),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'logout',
                   child: ListTile(
-                    leading: Icon(Icons.logout, color: Colors.red),
+                    leading: Icon(Icons.logout_outlined, color: Colors.red),
                     title: Text('Abmelden', style: TextStyle(color: Colors.red)),
                   ),
                 ),
@@ -254,7 +256,7 @@ class _MainScreenState extends State<MainScreen> {
   /// Falls kein Bild vorhanden ist oder die Daten beschädigt sind, wird
   /// ein dezentes Standard-Icon als Platzhalter genutzt.
   Widget _buildFavicon(String base64) {
-    if (base64.isEmpty) return const Icon(Icons.vpn_key_outlined, color: Colors.blueGrey);
+    if (base64.isEmpty) return const Icon(Icons.lock_outlined, color: Colors.blueGrey);
     try {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -262,11 +264,11 @@ class _MainScreenState extends State<MainScreen> {
           base64Decode(base64),
           width: 32,
           height: 32,
-          errorBuilder: (ctx, err, stack) => const Icon(Icons.vpn_key_outlined),
+          errorBuilder: (ctx, err, stack) => const Icon(Icons.lock_outlined),
         ),
       );
     } catch (_) {
-      return const Icon(Icons.vpn_key_outlined);
+      return const Icon(Icons.lock_outlined);
     }
   }
 

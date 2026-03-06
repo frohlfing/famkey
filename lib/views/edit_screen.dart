@@ -74,7 +74,8 @@ class _EditScreenState extends State<EditScreen> {
     super.dispose();
   }
 
-  /// Wird aufgerufen, wenn das ViewModel signalisiert, dass sich Daten geändert haben.
+  /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
+  /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
   ///
   /// Diese Methode stellt sicher, dass die Textfelder (insbesondere für Passwort und
   /// Kategorie) aktualisiert werden, wenn diese Werte durch Logik im ViewModel (z.B.
@@ -87,7 +88,6 @@ class _EditScreenState extends State<EditScreen> {
     if (_categoryController.text != _viewModel.category) {
       _categoryController.text = _viewModel.category;
     }
-    setState(() {}); // UI Refresh für dynamischen Titel
   }
 
   // ------------------------------------------------------------------------
@@ -103,6 +103,7 @@ class _EditScreenState extends State<EditScreen> {
   /// * Eine Schaltfläche zum **Löschen** des Eintrags (nur im Bearbeitungsmodus).
   @override
   Widget build(BuildContext context) {
+    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
     final viewModel = context.watch<EditViewModel>();
 
     final displayTitle = viewModel.title.isEmpty ? (viewModel.isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : viewModel.title;
@@ -115,28 +116,14 @@ class _EditScreenState extends State<EditScreen> {
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
+              onPressed: _handleCancel,
               tooltip: "Zurück",
             ),
             actions: [
               IconButton(
                 tooltip: 'Speichern',
                 icon: const Icon(Icons.check),
-                onPressed: viewModel.isBusy
-                    ? null
-                    : () async {
-                        final savedId = await viewModel.save();
-                        if (savedId != null && context.mounted) {
-                          if (viewModel.isEditMode) {
-                            // Zurück zum DetailScreen (dieser aktualisiert sich durch das Resultat)
-                            Navigator.pop(context, true);
-                          } else {
-                            // Bei Neuanlage: Direkt zum neuen DetailScreen navigieren und EditScreen vom Stack entfernen.
-                            // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
-                            Navigator.pushReplacementNamed(context, '/detail', arguments: savedId, result: true);
-                          }
-                        }
-                      },
+                onPressed: _handleSave,
               ),
             ],
           ),
@@ -144,6 +131,7 @@ class _EditScreenState extends State<EditScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
+              //crossAxisAlignment: CrossAxisAlignment.start, // Button linksbündig
               children: [
                 // ------------------------------------------------------------------------
                 // Formular
@@ -199,7 +187,7 @@ class _EditScreenState extends State<EditScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.refresh),
+                              icon: const Icon(Icons.casino),
                               tooltip: 'Passwort generieren',
                               onPressed: viewModel.generatePassword,
                             ),
@@ -263,36 +251,13 @@ class _EditScreenState extends State<EditScreen> {
 
                 if (viewModel.isEditMode)
                   ElevatedButton.icon(
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Eintrag löschen'),
-                          content: const Text('Soll dieser Eintrag wirklich gelöscht werden?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Löschen', style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true && context.mounted) {
-                        final navigator = Navigator.of(context);
-                        final success = await viewModel.deleteEntry();
-                        if (success && mounted) {
-                          // Direkt zurück zur Hauptseite springen (Pop bis zur Route vor Details)
-                          navigator.popUntil((route) => route.settings.name == '/main');
-                        }
-                      }
-                    },
+                    onPressed: _handleDeleteEntry,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade800,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     ),
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(Icons.delete_outlined),
                     label: const Text('Eintrag löschen'),
                   ),
 
@@ -316,6 +281,93 @@ class _EditScreenState extends State<EditScreen> {
             child: const Center(child: CircularProgressIndicator()),
           ),
       ],
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Handler ---
+  // ------------------------------------------------------------------------
+
+  // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
+  Future<void> _handleCancel() async {
+    if (_viewModel.isBusy) return;
+
+    if (_viewModel.isDirty) {
+      final confirmed = await _showConfirmDialog(
+        'Eintrag speichern',
+        'Möchtest du die Änderungen speichern?',
+        ok: 'Ja, speichern',
+        cancel: 'Nein, verwerfen',
+      );
+      if (confirmed == true) {
+        _handleSave();
+        return;
+      }
+    }
+
+    if (mounted) Navigator.pop(context);
+  }
+
+  // Speichert den Eintrag und  springt dann zur Detailansicht.
+  Future<void> _handleSave() async {
+    if (_viewModel.isBusy) return;
+
+    final savedId = await _viewModel.save();
+
+    if (savedId != null && mounted) {
+      if (_viewModel.isEditMode) {
+        // Zurück zur Detailansicht (dieser aktualisiert sich durch das Resultat)
+        Navigator.pop(context, true);
+      } else {
+        // Bei Neuanlage: Zur Detailansicht navigieren und EditScreen vom Stack entfernen.
+        // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
+        Navigator.pushReplacementNamed(context, '/detail', arguments: savedId, result: true);
+      }
+    }
+  }
+
+  /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
+  Future<void> _handleDeleteEntry() async {
+    if (_viewModel.isBusy) return;
+
+    final confirmed = await _showConfirmDialog(
+      'Eintrag löschen',
+      'Soll dieser Eintrag wirklich gelöscht werden?',
+      ok: 'Ja, löschen',
+    );
+
+    if (confirmed == true) {
+      final success = await _viewModel.deleteEntry();
+      if (success && mounted) {
+        // Direkt zurück zur Hauptseite springen (Pop bis zur Route vor Details)
+        Navigator.of(context).popUntil((route) => route.settings.name == '/main');
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Dialoge ---
+  // ------------------------------------------------------------------------
+
+  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel}) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            child: Text(cancel ?? 'Abbrechen'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          TextButton(
+            child: Text(ok ?? 'OK'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
     );
   }
 

@@ -24,6 +24,32 @@ enum ChangePasswordResult { success, identicalPasswords, wrongPassword, error }
 /// Ergebnisse für das Hinzufügen von Freunden
 enum AddFriendResult { success, notFound, alreadyAdded, selfAdd, error }
 
+/// Snapshot über die veränderlichen Eigenschaften.
+class SettingsSnapshot {
+  final String vaultName;
+  final bool useBiometric;
+  final String userName;
+  final String host;
+  final String apiToken;
+  final int pwLength;
+  final String pwSpecialCharSet;
+  final bool pwAvoidIlO0;
+  final String categoryPlaceholder;
+
+  /// Konstruktor
+  SettingsSnapshot({
+    this.vaultName = '',
+    this.useBiometric = false,
+    this.userName = '',
+    this.host = '',
+    this.apiToken = '',
+    this.pwLength = 16,
+    this.pwSpecialCharSet = '',
+    this.pwAvoidIlO0 = false,
+    this.categoryPlaceholder = '',
+  });
+}
+
 /// Verwaltet die Konfiguration des aktuellen Tresors, die Synchronisationsparameter,
 /// das Erscheinungsbild sowie die Liste der Freunde.
 class SettingsViewModel extends BaseViewModel {
@@ -44,28 +70,29 @@ class SettingsViewModel extends BaseViewModel {
 
   SettingsEntity? _settings;
 
-  //List<SettingsFriendViewModel> _friends = [];
+  /// Wird für Dirty Check beim Abbrechen benötigt.
+  SettingsSnapshot? _orig;
+
+  String _vaultName = '';
+  bool _useBiometric = false;
+  bool _isRegistered = false;
+  String _userName = '';
+  String _host = '';
+  String _apiToken = '';
+  bool _isTokenHidden = true;
+  int _pwLength = 16;
+  String _pwSpecialCharSet = '';
+  bool _pwAvoidIlO0 = true;
   List<UserEntity> _friends = [];
+  ThemeMode _themeMode = ThemeMode.system;
+  String _categoryPlaceholder = 'Allgemein';
 
   /// Signalisiert der UI, ob für diesen Freund Einträge neu verschlüsselt werden müssen.
   /// Dies ist der Fall, wenn sein RSA-Key geändert wurde und die lokalen Permission-Keys geleert wurden.
   final Map<int, bool> _friendNeedsRekeying = {};
 
-  String _vaultName = '';
-  String _userName = '';
-  String _host = '';
-  String _apiToken = '';
-  bool _useBiometric = false;
-  int _pwLength = 16;
-  String _pwSpecialCharSet = '';
-  bool _pwAvoidIlO0 = true;
-  String _categoryPlaceholder = 'Allgemein';
-  ThemeMode _themeMode = ThemeMode.system;
-  bool _isTokenHidden = true;
-  bool _isRegistered = false;
-
   // ------------------------------------------------------------------------
-  // --- Initialisierung & Menü / Header-Buttons ---
+  // --- Initialisierung ---
   // ------------------------------------------------------------------------
 
   /// Konstruktor
@@ -83,20 +110,21 @@ class SettingsViewModel extends BaseViewModel {
   void init() {
     clearError(notify: false);
     _settings = null;
+    _orig = null;
     _friends = [];
     _friendNeedsRekeying.clear();
     _vaultName = '';
     _userName = '';
+    _useBiometric = false;
+    _isRegistered = false;
     _host = '';
     _apiToken = '';
-    _useBiometric = false;
+    _isTokenHidden = true;
     _pwLength = 16;
     _pwSpecialCharSet = '';
     _pwAvoidIlO0 = true;
     _categoryPlaceholder = 'Allgemein';
     // _themeMode  // NICHT hart zurücksetzen – kommt aus ConfigService und soll stabil bleiben
-    _isTokenHidden = true;
-    _isRegistered = false;
   }
 
   /// Lädt die Daten, nachdem der erste Frame gerendert wurde.
@@ -108,15 +136,29 @@ class SettingsViewModel extends BaseViewModel {
       _vaultName = _sessionService.vaultName;
       _userName = _sessionService.user?.name ?? '';
       if (_settings != null) {
+        _useBiometric = _settings!.useBiometric;
+        _isRegistered = _settings!.lastSyncAt.year > 1970;
         _host = _settings!.host;
         _apiToken = _settings!.apiToken;
-        _useBiometric = _settings!.useBiometric;
+        _isTokenHidden = true;
         _pwLength = _settings!.pwLength;
         _pwSpecialCharSet = _settings!.pwSpecialChars;
         _pwAvoidIlO0 = _settings!.pwAvoidIlO0;
         _categoryPlaceholder = _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder;
-        _isRegistered = _settings!.lastSyncAt.year > 1970;
       }
+
+      _orig = SettingsSnapshot(
+        vaultName: _vaultName,
+        useBiometric: _useBiometric,
+        userName: _userName,
+        host: _host,
+        apiToken: _apiToken,
+        pwLength: _pwLength,
+        pwSpecialCharSet: _pwSpecialCharSet,
+        pwAvoidIlO0: _pwAvoidIlO0,
+        categoryPlaceholder: _categoryPlaceholder,
+      );
+
       await loadFriends();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
@@ -125,6 +167,23 @@ class SettingsViewModel extends BaseViewModel {
       setBusy(false);
     }
   }
+
+  // ------------------------------------------------------------------------
+  // --- Speichern ---
+  // ------------------------------------------------------------------------
+
+  /// Gibt an, ob etwas verändert wurde.
+  bool get isDirty =>
+      _orig == null || //
+      vaultName != _orig!.vaultName ||
+      useBiometric != _orig!.useBiometric ||
+      userName != _orig!.userName ||
+      host != _orig!.host ||
+      apiToken != _orig!.apiToken ||
+      pwLength != _orig!.pwLength ||
+      pwSpecialCharSet != _orig!.pwSpecialCharSet ||
+      pwAvoidIlO0 != _orig!.pwAvoidIlO0 ||
+      categoryPlaceholder != _orig!.categoryPlaceholder;
 
   /// Speichert alle geänderten Einstellungen (mit Ausnahme des Tresornamens)
   /// in der Datenbank und aktualisiert die Session.
@@ -154,6 +213,20 @@ class SettingsViewModel extends BaseViewModel {
 
       // 4. Session aktualisieren
       _sessionService.setSession(user: user, privateKey: _sessionService.privateKey!, vaultName: _vaultName, settings: updated);
+
+      // 5. Den Original-Stand für Dirty-Check aktualisieren
+      _orig = SettingsSnapshot(
+        vaultName: _vaultName,
+        useBiometric: _useBiometric,
+        userName: _userName,
+        host: _host,
+        apiToken: _apiToken,
+        pwLength: _pwLength,
+        pwSpecialCharSet: _pwSpecialCharSet,
+        pwAvoidIlO0: _pwAvoidIlO0,
+        categoryPlaceholder: _categoryPlaceholder,
+      );
+
       return true;
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
@@ -171,7 +244,7 @@ class SettingsViewModel extends BaseViewModel {
   // "Nein, verwerfen");
 
   // ------------------------------------------------------------------------
-  // --- Eigenschaften & Methoden für "Identifikation"  ---
+  // --- Eigenschaften & Methoden für "Tresor"  ---
   // ------------------------------------------------------------------------
 
   /// Der Name des Tresors.
@@ -187,45 +260,6 @@ class SettingsViewModel extends BaseViewModel {
 
   // Gibt an, ob der Tresor umbenannt wurde
   bool get isVaultRenamed => _vaultName.trim() != _sessionService.vaultName.trim();
-
-  /// Der Name des angemeldeten Benutzers innerhalb des Tresors.
-  String get userName => _userName;
-
-  set userName(String value) {
-    _userName = value;
-    notifyListeners();
-  }
-
-  /// Gibt an, ob der Benutzer bereits mit dem Server synchronisiert wurde (registriert ist).
-  bool get isRegistered => _isRegistered;
-
-  /// Testet die Verbindung zum Sync-Server.
-  Future<bool> testConnection() async {
-    setBusy(true);
-    try {
-      clearError();
-
-      // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
-      initWebService();
-
-      // Verbindung testen, indem die Version abgefragt wird
-      final response = await _webService.getServerVersion();
-      return response.service.contains("PriVault");
-    } on DioException catch (de) {
-      // Exception des HTTP-Clients
-      if (de.response?.statusCode == 401) {
-        notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
-      } else {
-        notifyError("Netzwerkfehler: ${de.message}");
-      }
-      return false;
-    } catch (e) {
-      notifyError("Verbindung fehlgeschlagen");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
 
   /// Benennt den Tresor um und aktualisiert die Session. Das Master-Passwort wurde zuvor von der UI abgefragt.
   Future<RenameVaultResult> renameVault(String password) async {
@@ -344,6 +378,18 @@ class SettingsViewModel extends BaseViewModel {
     _sessionService.clearSession();
   }
 
+  // ------------------------------------------------------------------------
+  // --- Eigenschaften & Methoden für "Login"  ---
+  // ------------------------------------------------------------------------
+
+  /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
+  bool get useBiometric => _useBiometric;
+
+  set useBiometric(bool value) {
+    _useBiometric = value;
+    notifyListeners();
+  }
+
   /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
   Future<ChangePasswordResult> changeMasterPassword(String newPassword, String password) async {
     if (_settings == null) throw Exception("Settings nicht initialisiert.");
@@ -450,8 +496,16 @@ class SettingsViewModel extends BaseViewModel {
   }
 
   // ------------------------------------------------------------------------
-  // --- Eigenschaften & Methoden für "Synchronisation" ---
+  // --- Eigenschaften & Methoden für "Sync-Server" ---
   // ------------------------------------------------------------------------
+
+  /// Der Name des angemeldeten Benutzers innerhalb des Tresors.
+  String get userName => _userName;
+
+  set userName(String value) {
+    _userName = value;
+    notifyListeners();
+  }
 
   /// Die URL des Servers für die Synchronisation.
   String get host => _host;
@@ -483,15 +537,78 @@ class SettingsViewModel extends BaseViewModel {
     notifyListeners();
   }
 
+  /// Gibt an, ob der Benutzer bereits mit dem Server synchronisiert wurde (registriert ist).
+  bool get isRegistered => _isRegistered;
+
+  /// Testet die Verbindung zum Sync-Server.
+  Future<bool> testConnection() async {
+    setBusy(true);
+    try {
+      clearError();
+
+      // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
+      initWebService();
+
+      // Verbindung testen, indem die Version abgefragt wird
+      final response = await _webService.getServerVersion();
+      return response.service.contains("PriVault");
+    } on DioException catch (de) {
+      // Exception des HTTP-Clients
+      if (de.response?.statusCode == 401) {
+        notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
+      } else {
+        notifyError("Netzwerkfehler: ${de.message}");
+      }
+      return false;
+    } catch (e) {
+      notifyError("Verbindung fehlgeschlagen");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ------------------------------------------------------------------------
-  // --- Eigenschaften & Methoden für "Anmeldeoptionen" ---
+  // --- Eigenschaften & Methoden für "Passwort-Generator" ---
   // ------------------------------------------------------------------------
 
-  /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
-  bool get useBiometric => _useBiometric;
+  /// Eingestellte Länge für den Passwortgenerator.
+  int get pwLength => _pwLength;
 
-  set useBiometric(bool value) {
-    _useBiometric = value;
+  set pwLength(int value) {
+    _pwLength = value;
+    notifyListeners();
+  }
+
+  /// Der aktuell gewählte Satz an Sonderzeichen für generierte Passwörter.
+  String get pwSpecialCharSet => _pwSpecialCharSet;
+
+  set pwSpecialCharSet(String value) {
+    _pwSpecialCharSet = value;
+    notifyListeners();
+  }
+
+  /// Gibt an, ob optisch ähnliche Zeichen ('I', 'l', 'O', '0') vermieden werden sollen.
+  bool get pwAvoidIlO0 => _pwAvoidIlO0;
+
+  set pwAvoidIlO0(bool value) {
+    _pwAvoidIlO0 = value;
+    notifyListeners();
+  }
+
+  /// Setzt den Zeichensatz für den Passwortgenerator basierend auf vordefinierten Gruppen.
+  void setSpecialChars(String type) {
+    switch (type) {
+      case 'None':
+        _pwSpecialCharSet = '';
+        break;
+      case 'Standard':
+        _pwSpecialCharSet = '!@#\$%^&*()_+-=[]{}|;:,.<>?';
+        break;
+      case 'All':
+        _pwSpecialCharSet = '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+        break;
+    }
     notifyListeners();
   }
 
@@ -633,50 +750,6 @@ class SettingsViewModel extends BaseViewModel {
       logError("Löschen fehlgeschlagen: $e", st);
       notifyUnexpectedError();
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Eigenschaften & Methoden für "Passwort-Generator" ---
-  // ------------------------------------------------------------------------
-
-  /// Eingestellte Länge für den Passwortgenerator.
-  int get pwLength => _pwLength;
-
-  set pwLength(int value) {
-    _pwLength = value;
-    notifyListeners();
-  }
-
-  /// Der aktuell gewählte Satz an Sonderzeichen für generierte Passwörter.
-  String get pwSpecialCharSet => _pwSpecialCharSet;
-
-  set pwSpecialCharSet(String value) {
-    _pwSpecialCharSet = value;
-    notifyListeners();
-  }
-
-  /// Gibt an, ob optisch ähnliche Zeichen ('I', 'l', 'O', '0') vermieden werden sollen.
-  bool get pwAvoidIlO0 => _pwAvoidIlO0;
-
-  set pwAvoidIlO0(bool value) {
-    _pwAvoidIlO0 = value;
-    notifyListeners();
-  }
-
-  /// Setzt den Zeichensatz für den Passwortgenerator basierend auf vordefinierten Gruppen.
-  void setSpecialChars(String type) {
-    switch (type) {
-      case 'None':
-        _pwSpecialCharSet = '';
-        break;
-      case 'Standard':
-        _pwSpecialCharSet = '!@#\$%^&*()_+-=[]{}|;:,.<>?';
-        break;
-      case 'All':
-        _pwSpecialCharSet = '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
-        break;
-    }
-    notifyListeners();
   }
 
   // ------------------------------------------------------------------------
