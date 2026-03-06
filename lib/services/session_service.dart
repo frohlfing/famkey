@@ -5,66 +5,65 @@ import '../models/entities/settings_entity.dart';
 
 /// Hält den Zustand der aktuellen Benutzersitzung im Arbeitsspeicher.
 class SessionService extends ChangeNotifier {
+  // ------------------------------------------------------------------------
+  // --- Verwendete Dienste (Abhängigkeiten) ---
+  // ------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------
-    // --- Verwendete Dienste (Abhängigkeiten) ---
-    // ------------------------------------------------------------------------
+  final CryptoService _cryptoService;
 
-    final CryptoService _cryptoService;
+  // ------------------------------------------------------------------------
+  // --- Interne Variablen & Konstanten ---
+  // ------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------
-    // --- Interne Variablen & Konstanten ---
-    // ------------------------------------------------------------------------
+  UserEntity? _user;
+  Uint8List? _privateKey;
+  String _vaultName = '';
+  SettingsEntity? _settings;
 
-    UserEntity? _user;
-    Uint8List? _privateKey;
-    String _vaultName = '';
-    SettingsEntity? _settings;
+  // ------------------------------------------------------------------------
+  // --- Initialisierung / Lifecycle ---
+  // ------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------
-    // --- Initialisierung / Lifecycle ---
-    // ------------------------------------------------------------------------
+  /// Konstruktor
+  SessionService(this._cryptoService);
 
-    /// Konstruktor
-    SessionService(this._cryptoService);
+  /// Setzt die aktuelle Sitzung nach einem erfolgreichen Login oder Identitätswechsel.
+  void setSession({required UserEntity user, required Uint8List privateKey, required String vaultName, required SettingsEntity settings}) {
+    _user = user;
+    _privateKey = privateKey;
+    _vaultName = vaultName;
+    _settings = settings;
+    notifyListeners();
+  }
 
-    /// Setzt die aktuelle Sitzung nach einem erfolgreichen Login oder Identitätswechsel.
-    void setSession({required UserEntity user, required Uint8List privateKey, required String vaultName, required SettingsEntity settings}) {
-        _user = user;
-        _privateKey = privateKey;
-        _vaultName = vaultName;
-        _settings = settings;
-        notifyListeners();
+  /// Beendet die Sitzung, löscht alle zwischengespeicherten Daten und vernichtet sensible Schlüssel im RAM.
+  void clearSession() {
+    _user = null;
+    _vaultName = '';
+    _settings = null;
+
+    if (_privateKey != null) {
+      // Array mit Nullen zu überschreiben, bevor es dem Garbage Collector übergeben wird.
+      _cryptoService.wipeKey(_privateKey);
+      _privateKey = null;
     }
 
-    /// Beendet die Sitzung, löscht alle zwischengespeicherten Daten und vernichtet sensible Schlüssel im RAM.
-    void clearSession() {
-        _user = null;
-        _vaultName = '';
-        _settings = null;
+    notifyListeners();
+  }
 
-        if (_privateKey != null) {
-            // Array mit Nullen zu überschreiben, bevor es dem Garbage Collector übergeben wird.
-            _cryptoService.wipeKey(_privateKey);
-            _privateKey = null;
-        }
+  // ------------------------------------------------------------------------
+  // --- Eigenschaften ---
+  // ------------------------------------------------------------------------
 
-        notifyListeners();
-    }
+  /// Der aktuell angemeldete Benutzer.
+  UserEntity? get user => _user;
 
-    // ------------------------------------------------------------------------
-    // --- Eigenschaften ---
-    // ------------------------------------------------------------------------
+  /// Der entschlüsselte RSA Private Key des Benutzers (als Byte-Array).
+  Uint8List? get privateKey => _privateKey;
 
-    /// Der aktuell angemeldete Benutzer.
-    UserEntity? get user => _user;
+  /// Der Name des geöffneten Tresors (Mandantenkennung).
+  String get vaultName => _vaultName;
 
-    /// Der entschlüsselte RSA Private Key des Benutzers (als Byte-Array).
-    Uint8List? get privateKey => _privateKey;
-
-    /// Der Name des geöffneten Tresors (Mandantenkennung).
-    String get vaultName => _vaultName;
-
-    /// Die Konfigurationseinstellungen der aktuellen Sitzung.
-    SettingsEntity? get settings => _settings;
+  /// Die Konfigurationseinstellungen der aktuellen Sitzung.
+  SettingsEntity? get settings => _settings;
 }

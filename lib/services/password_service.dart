@@ -3,60 +3,59 @@ import 'package:zxcvbn/zxcvbn.dart';
 
 /// Ein Hilfsdienst zur Generierung und Bewertung von Passwörtern.
 class PasswordService {
+  // ------------------------------------------------------------------------
+  // --- Interne Variablen ---
+  // ------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------
-    // --- Interne Variablen ---
-    // ------------------------------------------------------------------------
+  // Die Zxcvbn-Bibliothek bewertet Passwörter sehr realistisch,
+  // da sie Wörterbücher und typische Muster (wie "123456" oder "qwertz") erkennt.
+  final _zxcvbn = Zxcvbn();
 
-    // Die Zxcvbn-Bibliothek bewertet Passwörter sehr realistisch,
-    // da sie Wörterbücher und typische Muster (wie "123456" oder "qwertz") erkennt.
-    final _zxcvbn = Zxcvbn();
+  // ------------------------------------------------------------------------
+  // --- Methoden ---
+  // ------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------
-    // --- Methoden ---
-    // ------------------------------------------------------------------------
+  /// Bewertet die Stärke eines Passworts.
+  ///
+  /// Nutzt den Zxcvbn-Algorithmus zur Einschätzung der Entropie.
+  ///
+  /// Rückgabewerte (Score):
+  /// - 0: Zu erraten in < 10^3 Versuchen (Sehr schwach)
+  /// - 1: Zu erraten in < 10^6 Versuchen (Schwach)
+  /// - 2: Zu erraten in < 10^8 Versuchen (Mittel)
+  /// - 3: Zu erraten in < 10^10 Versuchen (Gut)
+  /// - 4: Starkes, unerratbares Passwort (Sehr stark)
+  int estimateStrength(String password) {
+    if (password.isEmpty) return 0;
 
-    /// Bewertet die Stärke eines Passworts.
-    ///
-    /// Nutzt den Zxcvbn-Algorithmus zur Einschätzung der Entropie.
-    ///
-    /// Rückgabewerte (Score):
-    /// - 0: Zu erraten in < 10^3 Versuchen (Sehr schwach)
-    /// - 1: Zu erraten in < 10^6 Versuchen (Schwach)
-    /// - 2: Zu erraten in < 10^8 Versuchen (Mittel)
-    /// - 3: Zu erraten in < 10^10 Versuchen (Gut)
-    /// - 4: Starkes, unerratbares Passwort (Sehr stark)
-    int estimateStrength(String password) {
-        if (password.isEmpty) return 0;
+    // Evaluate prüft auf Wörterbücher, Tastaturmuster und Leetspeak.
+    final result = _zxcvbn.evaluate(password);
 
-        // Evaluate prüft auf Wörterbücher, Tastaturmuster und Leetspeak.
-        final result = _zxcvbn.evaluate(password);
+    return (result.score ?? 0).toInt();
+  }
 
-        return (result.score ?? 0).toInt();
+  /// Generiert ein kryptografisch sicheres Zufallspasswort.
+  ///
+  /// Wenn [avoidIlO0] `true` ist, werden optisch leicht verwechselbare Zeichen (großes i, kleines L, großes o, Zahl 0) weggelassen.
+  /// Mit [specialChars] werden die Sonderzeichen angegeben, die im Passwort verwendet werden dürfen. Falls `null`, wird ein Standard-Set genutzt.
+  String generatePassword(int length, bool avoidIlO0, String? specialChars) {
+    // Basis-Zeichensatz (ohne die verwechselbaren Zeichen I, l, O, 0)
+    final chars = StringBuffer("abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789");
+
+    // Falls nicht verboten, die verwechselbaren Zeichen wieder hinzufügen
+    if (!avoidIlO0) {
+      chars.write("IlO0");
     }
 
-    /// Generiert ein kryptografisch sicheres Zufallspasswort.
-    ///
-    /// Wenn [avoidIlO0] `true` ist, werden optisch leicht verwechselbare Zeichen (großes i, kleines L, großes o, Zahl 0) weggelassen.
-    /// Mit [specialChars] werden die Sonderzeichen angegeben, die im Passwort verwendet werden dürfen. Falls `null`, wird ein Standard-Set genutzt.
-    String generatePassword(int length, bool avoidIlO0, String? specialChars) {
-        // Basis-Zeichensatz (ohne die verwechselbaren Zeichen I, l, O, 0)
-        final chars = StringBuffer("abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789");
+    // Sonderzeichen anfügen (Standard falls keine übergeben wurden)
+    chars.write(specialChars ?? "!@#\$%^&*()_+-=[]{}|;:,.<>?");
 
-        // Falls nicht verboten, die verwechselbaren Zeichen wieder hinzufügen
-        if (!avoidIlO0) {
-            chars.write("IlO0");
-        }
+    final source = chars.toString();
 
-        // Sonderzeichen anfügen (Standard falls keine übergeben wurden)
-        chars.write(specialChars ?? "!@#\$%^&*()_+-=[]{}|;:,.<>?");
+    // Random.secure() greift auf die sichere Entropiequelle des OS zu
+    final random = Random.secure();
 
-        final source = chars.toString();
-
-        // Random.secure() greift auf die sichere Entropiequelle des OS zu
-        final random = Random.secure();
-
-        // Aus dem Pool zufällig Zeichen ziehen und zu einem String zusammensetzen
-        return List.generate(length, (index) => source[random.nextInt(source.length)]).join();
-    }
+    // Aus dem Pool zufällig Zeichen ziehen und zu einem String zusammensetzen
+    return List.generate(length, (index) => source[random.nextInt(source.length)]).join();
+  }
 }
