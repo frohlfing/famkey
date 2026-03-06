@@ -1,28 +1,37 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# Diese Datei konfiguriert den Analysator, der Dart-Code statisch auf Fehler, Warnungen und Lint-Regeln prüft.
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# Die vom Analysator gefundenen Probleme werden in der Benutzeroberfläche von Dart-fähigen IDEs angezeigt
+# (https://dart.dev/tools#ides-and-editors). Der Analysator kann auch über die Kommandozeile mit `flutter analyze`
+# aufgerufen werden.
+#
+# Die folgende Zeile aktiviert eine Reihe empfohlener Lint-Regeln für Flutter-Apps, -Pakete und -Plugins, die gute
+# Programmierpraktiken fördern sollen.
+#
+# Weitere Informationen zu dieser Datei findest du unter
+# https://dart.dev/guides/language/analysis-options
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+# Die für dieses Projekt angewendeten Lint-Regeln können im folgenden Abschnitt angepasst werden, um Regeln aus der
+# oben eingebundenen Datei `package:flutter_lints/flutter.yaml` zu deaktivieren oder zusätzliche Regeln zu aktivieren.
+# Eine Liste aller verfügbaren Lints und deren Dokumentation finden Sie unter https://dart.dev/lints.
+#
+# Anstatt eine Lint-Regel für das gesamte Projekt im folgenden Abschnitt zu deaktivieren, kann sie auch für eine
+# einzelne Codezeile oder eine bestimmte Dart-Datei unterdrückt werden. Verwenden Sie dazu die Syntax
+# `// ignore: name_of_lint` und `// ignore_for_file: name_of_lint` in der Zeile oder in der Datei, die den Lint erzeugt.
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # avoid_print: false
+    # prefer_single_quotes: true
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+# Konfiguration für den Dart-Formatierer (https://dart.dev/tools/dart-format).
+# Dies sorgt für ein einheitliches Code-Design im gesamten Projekt.
+formatter:
+  # Legt die maximale Zeilenlänge fest, bevor der Formatierer versucht, den Code umzubrechen.
+  # 100 Zeichen sind ein guter Kompromiss zwischen Lesbarkeit und Platznutzung auf modernen Monitoren.
+  page_width: 999
+
+  # Bestimmt, wie mit abschließenden Kommas (Trailing Commas) umgegangen wird.
+  # 'preserve' bedeutet, dass manuell gesetzte Kommas beibehalten werden.
+  # In Flutter hilft dies extrem dabei, die Einrückung von tief verschachtelten Widget-Bäumen zu steuern.
+  trailing_commas: preserve

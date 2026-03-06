@@ -26,9 +26,9 @@ class BaseViewModel extends ChangeNotifier {
     }
 
     /// Setzt den Fehlertext zurück und benachrichtigt die View
-    void clearError() {
+    void clearError({bool notify = true}) {
       _errorMessage = null;
-      notifyListeners();
+      if (notify) notifyListeners();
     }
 
     /// Protokolliert den Fehler.
