@@ -75,6 +75,9 @@ class DetailViewModel extends BaseViewModel {
   /// Die Zugriffsstufe des aktuellen Benutzers (1=Lesen, 2=Schreiben, 3=Besitzer).
   int _myAccessLevel = 1;
 
+  /// Gibt an, ob während der Ansicht editiert wurde
+  bool _hasChanged = false;
+
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -102,6 +105,7 @@ class DetailViewModel extends BaseViewModel {
     _sharedFriends = [];
     _friendAccessLevels.clear();
     _myAccessLevel = 1;
+    _hasChanged = false;
   }
 
   /// Lädt den Eintrag anhand seiner ID.
@@ -187,8 +191,12 @@ class DetailViewModel extends BaseViewModel {
   /// Ein Text-Hinweis über den Ersteller und den Zeitpunkt der letzten Änderung.
   String get auditHint => _auditHint;
 
+  /// Gibt an, ob während der Ansicht editiert wurde
+  bool get hasChanged => _hasChanged;
+
   /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
-  String? _createThumbnail(Uint8List bytes) {
+  /// Die Funktion muss static sein, das sie innerhalb eines Worker-Threads aufgerufen wird.
+  static String? _createThumbnail(Uint8List bytes) {
     try {
       final image = img.decodeImage(bytes);
       if (image == null || image.width <= 0 || image.height <= 0) return null;
@@ -206,9 +214,10 @@ class DetailViewModel extends BaseViewModel {
 
       // 4) Encode mit 80% Qualität
       return base64Encode(img.encodeJpg(thumbnail, quality: 80));
-    } catch (e, st) {
-      logError('Thumbnail-Fehler: $e', st);
-      notifyUnexpectedError();
+    } catch (e) {
+      // In statischen Methoden können wir kein logError() der Instanz rufen!
+      // Wir loggen hier nur auf die Konsole oder geben null zurück.
+      debugPrint('Thumbnail-Fehler: $e');
       return null;
     }
   }
@@ -228,6 +237,12 @@ class DetailViewModel extends BaseViewModel {
     _auditHint = "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
   }
 
+  /// Wird gerufen, wenn die Stammdaten verändert wurden
+  void markAsChanged() {
+    _hasChanged = true;
+    notifyListeners();
+  }
+
   // ------------------------------------------------------------------------
   // --- Eigenschaften & Methoden für "Anhänge"  ---
   // ------------------------------------------------------------------------
@@ -244,11 +259,11 @@ class DetailViewModel extends BaseViewModel {
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
   Future<void> addAttachment() async {
     if (_entry == null || _entryKey == null) return;
+
+    setBusy(true);
     try {
       final result = await FilePicker.platform.pickFiles(withData: true);
       if (result == null || result.files.isEmpty) return;
-
-      setBusy(true);
       final file = result.files.first;
       final bytes = file.bytes!;
       final mimeType = _getMimeType(file.name);
@@ -256,6 +271,9 @@ class DetailViewModel extends BaseViewModel {
       // Thumbnail erzeugen falls Bild
       String? thumbnailBase64;
       if (mimeType.startsWith('image/')) {
+        // compute lagert eine Berechnung in einen separaten Worker-Thread aus.
+        // Die Worker-Funktion darf keine Instanz-Methode sein, sonst wird versucht,
+        // das gesamte DetailViewModel in den Thread zu kopieren, was schief geht.
         thumbnailBase64 = await compute(_createThumbnail, bytes);
       }
 

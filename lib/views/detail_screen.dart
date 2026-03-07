@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
 
+import '../models/entities/user_entity.dart';
+
 /// Der [DetailScreen] ist dafür zuständig, dir die vollständigen Details eines bestimmten
 /// Tresor-Eintrags anzuzeigen.
 ///
@@ -79,7 +81,7 @@ class _DetailScreenState extends State<DetailScreen> {
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
+              onPressed: _handleBack,
               tooltip: "Zurück",
             ),
             actions: [
@@ -87,16 +89,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 IconButton(
                   icon: const Icon(Icons.edit),
                   tooltip: 'Bearbeiten',
-                  onPressed: () async {
-                    final result = await Navigator.pushNamed(
-                      context,
-                      '/edit',
-                      arguments: widget.entryId,
-                    );
-                    if (result == true && mounted) {
-                      _viewModel.load(widget.entryId);
-                    }
-                  },
+                  onPressed: _handleEdit,
                 ),
             ],
           ),
@@ -236,7 +229,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       'Anhänge',
                       Icons.add_circle_outline,
                       'Datei anhängen',
-                      viewModel.addAttachment,
+                      _handleAddAttachment,
                     )
                   else
                     _buildSectionTitle('Anhänge'),
@@ -250,8 +243,8 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     )
                   else
-                    ...viewModel.attachments.map((att) {
-                      final meta = viewModel.getAttachmentMeta(att.uuid);
+                    ...viewModel.attachments.map((attachment) {
+                      final meta = viewModel.getAttachmentMeta(attachment.uuid);
                       final iconType = viewModel.getIconType(
                         meta?.filename ?? '',
                         meta?.mime ?? '',
@@ -262,7 +255,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           leading: MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              onTap: () => viewModel.openAttachment(att),
+                              onTap: () => viewModel.openAttachment(attachment),
                               child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(4),
@@ -286,7 +279,7 @@ class _DetailScreenState extends State<DetailScreen> {
                               ? IconButton(
                                   icon: const Icon(Icons.delete),
                                   tooltip: 'Anhang löschen',
-                                  onPressed: () => _onDeleteAttachmentPressed(viewModel, att),
+                                  onPressed: () => _handleDeleteAttachment(attachment),
                                 )
                               : null,
                         ),
@@ -307,9 +300,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           'Geteilt mit',
                           Icons.person_add_alt_1_outlined,
                           'Freigabe hinzufügen',
-                          () {
-                            _showShareDialog(context, viewModel);
-                          },
+                          _handleAddFriend,
                         )
                       else
                         _buildSectionTitle('Geteilt mit'),
@@ -370,16 +361,14 @@ class _DetailScreenState extends State<DetailScreen> {
                                           scale: 0.75,
                                           child: Switch(
                                             value: isWritable,
-                                            onChanged: (bool value) {
-                                              viewModel.updateAccessLevel(friend, value ? 2 : 1);
-                                            },
+                                            onChanged: (bool value) => viewModel.updateAccessLevel(friend, value ? 2 : 1),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         IconButton(
                                           icon: const Icon(Icons.delete),
                                           tooltip: 'Zugriff entziehen',
-                                          onPressed: () => _onRevokeAccessPressed(viewModel, friend),
+                                          onPressed: () => _handleDeleteFriend(friend),
                                         ),
                                       ],
                                     )
@@ -460,6 +449,154 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   // ------------------------------------------------------------------------
+  // --- Handler ---
+  // ------------------------------------------------------------------------
+
+  /// Navigiert zurück zur Hauptseite
+  Future<void> _handleBack() async {
+    if (_viewModel.isBusy) return;
+    Navigator.of(context).pop(_viewModel.hasChanged);
+  }
+
+  /// Öffnet die Bearbeitungsansicht und aktualisiert die Daten bei Rückkehr, falls Änderungen vorgenommen wurden.
+  Future<void> _handleEdit() async {
+    if (_viewModel.isBusy) return;
+    final hasChanged = await Navigator.of(context).pushNamed('/edit', arguments: widget.entryId);
+    if (hasChanged == true && mounted) {
+      _viewModel.markAsChanged();
+      _viewModel.load(widget.entryId);
+    }
+  }
+
+  /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
+  Future<void> _handleAddAttachment() async {
+    if (_viewModel.isBusy) return;
+    _viewModel.addAttachment();
+  }
+
+  /// Fragt nach Bestätigung und löscht dann den Anhang.
+  Future<void> _handleDeleteAttachment(dynamic attachment) async {
+    if (_viewModel.isBusy) return;
+
+    final confirmed = await _showConfirmDialog(
+      'Anhang löschen',
+      'Möchtest du diesen Anhang wirklich löschen?',
+      ok: 'Ja, löschen',
+      autofocus: false,
+    );
+    if (confirmed == true && mounted) {
+      _viewModel.deleteAttachment(attachment);
+    }
+  }
+
+  /// Öffnet einen Dialog zur Auswahl eines Kontakts aus Deiner Freundesliste,
+  /// um diesen Eintrag mit ihm zu teilen.
+  ///
+  /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
+  Future<void> _handleAddFriend() async {
+    if (_viewModel.isBusy) return;
+    final user = await _showChooseFriendDialog();
+    if (user == null || !mounted) return;
+    _viewModel.shareWith(user);
+  }
+
+  /// Fragt nach Bestätigung und entzieht dann den Zugriff für den Benutzer.
+  Future<void> _handleDeleteFriend(dynamic user) async {
+    if (_viewModel.isBusy) return;
+
+    final confirmed = await _showConfirmDialog(
+      'Zugriff entziehen',
+      'Möchtest du diesen Eintrag nicht mehr mit der Person teilen?',
+      ok: 'Ja, Zugriff entziehen',
+    );
+    if (confirmed == true && mounted) {
+      _viewModel.revokeAccess(user);
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Dialoge ---
+  // ------------------------------------------------------------------------
+
+  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            child: Text(cancel ?? 'Abbrechen'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          TextButton(
+            autofocus: autofocus,
+            child: Text(ok ?? 'OK'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Öffnet einen Dialog zur Auswahl eines Freundes, mit dem der Eintrag noch nicht geteilt wird.
+  Future<UserEntity?> _showChooseFriendDialog() async {
+    final available = _viewModel.unsharedFriends;
+
+    return showDialog<UserEntity>(
+      context: context,
+      barrierDismissible: false, // wird nicht geschlossen, wenn man außerhalb des Dialoges klickt
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eintrag teilen'),
+        content: available.isEmpty
+            ? const Text('Keine weiteren Kontakte verfügbar.')
+            : SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: available.length,
+            separatorBuilder: (ctx, i) => const Divider(),
+            itemBuilder: (ctx, index) {
+              final user = available[index];
+
+              Widget leadingIcon = Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 20)),
+                  if (!user.isVerified) const Icon(Icons.warning, size: 16, color: Colors.amber),
+                ],
+              );
+
+              if (!user.isVerified) {
+                leadingIcon = Tooltip(
+                  message: 'Person ist nicht verifiziert!',
+                  child: leadingIcon,
+                );
+              }
+
+              return ListTile(
+                leading: leadingIcon,
+                title: Text(user.name),
+                onTap: () {
+                  Navigator.of(ctx).pop(user);
+                },
+              );
+            },
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Abbrechen'),
+            onPressed: () => Navigator.of(ctx).pop(null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------------
   // --- Interne Methoden ---
   // ------------------------------------------------------------------------
 
@@ -486,10 +623,7 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
-  ///
-  /// - [context] BuildContext des Widgets
-  /// - [text] Text, der in die Zwischenablage kopiert werden soll
-  /// - [label] Beschriftung des Kopierten Texts
+  /// `label` ist die Beschriftung des kopierten Textes.
   void _copyToClipboard(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     _showSnack('$label in die Zwischenablage kopiert', success: true);
@@ -501,9 +635,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final Uri uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
     try {
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        if (context.mounted) {
-          _showSnack('URL konnte nicht geöffnet werden');
-        }
+        _showSnack('URL konnte nicht geöffnet werden');
       }
     } catch (e, st) {
       _showException(e, stackTrace: st);
@@ -558,110 +690,5 @@ class _DetailScreenState extends State<DetailScreen> {
         default: return Icons.insert_drive_file_outlined;
       }
     // @formatter:on
-  }
-
-  /// Fragt nach Bestätigung und löscht dann den Anhang.
-  Future<void> _onDeleteAttachmentPressed(DetailViewModel viewModel, dynamic att) async {
-    final meta = viewModel.getAttachmentMeta(att.uuid);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Anhang löschen'),
-        content: Text("Soll der Anhang '${meta?.filename}' wirklich gelöscht werden?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Ja, löschen', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      viewModel.deleteAttachment(att);
-    }
-  }
-
-  /// Fragt nach Bestätigung und entzieht dann den Zugriff für den Benutzer.
-  Future<void> _onRevokeAccessPressed(DetailViewModel viewModel, dynamic user) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Zugriff entziehen'),
-        content: Text('Möchtest du diesen Eintrag nicht mehr mit ${user.name} teilen?'),
-        actions: [
-          TextButton(child: const Text('Abbrechen'), onPressed: () => Navigator.of(ctx).pop(false)),
-          TextButton(
-            child: const Text('Ja, Zugriff entziehen', style: TextStyle(color: Colors.red)),
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      viewModel.revokeAccess(user);
-    }
-  }
-
-  /// Öffnet einen Dialog zur Auswahl eines Kontakts aus Deiner Freundesliste,
-  /// um diesen Eintrag mit ihm zu teilen.
-  ///
-  /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
-  Future<void> _showShareDialog(BuildContext context, DetailViewModel viewModel) async {
-    final available = viewModel.unsharedFriends;
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Eintrag teilen'),
-          content: available.isEmpty
-              ? const Text('Keine weiteren Kontakte verfügbar.')
-              : SizedBox(
-                  width: double.maxFinite,
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: available.length,
-                    separatorBuilder: (ctx, i) => const Divider(),
-                    itemBuilder: (ctx, index) {
-                      final user = available[index];
-                      Widget leadingIcon = Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 20)),
-                          if (!user.isVerified) const Icon(Icons.warning, size: 16, color: Colors.amber),
-                        ],
-                      );
-
-                      if (!user.isVerified) {
-                        leadingIcon = Tooltip(
-                          message: 'Person ist nicht verifiziert!',
-                          child: leadingIcon,
-                        );
-                      }
-
-                      return ListTile(
-                        leading: leadingIcon,
-                        title: Text(user.name),
-                        onTap: () {
-                          viewModel.shareWith(user);
-                          Navigator.of(context).pop();
-                        },
-                      );
-                    },
-                  ),
-                ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Abbrechen'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

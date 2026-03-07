@@ -90,14 +90,13 @@ class _MainScreenState extends State<MainScreen> {
               onSelected: (value) async {
                 switch (value) {
                   case 'sync':
-                    _handleSync(context, viewModel);
+                    _handleSync();
                     break;
                   case 'settings':
-                    Navigator.pushNamed(context, '/settings');
+                    _handleSettings();
                     break;
                   case 'logout':
-                    viewModel.logout();
-                    Navigator.pushReplacementNamed(context, '/');
+                    _handleLogout();
                     break;
                 }
               },
@@ -126,14 +125,7 @@ class _MainScreenState extends State<MainScreen> {
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Neuer Eintrag',
-                onPressed: () async {
-                  // Wenn wir von hier aus einen neuen Eintrag erstellen,
-                  // warten wir auf das Resultat (true beim pushReplacement im EditScreen).
-                  final result = await Navigator.pushNamed(context, '/edit');
-                  if (result == true) {
-                    viewModel.load();
-                  }
-                },
+                onPressed: _handleAddEntry,
               ),
             ],
           ),
@@ -239,12 +231,7 @@ class _MainScreenState extends State<MainScreen> {
           leading: _buildFavicon(entry.favicon),
           title: Text(entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag', style: const TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Text(entry.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () async {
-            // Wenn wir aus dem DetailScreen zurückkommen (der ggf. Daten geändert hat),
-            // laden wir die Liste neu.
-            await Navigator.pushNamed(context, '/detail', arguments: entry.id);
-            viewModel.load();
-          },
+          onTap: () => _handleViewEntry(entry),
         ),
       ),
     );
@@ -273,35 +260,126 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Interne Methoden ---
+  // --- Handler ---
   // ------------------------------------------------------------------------
 
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
-      );
+  /// Koordiniert den Synchronisationsvorgang mit dem Server.
+  Future<void> _handleSync() async {
+    if (_viewModel.isBusy) return;
+    try {
+      // Sync starten
+      final stats = await _viewModel.sync();
+      if (!mounted) return;
+      _showAlertDialog('Info', 'Synchronisation erfolgreich abgeschlossen.\n\n$stats');
+    } on SaltMismatchException catch (sme) {
+      // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
+      if (!mounted) return;
+      final userResponse = sme.userResponse;
+      try {
+        String? errorText;
+        final message = userResponse.userUuid == _viewModel.myUuid
+            ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
+            : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
+        while (true) {
+          // Master-Passwort abfragen
+          final password = await _showPasswordDialog('Account verknüpfen', message, errorText: errorText);
+          if (password == null) return;
+
+          // Die auf dem Server gespeicherte Identität übernehmen
+          final result = await _viewModel.adoptIdentity(userResponse, password);
+          if (!mounted) return;
+          if (result == AdoptIdentityResult.success) {
+            _showSnack('Account erfolgreich verknüpft.', success: true);
+            _handleSync(); // Sync erneut starten
+            break;
+          } else if (result == AdoptIdentityResult.wrongPassword) {
+            // im Dialog anzeigen, NICHT SnackBar
+            errorText = _viewModel.errorMessage;
+            continue;
+          } else {
+            _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+            break;
+          }
+        }
+      } catch (e, st) {
+        _showException(e, stackTrace: st);
+      }
+    } on EmptyEntryKeyException catch (_) {
+      if (await _viewModel.hasUnverifiedFriend()) {
+        if (!mounted) return;
+        _showAlertDialog(
+            'Sicherheitsstopp',
+            "Der Fingerprint eines Freundes hat sich geändert.\n"
+                "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
+        );
+      }
+    } catch (e, st) {
+      _showException(e, stackTrace: st);
+    }
   }
 
-  /// Protokolliert eine Exception in der SnackBar an.
-  void _showException(dynamic ex, {StackTrace? stackTrace}) {
-    if (!mounted) return;
-    debugPrint("❌ MainScreen: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
+  /// Navigiert zu den Einstellungen
+  Future<void> _handleSettings() async {
+    if (_viewModel.isBusy) return;
+    Navigator.of(context).pushNamed('/settings');
+  }
+
+  /// Beendet die Session und navigiert zur Login-Seite.
+  Future<void> _handleLogout() async {
+    if (_viewModel.isBusy) return;
+    _viewModel.logout();
+    if (mounted) Navigator.of(context).pushReplacementNamed('/');
+  }
+
+  // 1) Aufrufkette für Eintrag hinzufügen: main -> edit -> details -> main
+  // 2) Aufrufkette für Eintrag bearbeiten: main -> details -> edit -> details -> main
+  // 3) Aufrufkette für Eintrag löschen: main -> details -> edit -> main
+
+  /// Beendet die Session und navigiert zur Login-Seite.
+  Future<void> _handleAddEntry() async {
+    if (_viewModel.isBusy) return;
+    final hasChanged = await Navigator.of(context).pushNamed('/edit');
+    if (hasChanged == true && mounted) {
+      _viewModel.load();
+    }
+  }
+
+  /// Öffnet die Detailansicht.
+  Future<void> _handleViewEntry(dynamic entry) async {
+    if (_viewModel.isBusy) return;
+    final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.id);
+    if (hasChanged == true && mounted) {
+      _viewModel.load();
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Dialoge ---
+  // ------------------------------------------------------------------------
+
+  /// Öffnet einen modalen Hinweis.
+  Future<void> _showAlertDialog(String title, String message, {String? ok}) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            autofocus: true,
+            child: Text(ok ?? 'OK'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Öffnet einen modalen Dialog zur Passwortabfrage.
   ///
-  /// Diese Funktion wird innerhalb des Sync-Prozesses benötigt, um
-  /// kritische Identitätsänderungen zu autorisieren.
+  /// Diese Funktion wird innerhalb des Sync-Prozesses benötigt, um kritische Identitätsänderungen
+  /// zu autorisieren.
   ///
   /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
   // todo ist identisch mit settings_screen._showPasswordDialog -> als widget auslagern
@@ -312,7 +390,7 @@ class _MainScreenState extends State<MainScreen> {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
+      builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(title),
           content: Column(
@@ -336,18 +414,18 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 onSubmitted: (_) {
                   if (controller.text.isNotEmpty) {
-                    Navigator.pop(dialogContext, controller.text);
+                    Navigator.of(ctx).pop(controller.text);
                   }
                 },
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, null), child: const Text('Abbrechen')),
+            TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Abbrechen')),
             ElevatedButton(
               onPressed: () {
                 if (controller.text.isNotEmpty) {
-                  Navigator.pop(dialogContext, controller.text);
+                  Navigator.of(ctx).pop(controller.text);
                 }
               },
               child: const Text('OK'),
@@ -358,87 +436,29 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Koordiniert den Synchronisationsvorgang mit dem Server.
-  ///
-  /// Diese Methode verarbeitet nicht nur den Standard-Sync, sondern kümmert sich
-  /// auch um komplexe Fälle wie den [SaltMismatchException].
-  /// Wenn du beispielsweise dein Master-Passwort auf einem anderen Gerät geändert hast,
-  /// führt dich diese Funktion durch den Prozess der Identitätsübernahme (Identity Adoption),
-  /// damit deine lokalen Daten wieder mit dem Server harmonieren.
-  Future<void> _handleSync(BuildContext context, MainViewModel viewModel) async {
-    try {
-      // Sync starten
-      final stats = await viewModel.sync();
-      if (!context.mounted) return;
-      // Sync-Statistik anzeigen
-      showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Info'),
-          content: Text('Synchronisation erfolgreich abgeschlossen.\n\n$stats'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('OK'),
-            ),
-          ],
+  // ------------------------------------------------------------------------
+  // --- Interne Methoden ---
+  // ------------------------------------------------------------------------
+
+  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
+  void _showSnack(String message, {bool success = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
         ),
       );
-    } on SaltMismatchException catch (sme) {
-      // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
-      if (!context.mounted) return;
-      final userResponse = sme.userResponse;
-      try {
-        String? errorText;
-        final message = userResponse.userUuid == viewModel.myUuid ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
-        while (true) {
-          // Master-Passwort abfragen
-          final password = await _showPasswordDialog('Account verknüpfen', message, errorText: errorText);
-          if (password == null) return;
+  }
 
-          // Die auf dem Server gespeicherte Identität übernehmen
-          final result = await viewModel.adoptIdentity(userResponse, password);
-          if (!context.mounted) return;
-
-          if (result == AdoptIdentityResult.success) {
-            _showSnack('Account erfolgreich verknüpft.', success: true);
-            _handleSync(context, viewModel); // Sync erneut starten
-            break;
-          } else if (result == AdoptIdentityResult.wrongPassword) {
-            // im Dialog anzeigen, NICHT SnackBar
-            errorText = viewModel.errorMessage;
-            continue;
-          } else {
-            _showSnack(viewModel.errorMessage ?? 'Unerwarteter Fehler');
-            break;
-          }
-        }
-      } catch (e, st) {
-        _showException(e, stackTrace: st);
-      }
-    } on EmptyEntryKeyException catch (_) {
-      const message = "Der Fingerprint eines Freundes hat sich geändert. Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.";
-      if (await _viewModel.hasUnverifiedFriend()) {
-        if (!context.mounted) return;
-        showDialog(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Sicherheitsstopp'),
-            content: const Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e, st) {
-      _showException(e, stackTrace: st);
-    }
+  /// Protokolliert eine Exception in der SnackBar an.
+  void _showException(dynamic ex, {StackTrace? stackTrace}) {
+    if (!mounted) return;
+    debugPrint("❌ MainScreen: $ex");
+    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
+    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
   }
 }

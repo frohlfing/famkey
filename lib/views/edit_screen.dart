@@ -160,7 +160,11 @@ class _EditScreenState extends State<EditScreen> {
                 TextField(
                   controller: _titleController,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Titel', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: 'Titel',
+                    border: OutlineInputBorder(),
+                    errorText: viewModel.getFieldError('title'),
+                  ),
                   onChanged: (value) => viewModel.title = value,
                 ),
                 const SizedBox(height: 16),
@@ -260,16 +264,6 @@ class _EditScreenState extends State<EditScreen> {
                     icon: const Icon(Icons.delete_outlined),
                     label: const Text('Eintrag löschen'),
                   ),
-
-                if (viewModel.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text(
-                      viewModel.errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -299,29 +293,38 @@ class _EditScreenState extends State<EditScreen> {
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
-      if (confirmed == true) {
+      if (confirmed == true && mounted) {
         _handleSave();
         return;
       }
     }
 
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.of(context).pop();
   }
 
   // Speichert den Eintrag und  springt dann zur Detailansicht.
   Future<void> _handleSave() async {
     if (_viewModel.isBusy) return;
 
+    final modified = _viewModel.isDirty;
     final savedId = await _viewModel.save();
+
+    // Falls ein allgemeiner Fehler im VM gesetzt wurde (z.B. Server-Fehler)
+    if (_viewModel.errorMessage != null && mounted) {
+      _showSnack(_viewModel.errorMessage!);
+      //_viewModel.clearError(); // Wichtig, damit er nicht doppelt triggert
+      return;
+    }
 
     if (savedId != null && mounted) {
       if (_viewModel.isEditMode) {
-        // Zurück zur Detailansicht (dieser aktualisiert sich durch das Resultat)
-        Navigator.pop(context, true);
+        // Diese Seite wurde von der Detailansicht aufgerufen.
+        // Wir navigieren einfach wieder zurück.
+        Navigator.of(context).pop(modified);
       } else {
-        // Bei Neuanlage: Zur Detailansicht navigieren und EditScreen vom Stack entfernen.
-        // 'result: true' signalisiert dem MainScreen (der im Stack darunter liegt), dass er refreshen soll.
-        Navigator.pushReplacementNamed(context, '/detail', arguments: savedId, result: true);
+        // Diese Seite wurde von der Hauptseite aufgerufen.
+        // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
+        Navigator.of(context).pushReplacementNamed('/detail', arguments: savedId, result: modified);
       }
     }
   }
@@ -336,11 +339,12 @@ class _EditScreenState extends State<EditScreen> {
       ok: 'Ja, löschen',
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       final success = await _viewModel.deleteEntry();
       if (success && mounted) {
-        // Direkt zurück zur Hauptseite springen (Pop bis zur Route vor Details)
-        Navigator.of(context).popUntil((route) => route.settings.name == '/main');
+        // Das Löschen ist nur im Editiermodus möglich, d.h., diese Seite wurde von der Detailansicht aufgerufen.
+        // Wir navigieren zurück zur Detailansicht und weiter zurück zur Hauptansicht.
+        Navigator.of(context)..pop()..pop(true);
       }
     }
   }
@@ -350,7 +354,7 @@ class _EditScreenState extends State<EditScreen> {
   // ------------------------------------------------------------------------
 
   /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel}) async {
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -363,6 +367,7 @@ class _EditScreenState extends State<EditScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
           ),
           TextButton(
+            autofocus: autofocus,
             child: Text(ok ?? 'OK'),
             onPressed: () => Navigator.of(ctx).pop(true),
           ),
@@ -374,6 +379,20 @@ class _EditScreenState extends State<EditScreen> {
   // ------------------------------------------------------------------------
   // --- Interne Methoden ---
   // ------------------------------------------------------------------------
+
+  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
+  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
+  void _showSnack(String message, {bool success = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+        ),
+      );
+  }
 
   /// Bestimmt die Farbe der Stärke-Anzeige basierend auf der Bewertung des Passworts.
   ///

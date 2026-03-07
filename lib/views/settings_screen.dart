@@ -592,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
 
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.of(context).pop();
   }
 
   /// Testet, ob Host-URL und API-Token korrekt sind
@@ -635,7 +635,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       _showSnack('Einstellungen gespeichert.', success: true);
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.of(context).pop();
     } catch (e, st) {
       _showException(e, stackTrace: st);
     }
@@ -781,7 +781,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return showDialog<String>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
+      builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Person suchen'),
           content: Column(
@@ -797,7 +797,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onSubmitted: (val) {
                   if (val.trim().isNotEmpty) {
-                    Navigator.pop(dialogContext, val.trim());
+                    Navigator.of(ctx).pop(val.trim());
                   }
                 },
               ),
@@ -805,14 +805,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, null),
+              onPressed: () => Navigator.pop(ctx, null),
               child: const Text('Abbrechen'),
             ),
             ElevatedButton(
               onPressed: () {
                 final name = controller.text.trim();
                 if (name.isNotEmpty) {
-                  Navigator.pop(dialogContext, name);
+                  Navigator.of(ctx).pop(name);
                 }
               },
               child: const Text('Suchen'),
@@ -824,7 +824,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel}) async {
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -837,6 +837,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
           ),
           TextButton(
+            autofocus: autofocus,
             child: Text(ok ?? 'OK'),
             onPressed: () => Navigator.of(ctx).pop(true),
           ),
@@ -847,8 +848,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Öffnet einen modalen Dialog zur Passwortabfrage.
   ///
-  /// Wird benötigt, um sensible Aktionen wie das Umbenennen des Tresors
-  /// oder das Ändern des Passworts zu autorisieren.
+  /// Wird benötigt, um sensible Aktionen wie das Umbenennen des Tresors oder das Ändern des
+  /// Passworts zu autorisieren.
   ///
   /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
   Future<String?> _showPasswordDialog(String title, String message, {String? errorText}) async {
@@ -858,7 +859,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
+      builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(title),
           content: Column(
@@ -882,7 +883,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onSubmitted: (_) {
                   if (controller.text.isNotEmpty) {
-                    Navigator.pop(dialogContext, controller.text);
+                    Navigator.of(ctx).pop(controller.text);
                   }
                 },
               ),
@@ -890,13 +891,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, null),
+              onPressed: () => Navigator.of(ctx).pop(null),
               child: const Text('Abbrechen'),
             ),
             ElevatedButton(
               onPressed: () {
                 if (controller.text.isNotEmpty) {
-                  Navigator.pop(dialogContext, controller.text);
+                  Navigator.of(ctx).pop(controller.text);
                 }
               },
               child: const Text('OK'),

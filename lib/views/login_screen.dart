@@ -235,32 +235,33 @@ class _LoginScreenState extends State<LoginScreen> {
   /// * **Nicht gefunden:** Bietet die Erstellung eines neuen Tresors an.
   /// * **Korrupt:** Ermöglicht das Löschen eines beschädigten lokalen Tresors.
   Future<void> _handleLogin({bool forceCreate = false}) async {
-    if (!mounted) return;
+    if (_viewModel.isBusy) return;
+
     final result = await _viewModel.login(forceCreate: forceCreate);
     if (!mounted) return;
 
     switch (result) {
       case LoginResult.success:
-        Navigator.pushReplacementNamed(context, '/main');
+        Navigator.of(context).pushReplacementNamed('/main');
         break;
 
       case LoginResult.askToEnableBiometrics:
         final enable = await _showConfirmDialog(
           'Biometrie aktivieren',
           'Soll dein Schlüssel sicher auf diesem Gerät abgelegt werden, damit du dich beim nächsten Mal bequem per Fingerabdruck oder Gesichtserkennung anmelden kannst?',
-          'Ja, Schlüssel speichern',
+          ok: 'Ja, Schlüssel speichern',
         );
         if (enable == true && mounted) {
           await _viewModel.saveMasterKey(_passwordController.text);
         }
-        if (mounted) Navigator.pushReplacementNamed(context, '/main');
+        if (mounted) Navigator.of(context).pushReplacementNamed('/main');
         break;
 
       case LoginResult.vaultNotFound:
         final create = await _showConfirmDialog(
           'Tresor anlegen',
           'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
-          'Ja, anlegen',
+          ok: 'Ja, anlegen',
         );
         if (create == true && mounted) {
           _handleLogin(forceCreate: true);
@@ -268,7 +269,12 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
 
       case LoginResult.corrupt:
-        final delete = await _showConfirmDialog('Tresor löschen', 'Der Tresor ist korrupt. Soll er gelöscht werden?', 'Ja, löschen');
+        final delete = await _showConfirmDialog(
+            'Tresor löschen',
+            'Der Tresor ist korrupt. Soll er gelöscht werden?',
+            ok: 'Ja, löschen',
+            autofocus: false,
+        );
         if (delete == true && mounted) {
           await _viewModel.cleanUp();
           setState(() {
@@ -282,23 +288,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Zeigt einen Bestätigungsdialog für kritische Entscheidungen an.
-  ///
-  /// Wird genutzt für die Aktivierung von Biometrie, die Neuanlage eines Tresors
-  /// oder das Löschen korrupter Daten.
-  Future<bool?> _showConfirmDialog(String title, String content, String confirmLabel) {
+  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
+  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: Text(content),
+        content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            autofocus: true,
-            child: Text(confirmLabel, style: TextStyle(color: confirmLabel.contains('löschen') ? Colors.red : null)),
+          TextButton(
+            child: Text(cancel ?? 'Abbrechen'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          TextButton(
+            autofocus: autofocus,
+            child: Text(ok ?? 'OK'),
+            onPressed: () => Navigator.of(ctx).pop(true),
           ),
         ],
       ),

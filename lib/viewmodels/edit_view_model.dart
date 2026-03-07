@@ -51,6 +51,9 @@ class EditViewModel extends BaseViewModel {
   bool _isPasswordHidden = true;
   bool _isEditMode = false;
 
+  // Map für Feld-Fehler (Key: Feldname, Value: Fehlermeldung)
+  final Map<String, String?> _fieldErrors = {};
+
   // ------------------------------------------------------------------------
   // --- Initialisierung ---
   // ------------------------------------------------------------------------
@@ -136,22 +139,43 @@ class EditViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
 
   /// Gibt an, ob etwas verändert wurde.
+  /// Das aktuelle Feld wird mit dem Wert aus dem Original verglichen
+  /// Falls kein Original existiert (Neuanlage), wird es mit einem leeren String verglichen.
   bool get isDirty =>
-      _originalPayload == null || // Neuer Eintrag
-      category != _originalPayload!.category ||
-      title != _originalPayload!.title ||
-      username != _originalPayload!.username ||
-      password != _originalPayload!.password ||
-      url != _originalPayload!.url ||
-      notes != _originalPayload!.notes;
+      _category.trim() != (_originalPayload?.category ?? '') ||
+      _title.trim() != (_originalPayload?.title ?? '') ||
+      _username.trim() != (_originalPayload?.username ?? '') ||
+      _password != (_originalPayload?.password ?? '') ||
+      _url.trim() != (_originalPayload?.url ?? '') ||
+      _notes.trim() != (_originalPayload?.notes ?? '');
+
+  // Validierung
+  bool validate() {
+    clearError();
+    _fieldErrors.clear();
+
+    if (_title.trim().isEmpty) {
+      notifyError("Doof");
+      _fieldErrors['title'] = 'Titel darf nicht leer sein';
+    }
+
+    // Hier kannst du weitere Pflichtfelder prüfen:
+    // if (_username.trim().isEmpty) _fieldErrors['username'] = '...';
+
+    notifyListeners();
+    return _fieldErrors.isEmpty;
+  }
 
   /// Speichert den aktuellen Eintrag in der Datenbank. Verschlüsselt dabei alle sensiblen Felder.
   /// Gibt die ID des gespeicherten Eintrags zurück.
   Future<int?> save() async {
-    if (_title.isEmpty) {
-      notifyError("Titel darf nicht leer sein");
-      return null;
-    }
+    _category = _category.trim();
+    _title = _title.trim();
+    _username = _username.trim();
+    _url = _url.trim();
+    _notes = _notes.trim();
+
+    if (!validate()) return null;
 
     setBusy(true);
     try {
@@ -232,6 +256,9 @@ class EditViewModel extends BaseViewModel {
   // --- Eigenschaften & Methoden ---
   // ------------------------------------------------------------------------
 
+  // Map für Feld-Fehler (Key: Feldname, Value: Fehlermeldung)
+  String? getFieldError(String fieldName) => _fieldErrors[fieldName];
+
   /// Steuert, ob die Ansicht im Edit- oder im Insert-Modus ist
   bool get isEditMode => _isEditMode;
 
@@ -255,6 +282,13 @@ class EditViewModel extends BaseViewModel {
 
   set title(String value) {
     _title = value;
+
+    // Fehler für dieses Feld sofort löschen, wenn getippt wird
+    if (_fieldErrors.containsKey('title')) {
+      _fieldErrors.remove('title');
+      notifyListeners();
+    }
+
     notifyListeners();
   }
 
