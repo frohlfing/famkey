@@ -52,13 +52,17 @@ class DatabaseService {
     _db = AppDatabase(vaultName, _bytesToHex(masterKey));
 
     // 3. Migrationen
-    //await runMigrations();
+    //await _runMigrations();
   }
 
-  /// Stellt sicher, dass die Datenbankverbindung initialisiert wurde.
-  /// Es wird ein Exception geworfen, falls die Verbindung nicht initialisiert wurde.
-  void ensureInitialized() {
+  /// Wirft ein Exception, falls die Datenbankverbindung nicht initialisiert wurde.
+  void _ensureDbInitialized() {
     if (_db == null) throw Exception("Datenbank ist nicht initialisiert!");
+  }
+
+  /// Wirft ein Exception, falls das DB-Verzeichnis nicht initialisiert wurde.
+  void _ensureDbPathInitialized() {
+    if (_currentDbPath == null || _currentDbPath!.isEmpty) throw Exception("DB-Verzeichnis ist nicht initialisiert!");
   }
 
   /// Schließt die aktuelle Datenbankverbindung.
@@ -74,7 +78,9 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   Future<VersionEntity> getVersion() async {
-    ensureInitialized();
+    _ensureDbInitialized();
+
+    // todo per ORM bauen
 
     final versionResult = await _db!.customSelect('SELECT major, minor, patch, updated_at FROM versions WHERE id = 1;').getSingleOrNull();
     if (versionResult == null) return VersionEntity(major: 0, minor: 0, patch: 0, updatedAt: DateTime.now().toUtc());
@@ -90,10 +96,7 @@ class DatabaseService {
   /// Das Drift-Framework kümmert sich automatisch um Schema-Änderungen (wie das Hinzufügen von Spalten), wenn die @UseRowClass
   /// Annotationen in den Tabellendefinitionen in database.dart aktualisiert und die Build-Runner-Codegenerierung ausgeführt wird.
   /// Diese Methode konzentriert sich auf die Versionsprüfung des Tresors und das Auslösen von manuellen Datenmigrationen.
-  Future<void> runMigrations() async {
-    // todo wird die Tabelle nicht automatisch erstellt? Wann werden die anderen Tabellen generiert?
-    await _db!.customStatement('CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY, major INTEGER, minor INTEGER, patch INTEGER, updated_at TEXT);');
-
+  Future<void> _runMigrations() async {
     // 1. Version vergleichen
     final dbVersion = await getVersion();
     if (dbVersion.major > 0 || dbVersion.minor > 0) {
@@ -124,13 +127,13 @@ class DatabaseService {
         // die nicht von Drifts Schema-Migrationen abgedeckt werden.
 
         // Versionsnummer im Tresor speichern
-        await saveVersion(AppVersion.major, AppVersion.minor, AppVersion.patch);
+        await _saveVersion(AppVersion.major, AppVersion.minor, AppVersion.patch);
       });
     }
   }
 
   /// Speichert die Schema-Version.
-  Future<void> saveVersion(int major, int minor, int patch) async {
+  Future<void> _saveVersion(int major, int minor, int patch) async {
     final companion = VersionsCompanion(
       id: const Value(1),
       major: Value(major),
@@ -186,7 +189,7 @@ class DatabaseService {
 
   /// Ändert das Verschlüsselungspasswort (bzw. den Key) der Datenbankdatei.
   Future<void> rekey(Uint8List newMasterKey) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
     final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     await _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
   }
@@ -196,7 +199,7 @@ class DatabaseService {
   /// Erstellt eine Sicherheitskopie der aktuellen Datenbankdatei.
   /// Wird z.B. vor kritischen Operationen wie `rekey` aufgerufen.
   Future<void> createBackup() async {
-    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    _ensureDbPathInitialized();
     final file = File(_currentDbPath!);
     if (await file.exists()) {
       await file.copy('$_currentDbPath.bak');
@@ -205,7 +208,7 @@ class DatabaseService {
 
   /// Entfernt eine zuvor erstellte Sicherheitskopie (bei erfolgreicher Operation).
   Future<void> removeBackup() async {
-    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
     final backupFile = File(backupPath);
     if (await backupFile.exists()) {
@@ -220,7 +223,7 @@ class DatabaseService {
   /// Stellt die Sicherheitskopie wieder her (bei fehlgeschlagener Operation).
   /// Die Datenbank muss geschlossen sein.
   Future<void> restoreBackup() async {
-    if (_currentDbPath == null || _currentDbPath!.isEmpty) return;
+    _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
     final backupFile = File(backupPath);
     if (!await backupFile.exists()) {
@@ -260,6 +263,7 @@ class DatabaseService {
 
   /// Schließt die DB und löscht physisch die DB- und Salt-Datei.
   Future<void> deleteCurrentDatabase() async {
+    _ensureDbPathInitialized();
     final path = _currentDbPath;
     await close();
 
@@ -278,7 +282,8 @@ class DatabaseService {
 
   /// Lädt alle registrierten Benutzerdatensätze.
   Future<List<UserEntity>> getUsers() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await _db!.select(_db!.users).get();
     return list
         .map(
@@ -297,7 +302,8 @@ class DatabaseService {
 
   /// Lädt einen Benutzer anhand seiner internen ID.
   Future<UserEntity?> getUser(int userId) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final query = _db!.select(_db!.users)..where((u) => u.id.equals(userId));
     final user = await query.getSingleOrNull();
     if (user == null) return null;
@@ -315,7 +321,8 @@ class DatabaseService {
 
   /// Lädt einen Benutzer anhand seiner globalen UUID.
   Future<UserEntity?> getUserByUuid(String userUuid) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.users)..where((u) => u.uuid.equals(userUuid))).getSingleOrNull();
     if (row == null) return null;
     return UserEntity(
@@ -333,7 +340,8 @@ class DatabaseService {
   ///
   /// Der Benutzer der App ist immer verifiziert. Es werden also ausschließlich die Freunde betrachtet.
   Future<bool> hasUnverifiedUser() async {
-    if (_db == null) return false;
+    _ensureDbInitialized();
+
     final countExp = _db!.users.id.count();
     final query = _db!.selectOnly(_db!.users)
       ..addColumns([countExp])
@@ -345,14 +353,13 @@ class DatabaseService {
   /// Speichert einen neuen Benutzer oder aktualisiert einen bestehenden Datensatz.
   /// Zurückgegeben wird die Entität mit der aktualisierten ID.
   Future<UserEntity> saveUser(UserEntity user) async {
-    if (_db == null) return user;
+    _ensureDbInitialized();
 
     // Existierenden Datensatz suchen (id ODER uuid)
     final existing =
         await (_db!.select(_db!.users)
-              //..where((u) => u.id.equals(entity.id ?? -1) | u.uuid.equals(entity.uuid)))
-              ..where((u) => (user.id != null ? u.id.equals(user.id!) : const Constant(false)) | u.uuid.equals(user.uuid)))
-            .getSingleOrNull();
+          ..where((u) => (user.id != null ? u.id.equals(user.id!) : const Constant(false)) | u.uuid.equals(user.uuid)))
+          .getSingleOrNull();
 
     var companion = UsersCompanion(
       uuid: Value(user.uuid),
@@ -377,7 +384,8 @@ class DatabaseService {
 
   /// Verbirgt einen Benutzer und entwertet seine Schlüssel (Vertrauensentzug).
   Future<void> hideUser(int userId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     final now = DateTime.now().toUtc();
     await _db!.transaction(() async {
       // 1. Alle Permissions des Users entwerten.
@@ -414,7 +422,8 @@ class DatabaseService {
 
   /// Löscht einen Benutzer und alle damit verbundenen Daten (Einträge, Permissions, Anhänge).
   Future<void> deleteUser(int userId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     await _db!.transaction(() async {
       // 1. Lösche alle Permissions, die der Benutzer selbst hat
       await (_db!.delete(_db!.permissions)..where((p) => p.userId.equals(userId))).go();
@@ -443,7 +452,8 @@ class DatabaseService {
 
   /// Lädt alle nicht gelöschten Einträge aus dem Tresor.
   Future<List<EntryEntity>> getEntries() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await _db!.select(_db!.entries).get();
     return list
         .map(
@@ -466,7 +476,8 @@ class DatabaseService {
 
   /// Lädt alle Einträge, die nach einem bestimmten Zeitpunkt aktualisiert wurden (inkrementeller Sync).
   Future<List<EntryEntity>> getEntriesSince(DateTime since) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.entries)..where((e) => e.updatedAt.isBiggerThanValue(since))).get();
     return list
         .map(
@@ -489,7 +500,7 @@ class DatabaseService {
 
   /// Liefert die Liste der bereits gespeicherten Kategorien.
   Future<List<String>> getCategories() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
 
     final query = _db!.selectOnly(_db!.entries, distinct: true)
       ..addColumns([_db!.entries.category]) // Nur die Spalte 'category' selektieren
@@ -505,7 +516,8 @@ class DatabaseService {
 
   /// Lädt einen Eintrag anhand seiner internen ID.
   Future<EntryEntity?> getEntry(int entryId) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entryId))).getSingleOrNull();
     if (row == null) return null;
     return EntryEntity(
@@ -525,9 +537,11 @@ class DatabaseService {
 
   /// Lädt einen Eintrag anhand seiner globalen UUID.
   Future<EntryEntity?> getEntryByUuid(String entryUuid) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(entryUuid))).getSingleOrNull();
     if (row == null) return null;
+
     return EntryEntity(
       id: row.id,
       uuid: row.uuid,
@@ -545,7 +559,7 @@ class DatabaseService {
 
   /// Speichert einen Tresor-Eintrag und aktualisiert automatisch den Zeitstempel.
   Future<void> saveEntry(EntryEntity entry) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
 
     final companion = EntriesCompanion(
       uuid: Value(entry.uuid),
@@ -570,7 +584,7 @@ class DatabaseService {
   /// Speichert einen Tresor-Eintrag und die Berechtigung auf diesen Eintrag für den angegebenen Benutzer.
   /// `encryptedKey` ist der verschlüsselte Entry-Key des Benutzers für diesen Eintrag.
   Future<int> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
-    if (_db == null) throw Exception("Datenbank nicht initialisiert");
+    _ensureDbInitialized();
 
     return await _db!.transaction(() async {
       int actualEntryId;
@@ -621,7 +635,8 @@ class DatabaseService {
 
   /// Löscht einen Eintrag mit allen zugehörigen Berechtigungen und Anhängen.
   Future<void> deleteEntry(int entryId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     await _db!.transaction(() async {
       // 1. Alle Berechtigungen für diesen Eintrag löschen
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(entryId))).go();
@@ -640,7 +655,8 @@ class DatabaseService {
 
   /// Lädt alle Berechtigungen.
   Future<List<PermissionEntity>> getPermissions() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await _db!.select(_db!.permissions).get();
     return list
         .map(
@@ -651,7 +667,8 @@ class DatabaseService {
 
   /// Lädt alle Berechtigungen auf einen bestimmten Eintrag.
   Future<List<PermissionEntity>> getPermissionsByEntryId(int entryId) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId))).get();
     return list
         .map(
@@ -662,7 +679,8 @@ class DatabaseService {
 
   /// Lädt alle Berechtigungen eines bestimmten Benutzers.
   Future<List<PermissionEntity>> getPermissionsByUserId(int userId) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId))).get();
     return list
         .map(
@@ -673,7 +691,8 @@ class DatabaseService {
 
   /// Lädt alle Berechtigungen mit leeren Entry-Key eines bestimmten Benutzers.
   Future<List<PermissionEntity>> getPermissionsWithoutKeyByUserId(int userId) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId) & p.encryptedKey.equals(''))).get();
     return list
         .map(
@@ -691,7 +710,8 @@ class DatabaseService {
   /// Prüft, ob es Berechtigungen mit geleerten Entry-Keys gibt (durch `removeEntryKeysForUser`).
   /// In diesem Fall darf keine Synchronisation durchgeführt werden (da der betroffene Freund den Eintrag nicht öffnen könnte).
   Future<bool> hasPermissionsWithoutKey() async {
-    if (_db == null) return false;
+    _ensureDbInitialized();
+
     final countExp = _db!.permissions.id.count();
     final query = _db!.selectOnly(_db!.permissions)
       ..addColumns([countExp])
@@ -700,20 +720,10 @@ class DatabaseService {
     return (result ?? 0) > 0;
   }
 
-  // /// Prüft, ob ein Benutzer Zugriff auf Einträge hat, aber seine Entry-Keys geleert wurden (durch `removeEntryKeysForUser`).
-  // Future<bool> hasPermissionsWithoutKeyByUserId(int userId) async {
-  //     if (_db == null) return false;
-  //     final countExp = _db!.permissions.id.count();
-  //     final query = _db!.selectOnly(_db!.permissions)
-  //         ..addColumns([countExp])
-  //         ..where(_db!.permissions.userId.equals(userId) & _db!.permissions.encryptedKey.equals(''));
-  //     final result = await query.map((row) => row.read(countExp)).getSingle();
-  //     return (result ?? 0) > 0;
-  // }
-
   /// Liefert eine Liste aller IDs von Benutzern, die Zugriff auf Einträge mit geleerten Entry-Key haben.
   Future<List<int>> getUserIdsWithEmptyEntryKeys() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final query = _db!.selectOnly(_db!.permissions, distinct: true)
       ..addColumns([_db!.permissions.userId])
       ..where(_db!.permissions.encryptedKey.equals('') & _db!.permissions.accessLevel.isNotValue(0));
@@ -726,7 +736,8 @@ class DatabaseService {
 
   /// Lädt eine Berechtigung anhand seiner internen ID.
   Future<PermissionEntity?> getPermission(int permissionId) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.permissions)..where((p) => p.id.equals(permissionId))).getSingleOrNull();
     if (row == null) return null;
     return PermissionEntity(
@@ -740,7 +751,8 @@ class DatabaseService {
 
   /// Lädt die Berechtigung eines Benutzers für einen Eintrag.
   Future<PermissionEntity?> getPermissionByEntryIdAndUserId(int entryId, int userId) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId))).getSingleOrNull();
     if (row == null) return null;
     return PermissionEntity(
@@ -754,7 +766,7 @@ class DatabaseService {
 
   /// Speichert eine neue oder aktualisierte Berechtigung.
   Future<void> savePermission(PermissionEntity permission) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
 
     final companion = PermissionsCompanion(
       entryId: Value(permission.entryId),
@@ -772,7 +784,7 @@ class DatabaseService {
 
   /// Aktualisiert eine Liste von Berechtigungen.
   Future<void> updatePermissions(List<PermissionEntity> permissions) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
 
     await _db!.transaction(() async {
       for (final p in permissions) {
@@ -786,7 +798,8 @@ class DatabaseService {
 
   /// Löscht eine Berechtigung.
   Future<void> deletePermission(int permissionId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go();
   }
 
@@ -796,7 +809,8 @@ class DatabaseService {
   /// Wenn ja, wird der Entry-Key durch diese Methode, da er unbrauchbar geworden ist. Der Fingerprint
   /// des Freundes muss in dem Fall erneut verifiziert werden, wodurch der Entry-Key wieder gesetzt wird.
   Future<void> removeEntryKeysForUser(int userId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     final now = DateTime.now().toUtc();
 
     await _db!.transaction(() async {
@@ -832,14 +846,16 @@ class DatabaseService {
 
   /// Lädt alle Löschmarker (Tombstones) seit dem angegebenen Zeitpunkt ab.
   Future<List<TombstoneEntity>> getTombstonesSince(DateTime since) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
     return list.map((t) => TombstoneEntity(id: t.id, entryUuid: t.entryUuid, deletedAt: t.deletedAt)).toList();
   }
 
   /// Speichert einen Löschmarker, um die Entfernung eines Eintrags synchronisieren zu können.
   Future<void> saveTombstone(TombstoneEntity tombstone) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     await _db!.into(_db!.tombstones).insertOnConflictUpdate(TombstonesCompanion(entryUuid: Value(tombstone.entryUuid), deletedAt: Value(tombstone.deletedAt)));
   }
 
@@ -849,7 +865,8 @@ class DatabaseService {
 
   /// Lädt alle Anhänge eines bestimmten Eintrags.
   Future<List<AttachmentEntity>> getAttachmentsByEntryId(int entryId) async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.attachments)..where((a) => a.entryId.equals(entryId))).get();
     return list
         .map(
@@ -867,7 +884,8 @@ class DatabaseService {
 
   /// Lädt alle Anhänge, die noch nicht erfolgreich mit dem Server synchronisiert wurden.
   Future<List<AttachmentEntity>> getAttachmentsUnsynced() async {
-    if (_db == null) return [];
+    _ensureDbInitialized();
+
     final list = await (_db!.select(_db!.attachments)..where((a) => a.isSynced.equals(false))).get();
     return list
         .map(
@@ -885,9 +903,11 @@ class DatabaseService {
 
   /// Lädt einen Anhang anhand seiner internen ID.
   Future<AttachmentEntity?> getAttachment(int attachmentId) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.attachments)..where((a) => a.id.equals(attachmentId))).getSingleOrNull();
     if (row == null) return null;
+
     return AttachmentEntity(
       id: row.id,
       uuid: row.uuid,
@@ -900,9 +920,11 @@ class DatabaseService {
 
   /// Lädt einen Anhang anhand seiner UUID.
   Future<AttachmentEntity?> getAttachmentByUuid(String attachmentUuid) async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final row = await (_db!.select(_db!.attachments)..where((a) => a.uuid.equals(attachmentUuid))).getSingleOrNull();
     if (row == null) return null;
+
     return AttachmentEntity(
       id: row.id,
       uuid: row.uuid,
@@ -915,7 +937,8 @@ class DatabaseService {
 
   /// Speichert einen Anhang oder aktualisiert einen bestehenden.
   Future<void> saveAttachment(AttachmentEntity attachment) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     final companion = AttachmentsCompanion(
       uuid: Value(attachment.uuid),
       entryId: Value(attachment.entryId),
@@ -933,7 +956,8 @@ class DatabaseService {
 
   /// Löscht einen Anhang anhand seiner internen ID.
   Future<void> deleteAttachment(int attachmentId) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(attachmentId))).go();
   }
 
@@ -943,7 +967,8 @@ class DatabaseService {
 
   /// Lädt die globalen Einstellungen für den aktuellen Tresor.
   Future<SettingsEntity?> getSettings() async {
-    if (_db == null) return null;
+    _ensureDbInitialized();
+
     final query = _db!.select(_db!.settings)..where((s) => s.id.equals(1));
     final s = await query.getSingleOrNull();
     if (s == null) return null;
@@ -965,7 +990,8 @@ class DatabaseService {
 
   /// Speichert oder ersetzt die globalen Tresor-Einstellungen.
   Future<void> saveSettings(SettingsEntity s) async {
-    if (_db == null) return;
+    _ensureDbInitialized();
+
     final companion = SettingsCompanion(
       id: const Value(1),
       salt: Value(s.salt),

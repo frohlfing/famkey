@@ -11,6 +11,14 @@ import 'package:flutter/foundation.dart';
 
 part 'database.g.dart';
 
+/// Definition des Datenbank-Schemas
+///
+/// WICHTIG:
+/// Wenn hier etwas geändert wird, muss `database.g.dart` mit diesem Befehl neu generiert werden:
+/// ```shell
+/// flutter pub run build_runner build --delete-conflicting-outputs
+/// ```
+
 @DataClassName('UserData')
 class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -145,8 +153,36 @@ class AppDatabase extends _$AppDatabase {
 
   AppDatabase(this.dbName, this.password) : super(_openConnection(dbName, password));
 
+  // Bei einer Änderung muss die Version erhöht werden, damit Drift weiß, dass es die Änderung ausführen muss.
   @override
   int get schemaVersion => 1;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    // Wird aufgerufen, wenn die DB zum allerersten Mal erstellt wird
+    onCreate: (m) async {
+      await m.createAll();
+    },
+
+    // Wird aufgerufen, wenn schemaVersion im Code höher ist als in der DB-Datei
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Beispiel: Wenn du UserEntity hinzufügst und die Version auf 2 erhöhst:
+        // await m.createTable(userEntities);
+      }
+    },
+
+    // Wird jedes Mal aufgerufen, wenn die DB geöffnet wird
+    beforeOpen: (details) async {
+      // Aktiviert Foreign Key Support in SQLite
+      await customStatement('PRAGMA foreign_keys = ON');
+
+      if (kDebugMode) {
+        // Hier könntest du Prüfungen durchführen oder Testdaten einfügen
+        print('Datenbank geöffnet. Schema Version: ${details.versionNow}');
+      }
+    },
+  );
 
   static QueryExecutor _openConnection(String name, String password) {
     return LazyDatabase(() async {
@@ -169,10 +205,14 @@ class AppDatabase extends _$AppDatabase {
         debugPrint("🔑 DB-Passwort: $password");
       }
 
+      // Datenbank öffnen
       final rawDb = sqlite3.open(file.path);
+
+      // Datenbank entsperren
       rawDb.execute("PRAGMA cipher = 'sqlcipher';");
       rawDb.execute("PRAGMA hexkey = '$password';");
 
+      // Ab hier übernimmt Drift und prüft, ob die Tabellen aktualisiert werden müssen.
       return NativeDatabase.opened(rawDb);
     });
   }
