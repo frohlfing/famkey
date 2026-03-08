@@ -380,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     viewModel.getFingerprint(friend.publicKey),
                                     style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
                                   ),
-                                  if (friend.id != null && viewModel.needsRekeying(friend.id!))
+                                  if (viewModel.needsRekeying(friend.id))
                                     const Padding(
                                       padding: EdgeInsets.only(top: 4),
                                       child: Text(

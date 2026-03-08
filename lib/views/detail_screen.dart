@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:privault/database/database.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
-
-import '../models/entities/user_entity.dart';
 
 /// Der [DetailScreen] ist dafür zuständig, dir die vollständigen Details eines bestimmten
 /// Tresor-Eintrags anzuzeigen.
@@ -315,7 +314,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         )
                       else
                         ...viewModel.sharedWith.map((friend) {
-                          final isWritable = viewModel.getAccessLevel(friend.id!) == 2;
+                          final isWritable = viewModel.getAccessLevel(friend.id) == 2;
                           Widget leadingIcon = Stack(
                             alignment: Alignment.bottomRight,
                             children: [

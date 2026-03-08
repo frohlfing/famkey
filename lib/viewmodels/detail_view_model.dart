@@ -2,10 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:privault/core/base_view_model.dart';
-import 'package:privault/models/entities/user_entity.dart';
-import 'package:privault/models/entities/entry_entity.dart';
-import 'package:privault/models/entities/attachment_entity.dart';
-import 'package:privault/models/entities/permission_entity.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -118,7 +115,7 @@ class DetailViewModel extends BaseViewModel {
       if (_entry == null) throw Exception("Eintrag nicht gefunden");
 
       // 1. Berechtigung prüfen
-      final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, 1);
+      final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
       if (perm == null) throw Exception("Keine Berechtigung für diesen Eintrag");
       _myAccessLevel = perm.accessLevel;
 
@@ -285,9 +282,14 @@ class DetailViewModel extends BaseViewModel {
       final encryptedContent = await _cryptoService.encrypt(bytes, _entryKey!);
 
       // 3. Entity speichern
-      final attEntity = AttachmentEntity(uuid: const Uuid().v4(), entryId: _entry!.id!, encryptedMeta: encryptedMeta, encryptedContent: encryptedContent, isSynced: false);
-
-      await _databaseService.saveAttachment(attEntity);
+      await _databaseService.saveAttachment(AttachmentEntity(
+        id: 0,
+        uuid: const Uuid().v4(),
+        entryId: _entry!.id,
+        encryptedMeta: encryptedMeta,
+        encryptedContent: encryptedContent,
+        isSynced: false,
+      ));
 
       // 4. Haupteintrag aktualisieren (für Sync-Trigger)
       _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
@@ -348,7 +350,7 @@ class DetailViewModel extends BaseViewModel {
   Future<void> deleteAttachment(AttachmentEntity attachment) async {
     setBusy(true);
     try {
-      await _databaseService.deleteAttachment(attachment.id!);
+      await _databaseService.deleteAttachment(attachment.id);
       await _loadAttachments();
     } catch (e, st) {
       logError("Fehler beim Löschen: $e", st);
@@ -360,7 +362,7 @@ class DetailViewModel extends BaseViewModel {
 
   /// Lädt und entschlüsselt die Metadaten aller Anhänge (Lazy Loading).
   Future<void> _loadAttachments() async {
-    _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id!);
+    _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
     _attachmentMetas.clear();
     for (var att in _attachments) {
       final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
@@ -485,21 +487,21 @@ class DetailViewModel extends BaseViewModel {
 
   /// Teilt den Eintrag mit einem Freund.
   Future<void> shareWith(UserEntity targetUser) async {
-    if (_entry == null || _entryKey == null || targetUser.id == null) return;
+    if (_entry == null || _entryKey == null) return;
     setBusy(true);
     try {
-      final existing = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, targetUser.id!);
+      final existing = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, targetUser.id);
 
       if (existing == null) {
         // Neues Zugriffsrecht: Entry-Key mit RSA-PubKey des Empfängers verschlüsseln
         final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
-        final perm = PermissionEntity(
-          entryId: _entry!.id!,
-          userId: targetUser.id!,
+        await _databaseService.savePermission(PermissionEntity(
+          id: 0,
+          entryId: _entry!.id,
+          userId: targetUser.id,
           encryptedKey: encryptedEntryKey,
           accessLevel: 1, // Default: Nur Lesen (max 2 beim direkten Teilen)
-        );
-        await _databaseService.savePermission(perm);
+        ));
       } else {
         // Bestehendes (ggf. entzogenes) Recht reaktivieren
         String encryptedEntryKey = existing.encryptedKey;
@@ -522,10 +524,10 @@ class DetailViewModel extends BaseViewModel {
 
   /// Aktualisiert die Berechtigungsstufe eines Freundes.
   Future<void> updateAccessLevel(UserEntity user, int newLevel) async {
-    if (_entry == null || user.id == null || _entryKey == null) return;
+    if (_entry == null || _entryKey == null) return;
     setBusy(true);
     try {
-      final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, user.id!);
+      final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, user.id);
       if (perm != null && perm.accessLevel != newLevel) {
         // Limit auf max Level 2 (wie in MAUI)
         final effectiveLevel = newLevel < 3 ? newLevel : 2; // Max Level 2 beim Teilen
@@ -559,7 +561,7 @@ class DetailViewModel extends BaseViewModel {
   /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
   Future<void> _loadSharedFriends() async {
     if (_entry == null) return;
-    final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id!);
+    final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
     List<UserEntity> shared = [];
     _friendAccessLevels.clear();
     for (var p in permissions) {
@@ -568,7 +570,7 @@ class DetailViewModel extends BaseViewModel {
       final friend = await _databaseService.getUser(p.userId);
       if (friend != null) {
         shared.add(friend);
-        _friendAccessLevels[friend.id!] = p.accessLevel;
+        _friendAccessLevels[friend.id] = p.accessLevel;
       }
     }
     _sharedFriends = shared;
@@ -578,7 +580,7 @@ class DetailViewModel extends BaseViewModel {
   /// Lädt die vollständige Liste aller Benutzer aus der lokalen Datenbank
   Future<void> _loadFriends() async {
     final allUsers = await _databaseService.getUsers();
-    _friends = allUsers.where((u) => (u.id ?? 0) > 1 && !u.isHidden).toList();
+    _friends = allUsers.where((u) => u.id > 1 && !u.isHidden).toList();
     notifyListeners();
   }
 }

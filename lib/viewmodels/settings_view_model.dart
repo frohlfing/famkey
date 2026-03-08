@@ -3,8 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:privault/core/base_view_model.dart';
-import 'package:privault/models/entities/settings_entity.dart';
-import 'package:privault/models/entities/user_entity.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/database_service.dart';
@@ -201,7 +200,15 @@ class SettingsViewModel extends BaseViewModel {
 
       // 2. Alle Basis-Einstellungen in der DB speichern (Host, API, PW-Gen).
       final normalizedHost = _host.trim().replaceAll(RegExp(r'/+$'), '');
-      final updated = _settings!.copyWith(host: normalizedHost, apiToken: _apiToken.trim(), useBiometric: _useBiometric, pwLength: _pwLength, pwSpecialChars: _pwSpecialCharSet, pwAvoidIlO0: _pwAvoidIlO0, categoryPlaceholder: _categoryPlaceholder);
+      final updated = _settings!.copyWith(
+          host: normalizedHost,
+          apiToken: _apiToken.trim(),
+          useBiometric: _useBiometric,
+          pwLength: _pwLength,
+          pwSpecialChars: _pwSpecialCharSet,
+          pwAvoidIlO0: _pwAvoidIlO0,
+          categoryPlaceholder: _categoryPlaceholder,
+      );
       await _databaseService.saveSettings(updated);
 
       // 3. Benutzername aktualisieren (falls nicht registriert)
@@ -455,7 +462,12 @@ class SettingsViewModel extends BaseViewModel {
         _settings = updatedSettings; // Lokale Kopie im ViewModel aktualisieren
 
         // 8) Session aktualisieren
-        _sessionService.setSession(user: _sessionService.user!, privateKey: _sessionService.privateKey!, vaultName: _vaultName, settings: updatedSettings);
+        _sessionService.setSession(
+            user: _sessionService.user!,
+            privateKey: _sessionService.privateKey!,
+            vaultName: _vaultName,
+            settings: updatedSettings,
+        );
 
         // Server informieren
         // todo das muss unbedingt erst beim Sync passieren.
@@ -622,17 +634,14 @@ class SettingsViewModel extends BaseViewModel {
   /// Lädt alle Freunde aus der Datenbank und bereitet sie für die Liste vor.
   Future<void> loadFriends() async {
     final allUsers = await _databaseService.getUsers();
-    _friends = allUsers.where((u) => (u.id ?? 0) > 1 && !u.isHidden).toList();
+    _friends = allUsers.where((u) => u.id > 1 && !u.isHidden).toList();
 
     // 1. Alle IDs auf einmal abrufen, die ein Rekeying benötigen
     final idsWithMissingKeys = await _databaseService.getUserIdsWithEmptyEntryKeys();
 
     _friendNeedsRekeying.clear();
     for (var f in _friends) {
-      if (f.id != null) {
-        _friendNeedsRekeying[f.id!] = idsWithMissingKeys.contains(f.id);
-        // _friendNeedsRekeying[f.id!] = await _databaseService.hasPermissionsWithoutKeyByUserId(f.id!);
-      }
+      _friendNeedsRekeying[f.id] = idsWithMissingKeys.contains(f.id);
     }
     notifyListeners();
   }
@@ -678,8 +687,14 @@ class SettingsViewModel extends BaseViewModel {
       }
 
       // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
-      final newUser = UserEntity(uuid: userResponse.userUuid, name: trimmedName, publicKey: userResponse.publicKey, isVerified: false, isHidden: false, updatedAt: DateTime.now().toUtc());
-      await _databaseService.saveUser(newUser);
+      await _databaseService.saveUser(UserEntity(
+        id: 0,
+        uuid: userResponse.userUuid,
+        name: trimmedName,
+        publicKey: userResponse.publicKey,
+        isVerified: false, isHidden: false,
+        updatedAt: DateTime.now().toUtc(),
+      ));
 
       // UI-Liste neu laden
       await loadFriends();
@@ -735,13 +750,13 @@ class SettingsViewModel extends BaseViewModel {
     if (friend == null) return;
     try {
       // Prüfen, ob der User überhaupt Berechtigungen hat
-      var perms = await _databaseService.getPermissionsByUserId(friend.id!);
+      var perms = await _databaseService.getPermissionsByUserId(friend.id);
       if (perms.isEmpty) {
         // Es werden keine Einträge mit dem Freund geteilt, daher kann er gelöscht werden.
-        await _databaseService.deleteUser(friend.id!);
+        await _databaseService.deleteUser(friend.id);
       } else {
         // Der Freund wird nicht gelöscht, sondern ausgeblendet, damit beim Synchronisieren alle geteilten Einträge entfernt werden können.
-        await _databaseService.hideUser(friend.id!);
+        await _databaseService.hideUser(friend.id);
       }
 
       // Aus der UI-Liste entfernen
@@ -866,7 +881,7 @@ class SettingsViewModel extends BaseViewModel {
     try {
       clearError();
       // 1. Die geleerten Berechtigungen des Freundes laden
-      var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id!);
+      var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id);
       for (var perm in dirtyPermissions) {
         // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
         var myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
@@ -882,8 +897,8 @@ class SettingsViewModel extends BaseViewModel {
         perm = perm.copyWith(encryptedKey: encryptedKey);
         await _databaseService.savePermission(perm);
       }
-      if (_friendNeedsRekeying[friend.id!] ?? false) {
-        _friendNeedsRekeying[friend.id!] = false;
+      if (_friendNeedsRekeying[friend.id] ?? false) {
+        _friendNeedsRekeying[friend.id] = false;
         notifyListeners();
       }
     } catch (e, st) {

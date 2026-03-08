@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:privault/core/base_view_model.dart';
-import 'package:privault/models/entities/entry_entity.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
@@ -92,7 +92,7 @@ class EditViewModel extends BaseViewModel {
         _entry = await _databaseService.getEntry(id);
         if (_entry != null) {
           // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
-          final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id!, 1);
+          final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
           if (perm != null && _sessionService.privateKey != null) {
             _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
 
@@ -208,7 +208,7 @@ class EditViewModel extends BaseViewModel {
 
       // 5. Entity erstellen und speichern
       final entity = EntryEntity(
-        id: _entry?.id,
+        id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
         category: _category,
         title: _title,
@@ -216,17 +216,17 @@ class EditViewModel extends BaseViewModel {
         notes: _notes,
         favicon: faviconBase64,
         encryptedData: encryptedData,
-        creatorId: _sessionService.user!.id ?? 1,
-        updaterId: _sessionService.user!.id ?? 1,
+        creatorId: _sessionService.user!.id,
+        updaterId: _sessionService.user!.id,
         updatedAt: DateTime.now().toUtc(),
       );
 
-      final savedId = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
+      final savedEntry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
       // 6. Den Original-Stand für Dirty-Check aktualisieren
       _originalPayload = payload;
 
-      return savedId;
+      return savedEntry.id;
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
       notifyUnexpectedError();
@@ -238,10 +238,10 @@ class EditViewModel extends BaseViewModel {
 
   /// Löscht den aktuellen Eintrag.
   Future<bool> deleteEntry() async {
-    if (_entry == null || _entry!.id == null) return false;
+    if (_entry == null) return false;
     setBusy(true);
     try {
-      await _databaseService.deleteEntry(_entry!.id!);
+      await _databaseService.deleteEntry(_entry!.id);
       return true;
     } catch (e, st) {
       logError('Fehler beim Löschen: $e', st);

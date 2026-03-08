@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:privault/core/base_view_model.dart';
-import 'package:privault/models/entities/user_entity.dart';
-import 'package:privault/models/entities/settings_entity.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -183,26 +182,30 @@ class LoginViewModel extends BaseViewModel {
       // 7. UserEntity mit der ID = 1 (Benutzer der App) erstellen.
       // SQLite-net schaut beim Insert in seine interne Sequenz-Tabelle.
       // Da die Datenbank neu ist, ist die nächste freie ID immer die 1.
-      var newUser = UserEntity(
+      final newUser = await _databaseService.saveUser(UserEntity(
+        id: 0,
         uuid: const Uuid().v4(),
         name: Platform.environment['USERNAME'] ?? 'User',
         publicKey: pubKey,
         isVerified: true,
+        isHidden: false,
         updatedAt: DateTime.now().toUtc(),
-      );
-      newUser = await _databaseService.saveUser(newUser);
+      ));
 
       // 8.  Settings anlegen
-      final newSettings = SettingsEntity(
+      final newSettings = await _databaseService.saveSettings(SettingsEntity(
+        id: 0,
         salt: base64.encode(salt),
         encryptedPrivateKey: encryptedPrivKey,
-        useBiometric: false,
-        lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
-        host: kDebugMode ? 'https://privault.test/api' : '',
-        // todo später wieder auskommentieren!!!!
+        host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
         apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
-      );
-      await _databaseService.saveSettings(newSettings);
+        useBiometric: false,
+        pwLength: 16,
+        pwSpecialChars: '',
+        pwAvoidIlO0: true,
+        categoryPlaceholder: '',
+        lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
+      ));
 
       // 9. Letzten Tresor merken
       _configService.lastVaultName = _vaultName;

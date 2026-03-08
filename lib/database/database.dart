@@ -16,7 +16,7 @@ part 'database.g.dart';
 /// WICHTIG:
 /// Wenn hier etwas geändert wird, muss `database.g.dart` mit diesem Befehl neu generiert werden:
 /// ```shell
-/// flutter pub run build_runner build --delete-conflicting-outputs
+/// dart run build_runner build --delete-conflicting-outputs
 /// ```
 
 /// Repräsentiert eine Benutzeridentität innerhalb eines Tresors.
@@ -45,10 +45,10 @@ class Users extends Table {
   TextColumn get publicKey => text()();
 
   /// Gibt an, ob die Identität dieses Benutzers (per Fingerprint-Vergleich) manuell verifiziert wurde.
-  BoolColumn get isVerified => boolean().withDefault(const Constant(false))();
+  BoolColumn get isVerified => boolean()();
 
   /// Gibt an, ob der Benutzer in der UI ausgeblendet ist (z.B. gelöschte Freunde, die wegen Sync noch erhalten bleiben müssen).
-  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
+  BoolColumn get isHidden => boolean()();
 
   /// Zeitpunkt der letzten Änderung (UTC).
   DateTimeColumn get updatedAt => dateTime()();
@@ -65,20 +65,20 @@ class Entries extends Table {
   TextColumn get uuid => text().unique()();
 
   /// Die Kategorie des Eintrags.
-  TextColumn get category => text().withDefault(const Constant(''))();
+  TextColumn get category => text()();
 
   /// Der Anzeigename des Eintrags.
-  TextColumn get title => text().withDefault(const Constant(''))();
+  TextColumn get title => text()();
 
   /// Die zugehörige Adresse der Webseite oder des Dienstes.
-  TextColumn get url => text().withDefault(const Constant(''))();
+  TextColumn get url => text()();
 
   /// Ergänzende Notizen.
-  TextColumn get notes => text().withDefault(const Constant(''))();
+  TextColumn get notes => text()();
 
   /// Der binäre Dateninhalt des Website-Icons, gespeichert als Base64-kodierter String.
   /// Ermöglicht die visuelle Identifikation in der Liste ohne zusätzliche Netzwerkanfragen.
-  TextColumn get favicon => text().withDefault(const Constant(''))();
+  TextColumn get favicon => text()();
 
   /// Der AES-256-GCM verschlüsselte Daten-Container (Ciphertext + Nonce + Auth-Tag).
   /// Enthält das serialisierte JSON-Objekt der Klasse [EntryPayload].
@@ -149,7 +149,7 @@ class Attachments extends Table {
   TextColumn get encryptedContent => text()();
 
   /// `true`, wenn der Anhang erfolgreich zum Server synchronisiert wurde, sonst `false`.
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean()();
 }
 
 /// Repräsentiert einen Löschmarker ("Tombstone") für Tresoreinträge.
@@ -179,7 +179,7 @@ class Tombstones extends Table {
 /// **Besonderheit:**
 /// Diese Tabelle fungiert als Singleton-Speicher und enthält systembedingt exakt einen Datensatz,
 /// welcher die Konfiguration für die aktuelle Tresor-Instanz beschreibt.
-@DataClassName('SettingEntity')
+@DataClassName('SettingsEntity')
 class Settings extends Table {
   /// Die interne ID (Primärschlüssel).
   /// Da es sich um einen Singleton-Datensatz handelt, ist der Wert hierbei stets 1.
@@ -196,15 +196,15 @@ class Settings extends Table {
   // --- Sync-Einstellungen ---
 
   /// Die URL des Sync-Servers (Host).
-  TextColumn get host => text().nullable()();
+  TextColumn get host => text()();
 
   /// Das API-Token zur Authentifizierung gegenüber dem Sync-Server.
-  TextColumn get apiToken => text().nullable()();
+  TextColumn get apiToken => text()();
 
   // --- Biometrie ---
 
   /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
-  BoolColumn get useBiometric => boolean().withDefault(const Constant(true))();
+  BoolColumn get useBiometric => boolean()();
 
   // --- Passwort-Generator ---
 
@@ -212,7 +212,7 @@ class Settings extends Table {
   IntColumn get pwLength => integer().withDefault(const Constant(16))();
 
   /// Die vom Passwortgenerator verwendeten Sonderzeichen.
-  TextColumn get pwSpecialChars => text().nullable()();
+  TextColumn get pwSpecialChars => text()();
 
   /// Gibt an, ob der Passwortgenerator verwechselbare Zeichen (I, l, O, 0) ausschließen soll.
   BoolColumn get pwAvoidIlO0 => boolean().withDefault(const Constant(true))();
@@ -220,7 +220,7 @@ class Settings extends Table {
   // --- Aussehen ---
 
   /// Der Name, der in der UI als Platzhalter für Einträge ohne explizite Kategorie verwendet wird.
-  TextColumn get categoryPlaceholder => text().nullable()();
+  TextColumn get categoryPlaceholder => text()();
 
   // --- Synchronisation ---
 

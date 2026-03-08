@@ -3,15 +3,11 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:privault/core/app_version.dart';
 import 'package:privault/core/base_view_model.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
-import 'package:privault/models/entities/attachment_entity.dart';
-import 'package:privault/models/entities/entry_entity.dart';
-import 'package:privault/models/entities/permission_entity.dart';
-import 'package:privault/models/entities/tombstone_entity.dart';
 import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
 import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
-import 'package:privault/models/entities/user_entity.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/friend_payload.dart';
 import 'package:privault/services/database_service.dart';
@@ -478,14 +474,14 @@ class MainViewModel extends BaseViewModel {
     final publicKeys = await _webService.getPublicKeys(userResponse.userUuid);
 
     // 3. Prüfen, ob der Öffentliche Schlüssel der lokalen Freunde aktuell ist.
-    for (var localFriend in localUsers.where((u) => (u.id ?? 0) > 1)) {
+    for (var localFriend in localUsers.where((u) => u.id > 1)) {
       // Den aktuellen öffentlichen Schlüssel holen
       final pkEntry = publicKeys.where((pk) => pk['user_uuid'] == localFriend.uuid).firstOrNull;
       final publicKey = pkEntry?['public_key'] as String?;
 
       if (publicKey == null) {
         // der Freund existiert auf dem Server nicht mehr
-        await _databaseService.deleteUser(localFriend.id!);
+        await _databaseService.deleteUser(localFriend.id);
         continue;
       }
 
@@ -494,7 +490,7 @@ class MainViewModel extends BaseViewModel {
         // Der lokal gespeicherte RSA-Key ist veraltet.
 
         // Alle verschlüsselten Entry-Keys des Freundes werden geleert, da sie unbrauchbar geworden sind.
-        await _databaseService.removeEntryKeysForUser(localFriend.id!);
+        await _databaseService.removeEntryKeysForUser(localFriend.id);
 
         // Neuen Key übernehmen, aber Vertrauen entziehen
         localFriend = localFriend.copyWith(
@@ -532,16 +528,15 @@ class MainViewModel extends BaseViewModel {
       var localMatch = localUsers.where((u) => u.uuid == remoteFriend.uuid).firstOrNull;
       if (localMatch == null) {
         // Freund lokal hinzufügen
-        await _databaseService.saveUser(
-          UserEntity(
-            uuid: remoteFriend.uuid,
-            name: remoteFriend.name,
-            publicKey: publicKey,
-            isVerified: remoteFriend.isVerified,
-            isHidden: remoteFriend.isHidden,
-            updatedAt: remoteFriend.updatedAt,
-          ),
-        );
+        await _databaseService.saveUser(UserEntity(
+          id: 0,
+          uuid: remoteFriend.uuid,
+          name: remoteFriend.name,
+          publicKey: publicKey,
+          isVerified: remoteFriend.isVerified,
+          isHidden: remoteFriend.isHidden,
+          updatedAt: remoteFriend.updatedAt,
+        ));
       } else {
         // Freund lokal aktualisieren, wenn der Eintrag auf dem Server aktueller ist
         if (remoteFriend.updatedAt.isAfter(localMatch.updatedAt)) {
@@ -566,14 +561,13 @@ class MainViewModel extends BaseViewModel {
     // 2. Gelöschte Einträge entfernen
     for (var tombstoneDto in pullResponse.deletes) {
       final entry = await _databaseService.getEntryByUuid(tombstoneDto.entryUuid);
-      if (entry != null && entry.id != null) {
-        await _databaseService.saveTombstone(
-          TombstoneEntity(
-            entryUuid: tombstoneDto.entryUuid,
-            deletedAt: tombstoneDto.deletedAt,
-          ),
-        );
-        await _databaseService.deleteEntry(entry.id!);
+      if (entry != null) {
+        await _databaseService.saveTombstone(TombstoneEntity(
+          id: 0,
+          entryUuid: tombstoneDto.entryUuid,
+          deletedAt: tombstoneDto.deletedAt,
+        ));
+        await _databaseService.deleteEntry(entry.id);
         _stats.pullDeleted++;
       }
     }
@@ -581,9 +575,9 @@ class MainViewModel extends BaseViewModel {
     // 3. Fremde Einträge löschen, bei denen mir das Recht entzogen wurde (AccessLevel == 0)
     for (var entryDto in pullResponse.updates.where((u) => u.accessLevel == 0)) {
       final entry = await _databaseService.getEntryByUuid(entryDto.entryUuid);
-      if (entry != null && entry.id != null) {
+      if (entry != null) {
         // Hier kein lokaler Tombstone, da der Eintrag im Tresor auf dem Gerät des Freundes ja noch existiert (nur für mich unsichtbar).
-        await _databaseService.deleteEntry(entry.id!);
+        await _databaseService.deleteEntry(entry.id);
         _stats.pullDeleted++;
       }
     }
@@ -613,8 +607,17 @@ class MainViewModel extends BaseViewModel {
         }
       }
 
-      // 5.2 UUIDs der Benutzer in interne IDs auflösen (0 falls User lokal noch unbekannt)
-      final entity = EntryEntity(
+      // 5.2 Statistik aktualisieren
+      final existing = await _databaseService.getEntryByUuid(entryDto.entryUuid);
+      if (existing == null) {
+        _stats.pullAdded++;
+      } else {
+        _stats.pullUpdated++;
+      }
+
+      // 5.3 Eintrag speichern
+      final savedEntry = await _databaseService.saveEntry(EntryEntity(
+        id: 0,
         uuid: entryDto.entryUuid,
         category: category,
         title: title,
@@ -625,51 +628,37 @@ class MainViewModel extends BaseViewModel {
         creatorId: userUuidMap[entryDto.creatorUuid] ?? 0,
         updaterId: userUuidMap[entryDto.updaterUuid] ?? 0,
         updatedAt: entryDto.updatedAt,
-      );
+      ));
 
-      // 5.3 Statistik aktualisieren
-      final existing = await _databaseService.getEntryByUuid(entryDto.entryUuid);
-      if (existing == null) {
-        _stats.pullAdded++;
-      } else {
-        _stats.pullUpdated++;
-      }
-
-      // 5.4 Eintrag speichern
-      await _databaseService.saveEntry(entity);
-      final savedEntry = await _databaseService.getEntryByUuid(entryDto.entryUuid); // interne ID holen // todo ist das erforderlich oder wird ide id nicht automatisch in entity gesetzt?
-      if (savedEntry == null || savedEntry.id == null) continue; // sollte nicht passieren
-
-      // 5.5 Eigene Permission (UserId 1) speichern
+      // 5.4 Eigene Permission (UserId 1) speichern
       if (entryDto.encryptedKey != null && entryDto.encryptedKey!.isNotEmpty) {
-        final myPerm = PermissionEntity(
-          entryId: savedEntry.id!,
+        await _databaseService.savePermission(PermissionEntity(
+          id: 0,
+          entryId: savedEntry.id,
           userId: 1,
           encryptedKey: entryDto.encryptedKey!,
           accessLevel: entryDto.accessLevel,
-        );
-        await _databaseService.savePermission(myPerm);
+        ));
       }
 
-      // 5.6 Freunde verarbeiten
+      // 5.5 Freunde verarbeiten
       for (var remoteFriends in entryDto.friends) {
         // Wir speichern die Permission nur, wenn wir den User lokal kennen (aus dem Settings-Pull)
         final friendUserId = userUuidMap[remoteFriends.userUuid];
         if (friendUserId != null) {
-          await _databaseService.savePermission(
-            PermissionEntity(
-              entryId: savedEntry.id!,
-              userId: friendUserId,
-              encryptedKey: remoteFriends.encryptedKey ?? '',
-              accessLevel: remoteFriends.accessLevel,
-            ),
-          );
+          await _databaseService.savePermission(PermissionEntity(
+            id: 0,
+            entryId: savedEntry.id,
+            userId: friendUserId,
+            encryptedKey: remoteFriends.encryptedKey ?? '',
+            accessLevel: remoteFriends.accessLevel,
+          ));
         }
       }
 
-      // 5.7 Anhänge verarbeiten
+      // 5.6 Anhänge verarbeiten
       final remoteAttachmentUuids = entryDto.attachmentUuids;
-      final localAttachments = await _databaseService.getAttachmentsByEntryId(savedEntry.id!);
+      final localAttachments = await _databaseService.getAttachmentsByEntryId(savedEntry.id);
       final localMap = {for (var a in localAttachments) a.uuid: a};
       for (var attUuid in remoteAttachmentUuids) {
         if (!localMap.containsKey(attUuid)) {
@@ -683,22 +672,22 @@ class MainViewModel extends BaseViewModel {
 
           final attachmentUuid = attResponse['attachment_uuid'] as String?;
           final encryptedMeta = attResponse['encrypted_meta'] as String?;
-          final att = AttachmentEntity(
+          await _databaseService.saveAttachment(AttachmentEntity(
+            id: 0,
             uuid: attachmentUuid ?? attUuid,
-            entryId: savedEntry.id!,
+            entryId: savedEntry.id,
             encryptedMeta: encryptedMeta ?? '',
             encryptedContent: encryptedContent,
             isSynced: true,
-          );
-          await _databaseService.saveAttachment(att);
+          ));
         }
       }
 
-      // 5.8 Lokale Anhänge löschen, die auf dem Server nicht mehr existieren
+      // 5.7 Lokale Anhänge löschen, die auf dem Server nicht mehr existieren
       final remoteUuidsSet = remoteAttachmentUuids.toSet();
       for (var l in localAttachments) {
         if (!remoteUuidsSet.contains(l.uuid)) {
-          await _databaseService.deleteAttachment(l.id!);
+          await _databaseService.deleteAttachment(l.id);
         }
       }
     }
@@ -722,7 +711,7 @@ class MainViewModel extends BaseViewModel {
       final pushUpdates = <SyncEntryDto>[];
       for (var entry in localUpdates) {
         // Alle Berechtigungen für diesen Eintrag laden
-        final perms = await _databaseService.getPermissionsByEntryId(entry.id!);
+        final perms = await _databaseService.getPermissionsByEntryId(entry.id);
 
         // Meine eigene Permission (ID 1) holen
         final myPerm = perms.where((p) => p.userId == 1).firstOrNull;
@@ -732,7 +721,7 @@ class MainViewModel extends BaseViewModel {
         if (myPerm == null || myPerm.accessLevel < 2) continue;
 
         // Dateianhänge
-        final localAttachmentsForEntry = await _databaseService.getAttachmentsByEntryId(entry.id!);
+        final localAttachmentsForEntry = await _databaseService.getAttachmentsByEntryId(entry.id);
         final attachmentUuids = localAttachmentsForEntry.map((a) => a.uuid).where((u) => u.trim().isNotEmpty).toSet().toList();
 
         // Liste der Freunde (UserId > 1) für den Server bauen
@@ -803,7 +792,7 @@ class MainViewModel extends BaseViewModel {
       // 1. Alle lokal hinzugefügten Freunde laden
       final users = await _databaseService.getUsers();
       final friends = users
-          .where((u) => (u.id ?? 0) > 1)
+          .where((u) => u.id > 1)
           .map(
             (u) => FriendPayload(
               uuid: u.uuid,

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:privault/models/entities/user_entity.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/services/crypto_service.dart';
-import '../models/entities/settings_entity.dart';
 
 /// Hält den Zustand der aktuellen Benutzersitzung im Arbeitsspeicher.
 class SessionService extends ChangeNotifier {
