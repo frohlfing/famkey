@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/password_strength_bar.dart';
 
 /// Der [LoginScreen] dient als Einstiegspunkt und Sicherheitsschleuse der App.
 ///
@@ -196,6 +198,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       onChanged: (value) => viewModel.password = value,
                       onSubmitted: canLogin ? (_) => _handleLogin() : null,
                     ),
+                    // const SizedBox(height: 6),
+                    // if (viewModel.password.isNotEmpty)
+                    //   Padding(
+                    //     padding: const EdgeInsets.symmetric(horizontal: 16),
+                    //     child: PasswordStrengthBar(score: viewModel.passwordStrength),
+                    //   ),
                     const SizedBox(height: 24),
 
                     ElevatedButton.icon(
@@ -224,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Interne Methoden ---
+  // --- Handler ---
   // ------------------------------------------------------------------------
 
   /// Steuert den gesamten Anmeldevorgang und verarbeitet die verschiedenen Ergebnisse.
@@ -246,9 +254,10 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
 
       case LoginResult.askToEnableBiometrics:
-        final enable = await _showConfirmDialog(
-          'Biometrie aktivieren',
-          'Soll dein Schlüssel sicher auf diesem Gerät abgelegt werden, damit du dich beim nächsten Mal bequem per Fingerabdruck oder Gesichtserkennung anmelden kannst?',
+        final enable = await ConfirmDialog.show(
+          context,
+          title: 'Biometrie aktivieren',
+          text: 'Soll dein Schlüssel sicher auf diesem Gerät abgelegt werden, damit du dich beim nächsten Mal bequem per Fingerabdruck oder Gesichtserkennung anmelden kannst?',
           ok: 'Ja, Schlüssel speichern',
         );
         if (enable == true && mounted) {
@@ -258,9 +267,10 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
 
       case LoginResult.vaultNotFound:
-        final create = await _showConfirmDialog(
-          'Tresor anlegen',
-          'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
+        final create = await ConfirmDialog.show(
+          context,
+          title: 'Tresor anlegen',
+          text: 'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
           ok: 'Ja, anlegen',
         );
         if (create == true && mounted) {
@@ -269,11 +279,12 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
 
       case LoginResult.corrupt:
-        final delete = await _showConfirmDialog(
-            'Tresor löschen',
-            'Der Tresor ist korrupt. Soll er gelöscht werden?',
-            ok: 'Ja, löschen',
-            autofocus: false,
+        final delete = await ConfirmDialog.show(
+          context,
+          title: 'Tresor löschen',
+          text: 'Der Tresor ist korrupt. Soll er gelöscht werden?',
+          ok: 'Ja, löschen',
+          autofocus: false,
         );
         if (delete == true && mounted) {
           await _viewModel.cleanUp();
@@ -286,28 +297,5 @@ class _LoginScreenState extends State<LoginScreen> {
       default:
         break;
     }
-  }
-
-  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            child: Text(cancel ?? 'Abbrechen'),
-            onPressed: () => Navigator.of(ctx).pop(false),
-          ),
-          TextButton(
-            autofocus: autofocus,
-            child: Text(ok ?? 'OK'),
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
   }
 }

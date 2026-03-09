@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/friend_search_dialog.dart';
+import 'package:privault/widgets/password_dialog.dart';
+import 'package:privault/widgets/snack.dart';
 
 /// Der [SettingsScreen] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
@@ -580,9 +584,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_viewModel.isBusy) return;
 
     if (_viewModel.isDirty) {
-      final confirmed = await _showConfirmDialog(
-        'Eintrag speichern',
-        'Möchtest du die Änderungen speichern?',
+      final confirmed = await ConfirmDialog.show(
+        context,
+        title: 'Eintrag speichern',
+        text: 'Möchtest du die Änderungen speichern?',
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
@@ -604,23 +609,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (_viewModel.isVaultRenamed) {
         String? errorText;
         while (true) {
-          final password = await _showPasswordDialog(
-            'Tresor umbenennen',
-            'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+          if (!mounted) return;
+          final password = await PasswordDialog.show(
+            context,
+            title: 'Tresor umbenennen',
+            text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
             errorText: errorText,
           );
-          if (password == null) return;
+          if (password == null || !mounted) return;
           final result = await _viewModel.renameVault(password);
-          if (!context.mounted) return;
-
+          if (!mounted) return;
           if (result == RenameVaultResult.success) {
-            _showSnack('Tresor erfolgreich umbenannt.', success: true);
+            Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
             break;
           } else if (result == RenameVaultResult.wrongPassword) {
             errorText = _viewModel.errorMessage;
             continue;
           } else {
-            _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+            Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
             break;
           }
         }
@@ -628,16 +634,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Einstellungen speichern
       final success = await _viewModel.save();
-      if (!context.mounted) return;
+      if (!mounted) return;
       if (!success) {
-        _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+        Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
         return;
       }
-      _showSnack('Einstellungen gespeichert.', success: true);
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      Snack.show(context, 'Einstellungen gespeichert.', success: true);
+      if (mounted) Navigator.of(context).pop();
     } catch (e, st) {
-      _showException(e, stackTrace: st);
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
     }
   }
 
@@ -647,25 +652,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       // Neues Passwort abfragen
-      final newPassword = await _showPasswordDialog(
-        'Passwort ändern',
-        'Bitte gib dein NEUES Master-Passwort ein.',
+      final newPassword = await PasswordDialog.show(
+        context,
+        title: 'Passwort ändern',
+        text: 'Bitte gib dein NEUES Master-Passwort ein.',
       );
-      if (newPassword == null) return;
+      if (newPassword == null || !mounted) return;
 
       String? errorText;
       while (true) {
+        if (!mounted) return;
+
         // Bisheriges Passwort abfragen
-        final currentPassword = await _showPasswordDialog(
-          'Passwort-Änderung autorisieren',
-          'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
+        final currentPassword = await PasswordDialog.show(
+          context,
+          title: 'Passwort-Änderung autorisieren',
+          text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
           errorText: errorText,
         );
-        if (currentPassword == null) return;
+        if (currentPassword == null || !mounted) return;
 
         // Trivial-Check: Die Passwörter dürfen nicht identisch sein
         if (currentPassword == newPassword) {
-          _showSnack("Neues und altes Master-Passwort sind identisch");
+          Snack.show(context, "Neues und altes Master-Passwort sind identisch");
           return;
         }
 
@@ -674,35 +683,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
           newPassword,
           currentPassword,
         );
-        if (!context.mounted) return;
+        if (!mounted) return;
 
         // Ergebnis auswerten
         if (result == ChangePasswordResult.success) {
-          _showSnack('Passwort erfolgreich geändert.', success: true);
+          Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
           break;
         } else if (result == ChangePasswordResult.wrongPassword) {
           errorText = _viewModel.errorMessage;
           continue;
         } else {
-          _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+          Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
           break;
         }
       }
     } catch (e, st) {
-      _showException(e, stackTrace: st);
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
     }
   }
 
   /// Testet, ob Host-URL und API-Token korrekt sind
   Future<void> _handleTestConnection() async {
     if (_viewModel.isBusy) return;
-
     final ok = await _viewModel.testConnection();
-    if (!context.mounted) return;
+    if (!mounted) return;
     if (ok) {
-      _showSnack('Verbindung erfolgreich.', success: true);
+      Snack.show(context, 'Verbindung erfolgreich.', success: true);
     } else {
-      _showSnack('Verbindung fehlgeschlagen.');
+      Snack.show(context, 'Verbindung fehlgeschlagen.');
     }
   }
 
@@ -711,18 +719,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// andere Fehler werden per SnackBar gemeldet.
   Future<void> _handleAddFriend() async {
     if (_viewModel.isBusy) return;
-
     try {
       String? errorText;
       while (true) {
-        final name = await _showAddFriendDialog(errorText: errorText);
+        final name = await FriendSearchDialog.show(context, errorText: errorText);
         if (name == null) return;
 
         final result = await _viewModel.addFriend(name);
         if (!mounted) return;
 
         if (result == AddFriendResult.success) {
-          _showSnack(
+          Snack.show(context, 
             '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.',
             success: true,
           );
@@ -732,12 +739,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           errorText = _viewModel.errorMessage;
           continue;
         } else {
-          _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+          Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
           break;
         }
       }
     } catch (e, st) {
-      _showException(e, stackTrace: st);
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
     }
   }
 
@@ -745,9 +752,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _handleDeleteFriend(dynamic user) async {
     if (_viewModel.isBusy) return;
 
-    final confirmed = await _showConfirmDialog(
-      'Person entfernen',
-      'Möchtest du die Person aus deiner Liste löschen?\n'
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Person entfernen',
+      text: 'Möchtest du die Person aus deiner Liste löschen?\n'
           'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
       ok: 'Ja, löschen',
     );
@@ -760,177 +768,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _handleDeleteTresor() async {
     if (_viewModel.isBusy) return;
 
-    final confirmed = await _showConfirmDialog(
-      'Tresor lokal löschen',
-      'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Tresor lokal löschen',
+      text: 'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
       ok: 'Ja, löschen',
     );
     if (confirmed == true && mounted) {
       _viewModel.deleteVault();
       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Dialoge ---
-  // ------------------------------------------------------------------------
-
-  /// Öffnet einen Dialog zur Suche nach anderen Personen.
-  Future<String?> _showAddFriendDialog({String? errorText}) async {
-    final controller = TextEditingController();
-
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Person suchen'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Name der Person',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                ),
-                onSubmitted: (val) {
-                  if (val.trim().isNotEmpty) {
-                    Navigator.of(ctx).pop(val.trim());
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isNotEmpty) {
-                  Navigator.of(ctx).pop(name);
-                }
-              },
-              child: const Text('Suchen'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            child: Text(cancel ?? 'Abbrechen'),
-            onPressed: () => Navigator.of(ctx).pop(false),
-          ),
-          TextButton(
-            autofocus: autofocus,
-            child: Text(ok ?? 'OK'),
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Öffnet einen modalen Dialog zur Passwortabfrage.
-  ///
-  /// Wird benötigt, um sensible Aktionen wie das Umbenennen des Tresors oder das Ändern des
-  /// Passworts zu autorisieren.
-  ///
-  /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
-  Future<String?> _showPasswordDialog(String title, String message, {String? errorText}) async {
-    final controller = TextEditingController();
-    bool obscureText = true; // Passwort ausgeblendet
-
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(message),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                obscureText: obscureText,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Master-Passwort',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                  suffixIcon: IconButton(
-                    icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setDialogState(() => obscureText = !obscureText),
-                  ),
-                ),
-                onSubmitted: (_) {
-                  if (controller.text.isNotEmpty) {
-                    Navigator.of(ctx).pop(controller.text);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  Navigator.of(ctx).pop(controller.text);
-                }
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Sonstige interne Methoden ---
-  // ------------------------------------------------------------------------
-
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
-      );
-  }
-
-  /// Protokolliert eine Exception in der SnackBar an.
-  void _showException(dynamic ex, {StackTrace? stackTrace}) {
-    if (!mounted) return;
-    debugPrint("❌ SettingsScreen: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
   }
 }

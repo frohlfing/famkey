@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/edit_view_model.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/password_strength_bar.dart';
+import 'package:privault/widgets/snack.dart';
 
 /// Der [EditScreen] stellt das Formular zum Erstellen oder Bearbeiten eines Tresor-Eintrags bereit.
 ///
@@ -207,29 +210,9 @@ class _EditScreenState extends State<EditScreen> {
                     ),
                     const SizedBox(height: 6),
                     if (viewModel.password.isNotEmpty)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(
-                                value: (viewModel.passwordStrength + 1) / 5,
-                                backgroundColor: Colors.grey.shade200,
-                                valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(viewModel.passwordStrength)),
-                                minHeight: 4,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _getStrengthText(viewModel.passwordStrength),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _getStrengthColor(viewModel.passwordStrength),
-                            ),
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: PasswordStrengthBar(score: viewModel.passwordStrength),
                       ),
                   ],
                 ),
@@ -287,9 +270,10 @@ class _EditScreenState extends State<EditScreen> {
     if (_viewModel.isBusy) return;
 
     if (_viewModel.isDirty) {
-      final confirmed = await _showConfirmDialog(
-        'Eintrag speichern',
-        'Möchtest du die Änderungen speichern?',
+      final confirmed = await ConfirmDialog.show(
+        context,
+        title: 'Eintrag speichern',
+        text: 'Möchtest du die Änderungen speichern?',
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
@@ -298,7 +282,6 @@ class _EditScreenState extends State<EditScreen> {
         return;
       }
     }
-
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -311,7 +294,7 @@ class _EditScreenState extends State<EditScreen> {
 
     // Falls ein allgemeiner Fehler im VM gesetzt wurde (z.B. Server-Fehler)
     if (_viewModel.errorMessage != null && mounted) {
-      _showSnack(_viewModel.errorMessage!);
+      Snack.show(context, _viewModel.errorMessage!);
       //_viewModel.clearError(); // Wichtig, damit er nicht doppelt triggert
       return;
     }
@@ -333,9 +316,10 @@ class _EditScreenState extends State<EditScreen> {
   Future<void> _handleDeleteEntry() async {
     if (_viewModel.isBusy) return;
 
-    final confirmed = await _showConfirmDialog(
-      'Eintrag löschen',
-      'Soll dieser Eintrag wirklich gelöscht werden?',
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Eintrag löschen',
+      text: 'Soll dieser Eintrag wirklich gelöscht werden?',
       ok: 'Ja, löschen',
     );
 
@@ -344,84 +328,10 @@ class _EditScreenState extends State<EditScreen> {
       if (success && mounted) {
         // Das Löschen ist nur im Editiermodus möglich, d.h., diese Seite wurde von der Detailansicht aufgerufen.
         // Wir navigieren zurück zur Detailansicht und weiter zurück zur Hauptansicht.
-        Navigator.of(context)..pop()..pop(true);
+        Navigator.of(context)
+          ..pop()
+          ..pop(true);
       }
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Dialoge ---
-  // ------------------------------------------------------------------------
-
-  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            child: Text(cancel ?? 'Abbrechen'),
-            onPressed: () => Navigator.of(ctx).pop(false),
-          ),
-          TextButton(
-            autofocus: autofocus,
-            child: Text(ok ?? 'OK'),
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Interne Methoden ---
-  // ------------------------------------------------------------------------
-
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
-      );
-  }
-
-  /// Bestimmt die Farbe der Stärke-Anzeige basierend auf der Bewertung des Passworts.
-  ///
-  /// Die Skala reicht von dezentem Grau (keine Eingabe) über Rot (sehr schwach)
-  /// bis hin zu sattem Grün (stark).
-  Color _getStrengthColor(int score) {
-    // @formatter:off
-    switch (score) {
-      case 0: return const Color(0xFFCBD5E1);
-      case 1: return const Color(0xFFDC2626);
-      case 2: return const Color(0xFFF59E0B);
-      case 3: return const Color(0xFF84CC16);
-      case 4: return const Color(0xFF16A34A);
-      default: return const Color(0xFFCBD5E1);
-    }
-    // @formatter:on
-  }
-
-  /// Liefert den passenden Beschreibungstext für die visuelle Passwort-Stärke-Anzeige.
-  String _getStrengthText(int score) {
-    // @formatter:off
-    switch (score) {
-      case 0: return "";
-      case 1: return "Sehr schwach";
-      case 2: return "Schwach";
-      case 3: return "Gut";
-      case 4: return "Stark";
-      default: return "";
-    }
-    // @formatter:on
   }
 }

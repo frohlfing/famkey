@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:privault/core/app_version.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
@@ -852,8 +851,6 @@ class SettingsViewModel extends BaseViewModel {
       await launchUrl(Uri.parse('app-settings:'));
     }
   }
-
-  //Future<String> get version async => await AppVersion.fullVersion;
 
   // ------------------------------------------------------------------------
   // --- Interne Methoden / Helper ---

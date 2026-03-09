@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:privault/database/database.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/friend_selector_dialog.dart';
+import 'package:privault/widgets/password_strength_bar.dart';
+import 'package:privault/widgets/snack.dart';
 
 /// Der [DetailScreen] ist dafür zuständig, dir die vollständigen Details eines bestimmten
 /// Tresor-Eintrags anzuzeigen.
@@ -138,7 +141,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   subtitle: Text(viewModel.username),
                   trailing: IconButton(
                     icon: const Icon(Icons.copy),
-                    onPressed: () => _copyToClipboard(context, viewModel.username, 'Benutzername'),
+                    onPressed: () => _copyToClipboard(viewModel.username, 'Benutzername'),
                     tooltip: 'Benutzername kopieren',
                   ),
                 ),
@@ -160,7 +163,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy),
-                            onPressed: () => _copyToClipboard(context, viewModel.password, 'Passwort'),
+                            onPressed: () => _copyToClipboard(viewModel.password, 'Passwort'),
                             tooltip: 'Passwort kopieren',
                           ),
                         ],
@@ -169,31 +172,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     if (viewModel.password.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: LinearProgressIndicator(
-                                  value: (viewModel.passwordStrength + 1) / 5,
-                                  backgroundColor: Colors.grey.shade200,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    _getStrengthColor(viewModel.passwordStrength),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _getStrengthText(viewModel.passwordStrength),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _getStrengthColor(viewModel.passwordStrength),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: PasswordStrengthBar(score: viewModel.passwordStrength),
                       ),
                   ],
                 ),
@@ -206,7 +185,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     subtitle: Text(viewModel.url),
                     trailing: IconButton(
                       icon: const Icon(Icons.open_in_new),
-                      onPressed: () => _openUrl(context, viewModel.url),
+                      onPressed: () => _openUrl(viewModel.url),
                       tooltip: 'URL öffnen',
                     ),
                   ),
@@ -477,9 +456,10 @@ class _DetailScreenState extends State<DetailScreen> {
   Future<void> _handleDeleteAttachment(dynamic attachment) async {
     if (_viewModel.isBusy) return;
 
-    final confirmed = await _showConfirmDialog(
-      'Anhang löschen',
-      'Möchtest du diesen Anhang wirklich löschen?',
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Anhang löschen',
+      text: 'Möchtest du diesen Anhang wirklich löschen?',
       ok: 'Ja, löschen',
       autofocus: false,
     );
@@ -494,7 +474,7 @@ class _DetailScreenState extends State<DetailScreen> {
   /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
   Future<void> _handleAddFriend() async {
     if (_viewModel.isBusy) return;
-    final user = await _showChooseFriendDialog();
+    final user = await FriendSelectorDialog.show(context, _viewModel.unsharedFriends);
     if (user == null || !mounted) return;
     _viewModel.shareWith(user);
   }
@@ -503,9 +483,10 @@ class _DetailScreenState extends State<DetailScreen> {
   Future<void> _handleDeleteFriend(dynamic user) async {
     if (_viewModel.isBusy) return;
 
-    final confirmed = await _showConfirmDialog(
-      'Zugriff entziehen',
-      'Möchtest du diesen Eintrag nicht mehr mit der Person teilen?',
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Zugriff entziehen',
+      text: 'Möchtest du diesen Eintrag nicht mehr mit der Person teilen?',
       ok: 'Ja, Zugriff entziehen',
     );
     if (confirmed == true && mounted) {
@@ -514,159 +495,28 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Dialoge ---
-  // ------------------------------------------------------------------------
-
-  /// Öffnet einen modalen Dialog für eine Ja/Nein-Frage.
-  Future<bool?> _showConfirmDialog(String title, String message, {String? ok, String? cancel, bool autofocus = true}) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            child: Text(cancel ?? 'Abbrechen'),
-            onPressed: () => Navigator.of(ctx).pop(false),
-          ),
-          TextButton(
-            autofocus: autofocus,
-            child: Text(ok ?? 'OK'),
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Öffnet einen Dialog zur Auswahl eines Freundes, mit dem der Eintrag noch nicht geteilt wird.
-  Future<UserEntity?> _showChooseFriendDialog() async {
-    final available = _viewModel.unsharedFriends;
-
-    return showDialog<UserEntity>(
-      context: context,
-      barrierDismissible: false, // wird nicht geschlossen, wenn man außerhalb des Dialoges klickt
-      builder: (ctx) => AlertDialog(
-        title: const Text('Eintrag teilen'),
-        content: available.isEmpty
-            ? const Text('Keine weiteren Kontakte verfügbar.')
-            : SizedBox(
-          width: double.maxFinite,
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: available.length,
-            separatorBuilder: (ctx, i) => const Divider(),
-            itemBuilder: (ctx, index) {
-              final user = available[index];
-
-              Widget leadingIcon = Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 20)),
-                  if (!user.isVerified) const Icon(Icons.warning, size: 16, color: Colors.amber),
-                ],
-              );
-
-              if (!user.isVerified) {
-                leadingIcon = Tooltip(
-                  message: 'Person ist nicht verifiziert!',
-                  child: leadingIcon,
-                );
-              }
-
-              return ListTile(
-                leading: leadingIcon,
-                title: Text(user.name),
-                onTap: () {
-                  Navigator.of(ctx).pop(user);
-                },
-              );
-            },
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Abbrechen'),
-            onPressed: () => Navigator.of(ctx).pop(null),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------------
   // --- Interne Methoden ---
   // ------------------------------------------------------------------------
 
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
-      );
-  }
-
-  /// Protokolliert eine Exception in der SnackBar an.
-  void _showException(dynamic ex, {StackTrace? stackTrace}) {
-    if (!mounted) return;
-    debugPrint("❌ DetailScreen: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
-  }
-
   /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
   /// `label` ist die Beschriftung des kopierten Textes.
-  void _copyToClipboard(BuildContext context, String text, String label) {
+  void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    _showSnack('$label in die Zwischenablage kopiert', success: true);
+    Snack.show(context, '$label in die Zwischenablage kopiert', success: true);
   }
 
   /// Öffnet die angegebene URL in einem neuen Browser-Tab oder gibt eine SnackBar mit dem Ergebnis aus.
-  Future<void> _openUrl(BuildContext context, String url) async {
+  Future<void> _openUrl(String url) async {
     if (url.isEmpty) return;
     final Uri uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
     try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        _showSnack('URL konnte nicht geöffnet werden');
+      final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!success && mounted) {
+        Snack.show(context, 'URL konnte nicht geöffnet werden');
       }
     } catch (e, st) {
-      _showException(e, stackTrace: st);
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'DetailScreen');
     }
-  }
-
-  /// Berechnet die Stärke des Passworts basierend auf den folgenden Regeln:
-  Color _getStrengthColor(int score) {
-    // @formatter:off
-      switch (score) {
-        case 0: return const Color(0xFFCBD5E1);
-        case 1: return const Color(0xFFDC2626);
-        case 2: return const Color(0xFFF59E0B);
-        case 3: return const Color(0xFF84CC16);
-        case 4: return const Color(0xFF16A34A);
-        default: return const Color(0xFFCBD5E1);
-      }
-    // @formatter:on
-  }
-
-  /// Gibt einen Text basierend auf der Stärke des Passworts zurück.
-  String _getStrengthText(int score) {
-    // @formatter:off
-      switch (score) {
-        case 0: return ""; //
-        case 1: return "Sehr schwach";
-        case 2: return "Schwach";
-        case 3: return "Gut";
-        case 4: return "Stark";
-        default: return "";
-      }
-    // @formatter:on
   }
 
   /// Mappt einen Dateityp oder eine Dateiendung auf ein passendes Icon.

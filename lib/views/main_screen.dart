@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
+import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/main_view_model.dart';
-import '../models/exceptions/salt_mismatch_exception.dart';
+import 'package:privault/widgets/password_dialog.dart';
+import 'package:privault/widgets/snack.dart';
+import 'package:privault/widgets/text_dialog.dart';
 
 /// Der [MainScreen] ist die zentrale Übersicht deines Tresors.
 ///
@@ -270,7 +273,11 @@ class _MainScreenState extends State<MainScreen> {
       // Sync starten
       final stats = await _viewModel.sync();
       if (!mounted) return;
-      _showAlertDialog('Info', 'Synchronisation erfolgreich abgeschlossen.\n\n$stats');
+      TextDialog.show(
+          context,
+          title: 'Info',
+          text: 'Synchronisation erfolgreich abgeschlossen.\n\n$stats'
+      );
     } on SaltMismatchException catch (sme) {
       // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
       if (!mounted) return;
@@ -282,14 +289,19 @@ class _MainScreenState extends State<MainScreen> {
             : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
         while (true) {
           // Master-Passwort abfragen
-          final password = await _showPasswordDialog('Account verknüpfen', message, errorText: errorText);
+          final password = await PasswordDialog.show(
+              context,
+              title: 'Account verknüpfen',
+              text: message,
+              errorText: errorText
+          );
           if (password == null) return;
 
           // Die auf dem Server gespeicherte Identität übernehmen
           final result = await _viewModel.adoptIdentity(userResponse, password);
           if (!mounted) return;
           if (result == AdoptIdentityResult.success) {
-            _showSnack('Account erfolgreich verknüpft.', success: true);
+            Snack.show(context, 'Account erfolgreich verknüpft.', success: true);
             _handleSync(); // Sync erneut starten
             break;
           } else if (result == AdoptIdentityResult.wrongPassword) {
@@ -297,24 +309,25 @@ class _MainScreenState extends State<MainScreen> {
             errorText = _viewModel.errorMessage;
             continue;
           } else {
-            _showSnack(_viewModel.errorMessage ?? 'Unerwarteter Fehler');
+            Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
             break;
           }
         }
       } catch (e, st) {
-        _showException(e, stackTrace: st);
+        if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
       }
     } on EmptyEntryKeyException catch (_) {
       if (await _viewModel.hasUnverifiedFriend()) {
         if (!mounted) return;
-        _showAlertDialog(
-            'Sicherheitsstopp',
-            "Der Fingerprint eines Freundes hat sich geändert.\n"
-                "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
+        TextDialog.show(
+          context,
+          title: 'Sicherheitsstopp',
+          text: "Der Fingerprint eines Freundes hat sich geändert.\n"
+              "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
         );
       }
     } catch (e, st) {
-      _showException(e, stackTrace: st);
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
     }
   }
 
@@ -351,114 +364,5 @@ class _MainScreenState extends State<MainScreen> {
     if (hasChanged == true && mounted) {
       _viewModel.load();
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Dialoge ---
-  // ------------------------------------------------------------------------
-
-  /// Öffnet einen modalen Hinweis.
-  Future<void> _showAlertDialog(String title, String message, {String? ok}) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            autofocus: true,
-            child: Text(ok ?? 'OK'),
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Öffnet einen modalen Dialog zur Passwortabfrage.
-  ///
-  /// Diese Funktion wird innerhalb des Sync-Prozesses benötigt, um kritische Identitätsänderungen
-  /// zu autorisieren.
-  ///
-  /// Wenn `errorText` gesetzt ist, wird das Textfeld rot + Fehlertext angezeigt.
-  // todo ist identisch mit settings_screen._showPasswordDialog -> als widget auslagern
-  Future<String?> _showPasswordDialog(String title, String message, {String? errorText}) async {
-    final controller = TextEditingController();
-    bool obscureText = true; // Passwort ausgeblendet
-
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(message),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                obscureText: obscureText,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Master-Passwort',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                  suffixIcon: IconButton(
-                    icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setDialogState(() => obscureText = !obscureText),
-                  ),
-                ),
-                onSubmitted: (_) {
-                  if (controller.text.isNotEmpty) {
-                    Navigator.of(ctx).pop(controller.text);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Abbrechen')),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  Navigator.of(ctx).pop(controller.text);
-                }
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Interne Methoden ---
-  // ------------------------------------------------------------------------
-
-  /// Zeigt eine farbige Statusmeldung (SnackBar) am unteren Bildschirmrand an.
-  /// Nutzt Grün für Erfolgsmeldungen und Rot für Fehlerhinweise.
-  void _showSnack(String message, {bool success = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
-        ),
-      );
-  }
-
-  /// Protokolliert eine Exception in der SnackBar an.
-  void _showException(dynamic ex, {StackTrace? stackTrace}) {
-    if (!mounted) return;
-    debugPrint("❌ MainScreen: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    _showSnack("Ein unerwarteter Fehler ist aufgetreten.");
   }
 }
