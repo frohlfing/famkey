@@ -2,6 +2,7 @@ name: privault
 description: "Ein selbst-gehosteter Passwort-Manager für Desktop und Mobile"
 publish_to: 'none'
 
+# Angezeigte App-Version + Buildnummer (Major.Minor.Patch+Build oder Major.Minor+Build)
 version: 1.0.0+1
 
 environment:

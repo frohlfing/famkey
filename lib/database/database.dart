@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
+import 'package:privault/core/app_version.dart';
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:privault/core/service_locator.dart';
@@ -27,6 +28,10 @@ part 'database.g.dart';
 /// **Rollenverteilung:**
 /// * **Besitzer:** Der Hauptbenutzer der App hat lokal stets die `id = 1`.
 /// * **Freunde:** Weitere Benutzer, mit denen Einträge geteilt werden können.
+@TableIndex(name: 'uk_users_uuid', columns: {#uuid}, unique: true)
+@TableIndex(name: 'uk_users_name', columns: {#name}, unique: true)
+@TableIndex(name: 'idx_users_is_hidden', columns: {#isHidden})
+@TableIndex(name: 'idx_users_updated_at', columns: {#updatedAt})
 @DataClassName('UserEntity')
 class Users extends Table {
   /// Die interne ID (Auto-Increment in der Datenbank).
@@ -35,11 +40,10 @@ class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Die globale eindeutige ID des Benutzers (Universally Unique Identifier v4).
-  TextColumn get uuid => text().unique()();
+  TextColumn get uuid => text()();
 
-  /// Der Name des Benutzers (eindeutig pro Tresor auf dem Server).
-  /// Ist im Normalfall UNVERÄNDERLICH nach der Registrierung.
-  TextColumn get name => text().unique()();
+  /// Der Name des Benutzers (eindeutig pro Tresor).
+  TextColumn get name => text()();
 
   /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
   TextColumn get publicKey => text()();
@@ -55,6 +59,10 @@ class Users extends Table {
 }
 
 /// Repräsentiert einen Tresoreintrag in der SQLite-Datenbank.
+@TableIndex(name: 'uk_entries_uuid', columns: {#uuid}, unique: true)
+@TableIndex(name: 'idx_entries_category', columns: {#category})
+@TableIndex(name: 'idx_entries_title', columns: {#title})
+@TableIndex(name: 'idx_entries_updated_at', columns: {#updatedAt})
 @DataClassName('EntryEntity')
 class Entries extends Table {
   /// Die interne ID (Auto-Increment in der Datenbank).
@@ -62,7 +70,7 @@ class Entries extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
-  TextColumn get uuid => text().unique()();
+  TextColumn get uuid => text()();
 
   /// Die Kategorie des Eintrags.
   TextColumn get category => text()();
@@ -95,6 +103,8 @@ class Entries extends Table {
 }
 
 /// Repräsentiert die Zugriffsberechtigung eines Benutzers für einen spezifischen Tresoreintrag.
+@TableIndex(name: 'uk_permissions_entry_id_user_id', columns: {#entryId, #userId}, unique: true) // für Detailansicht
+@TableIndex(name: 'idx_permissions_user', columns: {#userId})
 @DataClassName('PermissionEntity')
 class Permissions extends Table {
   /// Die interne ID (Auto-Increment in der Datenbank).
@@ -102,10 +112,10 @@ class Permissions extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Die interne ID des zugehörigen Eintrags.
-  IntColumn get entryId => integer().references(Entries, #id)();
+  IntColumn get entryId => integer()();
 
   /// Die lokale ID des Benutzers, dem dieser Zugriff gewährt wurde.
-  IntColumn get userId => integer().references(Users, #id)();
+  IntColumn get userId => integer()();
 
   /// Der AES-Entry-Key für den Eintrag (32 Bytes), verschlüsselt mit dem öffentlichen RSA-Key des Benutzers.
   ///
@@ -119,15 +129,13 @@ class Permissions extends Table {
   /// * **2:** Lesen und Schreiben
   /// * **3:** Vollzugriff/Besitzerrecht (inkl. Löschen und Berechtigungen verwalten)
   IntColumn get accessLevel => integer()();
-
-  @override
-  List<Set<Column>> get uniqueKeys => [
-    {entryId, userId},
-  ];
 }
 
 /// Repräsentiert einen Dateianhang zu einem Tresoreintrag in der lokalen SQLite-Datenbank.
 /// Der gesamte Inhalt wird verschlüsselt gespeichert, um die Privatsphäre zu gewährleisten.
+@TableIndex(name: 'uk_attachments_uuid', columns: {#uuid}, unique: true)
+@TableIndex(name: 'idx_attachments_entry_id', columns: {#entryId})
+@TableIndex(name: 'idx_attachments_is_synced', columns: {#isSynced})
 @DataClassName('AttachmentEntity')
 class Attachments extends Table {
   /// Die interne ID (Auto-Increment in der Datenbank).
@@ -135,10 +143,10 @@ class Attachments extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Die globale eindeutige ID des Anhangs (Universally Unique Identifier v4).
-  TextColumn get uuid => text().unique()();
+  TextColumn get uuid => text()();
 
   /// Die interne ID des zugehörigen Eintrags.
-  IntColumn get entryId => integer().references(Entries, #id)();
+  IntColumn get entryId => integer()();
 
   /// Der AES-256-GCM verschlüsselte Metadaten-Container (Ciphertext + Nonce + Auth-Tag).
   /// Enthält das serialisierte JSON-Objekt der Klasse [AttachmentMetaPayload].
@@ -160,6 +168,8 @@ class Attachments extends Table {
 /// Wenn ein Eintrag lokal gelöscht wird, wird hier ein Grabstein hinterlassen.
 /// Beim nächsten Synchronisationsvorgang meldet der Client dem Server:
 /// "Eintrag mit UUID X wurde gelöscht".
+@TableIndex(name: 'uk_tombstones_entry_uuid', columns: {#entryUuid}, unique: true)
+@TableIndex(name: 'idx_tombstones_deleted_at', columns: {#deletedAt})
 @DataClassName('TombstoneEntity')
 class Tombstones extends Table {
   /// Die interne ID (Auto-Increment in der Datenbank).
@@ -167,7 +177,7 @@ class Tombstones extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Die globale ID des gelöschten Eintrags (Universally Unique Identifier v4).
-  TextColumn get entryUuid => text().unique()();
+  TextColumn get entryUuid => text()();
 
   /// Zeitpunkt (UTC) der Löschung.
   DateTimeColumn get deletedAt => dateTime()();
@@ -231,43 +241,7 @@ class Settings extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Repräsentiert die Schema-Version der lokalen SQLite-Datenbank.
-/// Diese Entität wird genutzt, um automatische Migrationen bei App-Updates durchzuführen.
-///
-/// **Besonderheit:**
-/// Diese Tabelle fungiert als Singleton-Speicher und enthält systembedingt exakt einen Datensatz,
-/// welcher den aktuellen Zustand der lokalen Datenbankstruktur beschreibt.
-///
-/// **Versioning-Schema (SemVer):**
-/// * **Major:** Inkompatible Änderungen am Datenformat.
-/// * **Minor:** Neue Tabellen oder Spalten (abwärtskompatibel).
-/// * **Patch:** Fehlerkorrekturen am Schema ohne Strukturänderung.
-@DataClassName('VersionEntity')
-class Versions extends Table {
-  /// Die interne ID (Auto-Increment in der Datenbank).
-  /// Da es sich um einen Singleton-Datensatz handelt, ist der Wert hierbei stets 1.
-  IntColumn get id => integer().withDefault(const Constant(1))();
-
-  /// Die Haupt-Versionsnummer.
-  /// Wird erhöht bei Schema-Änderungen, die nicht abwärtskompatibel sind.
-  IntColumn get major => integer()();
-
-  /// Die Neben-Versionsnummer.
-  /// Wird erhöht, wenn das Schema abwärtskompatibel verändert wurde (z.B. neue optionale Felder).
-  IntColumn get minor => integer()();
-
-  /// Die Revisionsnummer.
-  /// Wird erhöht, wenn das Schema optimiert wurde (z.B. Index hinzugefügt/verändert).
-  IntColumn get patch => integer()();
-
-  /// Zeitstempel der letzten lokalen Schema-Änderung (UTC).
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-@DriftDatabase(tables: [Users, Entries, Permissions, Attachments, Tombstones, Versions, Settings])
+@DriftDatabase(tables: [Users, Entries, Permissions, Attachments, Tombstones, Settings])
 class AppDatabase extends _$AppDatabase {
   final String password;
   final String dbName;
@@ -275,8 +249,10 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(this.dbName, this.password) : super(_openConnection(dbName, password));
 
   // Bei einer Änderung muss die Version erhöht werden, damit Drift weiß, dass es die Änderung ausführen muss.
+  static const int version = 1;
+
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => version;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -296,11 +272,11 @@ class AppDatabase extends _$AppDatabase {
     // Wird jedes Mal aufgerufen, wenn die DB geöffnet wird
     beforeOpen: (details) async {
       // Aktiviert Foreign Key Support in SQLite
-      await customStatement('PRAGMA foreign_keys = ON');
+      //await customStatement('PRAGMA foreign_keys = ON');
 
       if (kDebugMode) {
         // Hier könntest du Prüfungen durchführen oder Testdaten einfügen
-        print('Datenbank geöffnet. Schema Version: ${details.versionNow}');
+        //print('Datenbank geöffnet. Schema Version: ${details.versionNow}');
       }
     },
   );
@@ -324,6 +300,12 @@ class AppDatabase extends _$AppDatabase {
       if (kDebugMode) {
         // Brauchen wir, um die DB per Database Navigator öffnen zu können
         debugPrint("🔑 DB-Passwort: $password");
+      }
+
+      if (kDebugMode) {
+        debugPrint("ℹ️ App-Version: ${await AppVersion.fullVersion}");
+        debugPrint("ℹ️ DB-Schema: ${AppVersion.databaseSchemaVersion}");
+        debugPrint("ℹ️ Sync-Protokoll: ${AppVersion.syncProtocolVersion}");
       }
 
       // Datenbank öffnen

@@ -413,17 +413,14 @@ class MainViewModel extends BaseViewModel {
   ///
   /// Wenn die Version nicht kompatibel ist, wird eine Exception geworfen.
   Future<void> _checkVersion() async {
-    // 1. Versionsprüfung
     final serverVersion = await _webService.getServerVersion();
-    if (serverVersion.major != AppVersion.major) {
-      final v = AppVersion.major > 1 ? '${AppVersion.major}' : '';
-      throw Exception("Die Server-Version passt nicht zur App. Korrigiere die Host-URL in den Einstellungen: https://privault$v/api.frank-rohlfing.de");
-    }
-    if (serverVersion.minor < AppVersion.requiredServerMinor) {
-      throw Exception("Der Server ist noch nicht auf dem aktuellen Stand. Versuche es später nochmal.");
-    }
-    if (AppVersion.minor < serverVersion.requiredClientMinor) {
+    if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
+      // App zu alt
       throw Exception("Bitte aktualisiere die App und starte danach nochmal die Synchronisation.");
+    }
+    if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
+      // Server zu alt
+      throw Exception("Der Server ist noch nicht auf dem aktuellen Stand. Versuche es später noch einmal.");
     }
   }
 

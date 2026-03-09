@@ -29,11 +29,9 @@ final class VersionController
      * Antwort (200 OK):
      * <code>
      * {
-     *   "service": "priVault",
-     *   "major": {integer},
-     *   "minor": {integer},
-     *   "patch": {integer}
-     *   "required_client_minor": {integer}
+     *   "service": "PriVault",
+     *   "sync_protocol_version": {integer},
+     *   "min_sync_protocol_version": {integer},
      * }
      * </code>
      *
@@ -53,13 +51,10 @@ final class VersionController
      */
     public function version(Request $request): Response
     {
-        $version = explode('.', VERSION);
         return Response::json([
-            'service' => 'PriVault',
-            'major' => (int)$version[0],
-            'minor' => (int)$version[1],
-            'patch' => (int)$version[2],
-            'required_client_minor' => REQUIRED_CLIENT_MINOR,
+            'service' => 'PriVault v1 REST-API',
+            'sync_protocol_version' => SYNC_PROTOCOL_VERSION,
+            'min_sync_protocol_version' => MIN_SYNC_PROTOCOL_VERSION,
         ]);
     }
 }

@@ -74,14 +74,11 @@ CREATE TABLE `tombstones` (
     FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabelle zur Speicherung der DB-Schema-Version (
+---- Tabelle zur Speicherung der Datenbankschema-Version
 CREATE TABLE `version` (
-   `major` INT NOT NULL, -- wird erhöht bei Schema-Änderungen, die nicht abwärtskompatibel sind
-   `minor` INT NOT NULL, -- wird erhöht, wenn das Schema abwärtskompatibel verändert wurde (z.B. neue optionale Felder)
-   `patch` INT NOT NULL, -- wird erhöht, wenn das Schema optimiert wurde (z.B. Index hinzugefügt/verändert)
-   `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), -- Zeitstempel der letzten Änderung
-   PRIMARY KEY (`major`,`minor`, `patch`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    schema_version INT NOT NULL,                    -- wird erhöht bei einer Schema-Änderungen
+   `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)  -- Zeitstempel der letzten Änderung
+);
 
--- Initialen Versionsstand setzen
-INSERT INTO `version` (`major`, `minor`, `patch`) VALUES (1, 0, 0);
+---- Initialen Versionsstand setzen
+INSERT INTO `version` (`schema_version`) VALUES (1);

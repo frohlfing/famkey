@@ -1,10 +1,23 @@
 <?php
-// Datenbank Zugangsdaten
+/** @noinspection SpellCheckingInspection */
+
+// Sync-Protokollversion
+const SYNC_PROTOCOL_VERSION = 1;
+
+// Kleinste unterstützte Protokollversion
+const MIN_SYNC_PROTOCOL_VERSION = 1;
+
+// Datenbankschema-Version (sollte identisch sein mit dem Wert aus der Tabelle `version`)
+const DATABASE_SCHEMA_VERSION = 1;
+
+// Datenbank
 const DB_HOST = 'localhost';
 const DB_NAME = 'privault';
 const DB_USER = 'root';
 const DB_PASS = '';
-const DB_SSLCA = null; // SSL-Zertifikat für die DB, z.B. __DIR__ . '/sqlca.pem'
+
+// SSL-Zertifikat für die DB (siehe https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql)
+const DB_SSLCA = null; // __DIR__ . '/sqlca.pem';
 
 // API-Tokens
 const API_TOKEN = 'DEIN_API_TOKEN';

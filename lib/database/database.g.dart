@@ -29,7 +29,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -39,7 +38,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _publicKeyMeta = const VerificationMeta(
     'publicKey',
@@ -219,8 +217,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
   /// Die globale eindeutige ID des Benutzers (Universally Unique Identifier v4).
   final String uuid;
 
-  /// Der Name des Benutzers (eindeutig pro Tresor auf dem Server).
-  /// Ist im Normalfall UNVERÄNDERLICH nach der Registrierung.
+  /// Der Name des Benutzers (eindeutig pro Tresor).
   final String name;
 
   /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
@@ -497,7 +494,6 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _categoryMeta = const VerificationMeta(
     'category',
@@ -1167,9 +1163,6 @@ class $PermissionsTable extends Permissions
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES entries (id)',
-    ),
   );
   static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
   @override
@@ -1179,9 +1172,6 @@ class $PermissionsTable extends Permissions
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES users (id)',
-    ),
   );
   static const VerificationMeta _encryptedKeyMeta = const VerificationMeta(
     'encryptedKey',
@@ -1271,10 +1261,6 @@ class $PermissionsTable extends Permissions
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-    {entryId, userId},
-  ];
   @override
   PermissionEntity map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1554,7 +1540,6 @@ class $AttachmentsTable extends Attachments
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _entryIdMeta = const VerificationMeta(
     'entryId',
@@ -1566,9 +1551,6 @@ class $AttachmentsTable extends Attachments
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES entries (id)',
-    ),
   );
   static const VerificationMeta _encryptedMetaMeta = const VerificationMeta(
     'encryptedMeta',
@@ -1986,7 +1968,6 @@ class $TombstonesTable extends Tombstones
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _deletedAtMeta = const VerificationMeta(
     'deletedAt',
@@ -2210,356 +2191,6 @@ class TombstonesCompanion extends UpdateCompanion<TombstoneEntity> {
           ..write('id: $id, ')
           ..write('entryUuid: $entryUuid, ')
           ..write('deletedAt: $deletedAt')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $VersionsTable extends Versions
-    with TableInfo<$VersionsTable, VersionEntity> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $VersionsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(1),
-  );
-  static const VerificationMeta _majorMeta = const VerificationMeta('major');
-  @override
-  late final GeneratedColumn<int> major = GeneratedColumn<int>(
-    'major',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _minorMeta = const VerificationMeta('minor');
-  @override
-  late final GeneratedColumn<int> minor = GeneratedColumn<int>(
-    'minor',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _patchMeta = const VerificationMeta('patch');
-  @override
-  late final GeneratedColumn<int> patch = GeneratedColumn<int>(
-    'patch',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-    'updated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [id, major, minor, patch, updatedAt];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'versions';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<VersionEntity> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('major')) {
-      context.handle(
-        _majorMeta,
-        major.isAcceptableOrUnknown(data['major']!, _majorMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_majorMeta);
-    }
-    if (data.containsKey('minor')) {
-      context.handle(
-        _minorMeta,
-        minor.isAcceptableOrUnknown(data['minor']!, _minorMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_minorMeta);
-    }
-    if (data.containsKey('patch')) {
-      context.handle(
-        _patchMeta,
-        patch.isAcceptableOrUnknown(data['patch']!, _patchMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_patchMeta);
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(
-        _updatedAtMeta,
-        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_updatedAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  VersionEntity map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return VersionEntity(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      major: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}major'],
-      )!,
-      minor: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}minor'],
-      )!,
-      patch: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}patch'],
-      )!,
-      updatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}updated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $VersionsTable createAlias(String alias) {
-    return $VersionsTable(attachedDatabase, alias);
-  }
-}
-
-class VersionEntity extends DataClass implements Insertable<VersionEntity> {
-  /// Die interne ID (Auto-Increment in der Datenbank).
-  /// Da es sich um einen Singleton-Datensatz handelt, ist der Wert hierbei stets 1.
-  final int id;
-
-  /// Die Haupt-Versionsnummer.
-  /// Wird erhöht bei Schema-Änderungen, die nicht abwärtskompatibel sind.
-  final int major;
-
-  /// Die Neben-Versionsnummer.
-  /// Wird erhöht, wenn das Schema abwärtskompatibel verändert wurde (z.B. neue optionale Felder).
-  final int minor;
-
-  /// Die Revisionsnummer.
-  /// Wird erhöht, wenn das Schema optimiert wurde (z.B. Index hinzugefügt/verändert).
-  final int patch;
-
-  /// Zeitstempel der letzten lokalen Schema-Änderung (UTC).
-  final DateTime updatedAt;
-  const VersionEntity({
-    required this.id,
-    required this.major,
-    required this.minor,
-    required this.patch,
-    required this.updatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['major'] = Variable<int>(major);
-    map['minor'] = Variable<int>(minor);
-    map['patch'] = Variable<int>(patch);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    return map;
-  }
-
-  VersionsCompanion toCompanion(bool nullToAbsent) {
-    return VersionsCompanion(
-      id: Value(id),
-      major: Value(major),
-      minor: Value(minor),
-      patch: Value(patch),
-      updatedAt: Value(updatedAt),
-    );
-  }
-
-  factory VersionEntity.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return VersionEntity(
-      id: serializer.fromJson<int>(json['id']),
-      major: serializer.fromJson<int>(json['major']),
-      minor: serializer.fromJson<int>(json['minor']),
-      patch: serializer.fromJson<int>(json['patch']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'major': serializer.toJson<int>(major),
-      'minor': serializer.toJson<int>(minor),
-      'patch': serializer.toJson<int>(patch),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-    };
-  }
-
-  VersionEntity copyWith({
-    int? id,
-    int? major,
-    int? minor,
-    int? patch,
-    DateTime? updatedAt,
-  }) => VersionEntity(
-    id: id ?? this.id,
-    major: major ?? this.major,
-    minor: minor ?? this.minor,
-    patch: patch ?? this.patch,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-  VersionEntity copyWithCompanion(VersionsCompanion data) {
-    return VersionEntity(
-      id: data.id.present ? data.id.value : this.id,
-      major: data.major.present ? data.major.value : this.major,
-      minor: data.minor.present ? data.minor.value : this.minor,
-      patch: data.patch.present ? data.patch.value : this.patch,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('VersionEntity(')
-          ..write('id: $id, ')
-          ..write('major: $major, ')
-          ..write('minor: $minor, ')
-          ..write('patch: $patch, ')
-          ..write('updatedAt: $updatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, major, minor, patch, updatedAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is VersionEntity &&
-          other.id == this.id &&
-          other.major == this.major &&
-          other.minor == this.minor &&
-          other.patch == this.patch &&
-          other.updatedAt == this.updatedAt);
-}
-
-class VersionsCompanion extends UpdateCompanion<VersionEntity> {
-  final Value<int> id;
-  final Value<int> major;
-  final Value<int> minor;
-  final Value<int> patch;
-  final Value<DateTime> updatedAt;
-  const VersionsCompanion({
-    this.id = const Value.absent(),
-    this.major = const Value.absent(),
-    this.minor = const Value.absent(),
-    this.patch = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-  });
-  VersionsCompanion.insert({
-    this.id = const Value.absent(),
-    required int major,
-    required int minor,
-    required int patch,
-    required DateTime updatedAt,
-  }) : major = Value(major),
-       minor = Value(minor),
-       patch = Value(patch),
-       updatedAt = Value(updatedAt);
-  static Insertable<VersionEntity> custom({
-    Expression<int>? id,
-    Expression<int>? major,
-    Expression<int>? minor,
-    Expression<int>? patch,
-    Expression<DateTime>? updatedAt,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (major != null) 'major': major,
-      if (minor != null) 'minor': minor,
-      if (patch != null) 'patch': patch,
-      if (updatedAt != null) 'updated_at': updatedAt,
-    });
-  }
-
-  VersionsCompanion copyWith({
-    Value<int>? id,
-    Value<int>? major,
-    Value<int>? minor,
-    Value<int>? patch,
-    Value<DateTime>? updatedAt,
-  }) {
-    return VersionsCompanion(
-      id: id ?? this.id,
-      major: major ?? this.major,
-      minor: minor ?? this.minor,
-      patch: patch ?? this.patch,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (major.present) {
-      map['major'] = Variable<int>(major.value);
-    }
-    if (minor.present) {
-      map['minor'] = Variable<int>(minor.value);
-    }
-    if (patch.present) {
-      map['patch'] = Variable<int>(patch.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('VersionsCompanion(')
-          ..write('id: $id, ')
-          ..write('major: $major, ')
-          ..write('minor: $minor, ')
-          ..write('patch: $patch, ')
-          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -3274,8 +2905,67 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PermissionsTable permissions = $PermissionsTable(this);
   late final $AttachmentsTable attachments = $AttachmentsTable(this);
   late final $TombstonesTable tombstones = $TombstonesTable(this);
-  late final $VersionsTable versions = $VersionsTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final Index ukUsersUuid = Index(
+    'uk_users_uuid',
+    'CREATE UNIQUE INDEX uk_users_uuid ON users (uuid)',
+  );
+  late final Index ukUsersName = Index(
+    'uk_users_name',
+    'CREATE UNIQUE INDEX uk_users_name ON users (name)',
+  );
+  late final Index idxUsersIsHidden = Index(
+    'idx_users_is_hidden',
+    'CREATE INDEX idx_users_is_hidden ON users (is_hidden)',
+  );
+  late final Index idxUsersUpdatedAt = Index(
+    'idx_users_updated_at',
+    'CREATE INDEX idx_users_updated_at ON users (updated_at)',
+  );
+  late final Index ukEntriesUuid = Index(
+    'uk_entries_uuid',
+    'CREATE UNIQUE INDEX uk_entries_uuid ON entries (uuid)',
+  );
+  late final Index idxEntriesCategory = Index(
+    'idx_entries_category',
+    'CREATE INDEX idx_entries_category ON entries (category)',
+  );
+  late final Index idxEntriesTitle = Index(
+    'idx_entries_title',
+    'CREATE INDEX idx_entries_title ON entries (title)',
+  );
+  late final Index idxEntriesUpdatedAt = Index(
+    'idx_entries_updated_at',
+    'CREATE INDEX idx_entries_updated_at ON entries (updated_at)',
+  );
+  late final Index ukPermissionsEntryIdUserId = Index(
+    'uk_permissions_entry_id_user_id',
+    'CREATE UNIQUE INDEX uk_permissions_entry_id_user_id ON permissions (entry_id, user_id)',
+  );
+  late final Index idxPermissionsUser = Index(
+    'idx_permissions_user',
+    'CREATE INDEX idx_permissions_user ON permissions (user_id)',
+  );
+  late final Index ukAttachmentsUuid = Index(
+    'uk_attachments_uuid',
+    'CREATE UNIQUE INDEX uk_attachments_uuid ON attachments (uuid)',
+  );
+  late final Index idxAttachmentsEntryId = Index(
+    'idx_attachments_entry_id',
+    'CREATE INDEX idx_attachments_entry_id ON attachments (entry_id)',
+  );
+  late final Index idxAttachmentsIsSynced = Index(
+    'idx_attachments_is_synced',
+    'CREATE INDEX idx_attachments_is_synced ON attachments (is_synced)',
+  );
+  late final Index ukTombstonesEntryUuid = Index(
+    'uk_tombstones_entry_uuid',
+    'CREATE UNIQUE INDEX uk_tombstones_entry_uuid ON tombstones (entry_uuid)',
+  );
+  late final Index idxTombstonesDeletedAt = Index(
+    'idx_tombstones_deleted_at',
+    'CREATE INDEX idx_tombstones_deleted_at ON tombstones (deleted_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3286,8 +2976,22 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     permissions,
     attachments,
     tombstones,
-    versions,
     settings,
+    ukUsersUuid,
+    ukUsersName,
+    idxUsersIsHidden,
+    idxUsersUpdatedAt,
+    ukEntriesUuid,
+    idxEntriesCategory,
+    idxEntriesTitle,
+    idxEntriesUpdatedAt,
+    ukPermissionsEntryIdUserId,
+    idxPermissionsUser,
+    ukAttachmentsUuid,
+    idxAttachmentsEntryId,
+    idxAttachmentsIsSynced,
+    ukTombstonesEntryUuid,
+    idxTombstonesDeletedAt,
   ];
 }
 
@@ -3311,29 +3015,6 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<bool> isHidden,
       Value<DateTime> updatedAt,
     });
-
-final class $$UsersTableReferences
-    extends BaseReferences<_$AppDatabase, $UsersTable, UserEntity> {
-  $$UsersTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static MultiTypedResultKey<$PermissionsTable, List<PermissionEntity>>
-  _permissionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.permissions,
-    aliasName: $_aliasNameGenerator(db.users.id, db.permissions.userId),
-  );
-
-  $$PermissionsTableProcessedTableManager get permissionsRefs {
-    final manager = $$PermissionsTableTableManager(
-      $_db,
-      $_db.permissions,
-    ).filter((f) => f.userId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_permissionsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-}
 
 class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   $$UsersTableFilterComposer({
@@ -3377,31 +3058,6 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
-
-  Expression<bool> permissionsRefs(
-    Expression<bool> Function($$PermissionsTableFilterComposer f) f,
-  ) {
-    final $$PermissionsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.permissions,
-      getReferencedColumn: (t) => t.userId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PermissionsTableFilterComposer(
-            $db: $db,
-            $table: $db.permissions,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$UsersTableOrderingComposer
@@ -3480,31 +3136,6 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  Expression<T> permissionsRefs<T extends Object>(
-    Expression<T> Function($$PermissionsTableAnnotationComposer a) f,
-  ) {
-    final $$PermissionsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.permissions,
-      getReferencedColumn: (t) => t.userId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PermissionsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.permissions,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$UsersTableTableManager
@@ -3518,9 +3149,9 @@ class $$UsersTableTableManager
           $$UsersTableAnnotationComposer,
           $$UsersTableCreateCompanionBuilder,
           $$UsersTableUpdateCompanionBuilder,
-          (UserEntity, $$UsersTableReferences),
+          (UserEntity, BaseReferences<_$AppDatabase, $UsersTable, UserEntity>),
           UserEntity,
-          PrefetchHooks Function({bool permissionsRefs})
+          PrefetchHooks Function()
         > {
   $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
     : super(
@@ -3570,37 +3201,9 @@ class $$UsersTableTableManager
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
-              .map(
-                (e) =>
-                    (e.readTable(table), $$UsersTableReferences(db, table, e)),
-              )
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({permissionsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (permissionsRefs) db.permissions],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (permissionsRefs)
-                    await $_getPrefetchedData<
-                      UserEntity,
-                      $UsersTable,
-                      PermissionEntity
-                    >(
-                      currentTable: table,
-                      referencedTable: $$UsersTableReferences
-                          ._permissionsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$UsersTableReferences(db, table, p0).permissionsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.userId == item.id),
-                      typedResults: items,
-                    ),
-                ];
-              },
-            );
-          },
+          prefetchHooksCallback: null,
         ),
       );
 }
@@ -3615,9 +3218,9 @@ typedef $$UsersTableProcessedTableManager =
       $$UsersTableAnnotationComposer,
       $$UsersTableCreateCompanionBuilder,
       $$UsersTableUpdateCompanionBuilder,
-      (UserEntity, $$UsersTableReferences),
+      (UserEntity, BaseReferences<_$AppDatabase, $UsersTable, UserEntity>),
       UserEntity,
-      PrefetchHooks Function({bool permissionsRefs})
+      PrefetchHooks Function()
     >;
 typedef $$EntriesTableCreateCompanionBuilder =
     EntriesCompanion Function({
@@ -3647,47 +3250,6 @@ typedef $$EntriesTableUpdateCompanionBuilder =
       Value<int> updaterId,
       Value<DateTime> updatedAt,
     });
-
-final class $$EntriesTableReferences
-    extends BaseReferences<_$AppDatabase, $EntriesTable, EntryEntity> {
-  $$EntriesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static MultiTypedResultKey<$PermissionsTable, List<PermissionEntity>>
-  _permissionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.permissions,
-    aliasName: $_aliasNameGenerator(db.entries.id, db.permissions.entryId),
-  );
-
-  $$PermissionsTableProcessedTableManager get permissionsRefs {
-    final manager = $$PermissionsTableTableManager(
-      $_db,
-      $_db.permissions,
-    ).filter((f) => f.entryId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_permissionsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$AttachmentsTable, List<AttachmentEntity>>
-  _attachmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.attachments,
-    aliasName: $_aliasNameGenerator(db.entries.id, db.attachments.entryId),
-  );
-
-  $$AttachmentsTableProcessedTableManager get attachmentsRefs {
-    final manager = $$AttachmentsTableTableManager(
-      $_db,
-      $_db.attachments,
-    ).filter((f) => f.entryId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_attachmentsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-}
 
 class $$EntriesTableFilterComposer
     extends Composer<_$AppDatabase, $EntriesTable> {
@@ -3752,56 +3314,6 @@ class $$EntriesTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
-
-  Expression<bool> permissionsRefs(
-    Expression<bool> Function($$PermissionsTableFilterComposer f) f,
-  ) {
-    final $$PermissionsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.permissions,
-      getReferencedColumn: (t) => t.entryId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PermissionsTableFilterComposer(
-            $db: $db,
-            $table: $db.permissions,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> attachmentsRefs(
-    Expression<bool> Function($$AttachmentsTableFilterComposer f) f,
-  ) {
-    final $$AttachmentsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.attachments,
-      getReferencedColumn: (t) => t.entryId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$AttachmentsTableFilterComposer(
-            $db: $db,
-            $table: $db.attachments,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$EntriesTableOrderingComposer
@@ -3912,56 +3424,6 @@ class $$EntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  Expression<T> permissionsRefs<T extends Object>(
-    Expression<T> Function($$PermissionsTableAnnotationComposer a) f,
-  ) {
-    final $$PermissionsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.permissions,
-      getReferencedColumn: (t) => t.entryId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PermissionsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.permissions,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<T> attachmentsRefs<T extends Object>(
-    Expression<T> Function($$AttachmentsTableAnnotationComposer a) f,
-  ) {
-    final $$AttachmentsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.attachments,
-      getReferencedColumn: (t) => t.entryId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$AttachmentsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.attachments,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$EntriesTableTableManager
@@ -3975,9 +3437,12 @@ class $$EntriesTableTableManager
           $$EntriesTableAnnotationComposer,
           $$EntriesTableCreateCompanionBuilder,
           $$EntriesTableUpdateCompanionBuilder,
-          (EntryEntity, $$EntriesTableReferences),
+          (
+            EntryEntity,
+            BaseReferences<_$AppDatabase, $EntriesTable, EntryEntity>,
+          ),
           EntryEntity,
-          PrefetchHooks Function({bool permissionsRefs, bool attachmentsRefs})
+          PrefetchHooks Function()
         > {
   $$EntriesTableTableManager(_$AppDatabase db, $EntriesTable table)
     : super(
@@ -4043,70 +3508,9 @@ class $$EntriesTableTableManager
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$EntriesTableReferences(db, table, e),
-                ),
-              )
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback:
-              ({permissionsRefs = false, attachmentsRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (permissionsRefs) db.permissions,
-                    if (attachmentsRefs) db.attachments,
-                  ],
-                  addJoins: null,
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (permissionsRefs)
-                        await $_getPrefetchedData<
-                          EntryEntity,
-                          $EntriesTable,
-                          PermissionEntity
-                        >(
-                          currentTable: table,
-                          referencedTable: $$EntriesTableReferences
-                              ._permissionsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$EntriesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).permissionsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.entryId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (attachmentsRefs)
-                        await $_getPrefetchedData<
-                          EntryEntity,
-                          $EntriesTable,
-                          AttachmentEntity
-                        >(
-                          currentTable: table,
-                          referencedTable: $$EntriesTableReferences
-                              ._attachmentsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$EntriesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).attachmentsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.entryId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
-              },
+          prefetchHooksCallback: null,
         ),
       );
 }
@@ -4121,9 +3525,9 @@ typedef $$EntriesTableProcessedTableManager =
       $$EntriesTableAnnotationComposer,
       $$EntriesTableCreateCompanionBuilder,
       $$EntriesTableUpdateCompanionBuilder,
-      (EntryEntity, $$EntriesTableReferences),
+      (EntryEntity, BaseReferences<_$AppDatabase, $EntriesTable, EntryEntity>),
       EntryEntity,
-      PrefetchHooks Function({bool permissionsRefs, bool attachmentsRefs})
+      PrefetchHooks Function()
     >;
 typedef $$PermissionsTableCreateCompanionBuilder =
     PermissionsCompanion Function({
@@ -4142,46 +3546,6 @@ typedef $$PermissionsTableUpdateCompanionBuilder =
       Value<int> accessLevel,
     });
 
-final class $$PermissionsTableReferences
-    extends BaseReferences<_$AppDatabase, $PermissionsTable, PermissionEntity> {
-  $$PermissionsTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $EntriesTable _entryIdTable(_$AppDatabase db) => db.entries
-      .createAlias($_aliasNameGenerator(db.permissions.entryId, db.entries.id));
-
-  $$EntriesTableProcessedTableManager get entryId {
-    final $_column = $_itemColumn<int>('entry_id')!;
-
-    final manager = $$EntriesTableTableManager(
-      $_db,
-      $_db.entries,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_entryIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $UsersTable _userIdTable(_$AppDatabase db) => db.users.createAlias(
-    $_aliasNameGenerator(db.permissions.userId, db.users.id),
-  );
-
-  $$UsersTableProcessedTableManager get userId {
-    final $_column = $_itemColumn<int>('user_id')!;
-
-    final manager = $$UsersTableTableManager(
-      $_db,
-      $_db.users,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_userIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
 class $$PermissionsTableFilterComposer
     extends Composer<_$AppDatabase, $PermissionsTable> {
   $$PermissionsTableFilterComposer({
@@ -4196,6 +3560,16 @@ class $$PermissionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get entryId => $composableBuilder(
+    column: $table.entryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get encryptedKey => $composableBuilder(
     column: $table.encryptedKey,
     builder: (column) => ColumnFilters(column),
@@ -4205,52 +3579,6 @@ class $$PermissionsTableFilterComposer
     column: $table.accessLevel,
     builder: (column) => ColumnFilters(column),
   );
-
-  $$EntriesTableFilterComposer get entryId {
-    final $$EntriesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableFilterComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$UsersTableFilterComposer get userId {
-    final $$UsersTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.userId,
-      referencedTable: $db.users,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$UsersTableFilterComposer(
-            $db: $db,
-            $table: $db.users,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$PermissionsTableOrderingComposer
@@ -4267,6 +3595,16 @@ class $$PermissionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get entryId => $composableBuilder(
+    column: $table.entryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get encryptedKey => $composableBuilder(
     column: $table.encryptedKey,
     builder: (column) => ColumnOrderings(column),
@@ -4276,52 +3614,6 @@ class $$PermissionsTableOrderingComposer
     column: $table.accessLevel,
     builder: (column) => ColumnOrderings(column),
   );
-
-  $$EntriesTableOrderingComposer get entryId {
-    final $$EntriesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableOrderingComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$UsersTableOrderingComposer get userId {
-    final $$UsersTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.userId,
-      referencedTable: $db.users,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$UsersTableOrderingComposer(
-            $db: $db,
-            $table: $db.users,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$PermissionsTableAnnotationComposer
@@ -4336,6 +3628,12 @@ class $$PermissionsTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
+  GeneratedColumn<int> get entryId =>
+      $composableBuilder(column: $table.entryId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get encryptedKey => $composableBuilder(
     column: $table.encryptedKey,
     builder: (column) => column,
@@ -4345,52 +3643,6 @@ class $$PermissionsTableAnnotationComposer
     column: $table.accessLevel,
     builder: (column) => column,
   );
-
-  $$EntriesTableAnnotationComposer get entryId {
-    final $$EntriesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$UsersTableAnnotationComposer get userId {
-    final $$UsersTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.userId,
-      referencedTable: $db.users,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$UsersTableAnnotationComposer(
-            $db: $db,
-            $table: $db.users,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$PermissionsTableTableManager
@@ -4404,9 +3656,12 @@ class $$PermissionsTableTableManager
           $$PermissionsTableAnnotationComposer,
           $$PermissionsTableCreateCompanionBuilder,
           $$PermissionsTableUpdateCompanionBuilder,
-          (PermissionEntity, $$PermissionsTableReferences),
+          (
+            PermissionEntity,
+            BaseReferences<_$AppDatabase, $PermissionsTable, PermissionEntity>,
+          ),
           PermissionEntity,
-          PrefetchHooks Function({bool entryId, bool userId})
+          PrefetchHooks Function()
         > {
   $$PermissionsTableTableManager(_$AppDatabase db, $PermissionsTable table)
     : super(
@@ -4448,67 +3703,9 @@ class $$PermissionsTableTableManager
                 accessLevel: accessLevel,
               ),
           withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$PermissionsTableReferences(db, table, e),
-                ),
-              )
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({entryId = false, userId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (entryId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.entryId,
-                                referencedTable: $$PermissionsTableReferences
-                                    ._entryIdTable(db),
-                                referencedColumn: $$PermissionsTableReferences
-                                    ._entryIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (userId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.userId,
-                                referencedTable: $$PermissionsTableReferences
-                                    ._userIdTable(db),
-                                referencedColumn: $$PermissionsTableReferences
-                                    ._userIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
+          prefetchHooksCallback: null,
         ),
       );
 }
@@ -4523,9 +3720,12 @@ typedef $$PermissionsTableProcessedTableManager =
       $$PermissionsTableAnnotationComposer,
       $$PermissionsTableCreateCompanionBuilder,
       $$PermissionsTableUpdateCompanionBuilder,
-      (PermissionEntity, $$PermissionsTableReferences),
+      (
+        PermissionEntity,
+        BaseReferences<_$AppDatabase, $PermissionsTable, PermissionEntity>,
+      ),
       PermissionEntity,
-      PrefetchHooks Function({bool entryId, bool userId})
+      PrefetchHooks Function()
     >;
 typedef $$AttachmentsTableCreateCompanionBuilder =
     AttachmentsCompanion Function({
@@ -4546,28 +3746,6 @@ typedef $$AttachmentsTableUpdateCompanionBuilder =
       Value<bool> isSynced,
     });
 
-final class $$AttachmentsTableReferences
-    extends BaseReferences<_$AppDatabase, $AttachmentsTable, AttachmentEntity> {
-  $$AttachmentsTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $EntriesTable _entryIdTable(_$AppDatabase db) => db.entries
-      .createAlias($_aliasNameGenerator(db.attachments.entryId, db.entries.id));
-
-  $$EntriesTableProcessedTableManager get entryId {
-    final $_column = $_itemColumn<int>('entry_id')!;
-
-    final manager = $$EntriesTableTableManager(
-      $_db,
-      $_db.entries,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_entryIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
 class $$AttachmentsTableFilterComposer
     extends Composer<_$AppDatabase, $AttachmentsTable> {
   $$AttachmentsTableFilterComposer({
@@ -4587,6 +3765,11 @@ class $$AttachmentsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get entryId => $composableBuilder(
+    column: $table.entryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get encryptedMeta => $composableBuilder(
     column: $table.encryptedMeta,
     builder: (column) => ColumnFilters(column),
@@ -4601,29 +3784,6 @@ class $$AttachmentsTableFilterComposer
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
   );
-
-  $$EntriesTableFilterComposer get entryId {
-    final $$EntriesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableFilterComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$AttachmentsTableOrderingComposer
@@ -4645,6 +3805,11 @@ class $$AttachmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get entryId => $composableBuilder(
+    column: $table.entryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get encryptedMeta => $composableBuilder(
     column: $table.encryptedMeta,
     builder: (column) => ColumnOrderings(column),
@@ -4659,29 +3824,6 @@ class $$AttachmentsTableOrderingComposer
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
   );
-
-  $$EntriesTableOrderingComposer get entryId {
-    final $$EntriesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableOrderingComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$AttachmentsTableAnnotationComposer
@@ -4699,6 +3841,9 @@ class $$AttachmentsTableAnnotationComposer
   GeneratedColumn<String> get uuid =>
       $composableBuilder(column: $table.uuid, builder: (column) => column);
 
+  GeneratedColumn<int> get entryId =>
+      $composableBuilder(column: $table.entryId, builder: (column) => column);
+
   GeneratedColumn<String> get encryptedMeta => $composableBuilder(
     column: $table.encryptedMeta,
     builder: (column) => column,
@@ -4711,29 +3856,6 @@ class $$AttachmentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
-
-  $$EntriesTableAnnotationComposer get entryId {
-    final $$EntriesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.entryId,
-      referencedTable: $db.entries,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$EntriesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.entries,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$AttachmentsTableTableManager
@@ -4747,9 +3869,12 @@ class $$AttachmentsTableTableManager
           $$AttachmentsTableAnnotationComposer,
           $$AttachmentsTableCreateCompanionBuilder,
           $$AttachmentsTableUpdateCompanionBuilder,
-          (AttachmentEntity, $$AttachmentsTableReferences),
+          (
+            AttachmentEntity,
+            BaseReferences<_$AppDatabase, $AttachmentsTable, AttachmentEntity>,
+          ),
           AttachmentEntity,
-          PrefetchHooks Function({bool entryId})
+          PrefetchHooks Function()
         > {
   $$AttachmentsTableTableManager(_$AppDatabase db, $AttachmentsTable table)
     : super(
@@ -4795,54 +3920,9 @@ class $$AttachmentsTableTableManager
                 isSynced: isSynced,
               ),
           withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$AttachmentsTableReferences(db, table, e),
-                ),
-              )
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({entryId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (entryId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.entryId,
-                                referencedTable: $$AttachmentsTableReferences
-                                    ._entryIdTable(db),
-                                referencedColumn: $$AttachmentsTableReferences
-                                    ._entryIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
+          prefetchHooksCallback: null,
         ),
       );
 }
@@ -4857,9 +3937,12 @@ typedef $$AttachmentsTableProcessedTableManager =
       $$AttachmentsTableAnnotationComposer,
       $$AttachmentsTableCreateCompanionBuilder,
       $$AttachmentsTableUpdateCompanionBuilder,
-      (AttachmentEntity, $$AttachmentsTableReferences),
+      (
+        AttachmentEntity,
+        BaseReferences<_$AppDatabase, $AttachmentsTable, AttachmentEntity>,
+      ),
       AttachmentEntity,
-      PrefetchHooks Function({bool entryId})
+      PrefetchHooks Function()
     >;
 typedef $$TombstonesTableCreateCompanionBuilder =
     TombstonesCompanion Function({
@@ -5015,200 +4098,6 @@ typedef $$TombstonesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $TombstonesTable, TombstoneEntity>,
       ),
       TombstoneEntity,
-      PrefetchHooks Function()
-    >;
-typedef $$VersionsTableCreateCompanionBuilder =
-    VersionsCompanion Function({
-      Value<int> id,
-      required int major,
-      required int minor,
-      required int patch,
-      required DateTime updatedAt,
-    });
-typedef $$VersionsTableUpdateCompanionBuilder =
-    VersionsCompanion Function({
-      Value<int> id,
-      Value<int> major,
-      Value<int> minor,
-      Value<int> patch,
-      Value<DateTime> updatedAt,
-    });
-
-class $$VersionsTableFilterComposer
-    extends Composer<_$AppDatabase, $VersionsTable> {
-  $$VersionsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get major => $composableBuilder(
-    column: $table.major,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get minor => $composableBuilder(
-    column: $table.minor,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get patch => $composableBuilder(
-    column: $table.patch,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$VersionsTableOrderingComposer
-    extends Composer<_$AppDatabase, $VersionsTable> {
-  $$VersionsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get major => $composableBuilder(
-    column: $table.major,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get minor => $composableBuilder(
-    column: $table.minor,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get patch => $composableBuilder(
-    column: $table.patch,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$VersionsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $VersionsTable> {
-  $$VersionsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<int> get major =>
-      $composableBuilder(column: $table.major, builder: (column) => column);
-
-  GeneratedColumn<int> get minor =>
-      $composableBuilder(column: $table.minor, builder: (column) => column);
-
-  GeneratedColumn<int> get patch =>
-      $composableBuilder(column: $table.patch, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-}
-
-class $$VersionsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $VersionsTable,
-          VersionEntity,
-          $$VersionsTableFilterComposer,
-          $$VersionsTableOrderingComposer,
-          $$VersionsTableAnnotationComposer,
-          $$VersionsTableCreateCompanionBuilder,
-          $$VersionsTableUpdateCompanionBuilder,
-          (
-            VersionEntity,
-            BaseReferences<_$AppDatabase, $VersionsTable, VersionEntity>,
-          ),
-          VersionEntity,
-          PrefetchHooks Function()
-        > {
-  $$VersionsTableTableManager(_$AppDatabase db, $VersionsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$VersionsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$VersionsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$VersionsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<int> major = const Value.absent(),
-                Value<int> minor = const Value.absent(),
-                Value<int> patch = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-              }) => VersionsCompanion(
-                id: id,
-                major: major,
-                minor: minor,
-                patch: patch,
-                updatedAt: updatedAt,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                required int major,
-                required int minor,
-                required int patch,
-                required DateTime updatedAt,
-              }) => VersionsCompanion.insert(
-                id: id,
-                major: major,
-                minor: minor,
-                patch: patch,
-                updatedAt: updatedAt,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$VersionsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $VersionsTable,
-      VersionEntity,
-      $$VersionsTableFilterComposer,
-      $$VersionsTableOrderingComposer,
-      $$VersionsTableAnnotationComposer,
-      $$VersionsTableCreateCompanionBuilder,
-      $$VersionsTableUpdateCompanionBuilder,
-      (
-        VersionEntity,
-        BaseReferences<_$AppDatabase, $VersionsTable, VersionEntity>,
-      ),
-      VersionEntity,
       PrefetchHooks Function()
     >;
 typedef $$SettingsTableCreateCompanionBuilder =
@@ -5545,8 +4434,6 @@ class $AppDatabaseManager {
       $$AttachmentsTableTableManager(_db, _db.attachments);
   $$TombstonesTableTableManager get tombstones =>
       $$TombstonesTableTableManager(_db, _db.tombstones);
-  $$VersionsTableTableManager get versions =>
-      $$VersionsTableTableManager(_db, _db.versions);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
 }

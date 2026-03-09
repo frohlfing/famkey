@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
-import '../core/app_version.dart';
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
@@ -64,67 +63,6 @@ class DatabaseService {
       await _db?.close();
       _db = null;
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Migration ---
-  // ------------------------------------------------------------------------
-
-  Future<VersionEntity> getVersion() async {
-    _ensureDbInitialized();
-    final version = await (_db!.select(_db!.versions)).getSingleOrNull();
-    return version ?? VersionEntity(id: 1, major: 0, minor: 0, patch: 0, updatedAt: DateTime.now().toUtc());
-  }
-
-  /// Das Drift-Framework kümmert sich automatisch um Schema-Änderungen (wie das Hinzufügen von Spalten), wenn die @UseRowClass
-  /// Annotationen in den Tabellendefinitionen in database.dart aktualisiert und die Build-Runner-Codegenerierung ausgeführt wird.
-  /// Diese Methode konzentriert sich auf die Versionsprüfung des Tresors und das Auslösen von manuellen Datenmigrationen.
-  Future<void> _runMigrations() async {
-    // 1. Version vergleichen
-    final dbVersion = await getVersion();
-    if (dbVersion.major > 0 || dbVersion.minor > 0) {
-      // Prüfung auf zu NEUE Version
-      if (dbVersion.major > AppVersion.major || (dbVersion.major == AppVersion.major && dbVersion.minor > AppVersion.minor)) {
-        // Patch-Nummer ist egal
-        // Die Version des Tresors ist größer als die der App!
-        throw Exception(
-          'Der Tresor wurde zuletzt mit der neueren Version priVault v${dbVersion.major}.${dbVersion.minor} bearbeitet.\n'
-          'Installiere diese Version oder höher, um den Tresor öffnen zu können.',
-        );
-      }
-
-      // Prüfung auf zu ALTE Version (Breaking Changes bei Major Update)
-      if (dbVersion.major < AppVersion.major) {
-        // Die Major-Version des Tresors ist kleiner als die der App!
-        throw Exception(
-          'Der Tresor wurde zuletzt mit der älteren Version priVault v${dbVersion.major}.${dbVersion.minor} bearbeitet.\n'
-          'Du kannst den Tresor importieren, indem du einen neuen Tresor anlegst und die Importfunktion aufrufst.',
-        );
-      }
-    }
-
-    // 2. Migrationen ausführen (Drift übernimmt das Schema)
-    if (dbVersion.major < AppVersion.major || dbVersion.minor < AppVersion.minor || dbVersion.patch < AppVersion.patch) {
-      return await _db!.transaction(() async {
-        // Hier könnten in Zukunft manuelle Daten-Transformationen stattfinden,
-        // die nicht von Drifts Schema-Migrationen abgedeckt werden.
-
-        // Versionsnummer im Tresor speichern
-        await _saveVersion(AppVersion.major, AppVersion.minor, AppVersion.patch);
-      });
-    }
-  }
-
-  /// Speichert die Schema-Version.
-  Future<void> _saveVersion(int major, int minor, int patch) async {
-    final companion = VersionsCompanion(
-      id: const Value(1),
-      major: Value(major),
-      minor: Value(minor),
-      patch: Value(patch),
-      updatedAt: Value(DateTime.now().toUtc()),
-    );
-    await _db!.into(_db!.versions).insertOnConflictUpdate(companion);
   }
 
   // ------------------------------------------------------------------------
