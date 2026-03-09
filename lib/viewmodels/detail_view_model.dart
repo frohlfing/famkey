@@ -51,9 +51,6 @@ class DetailViewModel extends BaseViewModel {
   String _favicon = '';
   String _auditHint = '';
 
-  /// Gibt an, ob das Passwort ausgeblendet ist
-  bool _isPasswordHidden = true;
-
   /// Liste der Dateianhänge
   List<AttachmentEntity> _attachments = [];
 
@@ -95,7 +92,6 @@ class DetailViewModel extends BaseViewModel {
     _notes = '';
     _favicon = '';
     _auditHint = '';
-    _isPasswordHidden = true;
     _attachments = [];
     _attachmentMetas.clear();
     _friends = [];
@@ -163,17 +159,8 @@ class DetailViewModel extends BaseViewModel {
   /// Der Passwort des Eintrag.
   String get password => _password;
 
-  /// Für das Passwort-Auge. Steuert, ob das Passwortfeld im Klartext oder verborgen angezeigt wird.
-  bool get isPasswordHidden => _isPasswordHidden;
-
   /// Berechnete Stärke des Passworts (0-4).
   int get passwordStrength => _passwordService.estimateStrength(_password);
-
-  /// Schaltet die Sichtbarkeit des Passworts um.
-  void togglePasswordVisibility() {
-    _isPasswordHidden = !_isPasswordHidden;
-    notifyListeners();
-  }
 
   /// Die zugehörige Adresse der Webseite oder des Dienstes.
   String get url => _url;

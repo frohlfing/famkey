@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/edit_view_model.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
+
 
 /// Der [EditScreen] stellt das Formular zum Erstellen oder Bearbeiten eines Tresor-Eintrags bereit.
 ///
@@ -144,6 +146,7 @@ class _EditScreenState extends State<EditScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Kategorie',
+                    prefixIcon: Icon(Icons.label_outlined),
                     border: const OutlineInputBorder(),
                     suffixIcon: viewModel.existingCategories.isNotEmpty
                         ? PopupMenuButton<String>(
@@ -165,6 +168,7 @@ class _EditScreenState extends State<EditScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Titel',
+                    prefixIcon: Icon(Icons.title_outlined),
                     border: OutlineInputBorder(),
                     errorText: viewModel.getFieldError('title'),
                   ),
@@ -175,7 +179,11 @@ class _EditScreenState extends State<EditScreen> {
                 TextField(
                   controller: _usernameController,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Benutzername', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Benutzername',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
                   onChanged: (value) => viewModel.username = value,
                 ),
                 const SizedBox(height: 16),
@@ -183,30 +191,18 @@ class _EditScreenState extends State<EditScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
+                    PasswordField(
                       controller: _passwordController,
-                      obscureText: viewModel.isPasswordHidden,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: 'Passwort',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.casino),
-                              tooltip: 'Passwort generieren',
-                              onPressed: viewModel.generatePassword,
-                            ),
-                            IconButton(
-                              icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                              tooltip: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
-                              onPressed: viewModel.togglePasswordVisibility,
-                            ),
-                          ],
+                      label: 'Passwort',
+                      prefixIcon: Icons.key_outlined,
+                      suffixActions: [
+                        IconButton(
+                          icon: const Icon(Icons.casino),
+                          tooltip: 'Passwort generieren',
+                          onPressed: viewModel.generatePassword,
                         ),
-                      ),
-                      onChanged: (value) => viewModel.password = value,
+                      ],
+                      onChanged: (val) => viewModel.password = val,
                     ),
                     const SizedBox(height: 6),
                     if (viewModel.password.isNotEmpty)
@@ -221,7 +217,11 @@ class _EditScreenState extends State<EditScreen> {
                 TextField(
                   controller: _urlController,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'URL', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'URL',
+                    prefixIcon: Icon(Icons.public_outlined),
+                    border: OutlineInputBorder(),
+                  ),
                   onChanged: (value) => viewModel.url = value,
                 ),
                 const SizedBox(height: 16),
@@ -230,7 +230,11 @@ class _EditScreenState extends State<EditScreen> {
                   controller: _notesController,
                   minLines: 3,
                   maxLines: null,
-                  decoration: const InputDecoration(labelText: 'Notizen', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Notizen',
+                    prefixIcon: Icon(Icons.article_outlined),
+                    border: OutlineInputBorder(),
+                  ),
                   onChanged: (value) => viewModel.notes = value,
                 ),
 

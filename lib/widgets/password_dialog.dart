@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:privault/widgets/password_field.dart';
 
 /// Ein modaler Dialog zur Passwortabfrage.
 class PasswordDialog {
@@ -9,7 +10,7 @@ class PasswordDialog {
     String? errorText,
   }) {
     final controller = TextEditingController();
-    bool obscureText = true; // Passwort ausgeblendet
+
     /// Öffnet den Dialog und gibt bei Bestätigung das eingegebene Passwort zurück.
     return showDialog<String>(
       context: context,
@@ -23,23 +24,13 @@ class PasswordDialog {
             children: [
               Text(text),
               const SizedBox(height: 16),
-              TextField(
+              PasswordField(
                 controller: controller,
-                obscureText: obscureText,
+                label: 'Master-Passwort',
+                errorText: errorText,
                 autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Master-Passwort',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                  suffixIcon: IconButton(
-                    icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setDialogState(() => obscureText = !obscureText),
-                  ),
-                ),
-                onSubmitted: (_) {
-                  if (controller.text.isNotEmpty) {
-                    Navigator.of(ctx).pop(controller.text);
-                  }
+                onSubmitted: (val) {
+                  if (val.isNotEmpty) Navigator.of(ctx).pop(val);
                 },
               ),
             ],

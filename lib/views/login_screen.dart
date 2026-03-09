@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 
 /// Der [LoginScreen] dient als Einstiegspunkt und Sicherheitsschleuse der App.
@@ -31,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
-  bool _obscurePassword = true; /// Gibt an, ob das Passwort ausgeblendet ist
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -161,40 +161,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    TextField(
+                    PasswordField(
                       controller: _passwordController,
-                      focusNode: _passwordFocusNode,
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: 'Master-Passwort',
-                        prefixIcon: const Icon(Icons.key_outlined),
-                        border: const OutlineInputBorder(),
-                        errorText: viewModel.errorMessage,
-                        suffixIcon: SizedBox(
-                          width: 80, // Platz für beide Icons
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                                tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                              if (viewModel.hasBiometricKey)
-                                Tooltip(
-                                  message: 'Anmeldung per Biometrie möglich',
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(right: 8.0),
-                                    child: Icon(Icons.fingerprint, color: Colors.blue),
-                                  ),
-                                ),
-                            ],
+                      label: 'Master-Passwort',
+                      prefixIcon: Icons.key_outlined,
+                      errorText: viewModel.errorMessage,
+                      suffixActions: [
+                        if (viewModel.hasBiometricKey)
+                          const Tooltip(
+                            message: 'Anmeldung per Biometrie möglich',
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Icon(Icons.fingerprint, color: Colors.blue),
+                            ),
                           ),
-                        ),
-                      ),
-                      onChanged: (value) => viewModel.password = value,
-                      onSubmitted: canLogin ? (_) => _handleLogin() : null,
+                      ],
+                      onChanged: (val) => viewModel.password = val,
+                      onSubmitted: (_) => _handleLogin(),
                     ),
 
                     const SizedBox(height: 6),

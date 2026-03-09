@@ -48,7 +48,6 @@ class EditViewModel extends BaseViewModel {
   String _password = '';
   String _url = '';
   String _notes = '';
-  bool _isPasswordHidden = true;
   bool _isEditMode = false;
 
   // Map für Feld-Fehler (Key: Feldname, Value: Fehlermeldung)
@@ -74,7 +73,6 @@ class EditViewModel extends BaseViewModel {
     _password = '';
     _url = '';
     _notes = '';
-    _isPasswordHidden = true;
     _isEditMode = false;
   }
 
@@ -312,17 +310,8 @@ class EditViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Für das Passwort-Auge. Steuert, ob das Passwortfeld im Klartext oder verborgen angezeigt wird.
-  bool get isPasswordHidden => _isPasswordHidden;
-
   /// Berechnete Stärke des aktuell eingegebenen Passworts (0-4).
   int get passwordStrength => _passwordService.estimateStrength(_password);
-
-  /// Schaltet die Sichtbarkeit des Passwortfelds um.
-  void togglePasswordVisibility() {
-    _isPasswordHidden = !_isPasswordHidden;
-    notifyListeners();
-  }
 
   /// Generiert ein neues Zufallspasswort basierend auf den Benutzereinstellungen.
   void generatePassword() {

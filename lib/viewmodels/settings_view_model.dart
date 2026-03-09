@@ -1,18 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
+import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
-import 'package:privault/services/crypto_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'dart:convert';
 
 /// Ergebnisse für Tresor-Umbenennung
 enum RenameVaultResult { success, identicalNames, alreadyExists, wrongPassword, error }
@@ -78,7 +78,6 @@ class SettingsViewModel extends BaseViewModel {
   String _userName = '';
   String _host = '';
   String _apiToken = '';
-  bool _isTokenHidden = true;
   int _pwLength = 16;
   String _pwSpecialCharSet = '';
   bool _pwAvoidIlO0 = true;
@@ -118,7 +117,6 @@ class SettingsViewModel extends BaseViewModel {
     _isRegistered = false;
     _host = '';
     _apiToken = '';
-    _isTokenHidden = true;
     _pwLength = 16;
     _pwSpecialCharSet = '';
     _pwAvoidIlO0 = true;
@@ -139,7 +137,6 @@ class SettingsViewModel extends BaseViewModel {
         _isRegistered = _settings!.lastSyncAt.year > 1970;
         _host = _settings!.host;
         _apiToken = _settings!.apiToken;
-        _isTokenHidden = true;
         _pwLength = _settings!.pwLength;
         _pwSpecialCharSet = _settings!.pwSpecialChars;
         _pwAvoidIlO0 = _settings!.pwAvoidIlO0;
@@ -537,15 +534,6 @@ class SettingsViewModel extends BaseViewModel {
 
   set apiToken(String value) {
     _apiToken = value;
-    notifyListeners();
-  }
-
-  /// Gibt an, ob der APU-Token ausgeblendet ist
-  bool get isTokenHidden => _isTokenHidden;
-
-  /// Schaltet die Sichtbarkeit des API-Tokens um.
-  void toggleTokenVisibility() {
-    _isTokenHidden = !_isTokenHidden;
     notifyListeners();
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class PasswordStrengthBar extends StatelessWidget {
+  /// Passwortstärke
   final int score;
 
   /// Konstruktor

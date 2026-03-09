@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_search_dialog.dart';
 import 'package:privault/widgets/password_dialog.dart';
+import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/snack.dart';
+import 'package:provider/provider.dart';
 
 /// Der [SettingsScreen] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
@@ -239,20 +240,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (value) => viewModel.host = value,
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                PasswordField(
                   controller: _tokenController,
-                  obscureText: viewModel.isTokenHidden,
-                  decoration: InputDecoration(
-                    labelText: 'API Token',
-                    prefixIcon: Icon(Icons.vpn_key_outlined),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(viewModel.isTokenHidden ? Icons.visibility : Icons.visibility_off),
-                      tooltip: viewModel.isTokenHidden ? 'Anzeigen' : 'Verbergen',
-                      onPressed: viewModel.toggleTokenVisibility,
-                    ),
-                  ),
-                  onChanged: (value) => viewModel.apiToken = value,
+                  label: 'API-Token',
+                  prefixIcon: Icons.vpn_key_outlined,
+                  onChanged: (val) => viewModel.apiToken = val,
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(

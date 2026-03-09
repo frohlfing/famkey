@@ -20,6 +20,7 @@ import 'package:privault/widgets/snack.dart';
 /// * Notizen lesen und Anhänge (wie Bilder oder Dokumente) verwalten oder ansehen.
 /// * Falls du die Berechtigung hast, direkt in den Bearbeitungsmodus wechseln.
 class DetailScreen extends StatefulWidget {
+  /// Die ID des anzuzeigenden Eintrags
   final int entryId;
 
   /// Konstruktor
@@ -35,6 +36,9 @@ class _DetailScreenState extends State<DetailScreen> {
   // ------------------------------------------------------------------------
 
   late DetailViewModel _viewModel;
+
+  /// Gibt an, ob das Passwort ausgeblendet ist
+  bool _obscurePassword = true;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -135,7 +139,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 // Stammdaten
                 // ------------------------------------------------------------------------
 
-                // Username Card
+                // Benutzername
                 ListTile(
                   title: const Text('Benutzername'),
                   subtitle: Text(viewModel.username),
@@ -147,19 +151,19 @@ class _DetailScreenState extends State<DetailScreen> {
                 ),
                 const Divider(),
 
-                // Password Section
+                // Passwort
                 Column(
                   children: [
                     ListTile(
                       title: const Text('Passwort'),
-                      subtitle: Text(viewModel.isPasswordHidden ? '••••••••' : viewModel.password),
+                      subtitle: Text(_obscurePassword ? '••••••••' : viewModel.password),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                            tooltip: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
-                            onPressed: viewModel.togglePasswordVisibility,
+                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy),
@@ -178,7 +182,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 ),
                 const Divider(),
 
-                // URL Section
+                // URL
                 if (viewModel.url.isNotEmpty) ...[
                   ListTile(
                     title: const Text('URL'),
@@ -192,7 +196,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   const Divider(),
                 ],
 
-                // Notes Section
+                // Notizen
                 if (viewModel.notes.isNotEmpty) ...[
                   ListTile(title: const Text('Notizen'), subtitle: Text(viewModel.notes)),
                   const Divider(),
