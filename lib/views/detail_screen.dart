@@ -158,8 +158,8 @@ class _DetailScreenState extends State<DetailScreen> {
                         children: [
                           IconButton(
                             icon: Icon(viewModel.isPasswordHidden ? Icons.visibility : Icons.visibility_off),
-                            onPressed: viewModel.togglePasswordVisibility,
                             tooltip: viewModel.isPasswordHidden ? 'Passwort anzeigen' : 'Passwort verbergen',
+                            onPressed: viewModel.togglePasswordVisibility,
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy),

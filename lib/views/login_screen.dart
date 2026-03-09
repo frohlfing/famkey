@@ -31,9 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
-
-  /// Gibt an, ob das Passwort ausgeblendet ist
-  bool _obscurePassword = true;
+  bool _obscurePassword = true; /// Gibt an, ob das Passwort ausgeblendet ist
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -179,8 +177,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               IconButton(
-                                tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
                                 icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                               if (viewModel.hasBiometricKey)
@@ -198,12 +196,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       onChanged: (value) => viewModel.password = value,
                       onSubmitted: canLogin ? (_) => _handleLogin() : null,
                     ),
-                    // const SizedBox(height: 6),
-                    // if (viewModel.password.isNotEmpty)
-                    //   Padding(
-                    //     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    //     child: PasswordStrengthBar(score: viewModel.passwordStrength),
-                    //   ),
+
+                    const SizedBox(height: 6),
+                    if (!viewModel.isExists && viewModel.password.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: PasswordStrengthBar(score: viewModel.passwordStrength),
+                      ),
+
                     const SizedBox(height: 24),
 
                     ElevatedButton.icon(

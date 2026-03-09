@@ -7,6 +7,7 @@ import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
+import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -42,6 +43,7 @@ class LoginViewModel extends BaseViewModel {
   final ConfigService _configService;
   final CryptoService _cryptoService;
   final DatabaseService _databaseService;
+  final PasswordService _passwordService;
   final SessionService _sessionService;
 
   // ------------------------------------------------------------------------
@@ -59,7 +61,7 @@ class LoginViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
 
   /// Konstruktor
-  LoginViewModel(this._biometricService, this._configService, this._cryptoService, this._databaseService, this._sessionService);
+  LoginViewModel(this._biometricService, this._configService, this._cryptoService, this._databaseService, this._passwordService, this._sessionService);
 
   /// Initialisiert die Variablen, bevor der erste Frame gerendert wird.
   void init() {
@@ -369,6 +371,9 @@ class LoginViewModel extends BaseViewModel {
     if (errorMessage != null) clearError();
     notifyListeners();
   }
+
+  /// Berechnete Stärke des aktuell eingegebenen Passworts (0-4).
+  int get passwordStrength => _passwordService.estimateStrength(_password);
 
   /// Löscht das Passwort aus dem RAM.
   void clearPassword({bool notify = true}) {

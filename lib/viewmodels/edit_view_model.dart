@@ -6,8 +6,8 @@ import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
 import 'package:privault/services/password_service.dart';
+import 'package:privault/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
 
@@ -20,8 +20,8 @@ class EditViewModel extends BaseViewModel {
 
   final CryptoService _cryptoService;
   final DatabaseService _databaseService;
-  final SessionService _sessionService;
   final PasswordService _passwordService;
+  final SessionService _sessionService;
   final Dio _dio = Dio();
 
   // ------------------------------------------------------------------------
@@ -59,7 +59,7 @@ class EditViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
 
   /// Konstruktor
-  EditViewModel(this._cryptoService, this._databaseService, this._sessionService, this._passwordService);
+  EditViewModel(this._cryptoService, this._databaseService, this._passwordService, this._sessionService);
 
   /// Initialisiert die Variablen, bevor der erste Frame gerendert wird.
   void init() {
