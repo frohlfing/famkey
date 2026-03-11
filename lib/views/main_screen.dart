@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
-import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:provider/provider.dart';
 import 'package:privault/viewmodels/main_view_model.dart';
 import 'package:privault/widgets/password_dialog.dart';
@@ -271,60 +270,69 @@ class _MainScreenState extends State<MainScreen> {
     if (_viewModel.isBusy) return;
     try {
       // Sync starten
-      final stats = await _viewModel.sync();
+      final result = await _viewModel.sync();
       if (!mounted) return;
+      if (!result.isSuccess) {
+        if (result.errorCode == AppError.syncSaltMismatch) {
+          // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
+          _handleSaltMismatch();
+          return;
+        }
+        if (result.errorCode == AppError.syncEmptyEntryKey) {
+          TextDialog.show(
+            context,
+            title: 'Sicherheitsstopp',
+            text: "Der Fingerprint eines Freundes hat sich geändert.\n"
+                "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
+          );
+          return;
+        }
+        Snack.show(context, result.errorMessage!);
+      }
+      final stats = _viewModel.stats;
       TextDialog.show(
           context,
           title: 'Info',
           text: 'Synchronisation erfolgreich abgeschlossen.\n\n$stats'
       );
-    } on SaltMismatchException catch (sme) {
-      // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
-      if (!mounted) return;
-      final userResponse = sme.userResponse;
-      try {
-        String? errorText;
-        final message = userResponse.userUuid == _viewModel.myUuid
-            ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
-            : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
-        while (true) {
-          // Master-Passwort abfragen
-          final password = await PasswordDialog.show(
-              context,
-              title: 'Account verknüpfen',
-              text: message,
-              errorText: errorText
-          );
-          if (password == null) return;
+    } catch (e, st) {
+      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
+    }
+  }
 
-          // Die auf dem Server gespeicherte Identität übernehmen
-          final result = await _viewModel.adoptIdentity(userResponse, password);
-          if (!mounted) return;
-          if (result == AdoptIdentityResult.success) {
-            Snack.show(context, 'Account erfolgreich verknüpft.', success: true);
-            _handleSync(); // Sync erneut starten
-            break;
-          } else if (result == AdoptIdentityResult.wrongPassword) {
-            // im Dialog anzeigen, NICHT SnackBar
-            errorText = _viewModel.errorMessage;
-            continue;
-          } else {
-            Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
-            break;
-          }
-        }
-      } catch (e, st) {
-        if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
-      }
-    } on EmptyEntryKeyException catch (_) {
-      if (await _viewModel.hasUnverifiedFriend()) {
-        if (!mounted) return;
-        TextDialog.show(
-          context,
-          title: 'Sicherheitsstopp',
-          text: "Der Fingerprint eines Freundes hat sich geändert.\n"
-              "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
+  /// Adoptiert die auf dem Server gespeicherte Identität
+  Future<void> _handleSaltMismatch() async {
+    final userResponse = _viewModel.userResponse!;
+    try {
+      String? errorText;
+      final message = userResponse.userUuid == _viewModel.myUuid
+          ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
+          : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
+      while (true) {
+        // Master-Passwort abfragen
+        final password = await PasswordDialog.show(
+            context,
+            title: 'Account verknüpfen',
+            text: message,
+            errorText: errorText
         );
+        if (password == null) return;
+
+        // Die auf dem Server gespeicherte Identität übernehmen
+        final result = await _viewModel.adoptIdentity(userResponse, password);
+        if (!mounted) return;
+        if (!result.isSuccess) {
+          if (result.errorCode == AppError.wrongPassword) {
+            // im Dialog anzeigen, NICHT SnackBar
+            errorText = result.errorMessage;
+            continue;
+          }
+          Snack.show(context, result.errorMessage!);
+          break;
+        }
+        Snack.show(context, 'Account erfolgreich verknüpft.', success: true);
+        _handleSync(); // Sync erneut starten
+        break;
       }
     } catch (e, st) {
       if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/core/base_view_model.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
@@ -15,7 +17,6 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image/image.dart' as img;
-import 'dart:math' as math;
 
 /// Das `DetailViewModel` ist für die Anzeige eines Tresoreintrags verantwortlich.
 /// Außerdem können hier Dateien an den Eintrag angehängt und Freunde für den Zugriff
@@ -137,7 +138,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadFriends();
     } catch (e, st) {
       logError("Entschlüsselung fehlgeschlagen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -285,7 +286,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadAttachments();
     } catch (e, st) {
       logError("Fehler beim Hinzufügen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -321,13 +322,13 @@ class DetailViewModel extends BaseViewModel {
           } catch (e) {
             // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
             logError('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
-            notifyError("Fehler beim Entfernen der temporären Datei.");
+            notifyError(AppError.cleanupFailed);
           }
         }
       });
     } catch (e, st) {
       logError("Anhang konnte nicht geöffnet werden: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -341,7 +342,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadAttachments();
     } catch (e, st) {
       logError("Fehler beim Löschen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -503,7 +504,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadSharedFriends();
     } catch (e, st) {
       logError("Teilen fehlgeschlagen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -534,7 +535,7 @@ class DetailViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError("Rechte konnten nicht geändert werden: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }

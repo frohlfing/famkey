@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_version.dart';
 import 'package:privault/core/base_view_model.dart';
+import 'package:privault/core/command_result.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
-import 'package:privault/models/exceptions/empty_entry_key_exception.dart';
-import 'package:privault/models/exceptions/salt_mismatch_exception.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/friend_payload.dart';
 import 'package:privault/services/database_service.dart';
@@ -51,9 +51,6 @@ class SyncStatistics {
       '💾 Gesichert: $pushSent';
 }
 
-/// Ergebnisse für die Identitätsübernahme
-enum AdoptIdentityResult { success, wrongPassword, error }
-
 /// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
 /// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
 class MainViewModel extends BaseViewModel {
@@ -66,6 +63,13 @@ class MainViewModel extends BaseViewModel {
   final DatabaseService _databaseService;
   final SessionService _sessionService;
   final WebService _webService;
+
+  // ------------------------------------------------------------------------
+  // --- Konstanten für notifySuccess/CommandResult ---
+  // ------------------------------------------------------------------------
+
+  static const saltMismatch = -1;
+  static const emptyEntryKey = -2;
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
@@ -85,6 +89,9 @@ class MainViewModel extends BaseViewModel {
 
   /// Sync-Statistik
   final _stats = SyncStatistics();
+
+  /// Das User-Response-Objekt der letzten Synchronisation.
+  UserResponse? _userResponse;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung ---
@@ -121,7 +128,7 @@ class MainViewModel extends BaseViewModel {
       notifyListeners();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -213,14 +220,21 @@ class MainViewModel extends BaseViewModel {
   // --- Synchronisation ---
   // ------------------------------------------------------------------------
 
+  /// Das User-Response-Objekt der letzten Synchronisation.
+  UserResponse? get userResponse => _userResponse;
+
+  /// Sync-Statistik
+  SyncStatistics get stats => _stats;
+
   /// Prüft, ob es mindestens einen (sichtbaren) Freund gibt, der noch nicht verifiziert ist.
-  Future<bool> hasUnverifiedFriend() async {
-    return await _databaseService.hasUnverifiedUser();
+  Future<CommandResult<int>> hasUnverifiedFriend() async {
+    final ok = await _databaseService.hasUnverifiedUser();
+    return notifySuccess(ok ? 1 : 0);
   }
 
   /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
   /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
-  Future<SyncStatistics> sync() async {
+  Future<CommandResult<int>> sync() async {
     if (_sessionService.user == null) throw Exception("User ist in den Session nicht initialisiert.");
     if (_sessionService.settings == null) throw Exception("Settings ist in den Session nicht initialisiert.");
     setBusy(true);
@@ -242,7 +256,7 @@ class MainViewModel extends BaseViewModel {
       // 5. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert oder es wurde auf einem anderen Gerät das Passwort geändert.
       if (_sessionService.user!.uuid != userResponse.userUuid || userResponse.salt != _sessionService.settings!.salt) {
-        throw SaltMismatchException(userResponse);
+        return notifyError(AppError.syncSaltMismatch);
       }
 
       // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
@@ -252,7 +266,7 @@ class MainViewModel extends BaseViewModel {
       // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
-        throw EmptyEntryKeyException();
+        return notifyError(AppError.syncEmptyEntryKey);
       }
 
       // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
@@ -271,8 +285,7 @@ class MainViewModel extends BaseViewModel {
       // 12. Einträge aktualisieren
       await load();
 
-      // 13. Sync-Statistik zurückgeben
-      return _stats;
+      return notifySuccess();
     } finally {
       setBusy(false);
     }
@@ -282,7 +295,7 @@ class MainViewModel extends BaseViewModel {
   ///
   /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
   /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<AdoptIdentityResult> adoptIdentity(UserResponse userResponse, String password) async {
+  Future<CommandResult<int>> adoptIdentity(UserResponse userResponse, String password) async {
     if (_sessionService.settings == null) throw Exception("Settings nicht initialisiert.");
     if (_sessionService.user == null) throw Exception("User fehlt");
     if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
@@ -306,8 +319,7 @@ class MainViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        notifyError("Falsches Master-Passwort");
-        return AdoptIdentityResult.wrongPassword;
+        return notifyError(AppError.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -373,7 +385,7 @@ class MainViewModel extends BaseViewModel {
 
         // Erfolg: Backup löschen
         await _databaseService.removeBackup();
-        return AdoptIdentityResult.success;
+        return notifySuccess();
       } catch (_) {
         // Fehler während der Operation -> Rollback
         try {
@@ -385,8 +397,7 @@ class MainViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler bei der Identitätsübernahme: $e', st);
-      notifyUnexpectedError();
-      return AdoptIdentityResult.error;
+      return notifyError(AppError.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);

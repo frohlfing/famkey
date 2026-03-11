@@ -147,6 +147,7 @@ class _EditScreenState extends State<EditScreen> {
                   decoration: InputDecoration(
                     labelText: 'Kategorie',
                     prefixIcon: Icon(Icons.label_outlined),
+                    errorText: viewModel.getFieldError('category'),
                     border: const OutlineInputBorder(),
                     suffixIcon: viewModel.existingCategories.isNotEmpty
                         ? PopupMenuButton<String>(
@@ -169,8 +170,8 @@ class _EditScreenState extends State<EditScreen> {
                   decoration: InputDecoration(
                     labelText: 'Titel',
                     prefixIcon: Icon(Icons.title_outlined),
-                    border: OutlineInputBorder(),
                     errorText: viewModel.getFieldError('title'),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.title = value,
                 ),
@@ -179,9 +180,10 @@ class _EditScreenState extends State<EditScreen> {
                 TextField(
                   controller: _usernameController,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Benutzername',
                     prefixIcon: Icon(Icons.person_outline),
+                    errorText: viewModel.getFieldError('username'),
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.username = value,
@@ -195,6 +197,7 @@ class _EditScreenState extends State<EditScreen> {
                       controller: _passwordController,
                       label: 'Passwort',
                       prefixIcon: Icons.key_outlined,
+                      errorText: viewModel.getFieldError('password'),
                       suffixActions: [
                         IconButton(
                           icon: const Icon(Icons.casino),
@@ -217,9 +220,10 @@ class _EditScreenState extends State<EditScreen> {
                 TextField(
                   controller: _urlController,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'URL',
                     prefixIcon: Icon(Icons.public_outlined),
+                    errorText: viewModel.getFieldError('url'),
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.url = value,
@@ -230,9 +234,10 @@ class _EditScreenState extends State<EditScreen> {
                   controller: _notesController,
                   minLines: 3,
                   maxLines: null,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Notizen',
                     prefixIcon: Icon(Icons.article_outlined),
+                    errorText: viewModel.getFieldError('notes'),
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => viewModel.notes = value,
@@ -286,6 +291,7 @@ class _EditScreenState extends State<EditScreen> {
         return;
       }
     }
+
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -294,48 +300,49 @@ class _EditScreenState extends State<EditScreen> {
     if (_viewModel.isBusy) return;
 
     final modified = _viewModel.isDirty;
-    final savedId = await _viewModel.save();
+    final result = await _viewModel.save();
+    if (!mounted) return;
 
-    // Falls ein allgemeiner Fehler im VM gesetzt wurde (z.B. Server-Fehler)
-    if (_viewModel.errorMessage != null && mounted) {
-      Snack.show(context, _viewModel.errorMessage!);
-      //_viewModel.clearError(); // Wichtig, damit er nicht doppelt triggert
+    // Hier bleiben, falls das Ergebnis einen Fehler enthält
+    if (!result.isSuccess) {
+      if (result.field == null) Snack.show(context, result.errorMessage!);
       return;
     }
 
-    if (savedId != null && mounted) {
-      if (_viewModel.isEditMode) {
-        // Diese Seite wurde von der Detailansicht aufgerufen.
-        // Wir navigieren einfach wieder zurück.
-        Navigator.of(context).pop(modified);
-      } else {
-        // Diese Seite wurde von der Hauptseite aufgerufen.
-        // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
-        Navigator.of(context).pushReplacementNamed('/detail', arguments: savedId, result: modified);
-      }
+    if (!_viewModel.isEditMode) {
+      // Diese Seite wurde von der Hauptseite aufgerufen.
+      // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
+      final savedId = result.data!;
+      Navigator.of(context).pushReplacementNamed('/detail', arguments: savedId, result: modified);
+      return;
     }
+
+    // Diese Seite wurde von der Detailansicht aufgerufen.
+    // Wir navigieren einfach wieder zurück.
+    Navigator.of(context).pop(modified);
   }
 
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
   Future<void> _handleDeleteEntry() async {
     if (_viewModel.isBusy) return;
-
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Eintrag löschen',
       text: 'Soll dieser Eintrag wirklich gelöscht werden?',
       ok: 'Ja, löschen',
     );
+    if (confirmed != true || !mounted) return;
 
-    if (confirmed == true && mounted) {
-      final success = await _viewModel.deleteEntry();
-      if (success && mounted) {
-        // Das Löschen ist nur im Editiermodus möglich, d.h., diese Seite wurde von der Detailansicht aufgerufen.
-        // Wir navigieren zurück zur Detailansicht und weiter zurück zur Hauptansicht.
-        Navigator.of(context)
-          ..pop()
-          ..pop(true);
-      }
+    final result = await _viewModel.deleteEntry();
+    if (!mounted) return;
+
+    if (!result.isSuccess) {
+      if (result.field == null) Snack.show(context, result.errorMessage!);
+      return;
     }
+
+    // Das Löschen ist nur im Editiermodus möglich, d.h., diese Seite wurde von der Detailansicht aufgerufen.
+    // Wir navigieren zurück zur Detailansicht und weiter zurück zur Hauptansicht.
+    Navigator.of(context)..pop()..pop(true);
   }
 }

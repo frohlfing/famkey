@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
+import 'package:privault/widgets/snack.dart';
 
 /// Der [LoginScreen] dient als Einstiegspunkt und Sicherheitsschleuse der App.
 ///
@@ -27,7 +29,6 @@ class _LoginScreenState extends State<LoginScreen> {
   // ------------------------------------------------------------------------
 
   late LoginViewModel _viewModel;
-
   final TextEditingController _vaultController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
@@ -137,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: 'Tresor-Name',
                         prefixIcon: const Icon(Icons.shield_outlined),
+                        errorText: viewModel.getFieldError('vaultName'),
                         border: const OutlineInputBorder(),
                         suffixIcon: viewModel.existingVaults.isNotEmpty
                             ? PopupMenuButton<String>(
@@ -165,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       label: 'Master-Passwort',
                       prefixIcon: Icons.key_outlined,
-                      errorText: viewModel.errorMessage,
+                      errorText: viewModel.getFieldError('password'),
                       suffixActions: [
                         if (viewModel.hasBiometricKey)
                           const Tooltip(
@@ -219,66 +221,67 @@ class _LoginScreenState extends State<LoginScreen> {
   // ------------------------------------------------------------------------
 
   /// Steuert den gesamten Anmeldevorgang und verarbeitet die verschiedenen Ergebnisse.
-  ///
-  /// Je nach Rückmeldung des ViewModels führt diese Funktion folgende Aktionen aus:
-  /// * **Erfolg:** Navigiert zum Hauptbildschirm.
-  /// * **Biometrie:** Fragt den Nutzer, ob der Schlüssel für künftige Logins im Secure Storage abgelegt werden soll.
-  /// * **Nicht gefunden:** Bietet die Erstellung eines neuen Tresors an.
-  /// * **Korrupt:** Ermöglicht das Löschen eines beschädigten lokalen Tresors.
   Future<void> _handleLogin({bool forceCreate = false}) async {
     if (_viewModel.isBusy) return;
 
     final result = await _viewModel.login(forceCreate: forceCreate);
     if (!mounted) return;
 
-    switch (result) {
-      case LoginResult.success:
-        Navigator.of(context).pushReplacementNamed('/main');
-        break;
+    if (!result.isSuccess) {
+      // --- Fehlerfall ---
+      switch (result.errorCode) {
+        case AppError.vaultNotFound:
+          final create = await ConfirmDialog.show(
+            context,
+            title: 'Tresor anlegen',
+            text: 'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
+            ok: 'Ja, anlegen',
+          );
+          if (create == true && mounted) {
+            _handleLogin(forceCreate: true);
+          }
+          break;
 
-      case LoginResult.askToEnableBiometrics:
-        final enable = await ConfirmDialog.show(
-          context,
-          title: 'Biometrie aktivieren',
-          text: 'Soll dein Schlüssel sicher auf diesem Gerät abgelegt werden, damit du dich beim nächsten Mal bequem per Fingerabdruck oder Gesichtserkennung anmelden kannst?',
-          ok: 'Ja, Schlüssel speichern',
-        );
-        if (enable == true && mounted) {
-          await _viewModel.saveMasterKey(_passwordController.text);
-        }
-        if (mounted) Navigator.of(context).pushReplacementNamed('/main');
-        break;
+        case AppError.vaultCorrupt:
+          final delete = await ConfirmDialog.show(
+            context,
+            title: 'Tresor löschen',
+            text: 'Der Tresor ist korrupt. Soll er gelöscht werden?',
+            ok: 'Ja, löschen',
+            autofocus: false,
+          );
+          if (delete == true && mounted) {
+            await _viewModel.cleanUp();
+            setState(() {
+              _vaultController.clear();
+              _passwordController.clear();
+            });
+          }
+          break;
 
-      case LoginResult.vaultNotFound:
-        final create = await ConfirmDialog.show(
-          context,
-          title: 'Tresor anlegen',
-          text: 'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
-          ok: 'Ja, anlegen',
-        );
-        if (create == true && mounted) {
-          _handleLogin(forceCreate: true);
-        }
-        break;
-
-      case LoginResult.corrupt:
-        final delete = await ConfirmDialog.show(
-          context,
-          title: 'Tresor löschen',
-          text: 'Der Tresor ist korrupt. Soll er gelöscht werden?',
-          ok: 'Ja, löschen',
-          autofocus: false,
-        );
-        if (delete == true && mounted) {
-          await _viewModel.cleanUp();
-          setState(() {
-            _vaultController.clear();
-            _passwordController.clear();
-          });
-        }
-        break;
-      default:
-        break;
+        default:
+          if (result.field == null) Snack.show(context, result.errorMessage!);
+          break;
+      }
+      return;
     }
+
+    // --- Erfolgsfall ---
+    final response = result.data!;
+
+    // Falls Biometrie aktiviert werden kann: Nachfragen
+    if (response == LoginViewModel.askToEnableBiometrics) {
+      final enable = await ConfirmDialog.show(
+        context,
+        title: 'Biometrie aktivieren',
+        text: 'Soll dein Schlüssel sicher auf diesem Gerät abgelegt werden, damit du dich beim nächsten Mal bequem per Fingerabdruck oder Gesichtserkennung anmelden kannst?',
+        ok: 'Ja, Schlüssel speichern',
+      );
+      if (enable == true && mounted) {
+        await _viewModel.saveMasterKey(_passwordController.text);
+      }
+    }
+
+    if (mounted) Navigator.of(context).pushReplacementNamed('/main');
   }
 }

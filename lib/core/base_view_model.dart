@@ -1,37 +1,82 @@
 import 'package:flutter/foundation.dart';
+import 'package:privault/core/command_result.dart';
 
-/// Basisklasse für ViewModels.
-class BaseViewModel extends ChangeNotifier {
-  bool _isBusy = false;
-  String? _errorMessage;
+import 'app_error.dart';
 
+/// Basisklasse für alle ViewModels in der App.
+///
+/// Sie bietet Standard-Funktionen für:
+/// * Lade-Zustände (isBusy)
+/// * Allgemeine Fehlermeldungen (errorMessage)
+/// * Feld-spezifische Validierungsfehler (fieldErrors)
+abstract class BaseViewModel extends ChangeNotifier {
+
+  // ------------------------------------------------------------------------
+  // --- Interne Variablen ---
+  // ------------------------------------------------------------------------
+
+  bool _isBusy = false; // Gibt an, ob ein Ladesymbol angezeigt wird
+  var _result = CommandResult<int>(); // Ergebnis der letzten Operation
+
+  // ------------------------------------------------------------------------
+  // --- Eigenschaften und Methoden für den Lade-Status ---
+  // ------------------------------------------------------------------------
+
+  /// Gibt an, ob ein Ladesymbol angezeigt wird
   bool get isBusy => _isBusy;
 
-  String? get errorMessage => _errorMessage;
-
-  /// Setzt den Busy-Status und benachrichtigt die View
+  /// Setzt den Busy-Status und benachrichtigt die UI, damit z.B. ein Ladekreis erscheint.
   void setBusy(bool value) {
     _isBusy = value;
     notifyListeners();
   }
 
-  /// Setzt den Fehlertext und benachrichtigt die View
-  void notifyError(String value) {
-    _errorMessage = value;
+  // ------------------------------------------------------------------------
+  // --- Methoden für die Fehlerbehandlung ---
+  // ------------------------------------------------------------------------
+
+  /// Ergebnis der letzten Operation
+  CommandResult<int> get result => _result;
+
+  /// Setzt ein positives Ergebnis
+  CommandResult<int> notifySuccess([int value = 0]) {
+    _result = CommandResult<int>.success(value);
     notifyListeners();
+    return _result;
   }
 
-  /// Setzt "Unerwarteter Fehler" als Fehlertext und benachrichtigt die View
-  void notifyUnexpectedError() {
-    _errorMessage = "Unerwarteter Fehler";
+  /// Setzt ein negatives Ergebnis
+  CommandResult<int> notifyError(AppError error, {String? message, String? field}) {
+    _result = CommandResult.failure(error, message: message, field: field);
     notifyListeners();
+    return _result;
   }
 
-  /// Setzt den Fehlertext zurück und benachrichtigt die View
+  /// Löscht den Fehler eines einzelnen Feldes (z.B. wenn der Nutzer anfängt zu tippen).
+  void clearFieldError(String field) {
+    if (_result.field == field) {
+      _result = CommandResult<int>();
+      notifyListeners();
+    }
+  }
+
+  /// Löscht alle aktuellen Fehler (allgemeine und Feld-Fehler).
+  /// [notify] steuert, ob die UI sofort informiert werden soll.
   void clearError({bool notify = true}) {
-    _errorMessage = null;
+    _result = CommandResult<int>();
     if (notify) notifyListeners();
   }
+
+  /// Fehlermeldung (allgemein, nicht auf ein Eingabefeld bezogen)
+  String? get errorMessage => _result.errorMessage;
+
+  /// Gibt zurück, ob aktuell irgendwo ein Fehler vorliegt.
+  bool get hasError => _result.hasError;
+
+  /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
+  String? getFieldError(String field) => _result.getFieldError(field);
+
+  // --- Logging ---
 
   /// Protokolliert den Fehler.
   void logError(dynamic msg, [StackTrace? stackTrace]) {

@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/core/base_view_model.dart';
+import 'package:privault/core/command_result.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
@@ -11,27 +13,6 @@ import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
-
-/// Das Ergebnis eines Anmeldeversuchs.
-enum LoginResult {
-  /// Anmeldung war erfolgreich.
-  success,
-
-  /// Das eingegebene Master-Passwort ist falsch.
-  wrongPassword,
-
-  /// Der angegebene Tresor konnte auf dem Gerät nicht gefunden werden.
-  vaultNotFound,
-
-  /// Die Tresordatei ist beschädigt oder keine gültige Datenbank.
-  corrupt,
-
-  /// Anmeldung erfolgreich, aber Biometrie könnte nun aktiviert werden.
-  askToEnableBiometrics,
-
-  /// Ein allgemeiner Fehler ist aufgetreten.
-  error,
-}
 
 /// Das `LoginViewModel` verwaltet den Authentifizierungsprozess und den Zugriff auf die Tresore.
 class LoginViewModel extends BaseViewModel {
@@ -45,6 +26,12 @@ class LoginViewModel extends BaseViewModel {
   final DatabaseService _databaseService;
   final PasswordService _passwordService;
   final SessionService _sessionService;
+
+  // ------------------------------------------------------------------------
+  // --- Konstanten für notifySuccess/CommandResult ---
+  // ------------------------------------------------------------------------
+
+  static const askToEnableBiometrics = -1;
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
@@ -65,7 +52,6 @@ class LoginViewModel extends BaseViewModel {
 
   /// Initialisiert die Variablen, bevor der erste Frame gerendert wird.
   void init() {
-    clearError(notify: false);
     _vaultName = _configService.lastVaultName;
     _password = '';
     _isExists = false;
@@ -77,11 +63,10 @@ class LoginViewModel extends BaseViewModel {
   Future<void> load() async {
     setBusy(true);
     try {
-      clearError();
       await refreshVaultList();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -103,13 +88,16 @@ class LoginViewModel extends BaseViewModel {
 
   /// Startet den Authentifizierungsprozess.
   /// Prüft, ob der Tresor existiert, und leitet dann entweder das Öffnen oder die Neuanlage ein.
-  Future<LoginResult> login({bool forceCreate = false}) async {
-    if (_vaultName.isEmpty) return LoginResult.error;
+  Future<CommandResult<int>> login({bool forceCreate = false}) async {
+    _vaultName = _vaultName.trim();
 
-    // WICHTIG: Sicherstellen, dass keine alte Verbindung mehr offen ist
-    await _databaseService.close();
-
-    if (!_isExists && !forceCreate) return LoginResult.vaultNotFound;
+    // Validierung der Benutzereingabe
+    if (_vaultName.isEmpty) {
+      return notifyError(AppError.valueRequired, field: 'vaultName');
+    }
+    if (!_isExists && !forceCreate) {
+      return notifyError(AppError.vaultNotFound, field: 'vaultName');
+    }
 
     setBusy(true);
     try {
@@ -118,31 +106,30 @@ class LoginViewModel extends BaseViewModel {
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
+      // Sicherstellen, dass keine alte Verbindung mehr offen ist
+      await _databaseService.close();
+
       if (_isExists) {
         return await _openVault();
       } else {
         if (_password.isEmpty) {
-          notifyError("Bitte ein Master-Passwort festlegen.");
-          return LoginResult.error;
+          return notifyError(AppError.valueRequired, field: 'password');
         }
         return await _createVault();
       }
     } catch (e, st) {
       final msg = e.toString().toLowerCase();
 
-      if (msg.contains("database is locked")) {
-        notifyError("Der Tresor ist blockiert. Bitte App neu starten.");
-        return LoginResult.error;
+      if (msg.contains('database is locked')) {
+        return notifyError(AppError.vaultLocked);
       }
 
-      if (msg.contains("file is not a database") || msg.contains("authentication failed") || msg.contains("file is encrypted or is not a database")) {
-        notifyError("Falsches Master-Passwort oder Tresor beschädigt.");
-        return LoginResult.wrongPassword;
+      if (msg.contains('file is not a database') || msg.contains('authentication failed') || msg.contains('file is encrypted or is not a database')) {
+        return notifyError(AppError.wrongPassword, field: 'password');
       }
 
-      logError("Login-Exception: $e", st);
-      notifyUnexpectedError();
-      return LoginResult.error;
+      logError('Fehler beim Login: $e', st);
+      return notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -150,10 +137,9 @@ class LoginViewModel extends BaseViewModel {
 
   /// Erstellt eine neue Tresor-Datenbank, generiert ein RSA-Schlüsselpaar für die Identität
   /// und verschlüsselt den privaten Teil mit dem Master-Key.
-  Future<LoginResult> _createVault() async {
+  Future<CommandResult<int>> _createVault() async {
     if (_password.isEmpty) {
-      notifyError("Bitte das Master-Passwort eingeben.");
-      return LoginResult.error;
+      return notifyError(AppError.valueRequired, field: 'password');
     }
 
     // 1. Neues Salt generieren
@@ -194,7 +180,7 @@ class LoginViewModel extends BaseViewModel {
         updatedAt: DateTime.now().toUtc(),
       ));
 
-      // 8.  Settings anlegen
+      // 8. Settings anlegen
       final newSettings = await _databaseService.saveSettings(SettingsEntity(
         id: 0,
         salt: base64.encode(salt),
@@ -213,7 +199,7 @@ class LoginViewModel extends BaseViewModel {
       _configService.lastVaultName = _vaultName;
       await refreshVaultList();
 
-      // 8. Session setzen
+      // 10. Session setzen
       _sessionService.setSession(
         user: newUser,
         privateKey: privKeyBytes,
@@ -222,7 +208,7 @@ class LoginViewModel extends BaseViewModel {
       );
 
       clearPassword();
-      return LoginResult.success;
+      return notifySuccess();
     } finally {
       // Master-Key sofort aus dem RAM löschen
       _cryptoService.wipeKey(masterKey);
@@ -230,10 +216,10 @@ class LoginViewModel extends BaseViewModel {
   }
 
   /// Öffnet einen bestehenden Tresor, leitet den Master-Key ab und entschlüsselt die Sitzungsdaten.
-  Future<LoginResult> _openVault() async {
+  Future<CommandResult<int>> _openVault() async {
     // Salt aus der Salt-Datei lesen
     final salt = await _databaseService.getSalt(_vaultName);
-    if (salt == null) return LoginResult.vaultNotFound;
+    if (salt == null) return notifyError(AppError.vaultNotFound);
 
     Uint8List? masterKey;
     bool isManualLogin = _password.isNotEmpty;
@@ -243,14 +229,12 @@ class LoginViewModel extends BaseViewModel {
       // Master-Key aus Secure-Store holen (löst System-Dialog aus)
       masterKey = await _biometricService.getMasterKey(_vaultName);
       if (masterKey == null) {
-        notifyError("Biometrische Authentifizierung abgebrochen.");
-        return LoginResult.error;
+        return notifyError(AppError.biometricCanceled);
       }
     } else {
       // Master-Key aus eingegebenes Master-Passwort und Salt ableiten (Argon2id)
       if (_password.isEmpty) {
-        notifyError("Bitte das Master-Passwort eingeben.");
-        return LoginResult.error;
+        return notifyError(AppError.valueRequired, field: 'password');
       }
       masterKey = await _cryptoService.deriveKey(_password, salt);
     }
@@ -259,34 +243,22 @@ class LoginViewModel extends BaseViewModel {
       // 2. Datenbank öffnen
       await _databaseService.initialize(_vaultName, masterKey);
 
-      // 3b. Einstellungen aus der DB lesen
+      // 3. Einstellungen und eigene Identität aus der DB lesen
       final settings = await _databaseService.getSettings();
-      if (settings == null) {
-        logError("Settings in DB nicht gefunden!");
-        return LoginResult.corrupt;
-      }
-
-      // 3b. Eigene Identität aus der DB lesen
       final user = await _databaseService.getUser(1);
-      if (user == null) {
-        logError("User mit ID 1 in DB nicht gefunden!");
-        return LoginResult.corrupt;
-      }
+      if (settings == null || user == null) return notifyError(AppError.vaultCorrupt);
 
       // 4. Private Key entschlüsseln
       try {
         final privKeyBytes = await _cryptoService.decrypt(settings.encryptedPrivateKey, masterKey);
         _sessionService.setSession(user: user, privateKey: privKeyBytes, vaultName: _vaultName, settings: settings);
       } catch (e) {
-        //logError("Entschlüsselung des PrivateKeys fehlgeschlagen: $e");
         if (!isManualLogin && _hasBiometricKey) {
           await _biometricService.removeMasterKey(_vaultName);
           _hasBiometricKey = false;
-          notifyError("Biometrie zurückgesetzt (gespeicherter Schlüssel war veraltet).");
-          return LoginResult.wrongPassword;
+          return notifyError(AppError.wrongBiometric, field: 'password');
         }
-        notifyError("Falsches Master-Passwort.");
-        return LoginResult.wrongPassword;
+        return notifyError(AppError.wrongPassword, field: 'password');
       }
 
       _configService.lastVaultName = _vaultName;
@@ -294,10 +266,10 @@ class LoginViewModel extends BaseViewModel {
 
       // Falls manuell eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen
       if (isManualLogin && settings.useBiometric && !_hasBiometricKey) {
-        return LoginResult.askToEnableBiometrics;
+        return notifySuccess(askToEnableBiometrics);
       }
 
-      return LoginResult.success;
+      return notifySuccess();
     } catch (e) {
       await _databaseService.close();
       rethrow; // Wird im login() gefangen
@@ -306,6 +278,7 @@ class LoginViewModel extends BaseViewModel {
       _cryptoService.wipeKey(masterKey);
     }
   }
+
 
   // ------------------------------------------------------------------------
   // --- Eigenschaften und Methoden ---
@@ -320,9 +293,8 @@ class LoginViewModel extends BaseViewModel {
     if (_vaultName == value) return;
     // Ungültige Zeichen für Dateinamen filtern
     _vaultName = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-    if (errorMessage != null) clearError();
+    clearFieldError('vaultName');
     _updateState();
-    notifyListeners();
   }
 
   /// Gibt an, ob der gewählte Tresor bereits lokal existiert.
@@ -368,7 +340,7 @@ class LoginViewModel extends BaseViewModel {
   set password(String value) {
     if (_password == value) return;
     _password = value;
-    if (errorMessage != null) clearError();
+    clearFieldError('password');
     notifyListeners();
   }
 

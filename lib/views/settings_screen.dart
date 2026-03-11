@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_search_dialog.dart';
@@ -611,24 +612,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (password == null || !mounted) return;
           final result = await _viewModel.renameVault(password);
           if (!mounted) return;
-          if (result == RenameVaultResult.success) {
-            Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
-            break;
-          } else if (result == RenameVaultResult.wrongPassword) {
-            errorText = _viewModel.errorMessage;
-            continue;
-          } else {
-            Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
+          if (!result.isSuccess) {
+            if (result.errorCode == AppError.wrongPassword) {
+              errorText = result.errorMessage;
+              continue;
+            }
+            Snack.show(context, result.errorMessage!);
             break;
           }
+          Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
+          break;
         }
       }
 
       // Einstellungen speichern
-      final success = await _viewModel.save();
+      final result = await _viewModel.save();
       if (!mounted) return;
-      if (!success) {
-        Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
+      if (!result.isSuccess) {
+        Snack.show(context, result.errorMessage!);
         return;
       }
       Snack.show(context, 'Einstellungen gespeichert.', success: true);
@@ -671,23 +672,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
 
         // Passwort ändern
-        final result = await _viewModel.changeMasterPassword(
-          newPassword,
-          currentPassword,
-        );
+        final result = await _viewModel.changeMasterPassword(newPassword, currentPassword);
         if (!mounted) return;
 
         // Ergebnis auswerten
-        if (result == ChangePasswordResult.success) {
-          Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
-          break;
-        } else if (result == ChangePasswordResult.wrongPassword) {
-          errorText = _viewModel.errorMessage;
-          continue;
-        } else {
-          Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
+        if (!result.isSuccess) {
+          if (result.errorCode == AppError.wrongPassword) {
+            errorText = result.errorMessage;
+            continue;
+          }
+          Snack.show(context, result.errorMessage!);
           break;
         }
+        Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
+        break;
       }
     } catch (e, st) {
       if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
@@ -697,9 +695,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Testet, ob Host-URL und API-Token korrekt sind
   Future<void> _handleTestConnection() async {
     if (_viewModel.isBusy) return;
-    final ok = await _viewModel.testConnection();
+    final result = await _viewModel.testConnection();
     if (!mounted) return;
-    if (ok) {
+    if (!result.isSuccess) {
+      Snack.show(context, result.errorMessage!);
+      return;
+    }
+    if (result.data == 1) {
       Snack.show(context, 'Verbindung erfolgreich.', success: true);
     } else {
       Snack.show(context, 'Verbindung fehlgeschlagen.');
@@ -719,21 +721,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         final result = await _viewModel.addFriend(name);
         if (!mounted) return;
-
-        if (result == AddFriendResult.success) {
-          Snack.show(context, 
-            '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.',
-            success: true,
-          );
-          break;
-        } else if (result == AddFriendResult.notFound || result == AddFriendResult.alreadyAdded) {
-          // im Dialog anzeigen, NICHT SnackBar
-          errorText = _viewModel.errorMessage;
-          continue;
-        } else {
-          Snack.show(context, _viewModel.errorMessage ?? 'Unerwarteter Fehler');
+        if (!result.isSuccess) {
+          if (result.errorCode == AppError.userNotFound || result.errorCode == AppError.userAlreadyAdded) {
+            // im Dialog anzeigen, NICHT SnackBar
+            errorText = result.errorMessage;
+            continue;
+          }
+          Snack.show(context, result.errorMessage!);
           break;
         }
+        Snack.show(context, '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
+        break;
       }
     } catch (e, st) {
       if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');

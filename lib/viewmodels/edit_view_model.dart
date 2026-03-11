@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/core/base_view_model.dart';
+import 'package:privault/core/command_result.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -49,9 +51,6 @@ class EditViewModel extends BaseViewModel {
   String _url = '';
   String _notes = '';
   bool _isEditMode = false;
-
-  // Map für Feld-Fehler (Key: Feldname, Value: Fehlermeldung)
-  final Map<String, String?> _fieldErrors = {};
 
   // ------------------------------------------------------------------------
   // --- Initialisierung ---
@@ -126,7 +125,7 @@ class EditViewModel extends BaseViewModel {
       notifyListeners();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -147,36 +146,24 @@ class EditViewModel extends BaseViewModel {
       _url.trim() != (_originalPayload?.url ?? '') ||
       _notes.trim() != (_originalPayload?.notes ?? '');
 
-  // Validierung
-  bool validate() {
-    clearError();
-    _fieldErrors.clear();
-
-    if (_title.trim().isEmpty) {
-      notifyError("Doof");
-      _fieldErrors['title'] = 'Titel darf nicht leer sein';
-    }
-
-    // Hier kannst du weitere Pflichtfelder prüfen:
-    // if (_username.trim().isEmpty) _fieldErrors['username'] = '...';
-
-    notifyListeners();
-    return _fieldErrors.isEmpty;
-  }
-
   /// Speichert den aktuellen Eintrag in der Datenbank. Verschlüsselt dabei alle sensiblen Felder.
-  /// Gibt die ID des gespeicherten Eintrags zurück.
-  Future<int?> save() async {
+  /// Gibt die ID des gespeicherten Eintrags als Ergebnis der Operation zurück.
+  Future<CommandResult<int>> save() async {
     _category = _category.trim();
     _title = _title.trim();
     _username = _username.trim();
     _url = _url.trim();
     _notes = _notes.trim();
 
-    if (!validate()) return null;
+    // Validierung der Benutzereingabe
+    if (_title.isEmpty) {
+      return notifyError(AppError.valueRequired, field: 'title');
+    }
 
     setBusy(true);
     try {
+      clearError();
+
       // 1. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
       _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
 
@@ -224,27 +211,25 @@ class EditViewModel extends BaseViewModel {
       // 6. Den Original-Stand für Dirty-Check aktualisieren
       _originalPayload = payload;
 
-      return savedEntry.id;
+      return notifySuccess(savedEntry.id);
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
-      notifyUnexpectedError();
-      return null;
+      return notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
   }
 
   /// Löscht den aktuellen Eintrag.
-  Future<bool> deleteEntry() async {
-    if (_entry == null) return false;
+  Future<CommandResult<int>> deleteEntry() async {
+    if (_entry == null) return notifyError(AppError.unknown);
     setBusy(true);
     try {
       await _databaseService.deleteEntry(_entry!.id);
-      return true;
+      return notifySuccess(_entry!.id);
     } catch (e, st) {
       logError('Fehler beim Löschen: $e', st);
-      notifyUnexpectedError();
-      return false;
+      return notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -253,9 +238,6 @@ class EditViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
   // --- Eigenschaften & Methoden ---
   // ------------------------------------------------------------------------
-
-  // Map für Feld-Fehler (Key: Feldname, Value: Fehlermeldung)
-  String? getFieldError(String fieldName) => _fieldErrors[fieldName];
 
   /// Steuert, ob die Ansicht im Edit- oder im Insert-Modus ist
   bool get isEditMode => _isEditMode;
@@ -267,6 +249,7 @@ class EditViewModel extends BaseViewModel {
 
   set category(String value) {
     _category = value;
+    clearFieldError('category');
     notifyListeners();
   }
 
@@ -280,13 +263,7 @@ class EditViewModel extends BaseViewModel {
 
   set title(String value) {
     _title = value;
-
-    // Fehler für dieses Feld sofort löschen, wenn getippt wird
-    if (_fieldErrors.containsKey('title')) {
-      _fieldErrors.remove('title');
-      notifyListeners();
-    }
-
+    clearFieldError('title');
     notifyListeners();
   }
 
@@ -297,6 +274,7 @@ class EditViewModel extends BaseViewModel {
 
   set username(String value) {
     _username = value;
+    clearFieldError('username');
     notifyListeners();
   }
 
@@ -307,6 +285,7 @@ class EditViewModel extends BaseViewModel {
 
   set password(String value) {
     _password = value;
+    clearFieldError('password');
     notifyListeners();
   }
 
@@ -328,6 +307,7 @@ class EditViewModel extends BaseViewModel {
 
   set url(String value) {
     _url = value;
+    clearFieldError('url');
     notifyListeners();
   }
 
@@ -349,6 +329,7 @@ class EditViewModel extends BaseViewModel {
 
   set notes(String value) {
     _notes = value;
+    clearFieldError('notes');
     notifyListeners();
   }
 }

@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/core/base_view_model.dart';
+import 'package:privault/core/command_result.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
@@ -13,15 +15,6 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-/// Ergebnisse für Tresor-Umbenennung
-enum RenameVaultResult { success, identicalNames, alreadyExists, wrongPassword, error }
-
-/// Ergebnisse für Passwort-Änderung
-enum ChangePasswordResult { success, identicalPasswords, wrongPassword, error }
-
-/// Ergebnisse für das Hinzufügen von Freunden
-enum AddFriendResult { success, notFound, alreadyAdded, selfAdd, error }
 
 /// Snapshot über die veränderlichen Eigenschaften.
 class SettingsSnapshot {
@@ -158,7 +151,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -183,7 +176,7 @@ class SettingsViewModel extends BaseViewModel {
 
   /// Speichert alle geänderten Einstellungen (mit Ausnahme des Tresornamens)
   /// in der Datenbank und aktualisiert die Session.
-  Future<bool> save() async {
+  Future<CommandResult<int>> save() async {
     if (_settings == null) throw Exception("Settings nicht initialisiert.");
     setBusy(true);
     try {
@@ -231,11 +224,10 @@ class SettingsViewModel extends BaseViewModel {
         categoryPlaceholder: _categoryPlaceholder,
       );
 
-      return true;
+      return notifySuccess();
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
-      notifyUnexpectedError();
-      return false;
+      return notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -266,7 +258,7 @@ class SettingsViewModel extends BaseViewModel {
   bool get isVaultRenamed => _vaultName.trim() != _sessionService.vaultName.trim();
 
   /// Benennt den Tresor um und aktualisiert die Session. Das Master-Passwort wurde zuvor von der UI abgefragt.
-  Future<RenameVaultResult> renameVault(String password) async {
+  Future<CommandResult<int>> renameVault(String password) async {
     if (_settings == null) throw Exception("Settings nicht initialisiert.");
     if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
     if (_settings!.salt.isEmpty) throw Exception("Salt fehlt");
@@ -279,13 +271,11 @@ class SettingsViewModel extends BaseViewModel {
 
     // Trivial-Check
     if (currentVaultName == oldVaultName) {
-      notifyError("Neuer und alter Name sind identisch.");
-      return RenameVaultResult.identicalNames;
+      return notifyError(AppError.vaultEqualName);
     }
 
     if (await _databaseService.databaseExists(currentVaultName)) {
-      notifyError("Ein Tresor mit dem Namen '$currentVaultName' existiert bereits auf diesem Gerät.");
-      return RenameVaultResult.alreadyExists;
+      return notifyError(AppError.vaultAlreadyExists);
     }
 
     Uint8List? masterKey;
@@ -304,8 +294,7 @@ class SettingsViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        notifyError("Falsches Master-Passwort");
-        return RenameVaultResult.wrongPassword;
+        return notifyError(AppError.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -345,7 +334,7 @@ class SettingsViewModel extends BaseViewModel {
 
         // Erfolg: Backup löschen
         await _databaseService.removeBackup();
-        return RenameVaultResult.success;
+        return notifySuccess();
       } catch (_) {
         // Fehler während der Operation -> Rollback
         try {
@@ -357,8 +346,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler beim Umbenennung des Tresors: $e', st);
-      notifyUnexpectedError();
-      return RenameVaultResult.error;
+      return notifyError(AppError.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       setBusy(false);
@@ -395,7 +383,7 @@ class SettingsViewModel extends BaseViewModel {
   }
 
   /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<ChangePasswordResult> changeMasterPassword(String newPassword, String password) async {
+  Future<CommandResult<int>> changeMasterPassword(String newPassword, String password) async {
     if (_settings == null) throw Exception("Settings nicht initialisiert.");
     if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
     if (_settings!.salt.isEmpty) throw Exception("Salt fehlt");
@@ -403,8 +391,7 @@ class SettingsViewModel extends BaseViewModel {
 
     // Trivial-Check
     if (newPassword == password) {
-      notifyError("Neues und altes Master-Passwort sind identisch.");
-      return ChangePasswordResult.identicalPasswords;
+      return notifyError(AppError.equalPassword);
     }
 
     Uint8List? masterKey;
@@ -424,8 +411,7 @@ class SettingsViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        notifyError("Falsches Master-Passwort");
-        return ChangePasswordResult.wrongPassword;
+        return notifyError(AppError.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -483,7 +469,7 @@ class SettingsViewModel extends BaseViewModel {
 
         // Erfolg: Backup löschen
         await _databaseService.removeBackup();
-        return ChangePasswordResult.success;
+        return notifySuccess();
       } catch (_) {
         // Fehler während der Operation -> Rollback
         try {
@@ -495,8 +481,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler beim Ändern des Passworts: $e', st);
-      notifyUnexpectedError();
-      return ChangePasswordResult.error;
+      return notifyError(AppError.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
@@ -541,7 +526,7 @@ class SettingsViewModel extends BaseViewModel {
   bool get isRegistered => _isRegistered;
 
   /// Testet die Verbindung zum Sync-Server.
-  Future<bool> testConnection() async {
+  Future<CommandResult<int>> testConnection() async {
     setBusy(true);
     try {
       clearError();
@@ -551,18 +536,19 @@ class SettingsViewModel extends BaseViewModel {
 
       // Verbindung testen, indem die Version abgefragt wird
       final response = await _webService.getServerVersion();
-      return response.service.contains("PriVault");
+      final ok = response.service.contains("PriVault");
+      return notifySuccess(ok ? 1 : 0);
     } on DioException catch (de) {
       // Exception des HTTP-Clients
       if (de.response?.statusCode == 401) {
-        notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
+        notifyError(AppError.unauthorized, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
       } else {
-        notifyError("Netzwerkfehler: ${de.message}");
+        notifyError(AppError.networkError, message: 'Netzwerkfehler: ${de.message}');
       }
-      return false;
+      return notifySuccess(0);
     } catch (e) {
-      notifyError("Verbindung fehlgeschlagen");
-      return false;
+      notifyError(AppError.networkError, message: 'Verbindung fehlgeschlagen');
+      return notifySuccess(0);
     } finally {
       setBusy(false);
     }
@@ -645,20 +631,18 @@ class SettingsViewModel extends BaseViewModel {
   bool needsRekeying(int userId) => _friendNeedsRekeying[userId] ?? false;
 
   /// Fügt den einen Freund über den angegebenen Namen hinzu.
-  Future<AddFriendResult> addFriend(String name) async {
-    if (name.isEmpty) return AddFriendResult.error;
+  Future<CommandResult<int>> addFriend(String name) async {
+    if (name.isEmpty) return notifyError(AppError.unknown);
     final trimmedName = name.trim();
 
     // Du kannst dich nicht selbst als Freund hinzufügen
     if (trimmedName.toLowerCase() == _sessionService.user?.name.trim().toLowerCase()) {
-      notifyError("Das bist du selbst.");
-      return AddFriendResult.selfAdd;
+      return notifyError(AppError.userSelfAdd);
     }
 
     // Prüfen ob bereits in der Liste
     if (_friends.any((f) => f.name.toLowerCase() == trimmedName.toLowerCase())) {
-      notifyError("Person bereits hinzugefügt.");
-      return AddFriendResult.alreadyAdded;
+      return notifyError(AppError.userAlreadyAdded);
     }
 
     // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
@@ -670,8 +654,7 @@ class SettingsViewModel extends BaseViewModel {
 
       final userResponse = await _webService.findUser(_sessionService.vaultName, trimmedName);
       if (userResponse == null) {
-        notifyError("Person nicht gefunden.");
-        return AddFriendResult.notFound;
+        return notifyError(AppError.userNotFound);
       }
 
       // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
@@ -686,19 +669,18 @@ class SettingsViewModel extends BaseViewModel {
 
       // UI-Liste neu laden
       await loadFriends();
-      return AddFriendResult.success;
+      return notifySuccess();
     } on DioException catch (de) {
       // Exception des HTTP-Clients
       if (de.response?.statusCode == 401) {
-        notifyError("Die Host-URL ist nicht korrekt oder der API-Token ist ungültig."); // todo genauer auswerten: URL falsch? API-Token falsch?
+        notifyError(AppError.validationFailed, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
       } else {
-        notifyError("Netzwerkfehler: ${de.message}");
+        notifyError(AppError.networkError, message: 'Netzwerkfehler: ${de.message}');
       }
-      return AddFriendResult.error;
+      return notifyError(AppError.unknown);
     } catch (e, st) {
       logError("Suche fehlgeschlagen: $e", st);
-      notifyUnexpectedError();
-      return AddFriendResult.error;
+      return notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -724,8 +706,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError("Fehler beim Speichern der Verifizierung: $e", st);
-      notifyUnexpectedError();
-      notifyListeners();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
@@ -751,7 +732,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError("Löschen fehlgeschlagen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     }
   }
 
@@ -891,7 +872,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError("Rekeying fehlgeschlagen: $e", st);
-      notifyUnexpectedError();
+      notifyError(AppError.unknown);
     } finally {
       setBusy(false);
     }
