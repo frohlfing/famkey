@@ -440,6 +440,8 @@ class MainViewModel extends BaseViewModel {
     final vaultName = _sessionService.vaultName;
     var user = _sessionService.user!;
     var settings = _sessionService.settings!;
+    if (settings.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
+    if (settings.salt.isEmpty) throw Exception("Salt fehlt");
 
     // Benutzer suchen
     var userResponse = await _webService.findUser(vaultName, user.name);
@@ -466,6 +468,12 @@ class MainViewModel extends BaseViewModel {
         vaultName: _sessionService.vaultName,
         settings: settings,
       );
+    }
+    else {
+      if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
+        /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
+        await _webService.changePassword(_sessionService.user!.uuid, settings.salt, settings.encryptedPrivateKey);
+      }
     }
 
     return userResponse;

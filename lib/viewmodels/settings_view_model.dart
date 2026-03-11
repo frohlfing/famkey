@@ -452,19 +452,6 @@ class SettingsViewModel extends BaseViewModel {
             settings: updatedSettings,
         );
 
-        // Server informieren
-        // todo das muss unbedingt erst beim Sync passieren.
-        //  => wir fassen PUT /users/{user_uuid}/password und put /users/{user_uuid}/friends zusammen zu PATCH /users/{user_uuid}
-        //     und senden das immer, wenn der USER nicht gerade registriert wurde
-        if (_isRegistered && _sessionService.user != null && _sessionService.user!.uuid.isNotEmpty) {
-          // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
-          initWebService();
-          // Die Signatur ist für Passwort ändern erforderlich
-          _webService.setSignatureData(userUuid: _sessionService.user!.uuid, privateKey: _sessionService.privateKey!);
-          // Passwort-Parameter senden
-          await _webService.changePassword(_sessionService.user!.uuid, updatedSettings.salt, updatedSettings.encryptedPrivateKey);
-        }
-
         // --- Ende Kritische Logik ---
 
         // Erfolg: Backup löschen
@@ -767,15 +754,8 @@ class SettingsViewModel extends BaseViewModel {
   // ------------------------------------------------------------------------
 
   /// Öffnet die Systemeinstellungen für Biometrie.
-  // todo Plattformspezifische Aufrufe haben hier nichts zu suchen
   Future<void> openBiometricSettings() async {
-    if (Platform.isWindows) {
-      await launchUrl(Uri.parse('ms-settings:signinoptions'));
-    } else if (Platform.isAndroid) {
-      await launchUrl(Uri.parse('intent:#Intent;action=android.settings.SECURITY_SETTINGS;end'));
-    } else if (Platform.isIOS || Platform.isMacOS) {
-      await launchUrl(Uri.parse('App-Prefs:root=FACEID_PASSCODE'));
-    }
+    await _biometricService.openSystemSettings();
   }
 
   /// Öffnet die Systemeinstellungen (oder eine Hilfeseite) für den Auto-Fill-Dienst.

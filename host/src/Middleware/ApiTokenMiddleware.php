@@ -37,7 +37,7 @@ final class ApiTokenMiddleware implements MiddlewareInterface
         }
 
         // 2) Custom Header
-        // todo das Request-Objekt sollte eine Funktion server(key) bereitstellen, die null zurückgibt, wenn der Parameter nicht existiert.
+        // todo das Request-Objekt sollte eine Funktion server(key) bereitstellen, die null zurückgibt, wenn der Parameter nicht existiert (sowie query(key)).
         if ($request->header('X-API-Token') === API_TOKEN || (isset($request->server['HTTP_X_API_TOKEN']) && $request->server['HTTP_X_API_TOKEN'] === API_TOKEN)) {
             return $next($request);
         }
@@ -55,7 +55,6 @@ final class ApiTokenMiddleware implements MiddlewareInterface
         }
 
         // 4) GET-Parameter ?api_token=...
-        // todo das Request-Objekt sollte eine Funktion query(key) bereitstellen, die null zurückgibt, wenn der Parameter nicht existiert.
         if ($request->query('api_token') === API_TOKEN) {
             return $next($request);
         }

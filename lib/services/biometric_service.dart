@@ -1,8 +1,9 @@
-import 'dart:typed_data';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
 ///
@@ -75,5 +76,27 @@ class BiometricService {
   /// Löscht den gespeicherten Master-Key für diesen Tresor aus dem Keystore.
   Future<void> removeMasterKey(String vaultName) async {
     await _storage.delete(key: _getKeyName(vaultName));
+  }
+
+  /// Öffnet die plattformspezifischen Systemeinstellungen für Biometrie.
+  Future<void> openSystemSettings() async {
+    String url = '';
+    if (Platform.isWindows) {
+      url = 'ms-settings:signinoptions';
+    } else if (Platform.isAndroid) {
+      // Direkter Intent zu den Sicherheits-/Biometrie-Einstellungen
+      url = 'intent:#Intent;action=android.settings.SECURITY_SETTINGS;end';
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      // iOS / macOS Einstellungen für FaceID/Passcode
+      url = 'App-Prefs:root=FACEID_PASSCODE';
+    }
+    else {
+      return;
+    }
+
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 }

@@ -12,6 +12,11 @@
 
 include: package:flutter_lints/flutter.yaml
 
+# ZUsätzliche Lint-Regeln für Riverpod-Code
+analyzer:
+  plugins:
+    - riverpod_lint
+
 # Die für dieses Projekt angewendeten Lint-Regeln können im folgenden Abschnitt angepasst werden, um Regeln aus der
 # oben eingebundenen Datei `package:flutter_lints/flutter.yaml` zu deaktivieren oder zusätzliche Regeln zu aktivieren.
 # Eine Liste aller verfügbaren Lints und deren Dokumentation finden Sie unter https://dart.dev/lints.

@@ -500,7 +500,7 @@ final class UserController
         $stmt = $pdo->prepare('SELECT uuid AS user_uuid, public_key FROM users WHERE vault_uuid = ?');
         $stmt->execute([$vaultUuid]);
         //$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $publicKeys = $stmt->fetchAll(); // todo prüfen, wie publicKeys aussieht
+        $publicKeys = $stmt->fetchAll();
     
         // Antwort generieren
         return Response::json($publicKeys);

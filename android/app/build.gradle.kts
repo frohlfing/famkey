@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "de.frohlfing.privault.privault"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -32,8 +32,15 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // TODO: Füge deine eigene Signaturkonfiguration für den Release-Build hinzu.
+            //
+            // Aktuell wird mit den Debug-Schlüsseln signiert, damit `flutter run --release` funktioniert.
+            // Google akzeptiert aber keine Debug-Signatur. Das musst daher du tun, wenn du die App veröffentlichen
+            // willst:
+            // 1. Eigenen "Upload Key" erstellen (eine .jks oder .keystore Datei).
+            // 2. Zugangsdaten sicher speichern (am besten in einer key.properties Datei).
+            // 3. Diesen Code-Block in der `build.gradle.kts` anpassen, damit er auf deinen echten Schlüssel verweist,
+            //    statt auf `signingConfigs.getByName("debug")`.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

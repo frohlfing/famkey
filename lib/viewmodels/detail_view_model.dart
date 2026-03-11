@@ -455,9 +455,6 @@ class DetailViewModel extends BaseViewModel {
   /// Liste der Freunde und deren aktuelle Zugriffsstufe auf diesen Eintrag.
   List<UserEntity> get sharedWith => _sharedFriends;
 
-  /// Die Zugriffsstufe des aktuellen Benutzers (1=Lesen, 2=Schreiben, 3=Besitzer).
-  int get myAccessLevel => _myAccessLevel; // todo wird das benötigt?
-
   /// Gibt an, ob der aktuelle Benutzer Schreibrechte besitzt.
   bool get canEdit => _myAccessLevel >= 2;
 
