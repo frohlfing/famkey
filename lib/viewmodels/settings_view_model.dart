@@ -304,7 +304,7 @@ class SettingsViewModel extends BaseViewModel {
 
         // 1. Verbindung trennen & Umbenennen
         await _databaseService.close();
-        await _databaseService.renameDatabase(oldVaultName, currentVaultName);
+        await _databaseService.renameDatabaseAndSaltFile(oldVaultName, currentVaultName);
 
         // 2. Session im Speicher aktualisieren
         _sessionService.setSession(user: _sessionService.user!, privateKey: _sessionService.privateKey!, vaultName: currentVaultName, settings: _sessionService.settings!);
@@ -356,7 +356,7 @@ class SettingsViewModel extends BaseViewModel {
   /// Löscht den aktuellen Tresor lokal vom Gerät.
   Future<void> deleteVault() async {
     // Datenbank löschen
-    await _databaseService.deleteCurrentDatabase();
+    await _databaseService.deleteCurrentDatabaseAndSaltFile();
 
     // SecureStore leeren
     await _biometricService.removeMasterKey(_sessionService.vaultName);
@@ -432,7 +432,7 @@ class SettingsViewModel extends BaseViewModel {
         await _databaseService.rekey(newMasterKey);
 
         // 5. Salt-Datei aktualisieren
-        await _databaseService.saveSalt(_sessionService.vaultName, newSalt); // todo salt aus DatabaseService entkoppeln (SaltService bauen)
+        await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
 
         // 6. Master-Key im SecureStore aktualisieren
         if (_useBiometric) {

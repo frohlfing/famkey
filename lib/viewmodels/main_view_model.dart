@@ -360,7 +360,7 @@ class MainViewModel extends BaseViewModel {
         await _databaseService.rekey(newMasterKey);
 
         // 5. Salt-Datei aktualisieren
-        await _databaseService.saveSalt(_sessionService.vaultName, newSalt); // todo salt aus DatabaseService entkoppeln (SaltService bauen)
+        await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
 
         // 6. Master-Key im SecureStore aktualisieren
         if (_sessionService.settings!.useBiometric) {

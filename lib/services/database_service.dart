@@ -36,15 +36,8 @@ class DatabaseService {
   /// Baut die Verbindung zur Datenbank auf.
   Future<void> initialize(String vaultName, Uint8List masterKey) async {
     if (_db != null) return; // Bereits verbunden
-
-    // 1. Pfad bestimmen
     _currentDbPath = getDatabasePath(vaultName);
-
-    // 2. Verbindung herstellen
     _db = AppDatabase(vaultName, _bytesToHex(masterKey));
-
-    // 3. Migrationen
-    //await _runMigrations();
   }
 
   /// Wirft ein Exception, falls die Datenbankverbindung nicht initialisiert wurde.
@@ -72,7 +65,7 @@ class DatabaseService {
   /// Gibt den Pfad zur Salt-Datei des aktuellen Tresors zurück.
   String _getSaltPath(String vaultName) => '${getDatabasePath(vaultName)}.salt';
 
-  /// Liest das Salt für einen bestimmten Tresor aus dem Dateisystem.
+  /// Liest das Salt aus der Salt-Datei.
   Future<Uint8List?> getSalt(String vaultName) async {
     final saltFile = File(_getSaltPath(vaultName));
     if (await saltFile.exists()) {
@@ -81,11 +74,17 @@ class DatabaseService {
     return null;
   }
 
-  /// Speichert ein neues Salt für einen bestimmten Tresor im Dateisystem.
+  /// Speichert das Salt in die Salt-Datei.
   Future<void> saveSalt(String vaultName, Uint8List saltBytes) async {
     final saltFile = File(_getSaltPath(vaultName));
     await saltFile.writeAsBytes(saltBytes);
   }
+
+  // /// Löscht eine Salt-Datei.
+  // Future<void> deleteSaltFile(String vaultName, Uint8List saltBytes) async {
+  //   final saltFile = File(_getSaltPath(vaultName));
+  //   if (await saltFile.exists()) await saltFile.delete();
+  // }
 
   // ------------------------------------------------------------------------
   // --- Methoden bzgl. Datenbankdatei ---
@@ -106,6 +105,25 @@ class DatabaseService {
   Future<bool> databaseExists(String vaultName) async {
     final path = getDatabasePath(vaultName);
     return await File(path).exists();
+  }
+
+  /// Scannt das Dateisystem nach vorhandenen Tresor-Datenbanken.
+  Future<List<String>> getExistingVaults() async {
+    final path = _configService.vaultStoragePath;
+    if (path.isEmpty) return [];
+
+    final dir = Directory(path);
+    if (!await dir.exists()) return [];
+
+    final List<String> vaults = [];
+    await for (final file in dir.list()) {
+      if (file.path.endsWith('.db3.salt')) {
+        final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
+        final dbFile = File(p.join(path, '$baseName.db3'));
+        if (await dbFile.exists()) vaults.add(baseName);
+      }
+    }
+    return vaults;
   }
 
   /// Ändert das Verschlüsselungspasswort (bzw. den Key) der Datenbankdatei.
@@ -161,7 +179,7 @@ class DatabaseService {
 
   /// Benennt die Datenbankdatei eines Tresors (inklusive Salt) physisch auf dem Dateisystem um.
   /// Die Datenbankverbindung muss geschlossen sein.
-  Future<void> renameDatabase(String oldName, String newName) async {
+  Future<void> renameDatabaseAndSaltFile(String oldName, String newName) async {
     if (_db != null) throw Exception("Erst Verbindung schließen!");
 
     final oldPath = getDatabasePath(oldName);
@@ -183,7 +201,7 @@ class DatabaseService {
   }
 
   /// Schließt die DB und löscht physisch die DB- und Salt-Datei.
-  Future<void> deleteCurrentDatabase() async {
+  Future<void> deleteCurrentDatabaseAndSaltFile() async {
     _ensureDbPathInitialized();
     final path = _currentDbPath;
     await close();

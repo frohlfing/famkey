@@ -11,7 +11,6 @@ import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
-import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 /// Das `LoginViewModel` verwaltet den Authentifizierungsprozess und den Zugriff auf die Tresore.
@@ -74,7 +73,7 @@ class LoginViewModel extends BaseViewModel {
 
   /// Führt eine Bereinigung durch (z.B. bei korruptem Tresor).
   Future<void> cleanUp() async {
-    await _databaseService.deleteCurrentDatabase();
+    await _databaseService.deleteCurrentDatabaseAndSaltFile();
     _sessionService.clearSession();
     _vaultName = '';
     _password = '';
@@ -156,10 +155,7 @@ class LoginViewModel extends BaseViewModel {
       await _databaseService.initialize(_vaultName, masterKey);
 
       // 4. Salt-Datei anlegen
-      // Alle Zeichen außer Buchstaben, Zahlen, Unterstrichen und Bindestrichen durch '_' ersetzen.
-      final safeName = vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
-      final saltFile = File(p.join(_configService.vaultStoragePath, '$safeName.db3.salt'));
-      await saltFile.writeAsBytes(salt);
+      await _databaseService.saveSalt(_vaultName, salt);
 
       // 5. RSA-Schlüsselpaar für den User generieren
       final (pubKey, privKeyBytes) = await _cryptoService.generateRsaKeyPair();
@@ -305,23 +301,7 @@ class LoginViewModel extends BaseViewModel {
 
   /// Scannt das Dateisystem nach vorhandenen Tresor-Datenbanken.
   Future<void> refreshVaultList() async {
-    final path = _configService.vaultStoragePath;
-    if (path.isEmpty) {
-      _existingVaults = [];
-    } else {
-      final dir = Directory(path);
-      if (await dir.exists()) {
-        final List<String> vaults = [];
-        await for (final file in dir.list()) {
-          if (file.path.endsWith('.db3.salt')) {
-            final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
-            final dbFile = File(p.join(path, '$baseName.db3'));
-            if (await dbFile.exists()) vaults.add(baseName);
-          }
-        }
-        _existingVaults = vaults;
-      }
-    }
+    _existingVaults = await _databaseService.getExistingVaults();
     await _updateState();
   }
 
