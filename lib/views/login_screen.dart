@@ -165,6 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     PasswordField(
                       controller: _passwordController,
+                      focusNode: _passwordFocusNode,
                       label: 'Master-Passwort',
                       prefixIcon: Icons.key_outlined,
                       errorText: viewModel.getFieldError('password'),

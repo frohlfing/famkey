@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart' as prov;
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/viewmodels/login_view_model.dart';
@@ -43,7 +44,14 @@ void main() async {
     final configService = getIt<ConfigService>();
     await configService.ensureDefaultPath();
 
-    runApp(const PriVaultApp());
+    //runApp(const PriVaultApp());
+
+    runApp(
+      ProviderScope(
+        child: PriVaultApp(),
+      ),
+    );
+
 }
 
 class PriVaultApp extends StatelessWidget {
@@ -51,15 +59,15 @@ class PriVaultApp extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-        return MultiProvider(
+        return prov.MultiProvider(
             providers: [
-                ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
-                ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
+              prov.ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
+              prov.ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
+              prov.ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
+              prov.ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
+              prov.ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
             ],
-            child: Consumer<SettingsViewModel>(
+            child: prov.Consumer<SettingsViewModel>(
                 builder: (context, viewModel, _) {
                     return MaterialApp(
                         title: 'PriVault',

@@ -290,10 +290,13 @@ class AppDatabase extends _$AppDatabase {
 
       // DLL-Bindung für SQLCipher
       if (!kIsWeb && Platform.isWindows) {
-        final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
+        final dllPath = p.join(Directory.current.path, 'native', 'sqlcipher', 'windows', 'sqlite3mc_x64.dll');
         if (File(dllPath).existsSync()) {
           open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
-          debugPrint('✅ SQLiteMC DLL registriert');
+          debugPrint('✅ SQLiteMC DLL registriert: $dllPath');
+        }
+        else {
+          debugPrint('❌ SQLiteMC DLL nicht gefunden: $dllPath');
         }
       }
 
