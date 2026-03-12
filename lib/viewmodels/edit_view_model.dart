@@ -125,7 +125,7 @@ class EditViewModel extends BaseViewModel {
       notifyListeners();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -157,7 +157,7 @@ class EditViewModel extends BaseViewModel {
 
     // Validierung der Benutzereingabe
     if (_title.isEmpty) {
-      return notifyError(AppError.valueRequired, field: 'title');
+      return notifyError(ErrorCode.valueRequired, field: 'title');
     }
 
     setBusy(true);
@@ -214,7 +214,7 @@ class EditViewModel extends BaseViewModel {
       return notifySuccess(savedEntry.id);
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -222,14 +222,14 @@ class EditViewModel extends BaseViewModel {
 
   /// Löscht den aktuellen Eintrag.
   Future<CommandResult<int>> deleteEntry() async {
-    if (_entry == null) return notifyError(AppError.unknown);
+    if (_entry == null) return notifyError(ErrorCode.unknown);
     setBusy(true);
     try {
       await _databaseService.deleteEntry(_entry!.id);
       return notifySuccess(_entry!.id);
     } catch (e, st) {
       logError('Fehler beim Löschen: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }

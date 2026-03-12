@@ -65,7 +65,7 @@ class LoginViewModel extends BaseViewModel {
       await refreshVaultList();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -92,10 +92,10 @@ class LoginViewModel extends BaseViewModel {
 
     // Validierung der Benutzereingabe
     if (_vaultName.isEmpty) {
-      return notifyError(AppError.valueRequired, field: 'vaultName');
+      return notifyError(ErrorCode.valueRequired, field: 'vaultName');
     }
     if (!_isExists && !forceCreate) {
-      return notifyError(AppError.vaultNotFound, field: 'vaultName');
+      return notifyError(ErrorCode.vaultNotFound, field: 'vaultName');
     }
 
     setBusy(true);
@@ -112,7 +112,7 @@ class LoginViewModel extends BaseViewModel {
         return await _openVault();
       } else {
         if (_password.isEmpty) {
-          return notifyError(AppError.valueRequired, field: 'password');
+          return notifyError(ErrorCode.valueRequired, field: 'password');
         }
         return await _createVault();
       }
@@ -120,15 +120,15 @@ class LoginViewModel extends BaseViewModel {
       final msg = e.toString().toLowerCase();
 
       if (msg.contains('database is locked')) {
-        return notifyError(AppError.vaultLocked);
+        return notifyError(ErrorCode.vaultLocked);
       }
 
       if (msg.contains('file is not a database') || msg.contains('authentication failed') || msg.contains('file is encrypted or is not a database')) {
-        return notifyError(AppError.wrongPassword, field: 'password');
+        return notifyError(ErrorCode.wrongPassword, field: 'password');
       }
 
       logError('Fehler beim Login: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -138,7 +138,7 @@ class LoginViewModel extends BaseViewModel {
   /// und verschlüsselt den privaten Teil mit dem Master-Key.
   Future<CommandResult<int>> _createVault() async {
     if (_password.isEmpty) {
-      return notifyError(AppError.valueRequired, field: 'password');
+      return notifyError(ErrorCode.valueRequired, field: 'password');
     }
 
     // 1. Neues Salt generieren
@@ -215,7 +215,7 @@ class LoginViewModel extends BaseViewModel {
   Future<CommandResult<int>> _openVault() async {
     // Salt aus der Salt-Datei lesen
     final salt = await _databaseService.getSalt(_vaultName);
-    if (salt == null) return notifyError(AppError.vaultNotFound);
+    if (salt == null) return notifyError(ErrorCode.vaultNotFound);
 
     Uint8List? masterKey;
     bool isManualLogin = _password.isNotEmpty;
@@ -225,12 +225,12 @@ class LoginViewModel extends BaseViewModel {
       // Master-Key aus Secure-Store holen (löst System-Dialog aus)
       masterKey = await _biometricService.getMasterKey(_vaultName);
       if (masterKey == null) {
-        return notifyError(AppError.biometricCanceled);
+        return notifyError(ErrorCode.biometricCanceled);
       }
     } else {
       // Master-Key aus eingegebenes Master-Passwort und Salt ableiten (Argon2id)
       if (_password.isEmpty) {
-        return notifyError(AppError.valueRequired, field: 'password');
+        return notifyError(ErrorCode.valueRequired, field: 'password');
       }
       masterKey = await _cryptoService.deriveKey(_password, salt);
     }
@@ -242,7 +242,7 @@ class LoginViewModel extends BaseViewModel {
       // 3. Einstellungen und eigene Identität aus der DB lesen
       final settings = await _databaseService.getSettings();
       final user = await _databaseService.getUser(1);
-      if (settings == null || user == null) return notifyError(AppError.vaultCorrupt);
+      if (settings == null || user == null) return notifyError(ErrorCode.vaultCorrupt);
 
       // 4. Private Key entschlüsseln
       try {
@@ -252,9 +252,9 @@ class LoginViewModel extends BaseViewModel {
         if (!isManualLogin && _hasBiometricKey) {
           await _biometricService.removeMasterKey(_vaultName);
           _hasBiometricKey = false;
-          return notifyError(AppError.wrongBiometric, field: 'password');
+          return notifyError(ErrorCode.wrongBiometric, field: 'password');
         }
-        return notifyError(AppError.wrongPassword, field: 'password');
+        return notifyError(ErrorCode.wrongPassword, field: 'password');
       }
 
       _configService.lastVaultName = _vaultName;

@@ -151,7 +151,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -227,7 +227,7 @@ class SettingsViewModel extends BaseViewModel {
       return notifySuccess();
     } catch (e, st) {
       logError('Fehler beim Speichern: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -271,11 +271,11 @@ class SettingsViewModel extends BaseViewModel {
 
     // Trivial-Check
     if (currentVaultName == oldVaultName) {
-      return notifyError(AppError.vaultEqualName);
+      return notifyError(ErrorCode.vaultEqualName);
     }
 
     if (await _databaseService.databaseExists(currentVaultName)) {
-      return notifyError(AppError.vaultAlreadyExists);
+      return notifyError(ErrorCode.vaultAlreadyExists);
     }
 
     Uint8List? masterKey;
@@ -294,7 +294,7 @@ class SettingsViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        return notifyError(AppError.wrongPassword);
+        return notifyError(ErrorCode.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -346,7 +346,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler beim Umbenennung des Tresors: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       setBusy(false);
@@ -391,7 +391,7 @@ class SettingsViewModel extends BaseViewModel {
 
     // Trivial-Check
     if (newPassword == password) {
-      return notifyError(AppError.equalPassword);
+      return notifyError(ErrorCode.equalPassword);
     }
 
     Uint8List? masterKey;
@@ -411,7 +411,7 @@ class SettingsViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        return notifyError(AppError.wrongPassword);
+        return notifyError(ErrorCode.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -468,7 +468,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler beim Ändern des Passworts: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
@@ -528,13 +528,13 @@ class SettingsViewModel extends BaseViewModel {
     } on DioException catch (de) {
       // Exception des HTTP-Clients
       if (de.response?.statusCode == 401) {
-        notifyError(AppError.unauthorized, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
+        notifyError(ErrorCode.unauthorized, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
       } else {
-        notifyError(AppError.networkError, message: 'Netzwerkfehler: ${de.message}');
+        notifyError(ErrorCode.networkError, message: 'Netzwerkfehler: ${de.message}');
       }
       return notifySuccess(0);
     } catch (e) {
-      notifyError(AppError.networkError, message: 'Verbindung fehlgeschlagen');
+      notifyError(ErrorCode.networkError, message: 'Verbindung fehlgeschlagen');
       return notifySuccess(0);
     } finally {
       setBusy(false);
@@ -619,17 +619,17 @@ class SettingsViewModel extends BaseViewModel {
 
   /// Fügt den einen Freund über den angegebenen Namen hinzu.
   Future<CommandResult<int>> addFriend(String name) async {
-    if (name.isEmpty) return notifyError(AppError.unknown);
+    if (name.isEmpty) return notifyError(ErrorCode.unknown);
     final trimmedName = name.trim();
 
     // Du kannst dich nicht selbst als Freund hinzufügen
     if (trimmedName.toLowerCase() == _sessionService.user?.name.trim().toLowerCase()) {
-      return notifyError(AppError.userSelfAdd);
+      return notifyError(ErrorCode.userSelfAdd);
     }
 
     // Prüfen ob bereits in der Liste
     if (_friends.any((f) => f.name.toLowerCase() == trimmedName.toLowerCase())) {
-      return notifyError(AppError.userAlreadyAdded);
+      return notifyError(ErrorCode.userAlreadyAdded);
     }
 
     // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
@@ -641,7 +641,7 @@ class SettingsViewModel extends BaseViewModel {
 
       final userResponse = await _webService.findUser(_sessionService.vaultName, trimmedName);
       if (userResponse == null) {
-        return notifyError(AppError.userNotFound);
+        return notifyError(ErrorCode.userNotFound);
       }
 
       // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
@@ -660,14 +660,14 @@ class SettingsViewModel extends BaseViewModel {
     } on DioException catch (de) {
       // Exception des HTTP-Clients
       if (de.response?.statusCode == 401) {
-        notifyError(AppError.validationFailed, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
+        notifyError(ErrorCode.validationFailed, message: 'Die Host-URL ist nicht korrekt oder der API-Token ist ungültig.'); // todo genauer auswerten: URL falsch? API-Token falsch?
       } else {
-        notifyError(AppError.networkError, message: 'Netzwerkfehler: ${de.message}');
+        notifyError(ErrorCode.networkError, message: 'Netzwerkfehler: ${de.message}');
       }
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } catch (e, st) {
       logError("Suche fehlgeschlagen: $e", st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -693,7 +693,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError("Fehler beim Speichern der Verifizierung: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -719,7 +719,7 @@ class SettingsViewModel extends BaseViewModel {
       await loadFriends();
     } catch (e, st) {
       logError("Löschen fehlgeschlagen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     }
   }
 
@@ -852,7 +852,7 @@ class SettingsViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError("Rekeying fehlgeschlagen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }

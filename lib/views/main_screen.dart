@@ -273,12 +273,12 @@ class _MainScreenState extends State<MainScreen> {
       final result = await _viewModel.sync();
       if (!mounted) return;
       if (!result.isSuccess) {
-        if (result.errorCode == AppError.syncSaltMismatch) {
+        if (result.errorCode == ErrorCode.syncSaltMismatch) {
           // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
           _handleSaltMismatch();
           return;
         }
-        if (result.errorCode == AppError.syncEmptyEntryKey) {
+        if (result.errorCode == ErrorCode.syncEmptyEntryKey) {
           TextDialog.show(
             context,
             title: 'Sicherheitsstopp',
@@ -322,7 +322,7 @@ class _MainScreenState extends State<MainScreen> {
         final result = await _viewModel.adoptIdentity(userResponse, password);
         if (!mounted) return;
         if (!result.isSuccess) {
-          if (result.errorCode == AppError.wrongPassword) {
+          if (result.errorCode == ErrorCode.wrongPassword) {
             // im Dialog anzeigen, NICHT SnackBar
             errorText = result.errorMessage;
             continue;

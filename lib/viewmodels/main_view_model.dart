@@ -128,7 +128,7 @@ class MainViewModel extends BaseViewModel {
       notifyListeners();
     } catch (e, st) {
       logError('Fehler beim Initialisieren: $e', st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -256,7 +256,7 @@ class MainViewModel extends BaseViewModel {
       // 5. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert oder es wurde auf einem anderen Gerät das Passwort geändert.
       if (_sessionService.user!.uuid != userResponse.userUuid || userResponse.salt != _sessionService.settings!.salt) {
-        return notifyError(AppError.syncSaltMismatch);
+        return notifyError(ErrorCode.syncSaltMismatch);
       }
 
       // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
@@ -266,7 +266,7 @@ class MainViewModel extends BaseViewModel {
       // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
-        return notifyError(AppError.syncEmptyEntryKey);
+        return notifyError(ErrorCode.syncEmptyEntryKey);
       }
 
       // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
@@ -319,7 +319,7 @@ class MainViewModel extends BaseViewModel {
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        return notifyError(AppError.wrongPassword);
+        return notifyError(ErrorCode.wrongPassword);
       }
 
       // Physisches Datenbank-Backup erstellen
@@ -397,7 +397,7 @@ class MainViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError('Fehler bei der Identitätsübernahme: $e', st);
-      return notifyError(AppError.unknown);
+      return notifyError(ErrorCode.unknown);
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);

@@ -613,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final result = await _viewModel.renameVault(password);
           if (!mounted) return;
           if (!result.isSuccess) {
-            if (result.errorCode == AppError.wrongPassword) {
+            if (result.errorCode == ErrorCode.wrongPassword) {
               errorText = result.errorMessage;
               continue;
             }
@@ -677,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Ergebnis auswerten
         if (!result.isSuccess) {
-          if (result.errorCode == AppError.wrongPassword) {
+          if (result.errorCode == ErrorCode.wrongPassword) {
             errorText = result.errorMessage;
             continue;
           }
@@ -722,7 +722,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final result = await _viewModel.addFriend(name);
         if (!mounted) return;
         if (!result.isSuccess) {
-          if (result.errorCode == AppError.userNotFound || result.errorCode == AppError.userAlreadyAdded) {
+          if (result.errorCode == ErrorCode.userNotFound || result.errorCode == ErrorCode.userAlreadyAdded) {
             // im Dialog anzeigen, NICHT SnackBar
             errorText = result.errorMessage;
             continue;

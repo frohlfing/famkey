@@ -46,7 +46,7 @@ abstract class BaseViewModel extends ChangeNotifier {
   }
 
   /// Setzt ein negatives Ergebnis
-  CommandResult<int> notifyError(AppError error, {String? message, String? field}) {
+  CommandResult<int> notifyError(ErrorCode error, {String? message, String? field}) {
     _result = CommandResult.failure(error, message: message, field: field);
     notifyListeners();
     return _result;

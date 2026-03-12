@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/viewmodels/login_view_model.dart';
+import 'package:privault/features/login/login_notifier.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
 
-/// Der [LoginScreen] dient als Einstiegspunkt und Sicherheitsschleuse der App.
+/// Der [LoginPage] dient als Einstiegspunkt und Sicherheitsschleuse der App.
 ///
 /// Er ermöglicht den Zugriff auf bestehende Tresore oder das Initialisieren eines neuen Tresors.
 /// Kernfunktionen sind:
@@ -15,20 +15,20 @@ import 'package:privault/widgets/snack.dart';
 /// * Sicherer Login mittels Master-Passwort.
 /// * Optionale Entsperrung per Biometrie (Fingerabdruck/Gesichtserkennung), falls zuvor aktiviert.
 /// * Handhabung von Erst-Einrichtungen und Wiederherstellungsszenarien.
-class LoginScreen extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   /// Konstruktor
-  const LoginScreen({super.key});
+  const LoginPage({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginPageState extends ConsumerState<LoginPage> {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  late LoginViewModel _viewModel;
   final TextEditingController _vaultController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
@@ -43,14 +43,21 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
 
-    _viewModel = context.read<LoginViewModel>();
-    _viewModel.addListener(_onViewModelChanged);
-    _viewModel.init();
+    // Notifier holen
+    final notifier = ref.read(loginProvider.notifier);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _viewModel.load();
-      _vaultController.text = _viewModel.vaultName;
+      // Daten laden
+      await notifier.load();
+
+      // State erst jetzt holen (nach load)
+      final state = ref.read(loginProvider);
+
+      // Textfelder synchronisieren
+      _vaultController.text = state.vaultName;
       _passwordController.clear();
+
+      // Focus auf das erste leere Textfeld setzen
       _applyFocus();
     });
   }
@@ -58,30 +65,16 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Entfernt den Listener und gibt alle Ressourcen frei.
   @override
   void dispose() {
-    _viewModel.removeListener(_onViewModelChanged);
-    _viewModel.clearPassword(notify: false);
+    // Passwort im State löschen (optional, aber sauber)
+    ref.read(loginProvider.notifier).setPassword('');
+
+    // Controller & FocusNodes freigeben
     _vaultController.dispose();
     _passwordController.dispose();
     _vaultFocusNode.dispose();
     _passwordFocusNode.dispose();
-    super.dispose();
-  }
 
-  /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
-  /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
-  ///
-  /// Synchronisiert die Textfelder, falls sich der Tresorname (z.B. durch Auswahl
-  /// aus der Liste) geändert hat oder der Login-Status zurückgesetzt wurde.
-  void _onViewModelChanged() {
-    if (!mounted) return;
-    if (_vaultController.text != _viewModel.vaultName) {
-      setState(() {
-        _vaultController.text = _viewModel.vaultName;
-      });
-    }
-    if (_viewModel.password.isEmpty && _passwordController.text.isNotEmpty) {
-      _passwordController.clear();
-    }
+    super.dispose();
   }
 
   /// Setzt den Fokus intelligent beim Öffnen des Screens.
@@ -105,10 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Das Layout ist zentriert und für mobile Geräte sowie Desktop-Ansichten optimiert.
   @override
   Widget build(BuildContext context) {
-    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
-    final viewModel = context.watch<LoginViewModel>();
+    // ViewModel holen
+    final state = ref.watch(loginProvider);
+    final notifier = ref.read(loginProvider.notifier);
 
-    final bool canLogin = viewModel.password.isNotEmpty || (viewModel.isExists && viewModel.hasBiometricKey);
+    final bool canLogin = state.password.isNotEmpty || (state.isExists && state.hasBiometricKey);
 
     return Stack(
       children: [
@@ -138,28 +132,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: 'Tresor-Name',
                         prefixIcon: const Icon(Icons.shield_outlined),
-                        errorText: viewModel.getFieldError('vaultName'),
+                        errorText: notifier.getFieldErrorText('vaultName'),
                         border: const OutlineInputBorder(),
-                        suffixIcon: viewModel.existingVaults.isNotEmpty
+                        suffixIcon: state.existingVaults.isNotEmpty
                             ? PopupMenuButton<String>(
                                 icon: const Icon(Icons.list),
                                 tooltip: 'Tresor auswählen',
-                                //onOpened: () => viewModel.reset(),
                                 onSelected: (String value) {
                                   if (mounted) {
-                                    viewModel.vaultName = value;
+                                    notifier.setVaultName(value);
                                     _passwordFocusNode.requestFocus();
                                   }
                                 },
                                 itemBuilder: (BuildContext context) {
-                                  return viewModel.existingVaults.map((String vault) {
+                                  return state.existingVaults.map((String vault) {
                                     return PopupMenuItem<String>(value: vault, child: Text(vault));
                                   }).toList();
                                 },
                               )
                             : null,
                       ),
-                      onChanged: (value) => viewModel.vaultName = value,
+                      onChanged: (value) => notifier.setVaultName(value),
                     ),
                     const SizedBox(height: 16),
 
@@ -168,9 +161,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       focusNode: _passwordFocusNode,
                       label: 'Master-Passwort',
                       prefixIcon: Icons.key_outlined,
-                      errorText: viewModel.getFieldError('password'),
+                      errorText: notifier.getFieldErrorText('password'),
                       suffixActions: [
-                        if (viewModel.hasBiometricKey)
+                        if (state.hasBiometricKey)
                           const Tooltip(
                             message: 'Anmeldung per Biometrie möglich',
                             child: Padding(
@@ -179,15 +172,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                       ],
-                      onChanged: (val) => viewModel.password = val,
-                      onSubmitted: (_) => _handleLogin(),
+                      onChanged: (val) => notifier.setPassword(val),
+                      onSubmitted: (_) => _handleLogin(notifier),
                     ),
 
                     const SizedBox(height: 6),
-                    if (!viewModel.isExists && viewModel.password.isNotEmpty)
+                    if (!state.isExists && state.password.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: PasswordStrengthBar(score: viewModel.passwordStrength),
+                        child: PasswordStrengthBar(score: notifier.getPasswordStrength()),
                       ),
 
                     const SizedBox(height: 24),
@@ -197,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                       ),
-                      onPressed: (viewModel.isBusy || !canLogin) ? null : () => _handleLogin(),
+                      onPressed: (state.isBusy || !canLogin) ? null : () => _handleLogin(notifier),
                       icon: const Icon(Icons.login_outlined),
                       label: const Text('Anmelden'),
                     ),
@@ -208,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
 
-        if (viewModel.isBusy)
+        if (state.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.05),
             child: const Center(child: CircularProgressIndicator()),
@@ -222,28 +215,32 @@ class _LoginScreenState extends State<LoginScreen> {
   // ------------------------------------------------------------------------
 
   /// Steuert den gesamten Anmeldevorgang und verarbeitet die verschiedenen Ergebnisse.
-  Future<void> _handleLogin({bool forceCreate = false}) async {
-    if (_viewModel.isBusy) return;
+  Future<void> _handleLogin(LoginNotifier notifier, {bool forceCreate = false}) async {
+    // State holen
+    final state = ref.read(loginProvider);
+    if (state.isBusy) return;
 
-    final result = await _viewModel.login(forceCreate: forceCreate);
+    // Login durchführen
+    final success = await notifier.login(forceCreate: forceCreate);
     if (!mounted) return;
 
-    if (!result.isSuccess) {
-      // --- Fehlerfall ---
-      switch (result.errorCode) {
-        case AppError.vaultNotFound:
+    // --- Fehlerfall ---
+
+    if (!success) {
+      switch (state.error?.code) {
+        case ErrorCode.vaultNotFound:
           final create = await ConfirmDialog.show(
             context,
             title: 'Tresor anlegen',
-            text: 'Der Tresor "${_viewModel.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
+            text: 'Der Tresor "${state.vaultName}" existiert im gewählten Ordner noch nicht.\nMöchtest du ihn anlegen?',
             ok: 'Ja, anlegen',
           );
           if (create == true && mounted) {
-            _handleLogin(forceCreate: true);
+            _handleLogin(notifier, forceCreate: true);
           }
           break;
 
-        case AppError.vaultCorrupt:
+        case ErrorCode.vaultCorrupt:
           final delete = await ConfirmDialog.show(
             context,
             title: 'Tresor löschen',
@@ -252,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
             autofocus: false,
           );
           if (delete == true && mounted) {
-            await _viewModel.cleanUp();
+            await notifier.cleanUp();
             setState(() {
               _vaultController.clear();
               _passwordController.clear();
@@ -261,17 +258,17 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
 
         default:
-          if (result.field == null) Snack.show(context, result.errorMessage!);
-          break;
+          if (state.error?.field == null) {
+            Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
+          }
       }
       return;
     }
 
     // --- Erfolgsfall ---
-    final response = result.data!;
 
     // Falls Biometrie aktiviert werden kann: Nachfragen
-    if (response == LoginViewModel.askToEnableBiometrics) {
+    if (state.askToEnableBiometrics) {
       final enable = await ConfirmDialog.show(
         context,
         title: 'Biometrie aktivieren',
@@ -279,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ok: 'Ja, Schlüssel speichern',
       );
       if (enable == true && mounted) {
-        await _viewModel.saveMasterKey(_passwordController.text);
+        await notifier.saveMasterKey(_passwordController.text);
       }
     }
 

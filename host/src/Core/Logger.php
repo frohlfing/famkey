@@ -46,12 +46,12 @@ final class Logger
     private readonly string $projectRoot;
 
     /**
-     * Minimaler Log-Level, der geschrieben wird ('DEBUG', 'INFO', 'WARN', 'ERROR').
+     * Minimaler Log-Level, der geschrieben wird ('DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL').
      */
     private readonly string $minLevel;
 
     /**
-     * Maximale Anzahl an Tagen, die Log-Dateien aufbewahrt werden.
+     * Maximale Anzahl an Tagen, die in Log-Dateien aufbewahrt werden.
      */
     private readonly int $maxDays;
 
@@ -137,7 +137,7 @@ final class Logger
     }
 
     /**
-     * Loggt einen schwerwiegenden Fehler.
+     * Loggt einen schwerwiegenden (unbehandelten/unerwarteten) Fehler.
      *
      * Dies ist ein Fehler/Exceptions außerhalb von Application::handle() (während des Bootstrapping).
      *

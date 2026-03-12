@@ -138,7 +138,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadFriends();
     } catch (e, st) {
       logError("Entschlüsselung fehlgeschlagen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -286,7 +286,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadAttachments();
     } catch (e, st) {
       logError("Fehler beim Hinzufügen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -322,13 +322,13 @@ class DetailViewModel extends BaseViewModel {
           } catch (e) {
             // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
             logError('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
-            notifyError(AppError.cleanupFailed);
+            notifyError(ErrorCode.cleanupFailed);
           }
         }
       });
     } catch (e, st) {
       logError("Anhang konnte nicht geöffnet werden: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -342,7 +342,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadAttachments();
     } catch (e, st) {
       logError("Fehler beim Löschen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -501,7 +501,7 @@ class DetailViewModel extends BaseViewModel {
       await _loadSharedFriends();
     } catch (e, st) {
       logError("Teilen fehlgeschlagen: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }
@@ -532,7 +532,7 @@ class DetailViewModel extends BaseViewModel {
       }
     } catch (e, st) {
       logError("Rechte konnten nicht geändert werden: $e", st);
-      notifyError(AppError.unknown);
+      notifyError(ErrorCode.unknown);
     } finally {
       setBusy(false);
     }

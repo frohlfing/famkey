@@ -8,7 +8,7 @@ class CommandResult<T> {
   final T? data;
 
   /// Fehlercode im Fehlerfall.
-  final AppError? errorCode;
+  final ErrorCode? errorCode;
 
   /// Fehlertext im Fehlerfall.
   final String? errorMessage;
@@ -23,7 +23,10 @@ class CommandResult<T> {
   CommandResult.success([this.data]) : errorCode = null, errorMessage = null, field = null;
 
   /// Konstruktor für ein negatives Ergebnis
-  CommandResult.failure(this.errorCode, {String? message, this.field}) : data = null, errorMessage = message ?? errorCode!.defaultMessage;
+  CommandResult.failure(this.errorCode, {String? message, this.field}) : data = null, errorMessage = message ?? errorCode!.defaultText;
+
+  /// Konstruktor für ein negatives Ergebnis (Alias für failure)
+  CommandResult.error(this.errorCode, {String? message, this.field}) : data = null, errorMessage = message ?? errorCode!.defaultText;
 
   /// Gibt true zurück, wenn die Operation erfolgreich war (keine Fehler vorhanden).
   bool get isSuccess => errorCode == null;
