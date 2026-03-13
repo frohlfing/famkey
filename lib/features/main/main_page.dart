@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:provider/provider.dart';
-import 'package:privault/viewmodels/main_view_model.dart';
+import 'package:privault/features/main/main_notifier.dart';
+import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/widgets/password_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 import 'package:privault/widgets/text_dialog.dart';
 
-/// Der [MainScreen] ist die zentrale Übersicht deines Tresors.
+/// Der [MainPage] ist die zentrale Übersicht deines Tresors.
 ///
 /// Er listet alle gespeicherten Einträge auf, gruppiert nach Kategorien.
 /// Von hier aus kannst du:
@@ -16,49 +17,40 @@ import 'package:privault/widgets/text_dialog.dart';
 /// * Den Synchronisationsvorgang mit dem Server manuell anstoßen.
 /// * Neue Einträge erstellen oder zu den Details bestehender Einträge navigieren.
 /// * Über das Menü auf Einstellungen zugreifen oder dich abmelden.
-class MainScreen extends StatefulWidget {
+class MainPage extends ConsumerStatefulWidget {
   /// Konstruktor
-  const MainScreen({super.key});
+  const MainPage({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainPage> createState() => _MainPageState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainPageState extends ConsumerState<MainPage> {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  late MainViewModel _viewModel;
   final _searchController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 
-  /// Initialisiert den Screen und lädt die Daten, sobald der erste Frame gerendert wurde.
+  /// Initialisiert die Seite und lädt die Daten, sobald der erste Frame gerendert wurde.
   @override
   void initState() {
     super.initState();
 
-    _viewModel = context.read<MainViewModel>();
-    //_viewModel.addListener(_onViewModelChanged);
-    _viewModel.init();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewModel.load();
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
     });
   }
 
-  // /// Entfernt den Listener und gibt alle Ressourcen frei.
+  // /// Gibt Ressourcen frei.
   // @override
   // void dispose() {
-  //   _viewModel.removeListener(_onViewModelChanged);
-  // }
-
-  // /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
-  // /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
-  // void _onViewModelChanged() {
   // }
 
   // ------------------------------------------------------------------------
@@ -72,20 +64,18 @@ class _MainScreenState extends State<MainScreen> {
   /// der Einträge zusammengeführt.
   @override
   Widget build(BuildContext context) {
-    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
-    final viewModel = context.watch<MainViewModel>();
+    // Notifier und State holen
+    final notifier = ref.read(mainProvider.notifier);
+    final state = ref.watch(mainProvider);
 
-    final grouped = viewModel.groupedEntries;
+    // Einträge nach Kategorien gruppieren
+    final grouped = notifier.getEntriesGroupedByCategory();
 
     return Stack(
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Text(
-              viewModel.vaultName,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            title: Text(notifier.getVaultName(), overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
             centerTitle: true,
 
             leading: PopupMenuButton<String>(
@@ -105,11 +95,17 @@ class _MainScreenState extends State<MainScreen> {
               itemBuilder: (context) => [
                 const PopupMenuItem(
                   value: 'sync',
-                  child: ListTile(leading: Icon(Icons.cloud_sync_outlined), title: Text('Synchronisieren')),
+                  child: ListTile(
+                    leading: Icon(Icons.cloud_sync_outlined),
+                    title: Text('Synchronisieren'),
+                  ),
                 ),
                 const PopupMenuItem(
                   value: 'settings',
-                  child: ListTile(leading: Icon(Icons.settings_outlined), title: Text('Einstellungen')),
+                  child: ListTile(
+                    leading: Icon(Icons.settings_outlined),
+                    title: Text('Einstellungen'),
+                  ),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
@@ -131,6 +127,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
+
           body: Column(
             children: [
               Container(
@@ -144,28 +141,30 @@ class _MainScreenState extends State<MainScreen> {
                         hintText: 'Suchen...',
                         prefixIcon: const Icon(Icons.search),
                         // Das X-Icon zum Löschen:
-                        suffixIcon: viewModel.searchQuery.isNotEmpty
+                        suffixIcon: state.searchQuery.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear),
                                 onPressed: () {
                                   _searchController.clear();
-                                  viewModel.searchQuery = '';
+                                  notifier.setSearchQuery('');
                                 },
                               )
                             : null,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 0),
                         filled: true,
                         fillColor: Theme.of(context).cardColor,
                       ),
-                      onChanged: (val) => viewModel.searchQuery = val,
+                      onChanged: notifier.setSearchQuery,
                     ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Nur meine Einträge anzeigen', style: TextStyle(fontSize: 13)),
-                        Switch(value: viewModel.onlyMyEntries, onChanged: (val) => viewModel.onlyMyEntries = val),
+                        Switch(value: state.onlyMyEntries, onChanged: notifier.setOnlyMyEntries),
                       ],
                     ),
                   ],
@@ -173,14 +172,14 @@ class _MainScreenState extends State<MainScreen> {
               ),
 
               Expanded(
-                child: grouped.isEmpty && !viewModel.isBusy
+                child: grouped.isEmpty && !state.isBusy
                     ? const Center(child: Text('Keine Einträge gefunden.'))
                     : ListView.builder(
                         itemCount: grouped.length,
                         itemBuilder: (context, index) {
                           final category = grouped.keys.elementAt(index);
                           final items = grouped[category]!;
-                          final isCollapsed = viewModel.isCategoryCollapsed(category);
+                          final isCollapsed = state.collapsedCategories.contains(category);
 
                           return Column(
                             children: [
@@ -192,11 +191,11 @@ class _MainScreenState extends State<MainScreen> {
                                     title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                     trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
                                     dense: true,
-                                    onTap: () => viewModel.toggleCategory(category),
+                                    onTap: () => notifier.toggleCategory(category),
                                   ),
                                 ),
                               ),
-                              if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, viewModel, entry)),
+                              if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, entry)),
                             ],
                           );
                         },
@@ -206,7 +205,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
 
-        if (viewModel.isBusy)
+        if (state.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
@@ -223,7 +222,7 @@ class _MainScreenState extends State<MainScreen> {
   ///
   /// Zeigt das Favicon, den Titel und die URL an. Ein Tippen auf die Karte
   /// navigiert dich direkt zur Detailansicht des jeweiligen Eintrags.
-  Widget _buildEntryCard(BuildContext context, MainViewModel viewModel, dynamic entry) {
+  Widget _buildEntryCard(BuildContext context, dynamic entry) {
     return Padding(
       padding: const EdgeInsets.only(top: 0, bottom: 0, left: 24, right: 24),
       child: Card(
@@ -231,8 +230,15 @@ class _MainScreenState extends State<MainScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
           leading: _buildFavicon(entry.favicon),
-          title: Text(entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag', style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text(entry.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: Text(
+            entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Text(
+            entry.url,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           onTap: () => _handleViewEntry(entry),
         ),
       ),
@@ -245,7 +251,9 @@ class _MainScreenState extends State<MainScreen> {
   /// Falls kein Bild vorhanden ist oder die Daten beschädigt sind, wird
   /// ein dezentes Standard-Icon als Platzhalter genutzt.
   Widget _buildFavicon(String base64) {
-    if (base64.isEmpty) return const Icon(Icons.lock_outlined, color: Colors.blueGrey);
+    if (base64.isEmpty) {
+      return const Icon(Icons.lock_outlined, color: Colors.blueGrey);
+    }
     try {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -267,110 +275,144 @@ class _MainScreenState extends State<MainScreen> {
 
   /// Koordiniert den Synchronisationsvorgang mit dem Server.
   Future<void> _handleSync() async {
-    if (_viewModel.isBusy) return;
-    try {
-      // Sync starten
-      final result = await _viewModel.sync();
-      if (!mounted) return;
-      if (!result.isSuccess) {
-        if (result.errorCode == ErrorCode.syncSaltMismatch) {
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
+
+    // Sync durchführen
+    final notifier = ref.read(mainProvider.notifier);
+    final success  = await notifier.sync();
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(mainProvider);
+
+    // Fehlerfall
+    if (!success) {
+      switch (state.error?.code) {
+        case ErrorCode.syncSaltMismatch:
           // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
-          _handleSaltMismatch();
-          return;
-        }
-        if (result.errorCode == ErrorCode.syncEmptyEntryKey) {
+          _handleSaltMismatch(state.userResponse!);
+          break;
+
+        case ErrorCode.syncEmptyEntryKey:
           TextDialog.show(
             context,
             title: 'Sicherheitsstopp',
             text: "Der Fingerprint eines Freundes hat sich geändert.\n"
-                "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
+              "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
           );
-          return;
-        }
-        Snack.show(context, result.errorMessage!);
+          break;
+
+        default:
+          if (state.error?.field == null) {
+            Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
+          }
       }
-      final stats = _viewModel.stats;
-      TextDialog.show(
-          context,
-          title: 'Info',
-          text: 'Synchronisation erfolgreich abgeschlossen.\n\n$stats'
-      );
-    } catch (e, st) {
-      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
+      return;
     }
+
+    // Erfolgsfall
+    final stats = ref.read(mainProvider).lastSyncStats;
+    TextDialog.show(context, title: 'Info', text: 'Synchronisation erfolgreich abgeschlossen.\n\n$stats');
   }
 
   /// Adoptiert die auf dem Server gespeicherte Identität
-  Future<void> _handleSaltMismatch() async {
-    final userResponse = _viewModel.userResponse!;
-    try {
-      String? errorText;
-      final message = userResponse.userUuid == _viewModel.myUuid
-          ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
-          : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
-      while (true) {
-        // Master-Passwort abfragen
-        final password = await PasswordDialog.show(
-            context,
-            title: 'Account verknüpfen',
-            text: message,
-            errorText: errorText
-        );
-        if (password == null) return;
+  Future<void> _handleSaltMismatch(UserResponse userResponse) async {
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
 
-        // Die auf dem Server gespeicherte Identität übernehmen
-        final result = await _viewModel.adoptIdentity(userResponse, password);
-        if (!mounted) return;
-        if (!result.isSuccess) {
-          if (result.errorCode == ErrorCode.wrongPassword) {
-            // im Dialog anzeigen, NICHT SnackBar
-            errorText = result.errorMessage;
-            continue;
-          }
-          Snack.show(context, result.errorMessage!);
-          break;
+    // Passenden Text für die Passwortfrage
+    final notifier = ref.read(mainProvider.notifier);
+    final message = userResponse.userUuid == notifier.getMyUuid()
+        ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
+        : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
+
+    // Passwort abfragen (solange, bis es korrekt ist oder der Benutzer abbricht) und Identität übernehmen
+    String? errorText;
+    while (true) {
+      // Master-Passwort abfragen
+      final password = await PasswordDialog.show(
+          context,
+          title: 'Account verknüpfen',
+          text: message,
+          errorText: errorText,
+      );
+      if (password == null) return;
+
+      // Die auf dem Server gespeicherte Identität übernehmen
+      final success = await notifier.adoptIdentity(userResponse, password);
+      if (!mounted) return;
+
+      // Aktuellen State holen
+      final state = ref.read(mainProvider);
+
+      // Fehlerfall
+      if (!success) {
+        if (state.error?.code == ErrorCode.wrongPassword) {
+          // im Dialog anzeigen, NICHT SnackBar
+          errorText = state.error?.text;
+          continue;
         }
-        Snack.show(context, 'Account erfolgreich verknüpft.', success: true);
-        _handleSync(); // Sync erneut starten
+        Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
         break;
       }
-    } catch (e, st) {
-      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'MainScreen');
+
+      // Erfolgsfall
+      Snack.show(context, 'Account erfolgreich verknüpft.', success: true);
+      _handleSync(); // Sync erneut starten
+      break;
     }
   }
 
   /// Navigiert zu den Einstellungen
   Future<void> _handleSettings() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
+
+    // Einstellungen öffnen
     Navigator.of(context).pushNamed('/settings');
   }
 
   /// Beendet die Session und navigiert zur Login-Seite.
   Future<void> _handleLogout() async {
-    if (_viewModel.isBusy) return;
-    _viewModel.logout();
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
+
+    // Logout durchführen
+    final notifier = ref.read(mainProvider.notifier);
+    notifier.logout();
+
+    // Loginseite öffnen
     if (mounted) Navigator.of(context).pushReplacementNamed('/');
   }
 
-  // 1) Aufrufkette für Eintrag hinzufügen: main -> edit -> details -> main
-  // 2) Aufrufkette für Eintrag bearbeiten: main -> details -> edit -> details -> main
-  // 3) Aufrufkette für Eintrag löschen: main -> details -> edit -> main
-
-  /// Beendet die Session und navigiert zur Login-Seite.
+  /// Öffnet die Editierseite.
   Future<void> _handleAddEntry() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
+
+    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
     final hasChanged = await Navigator.of(context).pushNamed('/edit');
+
+    // Wenn der Eintrag geändert wurde, die Liste neu laden.
     if (hasChanged == true && mounted) {
-      _viewModel.load();
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
     }
   }
 
   /// Öffnet die Detailansicht.
   Future<void> _handleViewEntry(dynamic entry) async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(mainProvider).isBusy) return;
+
+    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
     final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.id);
+
+    // Wenn der Eintrag geändert wurde, die Liste neu laden.
     if (hasChanged == true && mounted) {
-      _viewModel.load();
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
     }
   }
 }

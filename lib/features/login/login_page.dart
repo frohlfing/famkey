@@ -38,22 +38,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 
-  /// Initialisiert den Screen und lädt die Daten, sobald der erste Frame gerendert wurde.
+  /// Initialisiert die Seite und lädt die Daten, sobald der erste Frame gerendert wurde.
   @override
   void initState() {
     super.initState();
 
-    // Notifier holen
-    final notifier = ref.read(loginProvider.notifier);
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Daten laden
+      final notifier = ref.read(loginProvider.notifier);
       await notifier.load();
 
-      // State erst jetzt holen (nach load)
-      final state = ref.read(loginProvider);
-
       // Textfelder synchronisieren
+      final state = ref.read(loginProvider);
       _vaultController.text = state.vaultName;
       _passwordController.clear();
 
@@ -62,18 +58,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
   }
 
-  /// Entfernt den Listener und gibt alle Ressourcen frei.
+  /// Gibt Ressourcen frei.
   @override
   void dispose() {
-    // Passwort im State löschen (optional, aber sauber)
-    ref.read(loginProvider.notifier).setPassword('');
-
     // Controller & FocusNodes freigeben
     _vaultController.dispose();
     _passwordController.dispose();
     _vaultFocusNode.dispose();
     _passwordFocusNode.dispose();
-
     super.dispose();
   }
 
@@ -98,10 +90,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   /// Das Layout ist zentriert und für mobile Geräte sowie Desktop-Ansichten optimiert.
   @override
   Widget build(BuildContext context) {
-    // ViewModel holen
-    final state = ref.watch(loginProvider);
+    // Notifier und State holen
     final notifier = ref.read(loginProvider.notifier);
+    final state = ref.watch(loginProvider);
 
+    // Button-Status berechnen
     final bool canLogin = state.password.isNotEmpty || (state.isExists && state.hasBiometricKey);
 
     return Stack(
@@ -173,7 +166,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                       ],
                       onChanged: (val) => notifier.setPassword(val),
-                      onSubmitted: (_) => _handleLogin(notifier),
+                      onSubmitted: (_) => _handleLogin(),
                     ),
 
                     const SizedBox(height: 6),
@@ -190,7 +183,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                       ),
-                      onPressed: (state.isBusy || !canLogin) ? null : () => _handleLogin(notifier),
+                      onPressed: (state.isBusy || !canLogin) ? null : () => _handleLogin(),
                       icon: const Icon(Icons.login_outlined),
                       label: const Text('Anmelden'),
                     ),
@@ -215,17 +208,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   // ------------------------------------------------------------------------
 
   /// Steuert den gesamten Anmeldevorgang und verarbeitet die verschiedenen Ergebnisse.
-  Future<void> _handleLogin(LoginNotifier notifier, {bool forceCreate = false}) async {
-    // State holen
-    final state = ref.read(loginProvider);
-    if (state.isBusy) return;
+  Future<void> _handleLogin({bool forceCreate = false}) async {
+    // Busy-Check
+    if (ref.read(loginProvider).isBusy) return;
 
     // Login durchführen
+    final notifier = ref.read(loginProvider.notifier);
     final success = await notifier.login(forceCreate: forceCreate);
     if (!mounted) return;
 
-    // --- Fehlerfall ---
+    // Aktuellen State holen
+    final state = ref.read(loginProvider);
 
+    // Fehlerfall
     if (!success) {
       switch (state.error?.code) {
         case ErrorCode.vaultNotFound:
@@ -236,7 +231,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ok: 'Ja, anlegen',
           );
           if (create == true && mounted) {
-            _handleLogin(notifier, forceCreate: true);
+            _handleLogin(forceCreate: true);
           }
           break;
 
@@ -265,7 +260,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       return;
     }
 
-    // --- Erfolgsfall ---
+    // Erfolgsfall
 
     // Falls Biometrie aktiviert werden kann: Nachfragen
     if (state.askToEnableBiometrics) {
@@ -280,6 +275,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     }
 
+    // Passwort im State zurücksetzen
+    notifier.clearPassword();
+
+    // Hauptseite öffnen
     if (mounted) Navigator.of(context).pushReplacementNamed('/main');
   }
 }

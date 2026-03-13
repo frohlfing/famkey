@@ -3,19 +3,23 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart' as prov;
+
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
-import 'package:privault/viewmodels/main_view_model.dart';
+
 import 'package:privault/viewmodels/edit_view_model.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
 import 'package:privault/viewmodels/settings_view_model.dart';
+
 import 'package:privault/features/login/login_page.dart';
-import 'package:privault/views/main_screen.dart';
+import 'package:privault/features/main/main_page.dart';
+
 import 'package:privault/views/edit_screen.dart';
 import 'package:privault/views/detail_screen.dart';
 import 'package:privault/views/settings_screen.dart';
+
+import 'package:provider/provider.dart' as prov;
 
 // @formatter:off
 void main() async {
@@ -61,7 +65,6 @@ class PriVaultApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return prov.MultiProvider(
       providers: [
-        prov.ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => SettingsViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
@@ -137,7 +140,7 @@ class PriVaultApp extends StatelessWidget {
               }
               return null;
             },
-            routes: {'/': (context) => const LoginPage(), '/main': (context) => const MainScreen(), '/settings': (context) => const SettingsScreen()},
+            routes: {'/': (context) => const LoginPage(), '/main': (context) => const MainPage(), '/settings': (context) => const SettingsScreen()},
           );
         },
       ),

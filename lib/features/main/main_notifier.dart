@@ -24,12 +24,25 @@ final mainProvider = NotifierProvider<MainNotifier, MainState>(
 );
 
 class MainNotifier extends Notifier<MainState> {
+
+  // ------------------------------------------------------------------------
+  // --- Verwendete Dienste ---
+  // ------------------------------------------------------------------------
+
   late final BiometricService _biometricService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
   late final WebService _webService;
 
+  // ------------------------------------------------------------------------
+  // --- Initialisierung & Lifecycle ---
+  // ------------------------------------------------------------------------
+
+  /// Initialisiert einen Notifier.
+  ///
+  /// Die Verwendung von `Ref.watch` oder `Ref.listen` innerhalb dieser Methode ist unbedenklich.
+  /// Ändert sich eine Abhängigkeit dieses Notifiers (bei Verwendung von `Ref.watch`), wird der Build-Prozess erneut ausgeführt. Der Notifier selbst wird jedoch nicht neu erstellt. Seine Instanz bleibt zwischen den Build-Ausführungen erhalten.
   @override
   MainState build() {
     // Dienste aus getIt holen
@@ -43,9 +56,7 @@ class MainNotifier extends Notifier<MainState> {
     return const MainState();
   }
 
-  /// ------------------------------------------------------------------------
-  /// Lädt initiale Daten (z.B. Liste der vorhandenen Tresore).
-  /// ------------------------------------------------------------------------
+  /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
     state = state.copyWith(isBusy: true, error: null);
     try {
@@ -59,24 +70,29 @@ class MainNotifier extends Notifier<MainState> {
     }
   }
 
-  /// ------------------------------------------------------------------------
+  /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
+  void logout() {
+    _databaseService.close(); // Datenbankverbindung kappen
+    _sessionService.clearSession(); // Schlüssel aus dem RAM löschen
+    state = const MainState();
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Suche, Filter und Gruppierung ---
+  // ------------------------------------------------------------------------
+
   /// Setter für Suchbegriff
-  /// ------------------------------------------------------------------------
   void setSearchQuery(String value) {
     state = state.copyWith(searchQuery: value.toLowerCase());
   }
 
-  /// ------------------------------------------------------------------------
   /// Setter für "Nur-Meine"-Filter
-  /// ------------------------------------------------------------------------
   void setOnlyMyEntries(bool value) {
     state = state.copyWith(onlyMyEntries: value);
   }
 
-  /// ------------------------------------------------------------------------
   /// Gruppiert die gefilterten Einträge nach Kategorien für die Darstellung in der UI.
-  /// ------------------------------------------------------------------------
-  Map<String, List<EntryEntity>> get groupedEntries {
+  Map<String, List<EntryEntity>> getEntriesGroupedByCategory() {
     final Map<String, List<EntryEntity>> groups = {};
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
     final q = state.searchQuery;
@@ -99,9 +115,7 @@ class MainNotifier extends Notifier<MainState> {
     return groups;
   }
 
-  /// ------------------------------------------------------------------------
-  /// Schaltet den Erweiterungszustand (aufgeklappt/zugeklappt) einer Kategorie um.
-  /// ------------------------------------------------------------------------
+  /// Klappt eine Kategorie auf/zu.
   void toggleCategory(String category) {
     final collapsed = Set<String>.from(state.collapsedCategories);
     if (collapsed.contains(category)) {
@@ -112,32 +126,23 @@ class MainNotifier extends Notifier<MainState> {
     state = state.copyWith(collapsedCategories: collapsed);
   }
 
-  /// ------------------------------------------------------------------------
-  /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
-  /// ------------------------------------------------------------------------
-  void logout() {
-    _databaseService.close(); // Datenbankverbindung kappen
-    _sessionService.clearSession(); // Schlüssel aus dem RAM löschen
-    state = const MainState();
-  }
-
+  // ------------------------------------------------------------------------
   // --- Synchronisation ---
+  // ------------------------------------------------------------------------
 
-  /// ------------------------------------------------------------------------
   /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
   /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
-  /// ------------------------------------------------------------------------
-  Future<void> sync() async {
+  Future<bool> sync() async {
     if (_sessionService.user == null || _sessionService.settings == null) {
       state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return;
+      return false;
     }
 
     // 1. Stats-Zähler anlegen
     final stats = SyncStatistics();
 
     // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: null);
+    state = state.copyWith(isBusy: true, error: null, userResponse: null);
     try {
 
       // 2. WebService konfigurieren
@@ -152,8 +157,8 @@ class MainNotifier extends Notifier<MainState> {
       // 5. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert oder es wurde auf einem anderen Gerät das Passwort geändert.
       if (_sessionService.user!.uuid != userResponse.userUuid || userResponse.salt != _sessionService.settings!.salt) {
-        state = state.copyWith(error: FormError(ErrorCode.syncSaltMismatch));
-        return;
+        state = state.copyWith(error: FormError(ErrorCode.syncSaltMismatch), userResponse: userResponse);
+        return false;
       }
 
       // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
@@ -164,7 +169,7 @@ class MainNotifier extends Notifier<MainState> {
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
         state = state.copyWith(error: FormError(ErrorCode.syncEmptyEntryKey));
-        return;
+        return false;
       }
 
       // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
@@ -183,9 +188,11 @@ class MainNotifier extends Notifier<MainState> {
       // 12. Einträge aktualisieren und Statistik im State ablegen
       final entries = await _databaseService.getEntries();
       state = state.copyWith(allEntries: entries, lastSyncStats: stats);
+      return true;
     } catch (e, st) {
       Logger().fatal("Fehler beim Sync: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
+      return false;
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -317,10 +324,6 @@ class MainNotifier extends Notifier<MainState> {
       state = state.copyWith(isBusy: false);
     }
   }
-
-  // ------------------------------------------------------------------------
-  // --- Private Methoden ---
-  // ------------------------------------------------------------------------
 
   /// Konfiguriert den WebService mit den aktuellen Session-Daten.
   void _configWebService() {
@@ -487,7 +490,7 @@ class MainNotifier extends Notifier<MainState> {
 
   /// Lädt neue und geänderte Einträge vom Server herunter und verarbeitet diese
   /// Zurückgegeben wird der aktuelle Zeitstempel des Servers zum Zeitpunkt der Anfrage.
-  Future<DateTime> _pullEntries(String userUuid, SyncStatistics stats) async { // todo Rückgabe besser im State?
+  Future<DateTime> _pullEntries(String userUuid, SyncStatistics stats) async {
     // 1. Neue und geänderte Einträge vom Server herunterladen
     final pullResponse = await _webService.pullSync(userUuid, _sessionService.settings!.lastSyncAt);
 
@@ -534,10 +537,8 @@ class MainNotifier extends Notifier<MainState> {
           url = payload.url;
           notes = payload.notes;
           favicon = payload.favicon;
-        } catch (e, st) {
-          Logger().fatal("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e", stack: st);
-          state = state.copyWith(error: FormError(ErrorCode.unknown));
-          throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");  // todo
+        } catch (e) {
+          throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");
         }
       }
 
@@ -752,5 +753,19 @@ class MainNotifier extends Notifier<MainState> {
     } finally {
       _cryptoService.wipeKey(aesKey);
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Convenience Getter ---
+  // ------------------------------------------------------------------------
+
+  /// Gibt den Name des aktuell geöffneten Tresors zurück.
+  String getVaultName() {
+    return _sessionService.vaultName;
+  }
+
+  /// Gibt die UUID des Benutzers zurück.
+  String getMyUuid() {
+    return _sessionService.user != null ? _sessionService.user!.uuid : '';
   }
 }

@@ -1,6 +1,7 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/main/sync_statistics.dart';
+import 'package:privault/models/dtos/user_response.dart';
 
 class MainState {
   /// Gibt an, ob ein Ladesymbol angezeigt wird
@@ -21,6 +22,9 @@ class MainState {
   /// Sync-Statistik
   final SyncStatistics? lastSyncStats;
 
+  /// Antwort des Servers mit der neuen Benutzer-Identität, die adoptiert werden muss
+  final UserResponse? userResponse;
+
   /// Fehler der letzten Operation
   final FormError? error;
 
@@ -32,6 +36,7 @@ class MainState {
     this.onlyMyEntries = false,
     this.collapsedCategories = const {},
     this.lastSyncStats,
+    this.userResponse,
     this.error,
   });
 
@@ -43,6 +48,7 @@ class MainState {
     bool? onlyMyEntries,
     Set<String>? collapsedCategories,
     SyncStatistics? lastSyncStats,
+    UserResponse? userResponse,
     FormError? error,
   }) {
     return MainState(
@@ -52,6 +58,7 @@ class MainState {
       onlyMyEntries: onlyMyEntries ?? this.onlyMyEntries,
       collapsedCategories: collapsedCategories ?? this.collapsedCategories,
       lastSyncStats: lastSyncStats ?? this.lastSyncStats,
+      userResponse: userResponse ?? this.userResponse,
       error: error ?? this.error,
     );
   }

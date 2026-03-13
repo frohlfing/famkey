@@ -20,6 +20,11 @@ final loginProvider = NotifierProvider<LoginNotifier, LoginState>(
 );
 
 class LoginNotifier extends Notifier<LoginState> {
+
+  // ------------------------------------------------------------------------
+  // --- Verwendete Dienste ---
+  // ------------------------------------------------------------------------
+
   late final BiometricService _biometricService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
@@ -27,6 +32,14 @@ class LoginNotifier extends Notifier<LoginState> {
   late final PasswordService _passwordService;
   late final SessionService _sessionService;
 
+  // ------------------------------------------------------------------------
+  // --- Initialisierung & Lifecycle ---
+  // ------------------------------------------------------------------------
+
+  /// Initialisiert einen Notifier.
+  ///
+  /// Die Verwendung von `Ref.watch` oder `Ref.listen` innerhalb dieser Methode ist unbedenklich.
+  /// Ändert sich eine Abhängigkeit dieses Notifiers (bei Verwendung von `Ref.watch`), wird der Build-Prozess erneut ausgeführt. Der Notifier selbst wird jedoch nicht neu erstellt. Seine Instanz bleibt zwischen den Build-Ausführungen erhalten.
   @override
   LoginState build() {
     // Dienste aus getIt holen
@@ -41,13 +54,11 @@ class LoginNotifier extends Notifier<LoginState> {
     return LoginState(vaultName: _configService.lastVaultName);
   }
 
-  /// ------------------------------------------------------------------------
-  /// Lädt initiale Daten (z.B. Liste der vorhandenen Tresore).
-  /// ------------------------------------------------------------------------
+  /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
     state = state.copyWith(isBusy: true, error: null);
     try {
-      await refreshVaultList();
+      await _refreshVaultList();
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
@@ -56,31 +67,40 @@ class LoginNotifier extends Notifier<LoginState> {
     }
   }
 
-  /// ------------------------------------------------------------------------
   /// Scannt das Dateisystem nach vorhandenen Tresoren.
-  /// ------------------------------------------------------------------------
-  Future<void> refreshVaultList() async {
+  Future<void> _refreshVaultList() async {
     final vaults = await _databaseService.getExistingVaults();
+    final exists = vaults.contains(state.vaultName);
     state = state.copyWith(existingVaults: vaults);
-    await _updateState();
-  }
-
-  /// ------------------------------------------------------------------------
-  /// Prüft, ob es den Tresor gibt und ob es für diesen Tresor ein Wert im
-  /// Secure-Store liegt.
-  /// ------------------------------------------------------------------------
-  Future<void> _updateState() async {
-    final exists = state.existingVaults.contains(state.vaultName);
-    final hasBio = await _biometricService.containsMasterKey(state.vaultName);
     state = state.copyWith(
+      existingVaults: vaults,
       isExists: exists,
-      hasBiometricKey: hasBio,
     );
   }
 
-  /// ------------------------------------------------------------------------
+  /// Führt eine Bereinigung durch (z.B. bei einer korrupten SQLite-Datei).
+  Future<void> cleanUp() async {
+    // 1. Datenbank + Salt löschen
+    await _databaseService.deleteCurrentDatabaseAndSaltFile();
+
+    // 2. Session löschen
+    _sessionService.clearSession();
+
+    // 3. State zurücksetzen
+    state = const LoginState();
+
+    // 4. Letzten Tresor im ConfigService löschen
+    _configService.lastVaultName = '';
+
+    // 5. Liste der Tresore aktualisieren
+    await _refreshVaultList();
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Login-Prozess ---
+  // ------------------------------------------------------------------------
+
   /// Startet den Login-Prozess.
-  /// ------------------------------------------------------------------------
   Future<bool> login({bool forceCreate = false}) async {
     final vaultName = state.vaultName.trim();
     final password = state.password;
@@ -96,7 +116,7 @@ class LoginNotifier extends Notifier<LoginState> {
     }
 
     // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: null);
+    state = state.copyWith(isBusy: true, error: null, askToEnableBiometrics: false);
     try {
       // Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
@@ -139,9 +159,7 @@ class LoginNotifier extends Notifier<LoginState> {
     }
   }
 
-  /// ------------------------------------------------------------------------
   /// Öffnet einen bestehenden Tresor
-  /// ------------------------------------------------------------------------
   Future<bool> _openVault() async {
     final vaultName = state.vaultName;
     final password = state.password;
@@ -228,9 +246,7 @@ class LoginNotifier extends Notifier<LoginState> {
     }
   }
 
-  /// ------------------------------------------------------------------------
   /// Erstellt einen neuen Tresor.
-  /// ------------------------------------------------------------------------
   Future<bool> _createVault() async {
     final vaultName = state.vaultName;
     final password = state.password;
@@ -297,7 +313,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
       // 9. Letzten Tresor speichern und Liste der verfügbaren Tresore aktualisieren
       _configService.lastVaultName = vaultName;
-      await refreshVaultList();
+      await _refreshVaultList();
 
       // 10. Session setzen
       _sessionService.setSession(
@@ -317,30 +333,12 @@ class LoginNotifier extends Notifier<LoginState> {
     }
   }
 
-  /// ------------------------------------------------------------------------
-  /// Führt eine Bereinigung durch (z.B. bei einer korrupten SQLite-Datei).
-  /// ------------------------------------------------------------------------
-  Future<void> cleanUp() async {
-    // 1. Datenbank + Salt löschen
-    await _databaseService.deleteCurrentDatabaseAndSaltFile();
+  // ------------------------------------------------------------------------
+  // --- Biometrie
+  // ------------------------------------------------------------------------
 
-    // 2. Session löschen
-    _sessionService.clearSession();
-
-    // 3. State zurücksetzen
-    state = const LoginState();
-
-    // 4. Letzten Tresor im ConfigService löschen
-    _configService.lastVaultName = '';
-
-    // 5. Liste der Tresore aktualisieren
-    await refreshVaultList();
-  }
-
-  /// ------------------------------------------------------------------------
   /// Speichert den Master-Key im biometrischen Secure-Store.
   /// Entspricht saveMasterKey() im alten ViewModel.
-  /// ------------------------------------------------------------------------
   Future<void> saveMasterKey(String password) async {
     final vaultName = state.vaultName;
 
@@ -356,39 +354,40 @@ class LoginNotifier extends Notifier<LoginState> {
       await _biometricService.saveMasterKey(vaultName, masterKey);
 
       // State aktualisieren
-      await _updateState();
+      state = state.copyWith(hasBiometricKey: true);
     } finally {
       // Master-Key aus dem RAM löschen
       _cryptoService.wipeKey(masterKey);
     }
   }
 
-  /// ------------------------------------------------------------------------
+  // ------------------------------------------------------------------------
+  // --- Convenience Setter & Getter ---
+  // ------------------------------------------------------------------------
+
   /// Setter für vaultName
-  /// ------------------------------------------------------------------------
   void setVaultName(String value) {
     // Ungültige Zeichen für Dateinamen filtern
     final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
     state = state.copyWith(vaultName: cleaned);
   }
 
-  /// ------------------------------------------------------------------------
   /// Setter für Passwort
-  /// ------------------------------------------------------------------------
   void setPassword(String value) {
     state = state.copyWith(password: value);
   }
 
-  /// ------------------------------------------------------------------------
+  /// Alias für `setPassword('')`
+  void clearPassword() {
+    setPassword('');
+  }
+
   /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
-  /// ------------------------------------------------------------------------
   int getPasswordStrength() {
     return _passwordService.estimateStrength(state.password);
   }
 
-  /// ------------------------------------------------------------------------
   /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
-  /// ------------------------------------------------------------------------
   String? getFieldErrorText(String field) {
     return state.error?.field == field ? state.error?.text : null;
   }
