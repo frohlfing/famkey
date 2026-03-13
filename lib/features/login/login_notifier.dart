@@ -15,20 +15,10 @@ import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:uuid/uuid.dart';
 
-/// ------------------------------------------------------------------------
-/// PROVIDER
-/// - Stellt das LoginViewModelNotifier bereit.
-/// - Die UI kann später ref.watch(loginViewModelProvider) nutzen.
-/// ------------------------------------------------------------------------
 final loginProvider = NotifierProvider<LoginNotifier, LoginState>(
   LoginNotifier.new,
 );
 
-/// ------------------------------------------------------------------------
-/// NOTIFIER (Riverpod-Version des ViewModels)
-/// - Ersetzt ChangeNotifier.
-/// - Hat dieselben Methoden wie dein altes ViewModel.
-/// ------------------------------------------------------------------------
 class LoginNotifier extends Notifier<LoginState> {
   late final BiometricService _biometricService;
   late final ConfigService _configService;
@@ -48,39 +38,18 @@ class LoginNotifier extends Notifier<LoginState> {
     _sessionService = getIt();
 
     // Initialer State
-    return LoginState(
-      vaultName: _configService.lastVaultName,
-    );
-  }
-
-  /// Setter für vaultName
-  void setVaultName(String value) {
-    // Ungültige Zeichen für Dateinamen filtern
-    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-    state = state.copyWith(vaultName: cleaned);
-  }
-
-  /// Setter für Passwort
-  void setPassword(String value) {
-    state = state.copyWith(password: value);
-  }
-
-  /// ------------------------------------------------------------------------
-  /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
-  /// ------------------------------------------------------------------------
-  int getPasswordStrength() {
-    return _passwordService.estimateStrength(state.password);
+    return LoginState(vaultName: _configService.lastVaultName);
   }
 
   /// ------------------------------------------------------------------------
   /// Lädt initiale Daten (z.B. Liste der vorhandenen Tresore).
   /// ------------------------------------------------------------------------
   Future<void> load() async {
-    state = state.copyWith(isBusy: true);
+    state = state.copyWith(isBusy: true, error: null);
     try {
       await refreshVaultList();
     } catch (e, st) {
-      Logger().fatal('Fehler beim Initialisieren: $e', stack: st);
+      Logger().fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
     } finally {
       state = state.copyWith(isBusy: false);
@@ -92,9 +61,7 @@ class LoginNotifier extends Notifier<LoginState> {
   /// ------------------------------------------------------------------------
   Future<void> refreshVaultList() async {
     final vaults = await _databaseService.getExistingVaults();
-    state = state.copyWith(
-      existingVaults: vaults,
-    );
+    state = state.copyWith(existingVaults: vaults);
     await _updateState();
   }
 
@@ -128,9 +95,8 @@ class LoginNotifier extends Notifier<LoginState> {
       return false;
     }
 
-    // Busy setzen
-    state = state.copyWith(isBusy: true);
-
+    // Busy setzen, Fehler zurücksetzen
+    state = state.copyWith(isBusy: true, error: null);
     try {
       // Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
@@ -362,10 +328,7 @@ class LoginNotifier extends Notifier<LoginState> {
     _sessionService.clearSession();
 
     // 3. State zurücksetzen
-    state = state.copyWith(
-      vaultName: '',
-      password: '',
-    );
+    state = const LoginState();
 
     // 4. Letzten Tresor im ConfigService löschen
     _configService.lastVaultName = '';
@@ -400,7 +363,32 @@ class LoginNotifier extends Notifier<LoginState> {
     }
   }
 
+  /// ------------------------------------------------------------------------
+  /// Setter für vaultName
+  /// ------------------------------------------------------------------------
+  void setVaultName(String value) {
+    // Ungültige Zeichen für Dateinamen filtern
+    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    state = state.copyWith(vaultName: cleaned);
+  }
+
+  /// ------------------------------------------------------------------------
+  /// Setter für Passwort
+  /// ------------------------------------------------------------------------
+  void setPassword(String value) {
+    state = state.copyWith(password: value);
+  }
+
+  /// ------------------------------------------------------------------------
+  /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
+  /// ------------------------------------------------------------------------
+  int getPasswordStrength() {
+    return _passwordService.estimateStrength(state.password);
+  }
+
+  /// ------------------------------------------------------------------------
   /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
+  /// ------------------------------------------------------------------------
   String? getFieldErrorText(String field) {
     return state.error?.field == field ? state.error?.text : null;
   }

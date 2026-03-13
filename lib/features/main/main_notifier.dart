@@ -1,158 +1,95 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_version.dart';
-import 'package:privault/core/base_view_model.dart';
-import 'package:privault/core/command_result.dart';
+import 'package:privault/core/logger.dart';
+import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/main/main_state.dart';
 import 'package:privault/features/main/sync_statistics.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/friend_payload.dart';
+import 'package:privault/services/biometric_service.dart';
+import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/web_service.dart';
 
+final mainProvider = NotifierProvider<MainNotifier, MainState>(
+  MainNotifier.new,
+);
 
-
-/// Das [MainViewModel] steuert die Hauptansicht der Anwendung.
-/// Es verwaltet die Anzeige, Filterung und Gruppierung aller Tresoreinträge und orchestriert die Synchronisation.
-class MainViewModel extends BaseViewModel {
-  // ------------------------------------------------------------------------
-  // --- Verwendete Dienste ---
-  // ------------------------------------------------------------------------
-
-  final BiometricService _biometricService;
-  final CryptoService _cryptoService;
-  final DatabaseService _databaseService;
-  final SessionService _sessionService;
-  final WebService _webService;
-
-  // ------------------------------------------------------------------------
-  // --- Konstanten für notifySuccess/CommandResult ---
-  // ------------------------------------------------------------------------
-
-  static const saltMismatch = -1;
-  static const emptyEntryKey = -2;
-
-  // ------------------------------------------------------------------------
-  // --- Interne Variablen ---
-  // ------------------------------------------------------------------------
-
-  /// Liste der Einträge
-  List<EntryEntity> _allEntries = [];
-
-  /// Suchbegriff
-  String _searchQuery = '';
-
-  /// Gibt an, ob nur die eigenen Einträge gezeigt werden
-  bool _onlyMyEntries = false;
-
-  /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
-  final Set<String> _collapsedCategories = {};
-
-  /// Sync-Statistik
-  final _stats = SyncStatistics();
-
-  /// Das User-Response-Objekt der letzten Synchronisation.
-  UserResponse? _userResponse;
-
-  // ------------------------------------------------------------------------
-  // --- Initialisierung ---
-  // ------------------------------------------------------------------------
-
-  /// Konstruktor
-  MainViewModel(this._biometricService, this._cryptoService, this._databaseService, this._sessionService, this._webService) {
-    // Auf Session-Änderungen reagieren (z.B. Rename des Tresors)
-    // Sobald sich im _sessionService etwas ändert (z. B. der Tresorname), ruft das ViewModel seine eigenen notifyListeners() auf.
-    _sessionService.addListener(notifyListeners);
-  }
+class MainNotifier extends Notifier<MainState> {
+  late final BiometricService _biometricService;
+  late final CryptoService _cryptoService;
+  late final DatabaseService _databaseService;
+  late final SessionService _sessionService;
+  late final WebService _webService;
 
   @override
-  void dispose() {
-    _sessionService.removeListener(notifyListeners);
-    super.dispose();
+  MainState build() {
+    // Dienste aus getIt holen
+    _biometricService = getIt();
+    _cryptoService = getIt();
+    _databaseService = getIt();
+    _sessionService = getIt();
+    _webService = getIt();
+
+    // Initialer State
+    return const MainState();
   }
 
-  /// Initialisiert die Variablen, bevor der erste Frame gerendert wird.
-  ///
-  /// Die Liste soll nicht zurückgesetzt werden, sondern einfach den letzten Zustand anzeigen,
-  /// bis die aktualisierten Daten geladen sind. Dadurch wird ein Flackern vermieden.
-  /// Der Suchausdruck und Filter sollen auch unverändert bleiben. Daher bleibt die Funktion leer.
-  void init() {
-    clearError(notify: false);
-  }
-
-  /// Lädt die Daten.
+  /// ------------------------------------------------------------------------
+  /// Lädt initiale Daten (z.B. Liste der vorhandenen Tresore).
+  /// ------------------------------------------------------------------------
   Future<void> load() async {
-    setBusy(true);
+    state = state.copyWith(isBusy: true, error: null);
     try {
-      clearError();
-      _allEntries = await _databaseService.getEntries();
-      notifyListeners();
+      final entries = await _databaseService.getEntries();
+      state = state.copyWith(allEntries: entries);
     } catch (e, st) {
-      logError('Fehler beim Initialisieren: $e', st);
-      notifyError(ErrorCode.unknown);
+      Logger().fatal("Fehler beim Laden: $e", stack: st);
+      state = state.copyWith(error: FormError(ErrorCode.unknown));
     } finally {
-      setBusy(false);
+      state = state.copyWith(isBusy: false);
     }
   }
 
-  // ------------------------------------------------------------------------
-  // --- Eigenschaften & Methoden ---
-  // ------------------------------------------------------------------------
-
-  /// Der Name des aktuell geöffneten Tresors.
-  String get vaultName => _sessionService.vaultName;
-
-  /// Die UUID des Benutzers.
-  String get myUuid => _sessionService.user != null ? _sessionService.user!.uuid : '';
-
-  // --- Filter ---
-
-  /// Filter-Schalter: Falls `true`, werden nur vom aktuellen Benutzer erstellte Einträge angezeigt.
-  bool get onlyMyEntries => _onlyMyEntries;
-
-  set onlyMyEntries(bool value) {
-    if (_onlyMyEntries == value) return;
-    _onlyMyEntries = value;
-    notifyListeners();
+  /// ------------------------------------------------------------------------
+  /// Setter für Suchbegriff
+  /// ------------------------------------------------------------------------
+  void setSearchQuery(String value) {
+    state = state.copyWith(searchQuery: value.toLowerCase());
   }
 
-  // --- Suche ---
-
-  /// Der aktuelle Suchbegriff für die Filterung der Liste.
-  String get searchQuery => _searchQuery;
-
-  set searchQuery(String value) {
-    final lower = value.toLowerCase();
-    if (_searchQuery == lower) return;
-    _searchQuery = lower;
-    notifyListeners();
+  /// ------------------------------------------------------------------------
+  /// Setter für "Nur-Meine"-Filter
+  /// ------------------------------------------------------------------------
+  void setOnlyMyEntries(bool value) {
+    state = state.copyWith(onlyMyEntries: value);
   }
 
-  // --- Liste ---
-
-  /// Liefert die Liste der Einträge unter Berücksichtigung von Suche und Benutzer-Filter.
-  List<EntryEntity> get filteredEntries {
-    return _allEntries.where((entry) {
-      // Suche über Titel, URL und Notizen (wie in MAUI)
-      final matchesSearch = entry.title.toLowerCase().contains(_searchQuery) || entry.url.toLowerCase().contains(_searchQuery) || entry.notes.toLowerCase().contains(_searchQuery);
-      final matchesUser = !_onlyMyEntries || entry.creatorId == _sessionService.user?.id;
-      return matchesSearch && matchesUser;
-    }).toList();
-  }
-
+  /// ------------------------------------------------------------------------
   /// Gruppiert die gefilterten Einträge nach Kategorien für die Darstellung in der UI.
+  /// ------------------------------------------------------------------------
   Map<String, List<EntryEntity>> get groupedEntries {
     final Map<String, List<EntryEntity>> groups = {};
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
+    final q = state.searchQuery;
 
-    for (var entry in filteredEntries) {
+    // Filter anwenden
+    final filtered = state.allEntries.where((entry) {
+      final matchesSearch = entry.title.toLowerCase().contains(q) || entry.url.toLowerCase().contains(q) || entry.notes.toLowerCase().contains(q);
+      final matchesUser = !state.onlyMyEntries || entry.creatorId == _sessionService.user?.id;
+      return matchesSearch && matchesUser;
+    });
+
+    // Gruppieren
+    for (final entry in filtered) {
       final category = entry.category.isEmpty ? placeholder : entry.category;
       if (!groups.containsKey(category)) {
         groups[category] = [];
@@ -162,55 +99,46 @@ class MainViewModel extends BaseViewModel {
     return groups;
   }
 
-  /// Prüft, ob eine Kategorie aktuell eingeklappt ist.
-  bool isCategoryCollapsed(String category) => _collapsedCategories.contains(category);
-
+  /// ------------------------------------------------------------------------
   /// Schaltet den Erweiterungszustand (aufgeklappt/zugeklappt) einer Kategorie um.
+  /// ------------------------------------------------------------------------
   void toggleCategory(String category) {
-    if (_collapsedCategories.contains(category)) {
-      _collapsedCategories.remove(category);
+    final collapsed = Set<String>.from(state.collapsedCategories);
+    if (collapsed.contains(category)) {
+      collapsed.remove(category);
     } else {
-      _collapsedCategories.add(category);
+      collapsed.add(category);
     }
-    notifyListeners();
+    state = state.copyWith(collapsedCategories: collapsed);
   }
 
-  // --- Menüpunkt: Logout ----
-
+  /// ------------------------------------------------------------------------
   /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
+  /// ------------------------------------------------------------------------
   void logout() {
-    _databaseService.close(); // Datenbankverbindung kappen (wie in MAUI)
+    _databaseService.close(); // Datenbankverbindung kappen
     _sessionService.clearSession(); // Schlüssel aus dem RAM löschen
-    _allEntries.clear();
+    state = const MainState();
   }
 
-  // ------------------------------------------------------------------------
   // --- Synchronisation ---
-  // ------------------------------------------------------------------------
 
-  /// Das User-Response-Objekt der letzten Synchronisation.
-  UserResponse? get userResponse => _userResponse;
-
-  /// Sync-Statistik
-  SyncStatistics get stats => _stats;
-
-  /// Prüft, ob es mindestens einen (sichtbaren) Freund gibt, der noch nicht verifiziert ist.
-  Future<CommandResult<int>> hasUnverifiedFriend() async {
-    final ok = await _databaseService.hasUnverifiedUser();
-    return notifySuccess(ok ? 1 : 0);
-  }
-
+  /// ------------------------------------------------------------------------
   /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
   /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
-  Future<CommandResult<int>> sync() async {
-    if (_sessionService.user == null) throw Exception("User ist in den Session nicht initialisiert.");
-    if (_sessionService.settings == null) throw Exception("Settings ist in den Session nicht initialisiert.");
-    setBusy(true);
-    try {
-      clearError();
+  /// ------------------------------------------------------------------------
+  Future<void> sync() async {
+    if (_sessionService.user == null || _sessionService.settings == null) {
+      state = state.copyWith(error: FormError(ErrorCode.unknown));
+      return;
+    }
 
-      // 1. Stats-Zähler zurücksetzen
-      _stats.reset();
+    // 1. Stats-Zähler anlegen
+    final stats = SyncStatistics();
+
+    // Busy setzen, Fehler zurücksetzen
+    state = state.copyWith(isBusy: true, error: null);
+    try {
 
       // 2. WebService konfigurieren
       _configWebService();
@@ -219,12 +147,13 @@ class MainViewModel extends BaseViewModel {
       await _checkVersion();
 
       // 4. Benutzer registrieren, falls noch nicht geschehen
-      var userResponse = await _registerUserIfNeeded();
+      final userResponse = await _registerUserIfNeeded();
 
       // 5. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert oder es wurde auf einem anderen Gerät das Passwort geändert.
       if (_sessionService.user!.uuid != userResponse.userUuid || userResponse.salt != _sessionService.settings!.salt) {
-        return notifyError(ErrorCode.syncSaltMismatch);
+        state = state.copyWith(error: FormError(ErrorCode.syncSaltMismatch));
+        return;
       }
 
       // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
@@ -234,14 +163,15 @@ class MainViewModel extends BaseViewModel {
       // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
-        return notifyError(ErrorCode.syncEmptyEntryKey);
+        state = state.copyWith(error: FormError(ErrorCode.syncEmptyEntryKey));
+        return;
       }
 
       // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
-      final serverTime = await _pullEntries(userResponse.userUuid);
+      final serverTime = await _pullEntries(userResponse.userUuid, stats);
 
       // 9. Veränderte Einträge hochladen
-      await _pushEntries(userResponse.userUuid);
+      await _pushEntries(userResponse.userUuid, stats);
 
       // 10. Aktualisierte Freundesliste an den Server hochladen ---
       await _pushFriends();
@@ -250,12 +180,15 @@ class MainViewModel extends BaseViewModel {
       final updatedSettings = _sessionService.settings!.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
 
-      // 12. Einträge aktualisieren
-      await load();
-
-      return notifySuccess();
+      // 12. Einträge aktualisieren und Statistik im State ablegen
+      final entries = await _databaseService.getEntries();
+      state = state.copyWith(allEntries: entries, lastSyncStats: stats);
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Sync: $e", stack: st);
+      state = state.copyWith(error: FormError(ErrorCode.unknown));
     } finally {
-      setBusy(false);
+      // Busy zurücksetzen
+      state = state.copyWith(isBusy: false);
     }
   }
 
@@ -263,7 +196,7 @@ class MainViewModel extends BaseViewModel {
   ///
   /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
   /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<CommandResult<int>> adoptIdentity(UserResponse userResponse, String password) async {
+  Future<bool> adoptIdentity(UserResponse userResponse, String password) async {
     if (_sessionService.settings == null) throw Exception("Settings nicht initialisiert.");
     if (_sessionService.user == null) throw Exception("User fehlt");
     if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
@@ -272,37 +205,39 @@ class MainViewModel extends BaseViewModel {
 
     Uint8List? masterKey;
     Uint8List? newMasterKey;
-    setBusy(true);
-    try {
-      clearError();
 
+    state = state.copyWith(isBusy: true, error: null);
+
+    try {
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // MasterKey ableiten (Argon2id)
+      // 1. MasterKey ableiten (Argon2id)
       final salt = base64Decode(_sessionService.settings!.salt);
       masterKey = await _cryptoService.deriveKey(password, salt);
 
-      // Passwort validieren
+      // 2. Passwort validieren
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        return notifyError(ErrorCode.wrongPassword);
+        state = state.copyWith(error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        return false;
       }
 
-      // Physisches Datenbank-Backup erstellen
+      // 3. Physisches Datenbank-Backup erstellen
       await _databaseService.createBackup();
-      try {
-        // --- Start Kritische Logik  ---
 
-        // 1. Neuen Master-Key mit dem Salt der neuen Identität berechnen
+      try {
+        // --- Start Kritische Logik ---
+
+        // 4. Neuen Master-Key mit dem Salt der neuen Identität berechnen
         final newSalt = base64Decode(userResponse.salt);
         newMasterKey = await _cryptoService.deriveKey(password, newSalt);
 
-        // 2. Private-Key der neune Identität entschlüsseln
+        // 5. Private-Key der neune Identität entschlüsseln
         final newPrivateKey = await _cryptoService.decrypt(userResponse.encryptedPrivateKey, newMasterKey);
 
-        // 3. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
+        // 6. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
         final rsaKeyChanged = !const ListEquality().equals(_sessionService.privateKey, newPrivateKey);
         if (rsaKeyChanged) {
           final allPermissions = await _databaseService.getPermissions();
@@ -324,17 +259,18 @@ class MainViewModel extends BaseViewModel {
           }
         }
 
-        // 4. Datenbankdatei mit dem neuen Master-Key verschlüsseln
+        // 7. Datenbankdatei mit dem neuen Master-Key verschlüsseln
         await _databaseService.rekey(newMasterKey);
 
-        // 5. Salt-Datei aktualisieren
+        // 8. Salt-Datei aktualisieren
         await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
 
-        // 6. Master-Key im SecureStore aktualisieren
+        // 9. Master-Key im SecureStore aktualisieren
         if (_sessionService.settings!.useBiometric) {
           await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
         }
 
+        // 10. User-UUID übernehmen, falls geändert
         UserEntity user = _sessionService.user!;
         if (user.uuid != userResponse.userUuid) {
           // Wenn ein Zweitgerät das erste mal synchronisiert wird, muss auch die UUID des Benutzers übernommen werden.
@@ -342,19 +278,27 @@ class MainViewModel extends BaseViewModel {
           user = await _databaseService.saveUser(user);
         }
 
-        // 7. Settings in DB aktualisieren
-        final settings = _sessionService.settings!.copyWith(salt: base64Encode(newSalt), encryptedPrivateKey: userResponse.encryptedPrivateKey);
+        // 11. Settings aktualisieren
+        final settings = _sessionService.settings!.copyWith(
+          salt: base64Encode(newSalt),
+          encryptedPrivateKey: userResponse.encryptedPrivateKey,
+        );
         await _databaseService.saveSettings(settings);
 
-        // 8) Session aktualisieren
-        _sessionService.setSession(user: user, privateKey: newPrivateKey, vaultName: _sessionService.vaultName, settings: settings);
+        // 12. Session aktualisieren
+        _sessionService.setSession(
+          user: user,
+          privateKey: newPrivateKey,
+          vaultName: _sessionService.vaultName,
+          settings: settings,
+        );
 
         // --- Ende Kritische Logik ---
 
-        // Erfolg: Backup löschen
+        // 13. Backup löschen
         await _databaseService.removeBackup();
-        return notifySuccess();
-      } catch (_) {
+        return true;
+      } catch (e) {
         // Fehler während der Operation -> Rollback
         try {
           await _databaseService.close();
@@ -364,14 +308,19 @@ class MainViewModel extends BaseViewModel {
         rethrow;
       }
     } catch (e, st) {
-      logError('Fehler bei der Identitätsübernahme: $e', st);
-      return notifyError(ErrorCode.unknown);
+      Logger().fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
+      state = state.copyWith(error: FormError(ErrorCode.unknown));
+      return false;
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
-      setBusy(false);
+      state = state.copyWith(isBusy: false);
     }
   }
+
+  // ------------------------------------------------------------------------
+  // --- Private Methoden ---
+  // ------------------------------------------------------------------------
 
   /// Konfiguriert den WebService mit den aktuellen Session-Daten.
   void _configWebService() {
@@ -538,7 +487,7 @@ class MainViewModel extends BaseViewModel {
 
   /// Lädt neue und geänderte Einträge vom Server herunter und verarbeitet diese
   /// Zurückgegeben wird der aktuelle Zeitstempel des Servers zum Zeitpunkt der Anfrage.
-  Future<DateTime> _pullEntries(String userUuid) async {
+  Future<DateTime> _pullEntries(String userUuid, SyncStatistics stats) async { // todo Rückgabe besser im State?
     // 1. Neue und geänderte Einträge vom Server herunterladen
     final pullResponse = await _webService.pullSync(userUuid, _sessionService.settings!.lastSyncAt);
 
@@ -552,7 +501,7 @@ class MainViewModel extends BaseViewModel {
           deletedAt: tombstoneDto.deletedAt,
         ));
         await _databaseService.deleteEntry(entry.id);
-        _stats.pullDeleted++;
+        stats.pullDeleted++;
       }
     }
 
@@ -562,7 +511,7 @@ class MainViewModel extends BaseViewModel {
       if (entry != null) {
         // Hier kein lokaler Tombstone, da der Eintrag im Tresor auf dem Gerät des Freundes ja noch existiert (nur für mich unsichtbar).
         await _databaseService.deleteEntry(entry.id);
-        _stats.pullDeleted++;
+        stats.pullDeleted++;
       }
     }
 
@@ -586,17 +535,18 @@ class MainViewModel extends BaseViewModel {
           notes = payload.notes;
           favicon = payload.favicon;
         } catch (e, st) {
-          logError("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e", st);
-          //throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");
+          Logger().fatal("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e", stack: st);
+          state = state.copyWith(error: FormError(ErrorCode.unknown));
+          throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");  // todo
         }
       }
 
       // 5.2 Statistik aktualisieren
       final existing = await _databaseService.getEntryByUuid(entryDto.entryUuid);
       if (existing == null) {
-        _stats.pullAdded++;
+        stats.pullAdded++;
       } else {
-        _stats.pullUpdated++;
+        stats.pullUpdated++;
       }
 
       // 5.3 Eintrag speichern
@@ -679,7 +629,8 @@ class MainViewModel extends BaseViewModel {
     return pullResponse.serverTime;
   }
 
-  Future<void> _pushEntries(String userUuid) async {
+  /// Updatet die Einträge auf dem Server.
+  Future<void> _pushEntries(String userUuid, SyncStatistics stats) async {
     // 10. Veränderungen seit dem letzten Push ermitteln
     final lastSyncAt = _sessionService.settings!.lastSyncAt;
     final localUpdates = await _databaseService.getEntriesSince(lastSyncAt);
@@ -712,14 +663,14 @@ class MainViewModel extends BaseViewModel {
         final friends = perms
             .where((p) => p.userId > 1)
             .map((p) {
-              final uUuid = userMap[p.userId];
-              if (uUuid == null || uUuid.isEmpty) return null;
-              return FriendPermissionDto(
-                userUuid: uUuid,
-                encryptedKey: p.encryptedKey,
-                accessLevel: p.accessLevel,
-              );
-            })
+          final uUuid = userMap[p.userId];
+          if (uUuid == null || uUuid.isEmpty) return null;
+          return FriendPermissionDto(
+            userUuid: uUuid,
+            encryptedKey: p.encryptedKey,
+            accessLevel: p.accessLevel,
+          );
+        })
             .nonNulls // Nur bekannte UUIDs, nulls filtern
             .toList();
 
@@ -742,16 +693,16 @@ class MainViewModel extends BaseViewModel {
       final pushDeletes = localDeletes
           .map(
             (d) => SyncDeleteDto(
-              entryUuid: d.entryUuid,
-              deletedAt: d.deletedAt,
-            ),
-          )
+          entryUuid: d.entryUuid,
+          deletedAt: d.deletedAt,
+        ),
+      )
           .toList();
 
       // 13. Updates und Deletes an den Server pushen
       if (pushUpdates.isNotEmpty || pushDeletes.isNotEmpty) {
         await _webService.pushSync(userUuid, SyncPushRequest(updates: pushUpdates, deletes: pushDeletes));
-        _stats.pushSent = pushUpdates.length + pushDeletes.length;
+        stats.pushSent = pushUpdates.length + pushDeletes.length;
       }
 
       // 14. Unsynced Attachments hochladen (darf erst nach dem Push erfolgen, damit der Anhang an den Eintrag gehängt werden kann)
@@ -779,13 +730,13 @@ class MainViewModel extends BaseViewModel {
           .where((u) => u.id > 1)
           .map(
             (u) => FriendPayload(
-              uuid: u.uuid,
-              name: u.name,
-              isVerified: u.isVerified,
-              isHidden: u.isHidden,
-              updatedAt: u.updatedAt,
-            ),
-          )
+          uuid: u.uuid,
+          name: u.name,
+          isVerified: u.isVerified,
+          isHidden: u.isHidden,
+          updatedAt: u.updatedAt,
+        ),
+      )
           .toList();
 
       // Wenn es keine Freunde gibt, ist kein Push erforderlich.
