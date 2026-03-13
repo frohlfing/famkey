@@ -7,7 +7,6 @@ import 'package:provider/provider.dart' as prov;
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
-import 'package:privault/viewmodels/login_view_model.dart';
 import 'package:privault/viewmodels/main_view_model.dart';
 import 'package:privault/viewmodels/edit_view_model.dart';
 import 'package:privault/viewmodels/detail_view_model.dart';
@@ -62,7 +61,6 @@ class PriVaultApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return prov.MultiProvider(
       providers: [
-        prov.ChangeNotifierProvider(create: (_) => LoginViewModel(getIt(), getIt(), getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => MainViewModel(getIt(), getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => EditViewModel(getIt(), getIt(), getIt(), getIt())),
         prov.ChangeNotifierProvider(create: (_) => DetailViewModel(getIt(), getIt(), getIt(), getIt())),
