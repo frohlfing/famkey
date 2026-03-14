@@ -141,4 +141,5 @@ class FormError { // todo in AppError umbenennen
   final String text;
   final String? field;
   FormError(this.code, {String? text, this.field}) : text = text ?? code.defaultText;
+  const FormError.none() : code = ErrorCode.none, text = '', field = null;
 }

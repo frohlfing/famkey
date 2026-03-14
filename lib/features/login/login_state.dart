@@ -1,7 +1,7 @@
 import 'package:privault/core/app_error.dart';
 
 class LoginState {
-  /// Gibt an, ob ein Ladesymbol angezeigt wird
+  /// Gibt an, ob ein Ladesymbol angezeigt wird.
   final bool isBusy;
 
   /// Der Name des Tresors, der geöffnet oder neu erstellt werden soll.
@@ -22,8 +22,8 @@ class LoginState {
   /// Gibt an, ob gefragt werden soll, ob Biometrie aktiviert werden soll.
   final bool askToEnableBiometrics;
 
-  /// Fehler der letzten Operation
-  final FormError? error;
+  /// Der Fehler der letzten Operation.
+  final FormError error;
 
   /// Konstruktor
   const LoginState({
@@ -34,7 +34,7 @@ class LoginState {
     this.hasBiometricKey = false,
     this.existingVaults = const [],
     this.askToEnableBiometrics = false,
-    this.error,
+    this.error = const FormError.none(),
   });
 
   /// Status aktualisieren (immutable)

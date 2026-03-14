@@ -4,29 +4,26 @@ import 'package:privault/features/main/sync_statistics.dart';
 import 'package:privault/models/dtos/user_response.dart';
 
 class MainState {
-  /// Gibt an, ob ein Ladesymbol angezeigt wird
+  /// Gibt an, ob ein Ladesymbol angezeigt wird.
   final bool isBusy;
 
-  /// Liste der Einträge
+  /// Liste der Einträge.
   final List<EntryEntity> allEntries;
 
-  /// Suchbegriff
+  /// Der Suchbegriff.
   final String searchQuery;
 
-  /// Gibt an, ob nur die eigenen Einträge angezeigt werden
+  /// Gibt an, ob nur die eigenen Einträge angezeigt werden.
   final bool onlyMyEntries;
 
   /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
   final Set<String> collapsedCategories;
 
-  /// Sync-Statistik
+  /// Die Sync-Statistik.
   final SyncStatistics? lastSyncStats;
 
-  /// Antwort des Servers mit der neuen Benutzer-Identität, die adoptiert werden muss
-  final UserResponse? userResponse;
-
-  /// Fehler der letzten Operation
-  final FormError? error;
+  /// Der Fehler der letzten Operation.
+  final FormError error;
 
   /// Konstruktor
   const MainState({
@@ -36,8 +33,7 @@ class MainState {
     this.onlyMyEntries = false,
     this.collapsedCategories = const {},
     this.lastSyncStats,
-    this.userResponse,
-    this.error,
+    this.error = const FormError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -48,7 +44,6 @@ class MainState {
     bool? onlyMyEntries,
     Set<String>? collapsedCategories,
     SyncStatistics? lastSyncStats,
-    UserResponse? userResponse,
     FormError? error,
   }) {
     return MainState(
@@ -58,7 +53,6 @@ class MainState {
       onlyMyEntries: onlyMyEntries ?? this.onlyMyEntries,
       collapsedCategories: collapsedCategories ?? this.collapsedCategories,
       lastSyncStats: lastSyncStats ?? this.lastSyncStats,
-      userResponse: userResponse ?? this.userResponse,
       error: error ?? this.error,
     );
   }

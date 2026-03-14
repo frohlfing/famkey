@@ -36,6 +36,13 @@ class MainNotifier extends Notifier<MainState> {
   late final WebService _webService;
 
   // ------------------------------------------------------------------------
+  // --- Interne Variablen (nicht reaktiv, nicht UI‑relevant) ---
+  // ------------------------------------------------------------------------
+
+  /// Antwort des Servers mit der neuen Benutzer-Identität, die adoptiert werden muss.
+  UserResponse? _userResponse;
+
+  // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 
@@ -58,7 +65,7 @@ class MainNotifier extends Notifier<MainState> {
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
-    state = state.copyWith(isBusy: true, error: null);
+    state = state.copyWith(isBusy: true, error: FormError.none());
     try {
       final entries = await _databaseService.getEntries();
       state = state.copyWith(allEntries: entries);
@@ -133,66 +140,69 @@ class MainNotifier extends Notifier<MainState> {
   /// Startet den Synchronisationsprozess mit dem konfigurierten Server.
   /// Behandelt Spezialfälle wie Passwortänderungen auf anderen Geräten (Adoption).
   Future<bool> sync() async {
-    if (_sessionService.user == null || _sessionService.settings == null) {
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-    }
-
-    // 1. Stats-Zähler anlegen
+    // Stats-Zähler anlegen
     final stats = SyncStatistics();
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: null, userResponse: null);
-    try {
+    // Letzte Serverantwort mit der Benutzer-Identität verwerfen
+    _userResponse = null;
 
-      // 2. WebService konfigurieren
+    // Busy setzen, Fehler zurücksetzen
+    state = state.copyWith(isBusy: true, error: FormError.none());
+    try {
+      if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+
+      // 1. WebService konfigurieren
       _configWebService();
 
-      // 3. Server-Version prüfen
+      // 2. Server-Version prüfen
       await _checkVersion();
 
-      // 4. Benutzer registrieren, falls noch nicht geschehen
-      final userResponse = await _registerUserIfNeeded();
+      // 3. Benutzer registrieren, falls noch nicht geschehen
+      _userResponse = await _registerUserIfNeeded();
 
-      // 5. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
+      // 4. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert oder es wurde auf einem anderen Gerät das Passwort geändert.
-      if (_sessionService.user!.uuid != userResponse.userUuid || userResponse.salt != _sessionService.settings!.salt) {
-        state = state.copyWith(error: FormError(ErrorCode.syncSaltMismatch), userResponse: userResponse);
+      if (_sessionService.user!.uuid != _userResponse!.userUuid ||
+          _sessionService.settings!.salt != _userResponse!.salt) {
+        state = state.copyWith(error: FormError(ErrorCode.syncSaltMismatch));
         return false;
       }
 
-      // 6. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
+      // 5. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
       // Falls ein Freund einen neuen Fingerprint hat, werden seine Entry-Keys gelöscht und das Vertrauen entzogen.
-      await _pullFriends(userResponse);
+      await _pullFriends();
 
-      // 7. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
+      // 6. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
         state = state.copyWith(error: FormError(ErrorCode.syncEmptyEntryKey));
         return false;
       }
 
-      // 8. Einträge vom Server herunterladen und lokale Einträge aktualisieren
-      final serverTime = await _pullEntries(userResponse.userUuid, stats);
+      // 7. Einträge vom Server herunterladen und lokale Einträge aktualisieren
+      final serverTime = await _pullEntries(stats);
 
-      // 9. Veränderte Einträge hochladen
-      await _pushEntries(userResponse.userUuid, stats);
+      // 8. Veränderte Einträge hochladen
+      await _pushEntries(stats);
 
-      // 10. Aktualisierte Freundesliste an den Server hochladen ---
+      // 9. Aktualisierte Freundesliste an den Server hochladen ---
       await _pushFriends();
 
-      // 11. Zeitstempel setzen
+      // 10. Zeitstempel setzen
       final updatedSettings = _sessionService.settings!.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
 
-      // 12. Einträge aktualisieren und Statistik im State ablegen
+      // 11. Einträge aktualisieren und Statistik im State ablegen
       final entries = await _databaseService.getEntries();
       state = state.copyWith(allEntries: entries, lastSyncStats: stats);
       return true;
+
     } catch (e, st) {
       Logger().fatal("Fehler beim Sync: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -203,19 +213,20 @@ class MainNotifier extends Notifier<MainState> {
   ///
   /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
   /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<bool> adoptIdentity(UserResponse userResponse, String password) async {
-    if (_sessionService.settings == null) throw Exception("Settings nicht initialisiert.");
-    if (_sessionService.user == null) throw Exception("User fehlt");
-    if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
-    if (_sessionService.settings!.salt.isEmpty) throw Exception("Salt fehlt");
-    if (_sessionService.privateKey == null) throw Exception("Privater Schlüssel nicht entschlüsselt");
-
+  Future<bool> adoptIdentity(String password) async {
     Uint8List? masterKey;
     Uint8List? newMasterKey;
 
-    state = state.copyWith(isBusy: true, error: null);
+    state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
+      if (_userResponse == null) throw Exception("Der Server hat noch keine Benutzerdaten geliefert.");
+      if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+      if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in der Session leer.");
+      if (_sessionService.settings!.salt.isEmpty) throw Exception("Das Salt liegt nicht in der Session.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -238,11 +249,11 @@ class MainNotifier extends Notifier<MainState> {
         // --- Start Kritische Logik ---
 
         // 4. Neuen Master-Key mit dem Salt der neuen Identität berechnen
-        final newSalt = base64Decode(userResponse.salt);
+        final newSalt = base64Decode(_userResponse!.salt);
         newMasterKey = await _cryptoService.deriveKey(password, newSalt);
 
         // 5. Private-Key der neune Identität entschlüsseln
-        final newPrivateKey = await _cryptoService.decrypt(userResponse.encryptedPrivateKey, newMasterKey);
+        final newPrivateKey = await _cryptoService.decrypt(_userResponse!.encryptedPrivateKey, newMasterKey);
 
         // 6. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
         final rsaKeyChanged = !const ListEquality().equals(_sessionService.privateKey, newPrivateKey);
@@ -254,7 +265,7 @@ class MainNotifier extends Notifier<MainState> {
               try {
                 // Entschlüsseln mit altem (aktuellem) Private-Key, verschlüsseln mit dem Public-Key der neuen Identität
                 final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
-                final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, userResponse.publicKey);
+                final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, _userResponse!.publicKey);
                 updatedPermissions.add(perm.copyWith(encryptedKey: newEncryptedKey));
               } catch (e) {
                 throw Exception("Fehler beim Umschlüsseln der Permission ${perm.id}: $e");
@@ -279,16 +290,16 @@ class MainNotifier extends Notifier<MainState> {
 
         // 10. User-UUID übernehmen, falls geändert
         UserEntity user = _sessionService.user!;
-        if (user.uuid != userResponse.userUuid) {
+        if (user.uuid != _userResponse!.userUuid) {
           // Wenn ein Zweitgerät das erste mal synchronisiert wird, muss auch die UUID des Benutzers übernommen werden.
-          user = user.copyWith(uuid: userResponse.userUuid);
+          user = user.copyWith(uuid: _userResponse!.userUuid);
           user = await _databaseService.saveUser(user);
         }
 
         // 11. Settings aktualisieren
         final settings = _sessionService.settings!.copyWith(
           salt: base64Encode(newSalt),
-          encryptedPrivateKey: userResponse.encryptedPrivateKey,
+          encryptedPrivateKey: _userResponse!.encryptedPrivateKey,
         );
         await _databaseService.saveSettings(settings);
 
@@ -314,10 +325,12 @@ class MainNotifier extends Notifier<MainState> {
         } catch (_) {}
         rethrow;
       }
+
     } catch (e, st) {
       Logger().fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
@@ -400,14 +413,14 @@ class MainNotifier extends Notifier<MainState> {
   }
 
   /// Lädt die Freundesliste vom Server und verarbeitet Namensänderungen, Key-Wechsel und gelöschte Freunde.
-  Future<void> _pullFriends(UserResponse userResponse) async {
+  Future<void> _pullFriends() async {
     if (_sessionService.privateKey == null) throw Exception("RSA PrivateKey nicht gefunden");
 
     // 1. Clientseitig gespeicherte Benutzer holen
     final localUsers = await _databaseService.getUsers();
 
     // 2. Öffentliche Schlüssel aller Benutzer vom Server holen
-    final publicKeys = await _webService.getPublicKeys(userResponse.userUuid);
+    final publicKeys = await _webService.getPublicKeys(_userResponse!.userUuid);
 
     // 3. Prüfen, ob der Öffentliche Schlüssel der lokalen Freunde aktuell ist.
     for (var localFriend in localUsers.where((u) => u.id > 1)) {
@@ -439,7 +452,7 @@ class MainNotifier extends Notifier<MainState> {
     }
 
     // 4. Die auf dem Server gespeicherte Freundesliste entschlüsseln
-    final encryptedFriends = userResponse.encryptedFriends;
+    final encryptedFriends = _userResponse!.encryptedFriends;
     if (encryptedFriends == null || encryptedFriends.isEmpty) return;
     List<FriendPayload> friends;
     final aesKey = _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
@@ -490,9 +503,9 @@ class MainNotifier extends Notifier<MainState> {
 
   /// Lädt neue und geänderte Einträge vom Server herunter und verarbeitet diese
   /// Zurückgegeben wird der aktuelle Zeitstempel des Servers zum Zeitpunkt der Anfrage.
-  Future<DateTime> _pullEntries(String userUuid, SyncStatistics stats) async {
+  Future<DateTime> _pullEntries(SyncStatistics stats) async {
     // 1. Neue und geänderte Einträge vom Server herunterladen
-    final pullResponse = await _webService.pullSync(userUuid, _sessionService.settings!.lastSyncAt);
+    final pullResponse = await _webService.pullSync(_userResponse!.userUuid, _sessionService.settings!.lastSyncAt);
 
     // 2. Gelöschte Einträge entfernen
     for (var tombstoneDto in pullResponse.deletes) {
@@ -631,8 +644,10 @@ class MainNotifier extends Notifier<MainState> {
   }
 
   /// Updatet die Einträge auf dem Server.
-  Future<void> _pushEntries(String userUuid, SyncStatistics stats) async {
-    // 10. Veränderungen seit dem letzten Push ermitteln
+  Future<void> _pushEntries(SyncStatistics stats) async {
+    var userUuid = _userResponse!.userUuid;
+
+    // Veränderungen seit dem letzten Push ermitteln
     final lastSyncAt = _sessionService.settings!.lastSyncAt;
     final localUpdates = await _databaseService.getEntriesSince(lastSyncAt);
     final localDeletes = await _databaseService.getTombstonesSince(lastSyncAt);
@@ -643,7 +658,7 @@ class MainNotifier extends Notifier<MainState> {
       final users2 = await _databaseService.getUsers();
       final userMap = {for (var u in users2) u.id: u.uuid};
 
-      // 11. Zu pushende Updates aufbauen
+      // 1. Zu pushende Updates aufbauen
       final pushUpdates = <SyncEntryDto>[];
       for (var entry in localUpdates) {
         // Alle Berechtigungen für diesen Eintrag laden
@@ -671,9 +686,8 @@ class MainNotifier extends Notifier<MainState> {
             encryptedKey: p.encryptedKey,
             accessLevel: p.accessLevel,
           );
-        })
-            .nonNulls // Nur bekannte UUIDs, nulls filtern
-            .toList();
+        }).nonNulls // Nur bekannte UUIDs, nulls filtern
+          .toList();
 
         pushUpdates.add(
           SyncEntryDto(
@@ -690,7 +704,7 @@ class MainNotifier extends Notifier<MainState> {
         );
       }
 
-      // 12. Zu pushende Deletes ermitteln
+      // 2. Zu pushende Deletes ermitteln
       final pushDeletes = localDeletes
           .map(
             (d) => SyncDeleteDto(
@@ -700,13 +714,13 @@ class MainNotifier extends Notifier<MainState> {
       )
           .toList();
 
-      // 13. Updates und Deletes an den Server pushen
+      // 3. Updates und Deletes an den Server pushen
       if (pushUpdates.isNotEmpty || pushDeletes.isNotEmpty) {
         await _webService.pushSync(userUuid, SyncPushRequest(updates: pushUpdates, deletes: pushDeletes));
         stats.pushSent = pushUpdates.length + pushDeletes.length;
       }
 
-      // 14. Unsynced Attachments hochladen (darf erst nach dem Push erfolgen, damit der Anhang an den Eintrag gehängt werden kann)
+      // 4. Unsynced Attachments hochladen (darf erst nach dem Push erfolgen, damit der Anhang an den Eintrag gehängt werden kann)
       for (var att in unsyncedAttachments) {
         final entry = await _databaseService.getEntry(att.entryId);
         if (entry != null) {
@@ -764,8 +778,15 @@ class MainNotifier extends Notifier<MainState> {
     return _sessionService.vaultName;
   }
 
-  /// Gibt die UUID des Benutzers zurück.
-  String getMyUuid() {
-    return _sessionService.user != null ? _sessionService.user!.uuid : '';
+  /// Gibt im Falle eines `syncSaltMismatch`-Errors an, ob ein Zweitgerät zum
+  /// ersten mal mit dem Tresor auf dem Server synchronisiert werden soll.
+  ///
+  /// Dies trifft zu, wenn die vom Server gelieferte Benutzer-UUID nicht mit
+  /// der lokalen übereinstimmt. Andernfalls wurde auf dem anderen Gerät das
+  /// Passwort geändert.
+  bool isOnboarding() {
+    final myUuid = _sessionService.user != null ? _sessionService.user!.uuid : '';
+    final otherUuid = _userResponse != null ? _userResponse!.userUuid : '';
+    return otherUuid != myUuid;
   }
 }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/features/main/main_notifier.dart';
-import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/widgets/password_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 import 'package:privault/widgets/text_dialog.dart';
@@ -28,7 +27,7 @@ class MainPage extends ConsumerStatefulWidget {
 class _MainPageState extends ConsumerState<MainPage> {
 
   // ------------------------------------------------------------------------
-  // --- Interne Variablen ---
+  // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
   final _searchController = TextEditingController();
@@ -288,10 +287,10 @@ class _MainPageState extends ConsumerState<MainPage> {
 
     // Fehlerfall
     if (!success) {
-      switch (state.error?.code) {
+      switch (state.error.code) {
         case ErrorCode.syncSaltMismatch:
           // Das Salt auf dem Server stimmt nicht mit dem Lokalen Salt überein -> Identitätsübernahme (Adoption) starten
-          _handleSaltMismatch(state.userResponse!);
+          _handleSaltMismatch();
           break;
 
         case ErrorCode.syncEmptyEntryKey:
@@ -304,8 +303,8 @@ class _MainPageState extends ConsumerState<MainPage> {
           break;
 
         default:
-          if (state.error?.field == null) {
-            Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
+          if (state.error.field == null) {
+            Snack.show(context, state.error.text);
           }
       }
       return;
@@ -317,15 +316,15 @@ class _MainPageState extends ConsumerState<MainPage> {
   }
 
   /// Adoptiert die auf dem Server gespeicherte Identität
-  Future<void> _handleSaltMismatch(UserResponse userResponse) async {
+  Future<void> _handleSaltMismatch() async {
     // Busy-Check
     if (ref.read(mainProvider).isBusy) return;
 
     // Passenden Text für die Passwortfrage
     final notifier = ref.read(mainProvider.notifier);
-    final message = userResponse.userUuid == notifier.getMyUuid()
-        ? "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein." //
-        : "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen.";
+    final message = notifier.isOnboarding()
+        ? "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen." // UUIDs stimmen nicht
+        : "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein.";
 
     // Passwort abfragen (solange, bis es korrekt ist oder der Benutzer abbricht) und Identität übernehmen
     String? errorText;
@@ -340,7 +339,7 @@ class _MainPageState extends ConsumerState<MainPage> {
       if (password == null) return;
 
       // Die auf dem Server gespeicherte Identität übernehmen
-      final success = await notifier.adoptIdentity(userResponse, password);
+      final success = await notifier.adoptIdentity(password);
       if (!mounted) return;
 
       // Aktuellen State holen
@@ -348,12 +347,12 @@ class _MainPageState extends ConsumerState<MainPage> {
 
       // Fehlerfall
       if (!success) {
-        if (state.error?.code == ErrorCode.wrongPassword) {
+        if (state.error.code == ErrorCode.wrongPassword) {
           // im Dialog anzeigen, NICHT SnackBar
-          errorText = state.error?.text;
+          errorText = state.error.text;
           continue;
         }
-        Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
+        Snack.show(context, state.error.text);
         break;
       }
 

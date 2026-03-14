@@ -2,17 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/app_error.dart';
+import 'package:privault/core/logger.dart';
+import 'package:privault/core/service_locator.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/features/login/login_state.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
-import 'package:privault/database/database.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
 import 'package:uuid/uuid.dart';
 
 final loginProvider = NotifierProvider<LoginNotifier, LoginState>(
@@ -56,7 +56,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
-    state = state.copyWith(isBusy: true, error: null);
+    state = state.copyWith(isBusy: true, error: FormError.none());
     try {
       await _refreshVaultList();
     } catch (e, st) {
@@ -71,11 +71,7 @@ class LoginNotifier extends Notifier<LoginState> {
   Future<void> _refreshVaultList() async {
     final vaults = await _databaseService.getExistingVaults();
     final exists = vaults.contains(state.vaultName);
-    state = state.copyWith(existingVaults: vaults);
-    state = state.copyWith(
-      existingVaults: vaults,
-      isExists: exists,
-    );
+    state = state.copyWith(existingVaults: vaults, isExists: exists);
   }
 
   /// Führt eine Bereinigung durch (z.B. bei einer korrupten SQLite-Datei).
@@ -102,11 +98,8 @@ class LoginNotifier extends Notifier<LoginState> {
 
   /// Startet den Login-Prozess.
   Future<bool> login({bool forceCreate = false}) async {
-    final vaultName = state.vaultName.trim();
-    final password = state.password;
-
     // Validierung der Benutzereingabe
-    if (vaultName.isEmpty) {
+    if (state.vaultName.isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'vaultName'));
       return false;
     }
@@ -116,7 +109,8 @@ class LoginNotifier extends Notifier<LoginState> {
     }
 
     // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: null, askToEnableBiometrics: false);
+    state = state.copyWith(isBusy: true, error: FormError.none(), askToEnableBiometrics: false);
+
     try {
       // Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
@@ -128,7 +122,7 @@ class LoginNotifier extends Notifier<LoginState> {
       if (state.isExists) {
         return await _openVault();
       } else {
-        if (password.isEmpty) {
+        if (state.password.isEmpty) {
           state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
           return false;
         }
@@ -153,6 +147,7 @@ class LoginNotifier extends Notifier<LoginState> {
       Logger().fatal('Fehler beim Login: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -334,30 +329,38 @@ class LoginNotifier extends Notifier<LoginState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Biometrie
+  // --- Biometrie ---
   // ------------------------------------------------------------------------
 
   /// Speichert den Master-Key im biometrischen Secure-Store.
   /// Entspricht saveMasterKey() im alten ViewModel.
-  Future<void> saveMasterKey(String password) async {
+  Future<bool> saveMasterKey(String password) async {
+    Uint8List? masterKey;
     final vaultName = state.vaultName;
 
-    // Salt laden
-    final salt = await _databaseService.getSalt(vaultName);
-    if (salt == null) return;
-
-    // Master-Key ableiten
-    final masterKey = await _cryptoService.deriveKey(password, salt);
-
     try {
-      // Im Secure-Store speichern
+      // 1. Salt laden
+      final salt = await _databaseService.getSalt(vaultName);
+      if (salt == null) throw Exception("Das Salt liegt nicht in der Datenbank.");
+
+      // 2. Master-Key ableiten
+      masterKey = await _cryptoService.deriveKey(password, salt);
+
+      // 3. Im Secure-Store speichern
       await _biometricService.saveMasterKey(vaultName, masterKey);
 
-      // State aktualisieren
+      // 4. State aktualisieren
       state = state.copyWith(hasBiometricKey: true);
+      return true;
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern des Master-Keys im biometrischen Secure-Store: $e", stack: st);
+      state = state.copyWith(error: FormError(ErrorCode.unknown));
+      return false;
+
     } finally {
       // Master-Key aus dem RAM löschen
-      _cryptoService.wipeKey(masterKey);
+      if (masterKey != null)  _cryptoService.wipeKey(masterKey);
     }
   }
 
@@ -365,19 +368,22 @@ class LoginNotifier extends Notifier<LoginState> {
   // --- Convenience Setter & Getter ---
   // ------------------------------------------------------------------------
 
-  /// Setter für vaultName
+  /// Setter für Tresorname.
   void setVaultName(String value) {
     // Ungültige Zeichen für Dateinamen filtern
-    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-    state = state.copyWith(vaultName: cleaned);
+    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+    final exists = state.existingVaults.contains(cleaned);
+    final error = state.error.field == 'vaultName' ? FormError.none() : null;
+    state = state.copyWith(vaultName: cleaned, isExists: exists, error: error);
   }
 
-  /// Setter für Passwort
+  /// Setter für Passwort.
   void setPassword(String value) {
-    state = state.copyWith(password: value);
+    final error = state.error.field == 'password' ? FormError.none() : null;
+    state = state.copyWith(password: value, error: error);
   }
 
-  /// Alias für `setPassword('')`
+  /// Alias für `setPassword('')`.
   void clearPassword() {
     setPassword('');
   }
@@ -389,6 +395,6 @@ class LoginNotifier extends Notifier<LoginState> {
 
   /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
   String? getFieldErrorText(String field) {
-    return state.error?.field == field ? state.error?.text : null;
+    return state.error.field == field ? state.error.text : null;
   }
 }

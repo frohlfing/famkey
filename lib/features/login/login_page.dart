@@ -26,11 +26,16 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
 
   // ------------------------------------------------------------------------
+  // --- TextEditingController ---
+  // ------------------------------------------------------------------------
+
+  final _vaultController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  final TextEditingController _vaultController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
   final FocusNode _vaultFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
@@ -196,7 +201,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
         if (state.isBusy)
           Container(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
           ),
       ],
@@ -222,7 +227,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     // Fehlerfall
     if (!success) {
-      switch (state.error?.code) {
+      switch (state.error.code) {
         case ErrorCode.vaultNotFound:
           final create = await ConfirmDialog.show(
             context,
@@ -253,8 +258,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           break;
 
         default:
-          if (state.error?.field == null) {
-            Snack.show(context, state.error?.text ?? ErrorCode.unknown.defaultText);
+          if (state.error.field == null) {
+            Snack.show(context, state.error.text);
           }
       }
       return;
@@ -271,7 +276,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ok: 'Ja, Schlüssel speichern',
       );
       if (enable == true && mounted) {
-        await notifier.saveMasterKey(_passwordController.text);
+        final success = await notifier.saveMasterKey(_passwordController.text);
+        if (!success && mounted) Snack.show(context, state.error.text);
+        return;
       }
     }
 
