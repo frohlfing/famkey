@@ -56,11 +56,7 @@ class _MainPageState extends ConsumerState<MainPage> {
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
-  /// Baut die zentrale Hauptansicht der App auf.
-  ///
-  /// Hier werden die AppBar mit den Menüoptionen, das Suchfeld zur schnellen
-  /// Filterung deiner Passwörter und die nach Kategorien gruppierte Liste
-  /// der Einträge zusammengeführt.
+  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
     // Notifier und State holen
@@ -380,9 +376,10 @@ class _MainPageState extends ConsumerState<MainPage> {
     // Logout durchführen
     final notifier = ref.read(mainProvider.notifier);
     notifier.logout();
+    //if (!mounted) return;
 
-    // Loginseite öffnen
-    if (mounted) Navigator.of(context).pushReplacementNamed('/');
+    // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   /// Öffnet die Editierseite.

@@ -23,7 +23,7 @@ final editProvider = NotifierProvider<EditNotifier, EditState>(() {
 class EditNotifier extends Notifier<EditState> {
 
   // ------------------------------------------------------------------------
-  // --- Verwendete Dienste ---
+  // --- Services ---
   // ------------------------------------------------------------------------
 
   late final CryptoService _cryptoService;
@@ -49,7 +49,7 @@ class EditNotifier extends Notifier<EditState> {
   Uint8List? _entryKey;
 
   /// Speichert den ursprünglichen Zustand des Eintrags, um beim Abbrechen Änderungen zu erkennen (Dirty-Check).
-  EntryPayload? _originalPayload;
+  EntryPayload? _originalPayload; // todo evtl. State _orig; verwenden (einheitliches Pattern)
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -73,7 +73,9 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Lädt entweder einen bestehenden Eintrag oder bereitet die Maske für eine Neuanlage vor.
   Future<void> load(int? id) async {
-    state = state.copyWith(isBusy: true, error: null);
+    // Busy setzen, Fehler zurücksetzen
+    state = state.copyWith(isBusy: true, error: FormError.none());
+
     try {
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
 
@@ -98,7 +100,7 @@ class EditNotifier extends Notifier<EditState> {
         final payload = EntryPayload.fromJson(json.decode(jsonStr));
         _originalPayload = payload;
 
-        // Daten in UI-Felder übernehmen
+        // UI-State aktualisieren
         state = state.copyWith(
           isEditMode: true,
           entryId: _entry!.id,
@@ -128,7 +130,9 @@ class EditNotifier extends Notifier<EditState> {
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
+
     } finally {
+      // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
     }
   }
@@ -137,9 +141,7 @@ class EditNotifier extends Notifier<EditState> {
   // --- Dirty-Check ---
   // ------------------------------------------------------------------------
 
-  /// Gibt an, ob etwas verändert wurde.
-  /// Das aktuelle Feld wird mit dem Wert aus dem Original verglichen
-  /// Falls kein Original existiert (Neuanlage), wird es mit einem leeren String verglichen.
+  /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool isDirty() {
     return state.category != (_originalPayload?.category ?? '') ||
         state.title != (_originalPayload?.title ?? '') ||

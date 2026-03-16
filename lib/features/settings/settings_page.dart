@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/viewmodels/settings_view_model.dart';
+import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_search_dialog.dart';
 import 'package:privault/widgets/password_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/snack.dart';
-import 'package:provider/provider.dart';
 
-/// Der [SettingsScreen] ermöglicht die Konfiguration der App und des aktuellen Tresors.
+/// Der [SettingsPage] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
 /// Hier werden sowohl sicherheitsrelevante als auch optische Einstellungen verwaltet:
 /// * **Identität:** Ändern des Master-Passworts und Verwaltung des Tresornamens.
@@ -16,32 +16,33 @@ import 'package:provider/provider.dart';
 /// * **Sicherheit:** Verwaltung von vertrauenswürdigen Kontakten ("Freunde") und Biometrie-Optionen.
 /// * **Generator:** Standardwerte für den integrierten Passwort-Generator festlegen.
 /// * **System:** Schneller Zugriff auf Android-Systemeinstellungen für Autofill und App-Infos.
-class SettingsScreen extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   /// Konstruktor
-  const SettingsScreen({super.key});
+  const SettingsPage({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+
   // ------------------------------------------------------------------------
-  // --- Verwendete Dienste ---
+  // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
-  final TextEditingController _vaultNameController = TextEditingController();
-  final TextEditingController _userNameController = TextEditingController();
-  final TextEditingController _hostController = TextEditingController();
-  final TextEditingController _tokenController = TextEditingController();
-  final TextEditingController _specialCharsController = TextEditingController();
-  final TextEditingController _lengthController = TextEditingController();
-  final TextEditingController _categoryController = TextEditingController();
+  final _vaultNameController = TextEditingController();
+  final _userNameController = TextEditingController();
+  final _hostController = TextEditingController();
+  final _apiTokenController = TextEditingController();
+  final _pwSpecialCharsController = TextEditingController();
+  final _pwLengthController = TextEditingController();
+  final _categoryPlaceholderController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  late SettingsViewModel _viewModel;
+  // todo
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -52,67 +53,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
 
-    _viewModel = context.read<SettingsViewModel>();
-    _viewModel.addListener(_onViewModelChanged);
-    _viewModel.init();
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _viewModel.load();
-      _vaultNameController.text = _viewModel.vaultName;
-      _userNameController.text = _viewModel.userName;
-      _hostController.text = _viewModel.host;
-      _tokenController.text = _viewModel.apiToken;
-      _specialCharsController.text = _viewModel.pwSpecialCharSet;
-      _lengthController.text = _viewModel.pwLength.toString();
-      _categoryController.text = _viewModel.categoryPlaceholder;
+      // Daten laden
+      final notifier = ref.read(settingsProvider.notifier);
+      await notifier.load();
+
+      // Textfelder synchronisieren
+      final state = ref.read(settingsProvider);
+      _vaultNameController.text = state.vaultName;
+      _userNameController.text = state.userName;
+      _hostController.text = state.host;
+      _apiTokenController.text = state.apiToken;
+      _pwSpecialCharsController.text = state.pwSpecialChars;
+      _pwLengthController.text = state.pwLength.toString();
+      _categoryPlaceholderController.text = state.categoryPlaceholder;
     });
   }
 
-  /// Entfernt den Listener und gibt alle Ressourcen frei.
+  /// Gibt Ressourcen frei.
   @override
   void dispose() {
-    _viewModel.removeListener(_onViewModelChanged);
     _vaultNameController.dispose();
     _userNameController.dispose();
     _hostController.dispose();
-    _tokenController.dispose();
-    _specialCharsController.dispose();
-    _lengthController.dispose();
-    _categoryController.dispose();
+    _apiTokenController.dispose();
+    _pwSpecialCharsController.dispose();
+    _pwLengthController.dispose();
+    _categoryPlaceholderController.dispose();
     super.dispose();
   }
 
-  /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
-  /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
-  ///
-  /// Aktualisiert insbesondere das Feld für Sonderzeichen, falls dieses extern
-  /// (via Buttons) geändert wurde.
-  void _onViewModelChanged() {
-    if (!mounted) return;
-    // Nur das Sonderzeichen-Feld aktualisieren, wenn es vom VM abweicht
-    if (_specialCharsController.text != _viewModel.pwSpecialCharSet) {
-      _specialCharsController.text = _viewModel.pwSpecialCharSet;
-    }
-  }
+  // todo testen, ob erforderlich
+  // /// Aktualisiert insbesondere das Feld für Sonderzeichen, falls dieses extern
+  // /// (via Buttons) geändert wurde.
+  // void _onViewModelChanged() {
+  //   if (!mounted) return;
+  //   // Nur das Sonderzeichen-Feld aktualisieren, wenn es vom VM abweicht
+  //   if (_pwSpecialCharsController.text != _viewModel.pwSpecialChars) {
+  //     _pwSpecialCharsController.text = _viewModel.pwSpecialChars;
+  //   }
+  // }
 
   // ------------------------------------------------------------------------
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
-  /// Baut die zentrale Benutzeroberfläche der Einstellungsseite auf.
-  ///
-  /// Diese Methode definiert das gesamte Layout des Screens. Sie enthält:
-  /// * Eine **AppBar** mit einer Speicher-Schaltfläche, die bei Klick Änderungen wie
-  ///   Tresor-Umbenennungen (nach Passwort-Verifizierung) und allgemeine Einstellungen übernimmt.
-  /// * Einen **Body**, der alle Konfigurationsabschnitte (Identifikation, Synchronisation,
-  ///   Freunde, Passwort-Generator, Anmeldeoptionen, Design und System) in einer
-  ///   scrollbaren Ansicht zusammenfasst.
-  /// * Einen **Lade-Indikator**, der über den Screen gelegt wird, wenn das ViewModel
-  ///   gerade eine asynchrone Operation (z. B. Speichern oder Verbindungstest) ausführt.
+  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
-    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
-    final viewModel = context.watch<SettingsViewModel>();
+    // Notifier und State holen
+    final notifier = ref.read(settingsProvider.notifier);
+    final state = ref.watch(settingsProvider);
 
     return Stack(
       children: [
@@ -144,13 +135,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Tresor'),
                 TextField(
                   controller: _vaultNameController,
-                  enabled: !viewModel.isRegistered,
+                  enabled: !state.isRegistered,
                   decoration: const InputDecoration(
                     labelText: 'Tresorname',
                     prefixIcon: Icon(Icons.shield_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  onChanged: (value) => viewModel.vaultName = value,
+                  onChanged: notifier.setVaultName,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -166,7 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            viewModel.vaultStoragePath,
+                            notifier.getVaultStoragePath(),
                             style: const TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                         ],
@@ -199,8 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     Switch(
-                      value: viewModel.useBiometric,
-                      onChanged: (val) => viewModel.useBiometric = val,
+                      value: state.useBiometric,
+                      onChanged: notifier.setUseBiometric,
                     ),
                   ],
                 ),
@@ -222,13 +213,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Sync-Server'),
                 TextField(
                   controller: _userNameController,
-                  enabled: !viewModel.isRegistered,
+                  enabled: !state.isRegistered,
                   decoration: const InputDecoration(
                     labelText: 'Benutzername',
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(),
                   ),
-                  onChanged: (value) => viewModel.userName = value,
+                  onChanged: notifier.setUserName,
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -238,14 +229,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     prefixIcon: Icon(Icons.cloud_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  onChanged: (value) => viewModel.host = value,
+                  onChanged: notifier.setHost,
                 ),
                 const SizedBox(height: 16),
                 PasswordField(
-                  controller: _tokenController,
+                  controller: _apiTokenController,
                   label: 'API-Token',
                   prefixIcon: Icons.vpn_key_outlined,
-                  onChanged: (val) => viewModel.apiToken = val,
+                  onChanged: notifier.setApiToken,
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
@@ -261,7 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Passwort-Generator'),
 
                 TextField(
-                  controller: _lengthController,
+                  controller: _pwLengthController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Länge',
@@ -274,21 +265,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         IconButton(
                           icon: const Icon(Icons.remove),
                           onPressed: () {
-                            final val = int.tryParse(_lengthController.text) ?? 0;
+                            final val = int.tryParse(_pwLengthController.text) ?? 0;
                             if (val > 1) {
                               final newVal = val - 1;
-                              _lengthController.text = newVal.toString();
-                              viewModel.pwLength = newVal;
+                              _pwLengthController.text = newVal.toString();
+                              notifier.setPwLength(newVal);
                             }
                           },
                         ),
                         IconButton(
                           icon: const Icon(Icons.add),
                           onPressed: () {
-                            final val = int.tryParse(_lengthController.text) ?? 0;
+                            final val = int.tryParse(_pwLengthController.text) ?? 0;
                             final newVal = val + 1;
-                            _lengthController.text = newVal.toString();
-                            viewModel.pwLength = newVal;
+                            _pwLengthController.text = newVal.toString();
+                            notifier.setPwLength(newVal);
                           },
                         ),
                       ],
@@ -296,13 +287,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onChanged: (val) {
                     final parsed = int.tryParse(val);
-                    if (parsed != null) viewModel.pwLength = parsed;
+                    if (parsed != null) notifier.setPwLength(parsed);
                   },
                 ),
                 const SizedBox(height: 16),
 
                 TextField(
-                  controller: _specialCharsController,
+                  controller: _pwSpecialCharsController,
                   decoration: InputDecoration(
                     labelText: 'Sonderzeichen',
                     prefixIcon: Icon(Icons.emoji_symbols_outlined),
@@ -313,22 +304,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         IconButton(
                           icon: const Icon(Icons.star),
                           tooltip: 'Standard',
-                          onPressed: () => viewModel.setSpecialChars('Standard'),
+                          onPressed: () => notifier.setSpecialChars('Standard'),
                         ),
                         IconButton(
                           icon: const Icon(Icons.all_inclusive),
                           tooltip: 'Alle',
-                          onPressed: () => viewModel.setSpecialChars('All'),
+                          onPressed: () => notifier.setSpecialChars('All'),
                         ),
                         IconButton(
                           icon: const Icon(Icons.remove_circle),
                           tooltip: 'Keine',
-                          onPressed: () => viewModel.setSpecialChars('None'),
+                          onPressed: () => notifier.setSpecialChars('None'),
                         ),
                       ],
                     ),
                   ),
-                  onChanged: (value) => viewModel.pwSpecialCharSet = value,
+                  onChanged: notifier.setPwSpecialChars,
                 ),
                 const SizedBox(height: 8),
 
@@ -337,8 +328,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
                     Switch(
-                      value: viewModel.pwAvoidIlO0,
-                      onChanged: (val) => viewModel.pwAvoidIlO0 = val,
+                      value: state.pwAvoidIlO0,
+                      onChanged: notifier.setPwAvoidIlO0,
                     ),
                   ],
                 ),
@@ -353,18 +344,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Person suchen',
                   _handleAddFriend,
                 ),
-                if (viewModel.friends.isEmpty)
+                if (state.friends.isEmpty)
                   Text('Dieser Tresor wird nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic))
-                // const Padding(
-                //   padding: EdgeInsets.all(8),
-                //   child: Text(
-                //     'Keine weiteren Personen.',
-                //     style: TextStyle(fontStyle: FontStyle.italic),
-                //   ),
-                // )
                 else
                   Column(
-                    children: viewModel.friends
+                    children: state.friends
                         .map(
                           (friend) => Card(
                             key: ValueKey('friend_${friend.uuid}'),
@@ -374,10 +358,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    viewModel.getFingerprint(friend.publicKey),
+                                    notifier.getFingerprint(friend.publicKey),
                                     style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
                                   ),
-                                  if (viewModel.needsRekeying(friend.id))
+                                  if (notifier.needsRekeying(friend.id))
                                     const Padding(
                                       padding: EdgeInsets.only(top: 4),
                                       child: Text(
@@ -403,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     scale: 0.75,
                                     child: Switch(
                                       value: friend.isVerified,
-                                      onChanged: (_) => viewModel.toggleVerification(friend),
+                                      onChanged: (_) => notifier.toggleVerification(friend),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -445,20 +429,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icon(Icons.dark_mode_outlined),
                     ),
                   ],
-                  selected: {viewModel.themeMode},
-                  onSelectionChanged: (val) => viewModel.themeMode = val.first,
+                  selected: {state.themeMode},
+                  onSelectionChanged: (val) => notifier.setThemeMode(val.first),
                 ),
 
                 const SizedBox(height: 32),
 
                 TextField(
-                  controller: _categoryController,
+                  controller: _categoryPlaceholderController,
                   decoration: const InputDecoration(
                     labelText: 'Name für leere Kategorie',
                     prefixIcon: Icon(Icons.label_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  onChanged: (value) => viewModel.categoryPlaceholder = value,
+                  onChanged: notifier.setCategoryPlaceholder,
                 ),
                 const SizedBox(height: 32),
 
@@ -471,21 +455,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Icons.fingerprint_outlined,
                   'Biometrie',
                   'Systemeinstellungen für Biometrie öffnen',
-                  viewModel.openBiometricSettings,
+                  notifier.openBiometricSettings,
                 ),
 
                 _buildSystemButton(
                   Icons.text_fields_outlined,
                   'Autofill',
                   'Hilfeseite für das automatische Ausfüllen öffnen',
-                  viewModel.openAutofillSettings,
+                  notifier.openAutofillSettings,
                 ),
 
                 _buildSystemButton(
                   Icons.info_outline,
                   'App-Info',
                   'Systemdetails dieser App anzeigen',
-                  viewModel.openAppSettings,
+                  notifier.openAppSettings,
                 ),
 
                 const SizedBox(height: 64),
@@ -508,7 +492,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
 
-        if (viewModel.isBusy)
+        if (state.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
@@ -574,9 +558,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
 
-    if (_viewModel.isDirty) {
+    final notifier = ref.read(settingsProvider.notifier);
+    if (notifier.isDirty()) {
       final confirmed = await ConfirmDialog.show(
         context,
         title: 'Eintrag speichern',
@@ -590,158 +576,212 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
 
+    // Zur vorherigen Seite navigieren
     if (mounted) Navigator.of(context).pop();
   }
 
-  /// Testet, ob Host-URL und API-Token korrekt sind
+  // Speichert den Eintrag und springt dann zur Hauptseite.
   Future<void> _handleSave() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
 
-    try {
+    // Tresor umbenennen, wenn ein anderer Name eingegeben wurde
+    final notifier = ref.read(settingsProvider.notifier);
+    if (notifier.isVaultRenamed()) {
+      final success = await _handleRenameVault();
+      if (!success || !mounted) return;
+    }
+
+    // Einstellungen speichern
+    final success = await notifier.save();
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(settingsProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return;
+    }
+
+    // Erfolgsfall
+    // Zurück zur Hauptseite navigieren
+    Snack.show(context, 'Einstellungen gespeichert.', success: true);
+    if (mounted) Navigator.of(context).pop();
+
+  }
+
+  /// Benennt den Tresor um.
+  Future<bool> _handleRenameVault() async {
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return false;
+
+    String? errorText;
+    while (true) {
+
+      // Passwort abfragen
+      final password = await PasswordDialog.show(
+        context,
+        title: 'Tresor umbenennen',
+        text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+        errorText: errorText,
+      );
+      if (password == null || !mounted) return false;
+
       // Tresor umbenennen
-      if (_viewModel.isVaultRenamed) {
-        String? errorText;
-        while (true) {
-          if (!mounted) return;
-          final password = await PasswordDialog.show(
-            context,
-            title: 'Tresor umbenennen',
-            text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-            errorText: errorText,
-          );
-          if (password == null || !mounted) return;
-          final result = await _viewModel.renameVault(password);
-          if (!mounted) return;
-          if (!result.isSuccess) {
-            if (result.errorCode == ErrorCode.wrongPassword) {
-              errorText = result.errorMessage;
-              continue;
-            }
-            Snack.show(context, result.errorMessage!);
-            break;
-          }
-          Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
-          break;
+      final notifier = ref.read(settingsProvider.notifier);
+      final success = await notifier.renameVault(password);
+      if (!mounted) return false;
+
+      // Aktuellen State holen
+      final state = ref.read(settingsProvider);
+
+      // Fehlerfall
+      if (!success) {
+        if (state.error.code == ErrorCode.wrongPassword) {
+          errorText = state.error.text;
+          continue; // Passwort falsch -> Passwortabfrage wiederholen
         }
+        if (state.error.field == null) {
+          Snack.show(context, state.error.text);
+        }
+        return false; // irgendein anderer Fehler -> Abbruch
       }
 
-      // Einstellungen speichern
-      final result = await _viewModel.save();
-      if (!mounted) return;
-      if (!result.isSuccess) {
-        Snack.show(context, result.errorMessage!);
-        return;
-      }
-      Snack.show(context, 'Einstellungen gespeichert.', success: true);
-      if (mounted) Navigator.of(context).pop();
-    } catch (e, st) {
-      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
+      // Erfolgsfall
+      Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
+      return true;
     }
   }
 
   /// Fragt ein neues und das bisherige Passwort ab und ändert es schließlich.
   Future<void> _handlePasswordChange() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
 
-    try {
-      // Neues Passwort abfragen
-      final newPassword = await PasswordDialog.show(
+    // Neues Passwort abfragen
+    final newPassword = await PasswordDialog.show(
+      context,
+      title: 'Passwort ändern',
+      text: 'Bitte gib dein NEUES Master-Passwort ein.',
+    );
+    if (newPassword == null || !mounted) return;
+
+    String? errorText;
+    while (true) {
+
+      // Bisheriges Passwort abfragen
+      final currentPassword = await PasswordDialog.show(
         context,
-        title: 'Passwort ändern',
-        text: 'Bitte gib dein NEUES Master-Passwort ein.',
+        title: 'Passwort-Änderung autorisieren',
+        text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
+        errorText: errorText,
       );
-      if (newPassword == null || !mounted) return;
+      if (currentPassword == null || !mounted) return;
 
-      String? errorText;
-      while (true) {
-        if (!mounted) return;
-
-        // Bisheriges Passwort abfragen
-        final currentPassword = await PasswordDialog.show(
-          context,
-          title: 'Passwort-Änderung autorisieren',
-          text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
-          errorText: errorText,
-        );
-        if (currentPassword == null || !mounted) return;
-
-        // Trivial-Check: Die Passwörter dürfen nicht identisch sein
-        if (currentPassword == newPassword) {
-          Snack.show(context, "Neues und altes Master-Passwort sind identisch");
-          return;
-        }
-
-        // Passwort ändern
-        final result = await _viewModel.changeMasterPassword(newPassword, currentPassword);
-        if (!mounted) return;
-
-        // Ergebnis auswerten
-        if (!result.isSuccess) {
-          if (result.errorCode == ErrorCode.wrongPassword) {
-            errorText = result.errorMessage;
-            continue;
-          }
-          Snack.show(context, result.errorMessage!);
-          break;
-        }
-        Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
-        break;
+      // Validierung: Die Passwörter dürfen nicht identisch sein
+      if (currentPassword == newPassword) {
+        Snack.show(context, "Neues und altes Master-Passwort sind identisch");
+        return;
       }
-    } catch (e, st) {
-      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
+
+      // Passwort ändern
+      final notifier = ref.read(settingsProvider.notifier);
+      final success = await notifier.changeMasterPassword(newPassword, currentPassword);
+      if (!mounted) return;
+
+      // Aktuellen State holen
+      final state = ref.read(settingsProvider);
+
+      // Fehlerfall
+      if (!success) {
+        if (state.error.code == ErrorCode.wrongPassword) {
+          errorText = state.error.text;
+          continue; // Passwort falsch -> Passwortabfrage wiederholen
+        }
+        if (state.error.field == null) {
+          Snack.show(context, state.error.text);
+        }
+        return; // irgendein anderer Fehler -> Abbruch
+      }
+
+      // Erfolgsfall
+      Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
+      return;
     }
   }
 
   /// Testet, ob Host-URL und API-Token korrekt sind
   Future<void> _handleTestConnection() async {
-    if (_viewModel.isBusy) return;
-    final result = await _viewModel.testConnection();
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
+
+    // Verbindung testen
+    final notifier = ref.read(settingsProvider.notifier);
+    final success = await notifier.testConnection();
     if (!mounted) return;
-    if (!result.isSuccess) {
-      Snack.show(context, result.errorMessage!);
+
+    // Aktuellen State holen
+    final state = ref.read(settingsProvider);
+
+    // Fehlerfall
+    if (!success) {
+      Snack.show(context, state.error.text);
       return;
     }
-    if (result.data == 1) {
-      Snack.show(context, 'Verbindung erfolgreich.', success: true);
-    } else {
-      Snack.show(context, 'Verbindung fehlgeschlagen.');
-    }
+
+    // Erfolgsfall
+    Snack.show(context, 'Verbindung erfolgreich.', success: true);
   }
 
   /// Öffnet den Freund-Such-Dialog und verarbeitet das Ergebnis.
   /// Bei Fehlern wie "nicht gefunden" bleibt der Dialog offen,
   /// andere Fehler werden per SnackBar gemeldet.
   Future<void> _handleAddFriend() async {
-    if (_viewModel.isBusy) return;
-    try {
-      String? errorText;
-      while (true) {
-        final name = await FriendSearchDialog.show(context, errorText: errorText);
-        if (name == null) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
+    
+    String? errorText;
+    while (true) {
+      // Name des Freundes abfragen
+      final name = await FriendSearchDialog.show(context, errorText: errorText);
+      if (name == null || !mounted) return;
 
-        final result = await _viewModel.addFriend(name);
-        if (!mounted) return;
-        if (!result.isSuccess) {
-          if (result.errorCode == ErrorCode.userNotFound || result.errorCode == ErrorCode.userAlreadyAdded) {
-            // im Dialog anzeigen, NICHT SnackBar
-            errorText = result.errorMessage;
-            continue;
-          }
-          Snack.show(context, result.errorMessage!);
-          break;
+      // Freund hinzufügen
+      final notifier = ref.read(settingsProvider.notifier);
+      final success = await notifier.addFriend(name);
+      if (!mounted) return;
+
+      // Aktuellen State holen
+      final state = ref.read(settingsProvider);
+
+      // Fehlerfall
+      if (!success) {
+        if (state.error.code == ErrorCode.userNotFound || state.error.code == ErrorCode.userAlreadyAdded) {
+          errorText = state.error.text;
+          continue; // im Dialog anzeigen, NICHT SnackBar
         }
-        Snack.show(context, '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
-        break;
+        if (state.error.field == null) {
+          Snack.show(context, state.error.text);
+        }
+        return; // irgendein anderer Fehler -> Abbruch
       }
-    } catch (e, st) {
-      if (mounted) Snack.showException(context, e, stackTrace: st, label: 'SettingsScreen');
+
+      // Erfolgsfall
+      Snack.show(context, '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
+      return;
     }
   }
 
   /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
   Future<void> _handleDeleteFriend(dynamic user) async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
 
+    // Löschen bestätigen lassen
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Person entfernen',
@@ -749,24 +789,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
       ok: 'Ja, löschen',
     );
-    if (confirmed == true && mounted) {
-      _viewModel.deleteFriend(user);
+    if (confirmed != true || !mounted) return;
+
+    // Freund löschen
+    final notifier = ref.read(settingsProvider.notifier);
+    final success = await notifier.deleteFriend(user);
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(settingsProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return; // irgendein anderer Fehler -> Abbruch
     }
+
+    // Erfolgsfall
+    return; // ohne Meldung weiter machen
   }
 
   /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
   Future<void> _handleDeleteTresor() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(settingsProvider).isBusy) return;
 
+    // Löschen bestätigen lassen
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Tresor lokal löschen',
       text: 'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
       ok: 'Ja, löschen',
     );
-    if (confirmed == true && mounted) {
-      _viewModel.deleteVault();
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    if (confirmed != true || !mounted) return;
+
+    // Tresor löschen
+    final notifier = ref.read(settingsProvider.notifier);
+    final success = await notifier.deleteVault();
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(settingsProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return; // irgendein anderer Fehler -> Abbruch
     }
+
+    // Erfolgsfall
+    // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 }

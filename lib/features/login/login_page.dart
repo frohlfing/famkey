@@ -90,9 +90,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
-  /// Baut die Anmeldemaske der App auf.
-  ///
-  /// Das Layout ist zentriert und für mobile Geräte sowie Desktop-Ansichten optimiert.
+  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
     // Notifier und State holen

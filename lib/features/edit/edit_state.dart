@@ -50,6 +50,7 @@ class EditState {
     this.error = const FormError.none(),
   });
 
+  /// Status aktualisieren (immutable)
   EditState copyWith({
     bool? isBusy,
     bool? isEditMode,

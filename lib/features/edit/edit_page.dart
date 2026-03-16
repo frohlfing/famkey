@@ -15,6 +15,7 @@ import 'package:privault/widgets/snack.dart';
 /// * Visuelle Anzeige der Passwortstärke während der Eingabe.
 /// * Möglichkeit, bestehende Einträge endgültig aus dem Tresor zu löschen.
 class EditPage extends ConsumerStatefulWidget {
+  /// Die ID des anzuzeigenden Eintrags
   final int? entryId;
 
   /// Konstruktor
@@ -74,9 +75,7 @@ class _EditPageState extends ConsumerState<EditPage> {
     super.dispose();
   }
 
-  // /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
-  // /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
-  // ///
+  // todo testen, ob erforderlich
   // /// Diese Methode stellt sicher, dass die Textfelder (insbesondere für Passwort und
   // /// Kategorie) aktualisiert werden, wenn diese Werte durch Logik im ViewModel (z.B.
   // /// den Generator) geändert werden.
@@ -94,9 +93,7 @@ class _EditPageState extends ConsumerState<EditPage> {
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
-  /// Baut die Anmeldemaske der App auf.
-  ///
-  /// Das Layout ist zentriert und für mobile Geräte sowie Desktop-Ansichten optimiert.
+  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
     // Notifier und State holen
@@ -298,11 +295,11 @@ class _EditPageState extends ConsumerState<EditPage> {
       }
     }
 
-    // ZUr vorherigen Seite navigieren
+    // Zur vorherigen Seite navigieren
     if (mounted) Navigator.of(context).pop();
   }
 
-  // Speichert den Eintrag und  springt dann zur Detailansicht.
+  // Speichert den Eintrag und springt dann zur Detailansicht.
   Future<void> _handleSave() async {
     // Busy-Check
     if (ref.read(editProvider).isBusy) return;

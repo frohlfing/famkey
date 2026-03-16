@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
@@ -26,7 +27,7 @@ final mainProvider = NotifierProvider<MainNotifier, MainState>(
 class MainNotifier extends Notifier<MainState> {
 
   // ------------------------------------------------------------------------
-  // --- Verwendete Dienste ---
+  // --- Services ---
   // ------------------------------------------------------------------------
 
   late final BiometricService _biometricService;
@@ -65,14 +66,19 @@ class MainNotifier extends Notifier<MainState> {
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
+    // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
+
     try {
       final entries = await _databaseService.getEntries();
       state = state.copyWith(allEntries: entries);
+
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
+
     } finally {
+      // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
     }
   }
@@ -148,6 +154,7 @@ class MainNotifier extends Notifier<MainState> {
 
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
+
     try {
       if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
       if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
@@ -198,6 +205,13 @@ class MainNotifier extends Notifier<MainState> {
       state = state.copyWith(allEntries: entries, lastSyncStats: stats);
       return true;
 
+    } on DioException catch (de) {
+      // Exception des HTTP-Clients
+      final text = '${de.response?.statusMessage ?? 'Verbindungsfehler'} (Code ${de.response?.statusCode}).';
+      Logger().error(text);
+      state = state.copyWith(error: FormError(ErrorCode.networkError, text: text));
+      return false;
+
     } catch (e, st) {
       Logger().fatal("Fehler beim Sync: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
@@ -213,10 +227,13 @@ class MainNotifier extends Notifier<MainState> {
   ///
   /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
   /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
+  ///
+  /// Das Master-Passwort wurde zuvor von der UI abgefragt.
   Future<bool> adoptIdentity(String password) async {
-    Uint8List? masterKey;
-    Uint8List? newMasterKey;
+    Uint8List? masterKey; // bisheriger Master-Key
+    Uint8List? newMasterKey; // Master-Key der neuen Identität
 
+    // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
@@ -277,7 +294,7 @@ class MainNotifier extends Notifier<MainState> {
           }
         }
 
-        // 7. Datenbankdatei mit dem neuen Master-Key verschlüsseln
+        // 7. Datenbankdatei mit dem neuen Master-Key umschlüsseln
         await _databaseService.rekey(newMasterKey);
 
         // 8. Salt-Datei aktualisieren
@@ -313,10 +330,11 @@ class MainNotifier extends Notifier<MainState> {
 
         // --- Ende Kritische Logik ---
 
-        // 13. Backup löschen
+        // 13. Erfolg: Backup löschen
         await _databaseService.removeBackup();
         return true;
-      } catch (e) {
+
+      } catch (_) {
         // Fehler während der Operation -> Rollback
         try {
           await _databaseService.close();
@@ -332,8 +350,11 @@ class MainNotifier extends Notifier<MainState> {
       return false;
 
     } finally {
+      // Master-Key aus dem RAM löschen
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
+
+      // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
     }
   }

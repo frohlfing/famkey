@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:privault/viewmodels/detail_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_selector_dialog.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// Der [DetailScreen] ist dafür zuständig, dir die vollständigen Details eines bestimmten
+/// Der [DetailPage] ist dafür zuständig, dir die vollständigen Details eines bestimmten
 /// Tresor-Eintrags anzuzeigen.
 ///
 /// Über die [entryId] lädt der Screen die entsprechenden Daten mithilfe des [DetailViewModel].
@@ -19,23 +19,22 @@ import 'package:privault/widgets/snack.dart';
 /// * Hinterlegte URLs direkt im Browser öffnen.
 /// * Notizen lesen und Anhänge (wie Bilder oder Dokumente) verwalten oder ansehen.
 /// * Falls du die Berechtigung hast, direkt in den Bearbeitungsmodus wechseln.
-class DetailScreen extends StatefulWidget {
+class DetailPage extends ConsumerStatefulWidget {
   /// Die ID des anzuzeigenden Eintrags
   final int entryId;
 
   /// Konstruktor
-  const DetailScreen({super.key, required this.entryId});
+  const DetailPage({super.key, required this.entryId});
 
   @override
-  State<DetailScreen> createState() => _DetailScreenState();
+  ConsumerState<DetailPage> createState() => _DetailPageState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class _DetailPageState extends ConsumerState<DetailPage> {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
-
-  late DetailViewModel _viewModel;
 
   /// Gibt an, ob das Passwort ausgeblendet ist
   bool _obscurePassword = true;
@@ -49,12 +48,10 @@ class _DetailScreenState extends State<DetailScreen> {
   void initState() {
     super.initState();
 
-    _viewModel = context.read<DetailViewModel>();
-    //_viewModel.addListener(_onViewModelChanged);
-    _viewModel.init();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewModel.load(widget.entryId);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Daten laden
+      final notifier = ref.read(detailProvider.notifier);
+      await notifier.load(widget.entryId);
     });
   }
 
@@ -64,11 +61,6 @@ class _DetailScreenState extends State<DetailScreen> {
   //   _viewModel.removeListener(_onViewModelChanged);
   // }
 
-  // /// Wird getriggert, wenn das ViewModel notifyListeners() aufruft.
-  // /// Hier kann u.a. der Text vom TextEditingController aktualisiert werden.
-  // void _onViewModelChanged() {
-  // }
-
   // ------------------------------------------------------------------------
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
@@ -76,8 +68,9 @@ class _DetailScreenState extends State<DetailScreen> {
   /// Baut die zentrale Detailansicht eines Eintrags auf.
   @override
   Widget build(BuildContext context) {
-    // Dies triggert die build-Methode jedes Mal, wenn das ViewModel notifyListeners() aufruft.
-    final viewModel = context.watch<DetailViewModel>();
+    // Notifier und State holen
+    final notifier = ref.read(detailProvider.notifier);
+    final state = ref.watch(detailProvider);
 
     return Stack(
       children: [
@@ -91,7 +84,7 @@ class _DetailScreenState extends State<DetailScreen> {
               tooltip: "Zurück",
             ),
             actions: [
-              if (viewModel.canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
+              if (state.canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
                 IconButton(
                   icon: const Icon(Icons.edit),
                   tooltip: 'Bearbeiten',
@@ -110,24 +103,24 @@ class _DetailScreenState extends State<DetailScreen> {
                 Center(
                   child: Column(
                     children: [
-                      if (viewModel.favicon.isNotEmpty)
+                      if (state.favicon.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: Image.memory(
-                            base64Decode(viewModel.favicon),
+                            base64Decode(state.favicon),
                             width: 64,
                             height: 64,
                           ),
                         ),
                       Text(
-                        viewModel.title,
+                        state.title,
                         textAlign: TextAlign.center,
                         style: Theme.of(
                           context,
                         ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        viewModel.category,
+                        state.category,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
                       ),
                     ],
@@ -142,10 +135,10 @@ class _DetailScreenState extends State<DetailScreen> {
                 // Benutzername
                 ListTile(
                   title: const Text('Benutzername'),
-                  subtitle: Text(viewModel.username),
+                  subtitle: Text(state.username),
                   trailing: IconButton(
                     icon: const Icon(Icons.copy),
-                    onPressed: () => _copyToClipboard(viewModel.username, 'Benutzername'),
+                    onPressed: () => _copyToClipboard(state.username, 'Benutzername'),
                     tooltip: 'Benutzername kopieren',
                   ),
                 ),
@@ -156,7 +149,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   children: [
                     ListTile(
                       title: const Text('Passwort'),
-                      subtitle: Text(_obscurePassword ? '••••••••' : viewModel.password),
+                      subtitle: Text(_obscurePassword ? '••••••••' : state.password),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -167,29 +160,31 @@ class _DetailScreenState extends State<DetailScreen> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy),
-                            onPressed: () => _copyToClipboard(viewModel.password, 'Passwort'),
+                            onPressed: () => _copyToClipboard(state.password, 'Passwort'),
                             tooltip: 'Passwort kopieren',
                           ),
                         ],
                       ),
                     ),
-                    if (viewModel.password.isNotEmpty)
+                    if (state.password.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: PasswordStrengthBar(score: viewModel.passwordStrength),
+                        child: PasswordStrengthBar(
+                          score: notifier.getPasswordStrength(),
+                        ),
                       ),
                   ],
                 ),
                 const Divider(),
 
                 // URL
-                if (viewModel.url.isNotEmpty) ...[
+                if (state.url.isNotEmpty) ...[
                   ListTile(
                     title: const Text('URL'),
-                    subtitle: Text(viewModel.url),
+                    subtitle: Text(state.url),
                     trailing: IconButton(
                       icon: const Icon(Icons.open_in_new),
-                      onPressed: () => _openUrl(viewModel.url),
+                      onPressed: () => _openUrl(state.url),
                       tooltip: 'URL öffnen',
                     ),
                   ),
@@ -197,16 +192,16 @@ class _DetailScreenState extends State<DetailScreen> {
                 ],
 
                 // Notizen
-                if (viewModel.notes.isNotEmpty) ...[
-                  ListTile(title: const Text('Notizen'), subtitle: Text(viewModel.notes)),
+                if (state.notes.isNotEmpty) ...[
+                  ListTile(title: const Text('Notizen'), subtitle: Text(state.notes)),
                   const Divider(),
                 ],
 
                 // ------------------------------------------------------------------------
                 // Anhänge
                 // ------------------------------------------------------------------------
-                if (viewModel.canManageAttachments || viewModel.attachments.isNotEmpty) ...[
-                  if (viewModel.canManageAttachments)
+                if (notifier.canManageAttachments() || state.attachments.isNotEmpty) ...[
+                  if (notifier.canManageAttachments())
                     _buildSectionHeaderWithAction(
                       'Anhänge',
                       Icons.add_circle_outline,
@@ -216,7 +211,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   else
                     _buildSectionTitle('Anhänge'),
                   const SizedBox(height: 4),
-                  if (viewModel.attachments.isEmpty)
+                  if (state.attachments.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
                       child: Text(
@@ -225,19 +220,16 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     )
                   else
-                    ...viewModel.attachments.map((attachment) {
-                      final meta = viewModel.getAttachmentMeta(attachment.uuid);
-                      final iconType = viewModel.getIconType(
-                        meta?.filename ?? '',
-                        meta?.mime ?? '',
-                      );
+                    ...state.attachments.map((attachment) {
+                      final meta = notifier.getAttachmentMeta(attachment.uuid);
+                      final iconType = notifier.getIconType(meta?.filename ?? '', meta?.mime ?? '');
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              onTap: () => viewModel.openAttachment(attachment),
+                              onTap: () => notifier.openAttachment(attachment),
                               child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(4),
@@ -256,8 +248,8 @@ class _DetailScreenState extends State<DetailScreen> {
                             ),
                           ),
                           title: Text(meta?.filename ?? 'Datei'),
-                          subtitle: Text(viewModel.formatSize(meta?.size ?? 0)),
-                          trailing: viewModel.canManageAttachments
+                          subtitle: Text(notifier.formatSize(meta?.size ?? 0)),
+                          trailing: notifier.canManageAttachments()
                               ? IconButton(
                                   icon: const Icon(Icons.delete),
                                   tooltip: 'Anhang löschen',
@@ -273,11 +265,11 @@ class _DetailScreenState extends State<DetailScreen> {
                 // ------------------------------------------------------------------------
                 // Geteilt mit
                 // ------------------------------------------------------------------------
-                if (viewModel.canManageShares || viewModel.sharedWith.isNotEmpty) ...[
+                if (state.canManageShares || state.sharedFriends.isNotEmpty) ...[
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (viewModel.canManageShares)
+                      if (state.canManageShares)
                         _buildSectionHeaderWithAction(
                           'Geteilt mit',
                           Icons.person_add_alt_1_outlined,
@@ -287,7 +279,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       else
                         _buildSectionTitle('Geteilt mit'),
                       const SizedBox(height: 4),
-                      if (viewModel.sharedWith.isEmpty)
+                      if (state.sharedFriends.isEmpty)
                         const Padding(
                           padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
                           child: Text(
@@ -296,8 +288,8 @@ class _DetailScreenState extends State<DetailScreen> {
                           ),
                         )
                       else
-                        ...viewModel.sharedWith.map((friend) {
-                          final isWritable = viewModel.getAccessLevel(friend.id) == 2;
+                        ...state.sharedFriends.map((friend) {
+                          final isWritable = notifier.getAccessLevel(friend.id) == 2;
                           Widget leadingIcon = Stack(
                             alignment: Alignment.bottomRight,
                             children: [
@@ -316,7 +308,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                     '/settings',
                                     arguments: {'focus_user_uuid': friend.uuid},
                                   );
-                                  if (mounted) _viewModel.load(widget.entryId);
+                                  if (mounted) notifier.load(widget.entryId);
                                 },
                                 child: Tooltip(
                                   message: 'Person ist nicht verifiziert!',
@@ -331,7 +323,7 @@ class _DetailScreenState extends State<DetailScreen> {
                             child: ListTile(
                               leading: leadingIcon,
                               title: Text(friend.name),
-                              trailing: viewModel.canManageShares
+                              trailing: state.canManageShares
                                   ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -343,7 +335,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                           scale: 0.75,
                                           child: Switch(
                                             value: isWritable,
-                                            onChanged: (bool value) => viewModel.updateAccessLevel(friend, value ? 2 : 1),
+                                            onChanged: (bool value) => notifier.updateAccessLevel(friend, value ? 2 : 1),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -372,11 +364,11 @@ class _DetailScreenState extends State<DetailScreen> {
                 ],
 
                 // Audit Hint
-                if (viewModel.auditHint.isNotEmpty)
+                if (state.auditHint.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      viewModel.auditHint,
+                      state.auditHint,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -389,7 +381,7 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
         ),
 
-        if (viewModel.isBusy)
+        if (state.isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
@@ -436,30 +428,66 @@ class _DetailScreenState extends State<DetailScreen> {
 
   /// Navigiert zurück zur Hauptseite
   Future<void> _handleBack() async {
-    if (_viewModel.isBusy) return;
-    Navigator.of(context).pop(_viewModel.hasChanged);
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
+
+    //final notifier = ref.read(detailProvider.notifier);
+
+    // Aktuellen State holen
+    final state = ref.read(detailProvider);
+    
+    Navigator.of(context).pop(state.hasChanged);
   }
 
-  /// Öffnet die Bearbeitungsansicht und aktualisiert die Daten bei Rückkehr, falls Änderungen vorgenommen wurden.
+  /// Öffnet die Bearbeitungsseite und aktualisiert die Daten bei Rückkehr, falls Änderungen vorgenommen wurden.
   Future<void> _handleEdit() async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
+    
+    // Bearbeitungsseite aufrufen
     final hasChanged = await Navigator.of(context).pushNamed('/edit', arguments: widget.entryId);
-    if (hasChanged == true && mounted) {
-      _viewModel.markAsChanged();
-      _viewModel.load(widget.entryId);
-    }
+    if (hasChanged != true || !mounted) return;
+
+    // Daten haben sich geändert. Wir halten das im State fest, damit wir beim Zurücknavigieren 
+    // der Hauptseite signalisieren können, dass die Liste neu geladen werden muss.
+    final notifier = ref.read(detailProvider.notifier);
+    notifier.markAsChanged();
+    
+    // Daten neu laden
+    notifier.load(widget.entryId);
   }
 
   /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleAddAttachment() async {
-    if (_viewModel.isBusy) return;
-    _viewModel.addAttachment();
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
+
+    // Dateianhang hinzufügen
+    final notifier = ref.read(detailProvider.notifier);
+    final success = await notifier.addAttachment();
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(detailProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return;
+    }
+
+    // Erfolgsfall
+    return; // ohne Meldung weiter machen
   }
 
   /// Fragt nach Bestätigung und löscht dann den Anhang.
   Future<void> _handleDeleteAttachment(dynamic attachment) async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
 
+    // Bestätigung fragen
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Anhang löschen',
@@ -467,9 +495,26 @@ class _DetailScreenState extends State<DetailScreen> {
       ok: 'Ja, löschen',
       autofocus: false,
     );
-    if (confirmed == true && mounted) {
-      _viewModel.deleteAttachment(attachment);
+    if (confirmed != true || !mounted) return;
+    
+    // Dateianhang löschen
+    final notifier = ref.read(detailProvider.notifier);
+    final success = await notifier.deleteAttachment(attachment);
+    if (!mounted) return;
+    
+    // Aktuellen State holen
+    final state = ref.read(detailProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return;
     }
+
+    // Erfolgsfall
+    return; // ohne Meldung weiter machen
   }
 
   /// Öffnet einen Dialog zur Auswahl eines Kontakts aus Deiner Freundesliste,
@@ -477,25 +522,65 @@ class _DetailScreenState extends State<DetailScreen> {
   ///
   /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
   Future<void> _handleAddFriend() async {
-    if (_viewModel.isBusy) return;
-    final user = await FriendSelectorDialog.show(context, _viewModel.unsharedFriends);
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
+
+    // Freund auswählen lassen 
+    final notifier = ref.read(detailProvider.notifier);
+    final user = await FriendSelectorDialog.show(context, notifier.getUnsharedFriends());
     if (user == null || !mounted) return;
-    _viewModel.shareWith(user);
+
+    // Eintrag mit dem Freund teilen.
+    final success = await notifier.shareWith(user);
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(detailProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return;
+    }
+
+    // Erfolgsfall
+    return; // ohne Meldung weiter machen
   }
 
   /// Fragt nach Bestätigung und entzieht dann den Zugriff für den Benutzer.
   Future<void> _handleDeleteFriend(dynamic user) async {
-    if (_viewModel.isBusy) return;
+    // Busy-Check
+    if (ref.read(detailProvider).isBusy) return;
 
+    // Bestätigen lassen
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Zugriff entziehen',
       text: 'Möchtest du diesen Eintrag nicht mehr mit der Person teilen?',
       ok: 'Ja, Zugriff entziehen',
     );
-    if (confirmed == true && mounted) {
-      _viewModel.revokeAccess(user);
+    if (confirmed != true || !mounted) return;
+
+    // Freund löschen
+    final notifier = ref.read(detailProvider.notifier);
+    final success = await notifier.revokeAccess(user);
+    if (!mounted) return;
+
+    // Aktuellen State holen
+    final state = ref.read(detailProvider);
+
+    // Fehlerfall
+    if (!success) {
+      if (state.error.field == null) {
+        Snack.show(context, state.error.text);
+      }
+      return;
     }
+
+    // Erfolgsfall
+    return; // ohne Meldung weiter machen
   }
 
   // ------------------------------------------------------------------------
