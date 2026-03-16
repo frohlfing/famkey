@@ -240,6 +240,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     );
   }
 
+  // todo in den Notifier!
   /// Hilfsfunktion zum Rendern des Webseiten-Icons (Favicon).
   ///
   /// Versucht das in der Datenbank hinterlegte Base64-Bild anzuzeigen.

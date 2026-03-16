@@ -37,8 +37,8 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Objekt rund um HTTP-Anfragen
   ///
-  /// Benötigen wir für die Auswertung der Testverbindung.
-  final Dio _dio = Dio();
+  /// Wird zum Download des Favicons benötigt
+  final Dio _dio = Dio(); // todo warum nicht nur in der Funktion anlegen? Hat das irgendwelche Vorteile, es hier anzulegen?
 
   /// Die aktuell geladene Datenbank-Entität. Ist null bei einem neuen Eintrag.
   EntryEntity? _entry;
@@ -73,6 +73,8 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Lädt entweder einen bestehenden Eintrag oder bereitet die Maske für eine Neuanlage vor.
   Future<void> load(int? id) async {
+    // todo Parameter validieren
+
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
@@ -141,6 +143,7 @@ class EditNotifier extends Notifier<EditState> {
   // --- Dirty-Check ---
   // ------------------------------------------------------------------------
 
+  // todo gehört in den State
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool isDirty() {
     return state.category != (_originalPayload?.category ?? '') ||
@@ -155,6 +158,7 @@ class EditNotifier extends Notifier<EditState> {
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
+  // todo nur void zurückgeben
   /// Speichert den aktuellen Eintrag in der Datenbank.
   /// Verschlüsselt dabei alle sensiblen Felder.
   Future<bool> save() async {
@@ -244,6 +248,7 @@ class EditNotifier extends Notifier<EditState> {
   // --- Löschen ---
   // ------------------------------------------------------------------------
 
+  // todo nur void zurückgeben
   /// Löscht den aktuellen Eintrag.
   Future<bool> deleteEntry() async {
     // Busy setzen, Fehler zurücksetzen
@@ -298,7 +303,7 @@ class EditNotifier extends Notifier<EditState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Convenience Setter & Getter ---
+  // --- Setter ---
   // ------------------------------------------------------------------------
 
   /// Setter für die Kategorie.
@@ -337,11 +342,13 @@ class EditNotifier extends Notifier<EditState> {
     state = state.copyWith(notes: value.trim(), error: error);
   }
 
+  // todo in State
   /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
   int getPasswordStrength() {
     return _passwordService.estimateStrength(state.password);
   }
 
+  // todo in State
   /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
   String? getFieldErrorText(String field) {
     return state.error.field == field ? state.error.text : null;

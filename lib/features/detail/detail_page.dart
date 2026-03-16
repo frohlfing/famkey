@@ -594,6 +594,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     Snack.show(context, '$label in die Zwischenablage kopiert', success: true);
   }
 
+  // todo in den Notifier!
   /// Öffnet die angegebene URL in einem neuen Browser-Tab oder gibt eine SnackBar mit dem Ergebnis aus.
   Future<void> _openUrl(String url) async {
     if (url.isEmpty) return;

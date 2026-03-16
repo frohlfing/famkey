@@ -75,7 +75,7 @@ class _EditPageState extends ConsumerState<EditPage> {
     super.dispose();
   }
 
-  // todo testen, ob erforderlich
+  // todo Diese Logik ist noch von der Portierung von setState() zu Riverpod übrig. Kann das raus?
   // /// Diese Methode stellt sicher, dass die Textfelder (insbesondere für Passwort und
   // /// Kategorie) aktualisiert werden, wenn diese Werte durch Logik im ViewModel (z.B.
   // /// den Generator) geändert werden.
@@ -98,13 +98,13 @@ class _EditPageState extends ConsumerState<EditPage> {
   Widget build(BuildContext context) {
     // Notifier und State holen
     final notifier = ref.read(editProvider.notifier);
-    final state = ref.watch(editProvider);
+    final state = ref.watch(editProvider); // todo besser in Consumer-Widget aufteilen
 
     final displayTitle = state.title.isEmpty ? (state.isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : state.title;
 
     // Wenn Passwort oder Kategorie im Notifier geändert wurden (z.B. Generator),
     // synchronisieren wir die Controller.
-    //_syncControllers(state);  todo ???
+    //_syncControllers(state);  todo kann das raus?
 
     return Stack(
       children: [
@@ -139,7 +139,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                   decoration: InputDecoration(
                     labelText: 'Kategorie',
                     prefixIcon: const Icon(Icons.label_outlined),
-                    errorText: notifier.getFieldErrorText('category'),
+                    errorText: notifier.getFieldErrorText('category'), // todo sollte nur hören auf: state.error.field == 'category' ? state.error.text : null,
                     border: const OutlineInputBorder(),
                     suffixIcon: state.existingCategories.isNotEmpty
                         ? PopupMenuButton<String>(
@@ -163,7 +163,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                   decoration: InputDecoration(
                     labelText: 'Titel',
                     prefixIcon: const Icon(Icons.title_outlined),
-                    errorText: notifier.getFieldErrorText('title'),
+                    errorText: notifier.getFieldErrorText('title'), // todo!
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: notifier.setTitle,
@@ -177,7 +177,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                   decoration: InputDecoration(
                     labelText: 'Benutzername',
                     prefixIcon: const Icon(Icons.person_outline),
-                    errorText: notifier.getFieldErrorText('username'),
+                    errorText: notifier.getFieldErrorText('username'), // todo!
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: notifier.setUsername,
@@ -192,7 +192,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                       controller: _passwordController,
                       label: 'Passwort',
                       prefixIcon: Icons.key_outlined,
-                      errorText: notifier.getFieldErrorText('password'),
+                      errorText: notifier.getFieldErrorText('password'), // todo!
                       suffixActions: [
                         IconButton(
                           icon: const Icon(Icons.casino),
@@ -207,7 +207,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: PasswordStrengthBar(
-                          score: notifier.getPasswordStrength(),
+                          score: notifier.getPasswordStrength(), // todo!
                         ),
                       ),
                   ],
@@ -221,7 +221,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                   decoration: InputDecoration(
                     labelText: 'URL',
                     prefixIcon: const Icon(Icons.public_outlined),
-                    errorText: notifier.getFieldErrorText('url'),
+                    errorText: notifier.getFieldErrorText('url'), // todo!
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: notifier.setUrl,
@@ -236,7 +236,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                   decoration: InputDecoration(
                     labelText: 'Notizen',
                     prefixIcon: const Icon(Icons.article_outlined),
-                    errorText: notifier.getFieldErrorText('notes'),
+                    errorText: notifier.getFieldErrorText('notes'), // todo!
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: notifier.setNotes,
@@ -274,6 +274,9 @@ class _EditPageState extends ConsumerState<EditPage> {
   // --- Handler ---
   // ------------------------------------------------------------------------
 
+  // todo Dieser Handler scheinen mir ein Anti-Pattern im Sinne von Riverpod zu sein. UI sollte dumm sein. Aber wie löst man das sauber?
+
+  // todo Anti-Pattern auflösen
   // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
     // Busy-Check
@@ -299,6 +302,7 @@ class _EditPageState extends ConsumerState<EditPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  // todo Anti-Pattern auflösen
   // Speichert den Eintrag und springt dann zur Detailansicht.
   Future<void> _handleSave() async {
     // Busy-Check
@@ -335,6 +339,7 @@ class _EditPageState extends ConsumerState<EditPage> {
     Navigator.of(context).pop(modified);
   }
 
+  // todo Anti-Pattern auflösen
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
   Future<void> _handleDeleteEntry() async {
     // Busy-Check
