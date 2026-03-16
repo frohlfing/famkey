@@ -35,10 +35,8 @@ class EditNotifier extends Notifier<EditState> {
   // --- Interne Variablen (nicht reaktiv, nicht UI‑relevant) ---
   // ------------------------------------------------------------------------
 
-  /// Objekt rund um HTTP-Anfragen
-  ///
-  /// Wird zum Download des Favicons benötigt
-  final Dio _dio = Dio(); // todo warum nicht nur in der Funktion anlegen? Hat das irgendwelche Vorteile, es hier anzulegen?
+  /// Objekt für HTTP-Anfragen (wird hier zum Download des Favicons benötigt)
+  final Dio _dio = Dio();
 
   /// Die aktuell geladene Datenbank-Entität. Ist null bei einem neuen Eintrag.
   EntryEntity? _entry;
@@ -47,9 +45,6 @@ class EditNotifier extends Notifier<EditState> {
   ///
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
-
-  /// Speichert den ursprünglichen Zustand des Eintrags, um beim Abbrechen Änderungen zu erkennen (Dirty-Check).
-  EntryPayload? _originalPayload; // todo evtl. State _orig; verwenden (einheitliches Pattern)
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -73,10 +68,10 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Lädt entweder einen bestehenden Eintrag oder bereitet die Maske für eine Neuanlage vor.
   Future<void> load(int? id) async {
-    // todo Parameter validieren
+    if (state.isBusy) return;
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // Status auf loading setzen
+    state = state.copyWith(status: EditActionStatus.loading, error: FormError.none());
 
     try {
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
@@ -88,7 +83,11 @@ class EditNotifier extends Notifier<EditState> {
       if (id != null) {
         // Edit-Modus
         _entry = await _databaseService.getEntry(id);
-        if (_entry == null) throw Exception('Eintrag $id zum Laden nicht gefunden.');
+        if (_entry == null) {
+          // Parameter user ist nicht korrekt!
+          state = state.copyWith(error: FormError(ErrorCode.valueInvalid, text: 'Eintrag $id zum Laden nicht gefunden.'));
+          return;
+        }
 
         // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
         final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
@@ -100,76 +99,61 @@ class EditNotifier extends Notifier<EditState> {
         final decrypted = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
         final jsonStr = utf8.decode(decrypted);
         final payload = EntryPayload.fromJson(json.decode(jsonStr));
-        _originalPayload = payload;
 
         // UI-State aktualisieren
         state = state.copyWith(
-          isEditMode: true,
           entryId: _entry!.id,
           category: payload.category,
           title: payload.title,
           username: payload.username,
           password: payload.password,
+          passwordStrength: _passwordService.estimateStrength(payload.password),
           url: payload.url,
           notes: payload.notes,
+          originalPayload: payload,
+          status: EditActionStatus.loadSuccess,
         );
 
       } else {
         // Insert-Modus -> Payload ind alle UI-Felder leeren
-        _originalPayload = null;
         state = state.copyWith(
-          isEditMode: false,
           entryId: 0,
           category: '',
           title: '',
           username: '',
           password: '',
+          passwordStrength: 0,
           url: '',
           notes: '',
+          originalPayload: null,
+          status: EditActionStatus.loadSuccess,
         );
       }
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Dirty-Check ---
-  // ------------------------------------------------------------------------
-
-  // todo gehört in den State
-  /// Gibt an, ob der Benutzer ein Feld verändert hat.
-  bool isDirty() {
-    return state.category != (_originalPayload?.category ?? '') ||
-        state.title != (_originalPayload?.title ?? '') ||
-        state.username != (_originalPayload?.username ?? '') ||
-        state.password != (_originalPayload?.password ?? '') ||
-        state.url != (_originalPayload?.url ?? '') ||
-        state.notes != (_originalPayload?.notes ?? '');
   }
 
   // ------------------------------------------------------------------------
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
-  // todo nur void zurückgeben
   /// Speichert den aktuellen Eintrag in der Datenbank.
   /// Verschlüsselt dabei alle sensiblen Felder.
-  Future<bool> save() async {
-    // Validierung der Benutzereingabe
+  Future<void> save() async {
+    if (state.isBusy) return;
+
+    // Benutzereingabe validieren
     if (state.title.isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'title'));
-      return false;
+      return;
     }
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // Status auf saving setzen
+    final status = state.isEditMode ? EditActionStatus.updating : EditActionStatus.creating;
+    state = state.copyWith(status: status, error: FormError.none());
 
     try {
       // 1. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
@@ -177,7 +161,7 @@ class EditNotifier extends Notifier<EditState> {
 
       // 2. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
-      if (state.url.isNotEmpty && (_originalPayload == null || state.url != _originalPayload!.url)) {
+      if (state.url.isNotEmpty && (state.originalPayload == null || state.url != state.originalPayload!.url)) {
         final icon = await _downloadFavicon(state.url);
         if (icon != null) favicon = icon;
       }
@@ -216,20 +200,15 @@ class EditNotifier extends Notifier<EditState> {
       _entry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
       // 6. State aktualisieren
-      state = state.copyWith(isEditMode: true, entryId: _entry!.id);
-
-      // 7. Den Original-Stand für Dirty-Check aktualisieren
-      _originalPayload = payload;
-      return true;
+      state = state.copyWith(
+        entryId: _entry!.id,
+        originalPayload: payload,
+        status: EditActionStatus.saveSuccess,
+      );
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -248,39 +227,33 @@ class EditNotifier extends Notifier<EditState> {
   // --- Löschen ---
   // ------------------------------------------------------------------------
 
-  // todo nur void zurückgeben
   /// Löscht den aktuellen Eintrag.
-  Future<bool> deleteEntry() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> deleteEntry() async {
+    if (state.isBusy) return;
+
+    // Status auf deleting setzen
+    state = state.copyWith(status: EditActionStatus.deleting, error: FormError.none());
 
     try {
       // Eintrag löschen
       if (_entry == null) throw Exception('Kein Eintrag zum Löschen geladen.');
       await _databaseService.deleteEntry(_entry!.id);
       _entry = null;
-      _originalPayload = null;
 
       // UI-Felder leeren
       state = state.copyWith(
-        isEditMode: false,
         category: '',
         title: '',
         username: '',
         password: '',
         url: '',
         notes: '',
+        originalPayload: null,
       );
-      return true;
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -327,7 +300,11 @@ class EditNotifier extends Notifier<EditState> {
   /// Setter für das Passwort des Eintrags.
   void setPassword(String value) {
     final error = state.error.field == 'password' ? FormError.none() : null;
-    state = state.copyWith(password: value, error: error);
+    state = state.copyWith(
+        password: value,
+        passwordStrength: _passwordService.estimateStrength(value),
+        error: error,
+    );
   }
 
   /// Setter für die URL des Eintrags.
@@ -340,17 +317,5 @@ class EditNotifier extends Notifier<EditState> {
   void setNotes(String value) {
     final error = state.error.field == 'notes' ? FormError.none() : null;
     state = state.copyWith(notes: value.trim(), error: error);
-  }
-
-  // todo in State
-  /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
-  int getPasswordStrength() {
-    return _passwordService.estimateStrength(state.password);
-  }
-
-  // todo in State
-  /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
-  String? getFieldErrorText(String field) {
-    return state.error.field == field ? state.error.text : null;
   }
 }

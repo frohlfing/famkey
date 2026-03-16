@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/edit/edit_notifier.dart';
+import 'package:privault/features/edit/edit_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
@@ -51,15 +52,6 @@ class _EditPageState extends ConsumerState<EditPage> {
       // Daten laden
       final notifier = ref.read(editProvider.notifier);
       await notifier.load(widget.entryId);
-
-      // Textfelder synchronisieren
-      final state = ref.read(editProvider);
-      _categoryController.text = state.category;
-      _titleController.text = state.title;
-      _usernameController.text = state.username;
-      _passwordController.text = state.password;
-      _urlController.text = state.url;
-      _notesController.text = state.notes;
     });
   }
 
@@ -75,20 +67,6 @@ class _EditPageState extends ConsumerState<EditPage> {
     super.dispose();
   }
 
-  // todo Diese Logik ist noch von der Portierung von setState() zu Riverpod übrig. Kann das raus?
-  // /// Diese Methode stellt sicher, dass die Textfelder (insbesondere für Passwort und
-  // /// Kategorie) aktualisiert werden, wenn diese Werte durch Logik im ViewModel (z.B.
-  // /// den Generator) geändert werden.
-  // void _onViewModelChanged() {
-  //   if (!mounted) return;
-  //   if (_passwordController.text != _viewModel.password) {
-  //     _passwordController.text = _viewModel.password;
-  //   }
-  //   if (_categoryController.text != _viewModel.category) {
-  //     _categoryController.text = _viewModel.category;
-  //   }
-  // }
-
   // ------------------------------------------------------------------------
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
@@ -96,15 +74,54 @@ class _EditPageState extends ConsumerState<EditPage> {
   /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
-    // Notifier und State holen
+
+    // Listener für Side-Effects (Navigation, SnackBars)
+    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    ref.listen(editProvider.select((s) => s.status), (previous, next) {
+      if (next == EditActionStatus.saveSuccess) {
+        Snack.show(context, 'Gespeichert!');
+        final entryId = ref.read(editProvider).entryId;
+
+        // Entscheiden, wohin navigiert wird
+        if (previous == EditActionStatus.updating) {
+          Navigator.of(context).pop(true); // Zurück zur Detailseite
+        }
+
+        else {
+          // Diese Seite wurde direkt von der Hauptseite aufgerufen (die Detailansicht wurde "übersprungen").
+          // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
+          Navigator.of(context).pushReplacementNamed('/detail', arguments: entryId, result: true);
+        }
+      }
+
+      else if (next == EditActionStatus.deleteSuccess) {
+        Snack.show(context, 'Gelöscht!');
+        Navigator.of(context)..pop()..pop(true); // Zurück zur Detailansicht und weiter zurück zur Hauptansicht
+      }
+
+      else if (next == EditActionStatus.failure) {
+        final error = ref.read(editProvider).error;
+        if (error.field == null) { // Nur allgemeine Fehler anzeigen
+          Snack.show(context, error.text);
+        }
+      }
+    });
+
+    // Listener, der die Controller nur bei Initialladung oder Generierung füllt
+    ref.listen(editProvider, (previous, next) {
+      if (_categoryController.text != next.category) _categoryController.text = next.category;
+      if (_titleController.text != next.title) _titleController.text = next.title;
+      if (_usernameController.text != next.username) _usernameController.text = next.username;
+      if (_passwordController.text != next.password) _passwordController.text = next.password;
+      if (_urlController.text != next.url) _urlController.text = next.url;
+      if (_notesController.text != next.notes) _notesController.text = next.notes;
+    });
+
+    // Gezielte `watches` für maximale Performance
     final notifier = ref.read(editProvider.notifier);
-    final state = ref.watch(editProvider); // todo besser in Consumer-Widget aufteilen
-
-    final displayTitle = state.title.isEmpty ? (state.isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : state.title;
-
-    // Wenn Passwort oder Kategorie im Notifier geändert wurden (z.B. Generator),
-    // synchronisieren wir die Controller.
-    //_syncControllers(state);  todo kann das raus?
+    final isBusy = ref.watch(editProvider.select((s) => s.isBusy));
+    final isEditMode = ref.watch(editProvider.select((s) => s.isEditMode));
+    final displayTitle = ref.watch(editProvider.select((s) => s.displayTitle));
 
     return Stack(
       children: [
@@ -114,14 +131,14 @@ class _EditPageState extends ConsumerState<EditPage> {
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: _handleCancel,
+              onPressed: isBusy ? null : _handleCancel,
               tooltip: "Zurück",
             ),
             actions: [
               IconButton(
                 tooltip: 'Speichern',
                 icon: const Icon(Icons.check),
-                onPressed: _handleSave,
+                onPressed: isBusy ? null : notifier.save,
               ),
             ],
           ),
@@ -133,121 +150,151 @@ class _EditPageState extends ConsumerState<EditPage> {
               children: [
 
                 // --- Kategorie ---
-                TextField(
-                  controller: _categoryController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Kategorie',
-                    prefixIcon: const Icon(Icons.label_outlined),
-                    errorText: notifier.getFieldErrorText('category'), // todo sollte nur hören auf: state.error.field == 'category' ? state.error.text : null,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: state.existingCategories.isNotEmpty
-                        ? PopupMenuButton<String>(
-                            icon: const Icon(Icons.filter_list),
-                            onSelected: (val) {
-                              notifier.setCategory(val);
-                              _categoryController.text = val;
-                            },
-                            itemBuilder: (context) => state.existingCategories.map((c) => PopupMenuItem(value: c, child: Text(c))).toList(),
-                          )
-                        : null,
-                  ),
-                  onChanged: notifier.setCategory,
+                Consumer(
+                  builder: (context, ref, _) {
+                    // state.existingCategories beobachten -> wenn sich dieser Wert ändert, wird das Consumer-Widget neu gerendert
+                    final existingCategories = ref.watch(editProvider.select((s) => s.existingCategories));
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'category' ? state.error.text : null));
+                    return TextField(
+                      controller: _categoryController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Kategorie',
+                        prefixIcon: const Icon(Icons.label_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: existingCategories.isNotEmpty ? PopupMenuButton<String>(
+                          icon: const Icon(Icons.filter_list),
+                          onSelected: (val) {
+                            notifier.setCategory(val);
+                            _categoryController.text = val;
+                          },
+                          itemBuilder: (context) => existingCategories.map((c) => PopupMenuItem(value: c, child: Text(c))).toList(),
+                        ) : null,
+                      ),
+                      onChanged: notifier.setCategory,
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // --- Titel ---
-                TextField(
-                  controller: _titleController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Titel',
-                    prefixIcon: const Icon(Icons.title_outlined),
-                    errorText: notifier.getFieldErrorText('title'), // todo!
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setTitle,
+                Consumer(
+                  builder: (context, ref, _) {
+                    // errorText für Feld 'title' beobachten -> wenn sich dieser Wert ändert, wird das Consumer-Widget neu gerendert
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'title' ? state.error.text : null));
+                    return TextField(
+                      controller: _titleController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Titel',
+                        prefixIcon: const Icon(Icons.title_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setTitle,
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // --- Benutzername ---
-                TextField(
-                  controller: _usernameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Benutzername',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    errorText: notifier.getFieldErrorText('username'), // todo!
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setUsername,
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'username' ? state.error.text : null));
+                    return TextField(
+                      controller: _usernameController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Benutzername',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setUsername,
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // --- Passwort ---
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    PasswordField(
-                      controller: _passwordController,
-                      label: 'Passwort',
-                      prefixIcon: Icons.key_outlined,
-                      errorText: notifier.getFieldErrorText('password'), // todo!
-                      suffixActions: [
-                        IconButton(
-                          icon: const Icon(Icons.casino),
-                          tooltip: 'Passwort generieren',
-                          onPressed: notifier.generatePassword,
+                Consumer(
+                  builder: (context, ref, _) {
+                    final password = ref.watch(editProvider.select((s) => s.password));
+                    final passwordStrength = ref.watch(editProvider.select((s) => s.passwordStrength));
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        PasswordField(
+                          controller: _passwordController,
+                          label: 'Passwort',
+                          prefixIcon: Icons.key_outlined,
+                          errorText: errorText,
+                          suffixActions: [
+                            IconButton(
+                              icon: const Icon(Icons.casino),
+                              tooltip: 'Passwort generieren',
+                              onPressed: isBusy ? null : notifier.generatePassword,
+                            ),
+                          ],
+                          onChanged: notifier.setPassword,
                         ),
+                        const SizedBox(height: 6),
+                        if (password.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: PasswordStrengthBar(score: passwordStrength),
+                          ),
                       ],
-                      onChanged: notifier.setPassword,
-                    ),
-                    const SizedBox(height: 6),
-                    if (state.password.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: PasswordStrengthBar(
-                          score: notifier.getPasswordStrength(), // todo!
-                        ),
-                      ),
-                  ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // --- URL ---
-                TextField(
-                  controller: _urlController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'URL',
-                    prefixIcon: const Icon(Icons.public_outlined),
-                    errorText: notifier.getFieldErrorText('url'), // todo!
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setUrl,
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'url' ? state.error.text : null));
+                    return TextField(
+                      controller: _urlController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'URL',
+                        prefixIcon: const Icon(Icons.public_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setUrl,
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // --- Notizen ---
-                TextField(
-                  controller: _notesController,
-                  minLines: 3,
-                  maxLines: null,
-                  decoration: InputDecoration(
-                    labelText: 'Notizen',
-                    prefixIcon: const Icon(Icons.article_outlined),
-                    errorText: notifier.getFieldErrorText('notes'), // todo!
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setNotes,
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(editProvider.select((state) => state.error.field == 'notes' ? state.error.text : null));
+                    return TextField(
+                      controller: _notesController,
+                      minLines: 3,
+                      maxLines: null,
+                      decoration: InputDecoration(
+                        labelText: 'Notizen',
+                        prefixIcon: const Icon(Icons.article_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setNotes,
+                    );
+                  },
                 ),
-
                 const SizedBox(height: 32),
 
                 // --- Löschen-Button ---
-                if (state.isEditMode)
+                if (isEditMode)
                   ElevatedButton.icon(
-                    onPressed: _handleDeleteEntry,
+                    onPressed: isBusy ? null : _handleDeleteEntry,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade800,
                       foregroundColor: Colors.white,
@@ -261,7 +308,7 @@ class _EditPageState extends ConsumerState<EditPage> {
           ),
         ),
 
-        if (state.isBusy)
+        if (isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
@@ -274,17 +321,14 @@ class _EditPageState extends ConsumerState<EditPage> {
   // --- Handler ---
   // ------------------------------------------------------------------------
 
-  // todo Dieser Handler scheinen mir ein Anti-Pattern im Sinne von Riverpod zu sein. UI sollte dumm sein. Aber wie löst man das sauber?
-
-  // todo Anti-Pattern auflösen
-  // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
+  /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
     // Busy-Check
-    if (ref.read(editProvider).isBusy) return;
+    final state = ref.read(editProvider);
+    if (state.isBusy) return;
 
     // Änderungen speichern, wenn gewünscht
-    final notifier = ref.read(editProvider.notifier);
-    if (notifier.isDirty()) {
+    if (state.isDirty) {
       final confirmed = await ConfirmDialog.show(
         context,
         title: 'Eintrag speichern',
@@ -292,10 +336,10 @@ class _EditPageState extends ConsumerState<EditPage> {
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
-      if (confirmed == true && mounted) {
-        _handleSave();
-        return;
-      }
+      if (confirmed != true || !mounted) return;
+      final notifier = ref.read(editProvider.notifier);
+      notifier.save();
+      return;
     }
 
     // Zur vorherigen Seite navigieren
@@ -303,47 +347,11 @@ class _EditPageState extends ConsumerState<EditPage> {
   }
 
   // todo Anti-Pattern auflösen
-  // Speichert den Eintrag und springt dann zur Detailansicht.
-  Future<void> _handleSave() async {
-    // Busy-Check
-    if (ref.read(editProvider).isBusy) return;
-
-    // Speichern
-    final notifier = ref.read(editProvider.notifier);
-    final modified = notifier.isDirty();
-    final success = await notifier.save();
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(editProvider);
-
-    // Fehlerfall
-    // Hier bleiben, falls das Ergebnis einen Fehler enthält
-    if (!success) {
-      if (state.error.field == null) {
-        Snack.show(context, state.error.text);
-      }
-      return;
-    }
-
-    // Erfolgsfall
-    if (!state.isEditMode) {
-      // Diese Seite wurde von der Hauptseite aufgerufen.
-      // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
-      Navigator.of(context).pushReplacementNamed('/detail', arguments: state.entryId, result: modified);
-      return;
-    }
-
-    // Diese Seite wurde von der Detailansicht aufgerufen.
-    // Wir navigieren einfach wieder zurück.
-    Navigator.of(context).pop(modified);
-  }
-
-  // todo Anti-Pattern auflösen
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
   Future<void> _handleDeleteEntry() async {
     // Busy-Check
-    if (ref.read(editProvider).isBusy) return;
+    final state = ref.read(editProvider);
+    if (state.isBusy) return;
 
     // Sicherheitsabfrage
     final confirmed = await ConfirmDialog.show(
@@ -356,23 +364,6 @@ class _EditPageState extends ConsumerState<EditPage> {
 
     // Eintrag löschen
     final notifier = ref.read(editProvider.notifier);
-    final success = await notifier.deleteEntry();
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(editProvider);
-
-    // Fehlerfall
-    if (!success) {
-      if (state.error.field == null) {
-        Snack.show(context, state.error.text);
-      }
-      return;
-    }
-
-    // Erfolgsfall
-    // Das Löschen ist nur im Editiermodus möglich, d.h., diese Seite wurde von der Detailansicht aufgerufen.
-    // Wir navigieren zurück zur Detailansicht und weiter zurück zur Hauptansicht.
-    Navigator.of(context)..pop()..pop(true);
+    notifier.deleteEntry();
   }
 }
