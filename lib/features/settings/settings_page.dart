@@ -39,12 +39,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _categoryPlaceholderController = TextEditingController();
 
   // ------------------------------------------------------------------------
-  // --- Interne Variablen ---
-  // ------------------------------------------------------------------------
-
-  // todo
-
-  // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 

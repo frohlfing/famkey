@@ -8,6 +8,9 @@ enum ErrorCode {
   /// Eingabe erforderlich
   valueRequired,
 
+  /// Eingabe ungültig
+  valueInvalid,
+
   /// Validierungsfehler
   validationFailed,
 
@@ -94,6 +97,7 @@ extension ErrorCodeExtension on ErrorCode {
       // --- Allgemeines ---
       case ErrorCode.none: return '';
       case ErrorCode.valueRequired: return 'Eingabe erforderlich';
+      case ErrorCode.valueInvalid: return 'Eingabe ungültig';
       case ErrorCode.validationFailed: return 'Bitte korrigiere die markierten Eingabefelder.';
 
       // --- Tresor ---

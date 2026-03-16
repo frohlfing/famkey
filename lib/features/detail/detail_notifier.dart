@@ -1,3 +1,5 @@
+//@formatter:off
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -47,21 +49,15 @@ class DetailNotifier extends Notifier<DetailState> {
   /// Die aktuell geladene Datenbank-Entität.
   EntryEntity? _entry;
 
-  /// Der entschlüsselte 32-Byte AES-Schlüssel für diesen spezifischen Eintrag.
+  /// Der entpackte 32-Byte AES-Schlüssel für diesen spezifischen Eintrag.
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
-
-  /// Liste der Dateianhänge
-  List<AttachmentEntity> _attachments = []; // todo auch im State
 
   /// Meta-Daten der Anhänge
   final Map<String, AttachmentMetaPayload> _attachmentMetas = {};
 
   /// Vollständige Freundesliste der lokalen Datenbank
   List<UserEntity> _friends = [];
-
-  /// Liste der Freunde mit Zugriff auf diesen Eintrag
-  List<UserEntity> _sharedFriends = []; // todo auch im State
 
   /// Zugriffsstufen der Freunde
   final Map<int, int> _friendAccessLevels = {};
@@ -128,9 +124,11 @@ class DetailNotifier extends Notifier<DetailState> {
       await _loadAttachments();
       await _loadSharedFriends();
       await _loadFriends();
+
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -164,33 +162,34 @@ class DetailNotifier extends Notifier<DetailState> {
 
   /// Lädt und entschlüsselt die Metadaten aller Anhänge (Lazy Loading).
   Future<void> _loadAttachments() async {
-    _attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
+    final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
     _attachmentMetas.clear();
 
-    for (var att in _attachments) {
+    for (var att in attachments) {
       final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
       _attachmentMetas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
     }
 
-    state = state.copyWith(attachments: _attachments);
+    state = state.copyWith(attachments: attachments);
   }
 
-  // todo
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
   Future<bool> addAttachment() async {
-    if (_entry == null || _entryKey == null) return false;
-
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
+      if (_entry == null) throw Exception('Kein Eintrag zum Anhängen einer Datei geladen.');
+      if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
+
+      // Datei auswählen
       final result = await FilePicker.platform.pickFiles(withData: true);
       if (result == null || result.files.isEmpty) return false;
       final file = result.files.first;
       final bytes = file.bytes!;
       final mimeType = _getMimeType(file.name);
 
-      // Thumbnail erzeugen falls Bild
+      // Thumbnail erzeugen (wenn es ein Bild ist)
       String? thumbnailBase64;
       if (mimeType.startsWith('image/')) {
         // compute lagert eine Berechnung in einen separaten Worker-Thread aus.
@@ -220,10 +219,11 @@ class DetailNotifier extends Notifier<DetailState> {
         isSynced: false,
       ));
 
-      // 4. Haupteintrag aktualisieren (für Sync-Trigger)
+      // 4. Zeitstempel des Eintrags aktualisieren
       _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
       await _databaseService.saveEntry(_entry!);
 
+      // 5. State aktualisieren
       await _loadAttachments();
       return true;
 
@@ -238,17 +238,16 @@ class DetailNotifier extends Notifier<DetailState> {
     }
   }
 
-  // todo
   /// Entschlüsselt einen Anhang und öffnet ihn mit der System-App.
   Future<bool> openAttachment(AttachmentEntity attachment) async {
-    if (_entryKey == null) return false;
-
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
+      if (_entry == null) throw Exception('Kein Eintrag zum Öffnen des Anhangs geladen.');
+      if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
       final meta = _attachmentMetas[attachment.uuid];
-      if (meta == null) throw Exception("Metadaten fehlen");
+      if (meta == null) throw Exception("Metadaten des Anhangs ${attachment.uuid} fehlen");
 
       // Inhalt entschlüsseln
       final decryptedContent = await _cryptoService.decrypt(attachment.encryptedContent, _entryKey!);
@@ -266,7 +265,7 @@ class DetailNotifier extends Notifier<DetailState> {
           try {
             if (await tempFile.exists()) {
               await tempFile.delete();
-              Logger().debug('🔐 Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
+              Logger().debug('Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
               break;
             }
           } catch (e) {
@@ -290,7 +289,6 @@ class DetailNotifier extends Notifier<DetailState> {
     }
   }
 
-  // todo
   /// Löscht einen spezifischen Anhang.
   Future<bool> deleteAttachment(AttachmentEntity attachment) async {
     // Busy setzen, Fehler zurücksetzen
@@ -300,10 +298,12 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.deleteAttachment(attachment.id);
       await _loadAttachments();
       return true;
+
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -380,24 +380,17 @@ class DetailNotifier extends Notifier<DetailState> {
     // @formatter:on
   }
 
-  // todo
   /// Ermittelt den Datei-Typ basierend auf Dateiendung oder MIME-Typ (Portiert aus MAUI).
   String getIconType(String filename, String mimeType) {
     final file = filename.toLowerCase();
-    if (file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".jpeg") || file.endsWith(".gif") || file.endsWith(".bmp") || file.endsWith(".webp")) {
-      return "image";
-    }
+    if (file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".jpeg") || file.endsWith(".gif") || file.endsWith(".bmp") || file.endsWith(".webp")) return "image";
     if (file.endsWith(".pdf")) return "pdf";
     if (file.endsWith(".doc") || file.endsWith(".docx")) return "word";
     if (file.endsWith(".ppt") || file.endsWith(".pptx")) return "slides";
     if (file.endsWith(".xls") || file.endsWith(".xlsx") || file.endsWith(".csv")) return "excel";
     if (file.endsWith(".vcf")) return "vcard";
-    if (file.endsWith(".mp3") || file.endsWith(".wav") || file.endsWith(".flac") || file.endsWith(".aac") || file.endsWith(".ogg")) {
-      return "audio";
-    }
-    if (file.endsWith(".mp4") || file.endsWith(".avi") || file.endsWith(".mov") || file.endsWith(".mkv") || file.endsWith(".webm")) {
-      return "video";
-    }
+    if (file.endsWith(".mp3") || file.endsWith(".wav") || file.endsWith(".flac") || file.endsWith(".aac") || file.endsWith(".ogg")) return "audio";
+    if (file.endsWith(".mp4") || file.endsWith(".avi") || file.endsWith(".mov") || file.endsWith(".mkv") || file.endsWith(".webm")) return "video";
     if (file.endsWith(".zip") || file.endsWith(".rar") || file.endsWith(".tar") || file.endsWith(".7z")) return "archive";
     if (file.endsWith(".txt") || file.endsWith(".md")) return "text";
 
@@ -416,7 +409,6 @@ class DetailNotifier extends Notifier<DetailState> {
     return "generic";
   }
 
-  // todo
   /// Formatiert Byte-Größen in lesbare Einheiten (KB, MB, GB).
   String formatSize(int bytes) {
     const scale = 1024;
@@ -440,18 +432,20 @@ class DetailNotifier extends Notifier<DetailState> {
     _friends = allUsers.where((u) => u.id > 1 && !u.isHidden).toList();
   }
 
-  // todo
   /// Teilt den Eintrag mit einem Freund.
   Future<bool> shareWith(UserEntity targetUser) async {
-    if (_entry == null || _entryKey == null) return false;
-
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
-      final existing = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, targetUser.id);
+      if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
+      if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
 
-      if (existing == null) {
+      // 1. Aktuelle Berechtigungen des Freundes auf diesen Eintrag aus der Datenbank laden
+      final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, targetUser.id);
+
+      // 2. Berechtigungen aktualisieren und in der Datenbank speichern
+      if (perm == null) {
         // Neues Zugriffsrecht: Entry-Key mit RSA-PubKey des Empfängers verschlüsseln
         final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
         await _databaseService.savePermission(PermissionEntity(
@@ -463,60 +457,83 @@ class DetailNotifier extends Notifier<DetailState> {
         ));
       } else {
         // Bestehendes (ggf. entzogenes) Recht reaktivieren
-        String encryptedEntryKey = existing.encryptedKey;
+        String encryptedEntryKey = perm.encryptedKey;
         if (encryptedEntryKey.isEmpty) {
           encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, targetUser.publicKey);
         }
-        await _databaseService.savePermission(existing.copyWith(accessLevel: 1, encryptedKey: encryptedEntryKey));
+        await _databaseService.savePermission(perm.copyWith(accessLevel: 1, encryptedKey: encryptedEntryKey));
       }
 
+      // 3. Zeitstempel des Eintrags aktualisieren
       _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
       await _databaseService.saveEntry(_entry!);
+
+      // 4. State aktualisieren
       await _loadSharedFriends();
       return true;
+
     } catch (e, st) {
       Logger().fatal('Fehler beim Teilen: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
     }
   }
 
-  // todo
   /// Aktualisiert die Berechtigungsstufe eines Freundes.
   Future<bool> updateAccessLevel(UserEntity user, int newLevel) async {
-    if (_entry == null || _entryKey == null) return false;
+    // Validierung der Parameter
+    if (newLevel < 0 || newLevel > 2) {
+      // 2 = Lesen und Schreiben is ok, aber 3 = Vollzugriff ist hier nicht erlaubt
+      state = state.copyWith(error: FormError(ErrorCode.valueInvalid));
+      return false;
+    }
 
     // Busy setzen, Fehler zurücksetzen
     state = state.copyWith(isBusy: true, error: FormError.none());
 
     try {
+      if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
+      if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
+
+      // 1. Aktuelle Berechtigungen des Freundes auf diesen Eintrag aus der Datenbank laden
       final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, user.id);
-      if (perm != null && perm.accessLevel != newLevel) {
-        // Limit auf max Level 2 (wie in MAUI)
-        final effectiveLevel = newLevel < 3 ? newLevel : 2; // Max Level 2 beim Teilen
-
-        String encKey = perm.encryptedKey;
-        if (effectiveLevel == 0) {
-          encKey = ""; // Key löschen bei Rechteentzug
-        } else if (encKey.isEmpty) {
-          encKey = await _cryptoService.encryptRsa(_entryKey!, user.publicKey);
-        }
-
-        await _databaseService.savePermission(perm.copyWith(accessLevel: effectiveLevel, encryptedKey: encKey));
-
-        _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
-        await _databaseService.saveEntry(_entry!);
-        await _loadSharedFriends();
+      if (perm != null) {
+        // Parameter user ist nicht korrekt!
+        state = state.copyWith(error: FormError(ErrorCode.valueInvalid, text: 'Eintrag ${_entry!.id} wird nicht mit Freund ${user.name} geteilt. Berechtigung kann nicht geändert werden.'));
+        return false;
       }
 
+      // Trivial-Check: keine Änderung?
+      if (perm!.accessLevel == newLevel) return true; // keine Änderung -> Operation erfolgreich!
+
+      // 2. Entry-Key löschen bzw. neu generieren, falls erforderlich
+      String encKey = perm.encryptedKey;
+      if (newLevel == 0) {
+        encKey = ''; // Key löschen bei Rechteentzug
+      } else if (encKey.isEmpty) {
+        encKey = await _cryptoService.encryptRsa(_entryKey!, user.publicKey);
+      }
+
+      // 3. Zugriffsrecht und Entry-Key in der Datenbank speichern
+      await _databaseService.savePermission(perm.copyWith(accessLevel: newLevel, encryptedKey: encKey));
+
+      // 4. Zeitstempel des Eintrags aktualisieren
+      _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
+      await _databaseService.saveEntry(_entry!);
+
+      // 5. State aktualisieren
+      await _loadSharedFriends();
       return true;
+
     } catch (e, st) {
       Logger().fatal('Rechte konnten nicht geändert werden: $e', stack: st);
       state = state.copyWith(error: FormError(ErrorCode.unknown));
       return false;
+
     } finally {
       // Busy zurücksetzen
       state = state.copyWith(isBusy: false);
@@ -530,17 +547,14 @@ class DetailNotifier extends Notifier<DetailState> {
 
   /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
   Future<void> _loadSharedFriends() async {
-    if (_entry == null) return; // todo
-
+    // Aktuelle Berechtigungen laden
     final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
 
+    // Freundesliste und Mapping-Tabelle für die Zugriffsrechte aktualisieren
     List<UserEntity> shared = [];
     _friendAccessLevels.clear();
-
     for (var p in permissions) {
-      if (p.userId == 1) continue;
-      if (p.accessLevel == 0) continue;
-
+      if (p.userId == 1 || p.accessLevel == 0) continue;
       final friend = await _databaseService.getUser(p.userId);
       if (friend != null) {
         shared.add(friend);
@@ -548,9 +562,8 @@ class DetailNotifier extends Notifier<DetailState> {
       }
     }
 
-    _sharedFriends = shared;
-
-    state = state.copyWith( // todo
+    // State aktualisieren
+    state = state.copyWith(
       sharedFriends: shared,
       canEdit: _myAccessLevel >= 2,
       canManageShares: _myAccessLevel >= 3,
@@ -599,7 +612,7 @@ class DetailNotifier extends Notifier<DetailState> {
 
   /// Liste der Freunde, mit denen der Eintrag noch nicht geteilt wurde.
   List<UserEntity> getUnsharedFriends() {
-    final sharedIds = _sharedFriends.map((u) => u.id).toSet();
+    final sharedIds = state.sharedFriends.map((u) => u.id).toSet();
     return _friends.where((u) => u.id != 1 && !sharedIds.contains(u.id)).toList();
   }
 

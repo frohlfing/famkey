@@ -86,7 +86,7 @@ class EditNotifier extends Notifier<EditState> {
       if (id != null) {
         // Edit-Modus
         _entry = await _databaseService.getEntry(id);
-        if (_entry == null) throw Exception('Eintrag $id konnte nicht gefunden werden.');
+        if (_entry == null) throw Exception('Eintrag $id zum Laden nicht gefunden.');
 
         // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
         final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
