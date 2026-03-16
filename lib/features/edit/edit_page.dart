@@ -346,7 +346,6 @@ class _EditPageState extends ConsumerState<EditPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  // todo Anti-Pattern auflösen
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
   Future<void> _handleDeleteEntry() async {
     // Busy-Check
