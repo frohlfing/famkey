@@ -242,12 +242,12 @@ class _EditPageState extends ConsumerState<EditPage> {
                           ],
                           onChanged: notifier.setPassword,
                         ),
-                        const SizedBox(height: 6),
-                        if (password.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: PasswordStrengthBar(score: passwordStrength),
-                          ),
+                        //const SizedBox(height: 6),
+                        //if (password.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: PasswordStrengthBar(score: passwordStrength),
+                        ),
                       ],
                     );
                   },

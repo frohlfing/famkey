@@ -70,8 +70,8 @@ class EditNotifier extends Notifier<EditState> {
   Future<void> load(int? id) async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
-    state = state.copyWith(status: EditActionStatus.loading, error: FormError.none());
+    // Status zurücksetzen
+    state = const EditState().copyWith(status: EditActionStatus.loading, error: FormError.none());
 
     try {
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
@@ -146,7 +146,7 @@ class EditNotifier extends Notifier<EditState> {
     if (state.isBusy) return;
 
     // Benutzereingabe validieren
-    if (state.title.isEmpty) {
+    if (state.title.trim().isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'title'));
       return;
     }
@@ -161,19 +161,19 @@ class EditNotifier extends Notifier<EditState> {
 
       // 2. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
-      if (state.url.isNotEmpty && (state.originalPayload == null || state.url != state.originalPayload!.url)) {
-        final icon = await _downloadFavicon(state.url);
+      if (state.url.trim().isNotEmpty && (state.originalPayload == null || state.url != state.originalPayload!.url)) {
+        final icon = await _downloadFavicon(state.url.trim());
         if (icon != null) favicon = icon;
       }
 
       // 3. Payload bauen und verschlüsseln (AES)
       final payload = EntryPayload(
-        category: state.category,
-        title: state.title,
-        username: state.username,
+        category: state.category.trim(),
+        title: state.title.trim(),
+        username: state.username.trim(),
         password: state.password,
-        url: state.url,
-        notes: state.notes,
+        url: state.url.trim(),
+        notes: state.notes.trim(),
         favicon: favicon,
       );
 
@@ -187,10 +187,10 @@ class EditNotifier extends Notifier<EditState> {
       final entity = EntryEntity(
         id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
-        category: state.category,
-        title: state.title,
-        url: state.url,
-        notes: state.notes,
+        category: state.category.trim(),
+        title: state.title.trim(),
+        url: state.url.trim(),
+        notes: state.notes.trim(),
         favicon: favicon,
         encryptedData: encryptedData,
         creatorId: _sessionService.user!.id,
@@ -282,19 +282,19 @@ class EditNotifier extends Notifier<EditState> {
   /// Setter für die Kategorie.
   void setCategory(String value) {
     final error = state.error.field == 'category' ? FormError.none() : null;
-    state = state.copyWith(category: value.trim(), error: error);
+    state = state.copyWith(category: value, error: error);
   }
 
   /// Setter für den Titel des Eintrags.
   void setTitle(String value) {
     final error = state.error.field == 'title' ? FormError.none() : null;
-    state = state.copyWith(title: value.trim(), error: error);
+    state = state.copyWith(title: value, error: error);
   }
 
   /// Setter für den Benutzernamen des Eintrags.
   void setUsername(String value) {
     final error = state.error.field == 'username' ? FormError.none() : null;
-    state = state.copyWith(username: value.trim(), error: error);
+    state = state.copyWith(username: value, error: error);
   }
 
   /// Setter für das Passwort des Eintrags.
@@ -310,12 +310,12 @@ class EditNotifier extends Notifier<EditState> {
   /// Setter für die URL des Eintrags.
   void setUrl(String value) {
     final error = state.error.field == 'url' ? FormError.none() : null;
-    state = state.copyWith(url: value.trim(), error: error);
+    state = state.copyWith(url: value, error: error);
   }
 
   /// Setter für Notizen des Eintrags.
   void setNotes(String value) {
     final error = state.error.field == 'notes' ? FormError.none() : null;
-    state = state.copyWith(notes: value.trim(), error: error);
+    state = state.copyWith(notes: value, error: error);
   }
 }

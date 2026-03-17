@@ -65,26 +65,26 @@ class EditState {
   bool get isDirty {
     if (originalPayload == null) {
       // Neuer Eintrag
-      return category.isNotEmpty ||
-          title.isNotEmpty ||
-          username.isNotEmpty ||
+      return category.trim().isNotEmpty ||
+          title.trim().isNotEmpty ||
+          username.trim().isNotEmpty ||
           password.isNotEmpty ||
-          url.isNotEmpty ||
-          notes.isNotEmpty;
+          url.trim().isNotEmpty ||
+          notes.trim().isNotEmpty;
     }
-    return category != originalPayload!.category ||
-        title != originalPayload!.title ||
-        username != originalPayload!.username ||
-        password != originalPayload!.password ||
-        url != originalPayload!.url ||
-        notes != originalPayload!.notes;
+    return category.trim() != originalPayload!.category ||
+        title.trim() != originalPayload!.title ||
+        username.trim() != originalPayload!.username ||
+        password.trim() != originalPayload!.password ||
+        url.trim() != originalPayload!.url ||
+        notes.trim() != originalPayload!.notes;
   }
 
   /// Gibt an, ob die Ansicht im Edit- oder im Insert-Modus ist.
   bool get isEditMode => entryId > 0;
 
   /// Gibt den Titel für die AppBar zurück.
-  String get displayTitle => title.isEmpty ? (isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : title;
+  String get displayTitle => title.trim().isEmpty ? (isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag') : title.trim();
 
   /// Konstruktor
   const EditState({

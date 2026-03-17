@@ -163,17 +163,17 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Benutzername
                 Consumer(builder: (context, ref, _) {
                   final username = ref.watch(detailProvider.select((s) => s.username));
-                  if (username.isEmpty) return const SizedBox.shrink();
+                  //if (username.isEmpty) return const SizedBox.shrink();
                   return Column(
                     children: [
                       ListTile(
                         title: const Text('Benutzername'),
                         subtitle: Text(username),
-                        trailing: IconButton(
+                        trailing: username.isNotEmpty ? IconButton(
                           icon: const Icon(Icons.copy),
                           onPressed: () => _handleCopyToClipboard(username, 'Benutzername'),
                           tooltip: 'Benutzername kopieren',
-                        ),
+                        ) : null,
                       ),
                       const Divider(),
                     ],
@@ -183,16 +183,16 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Passwort
                 Consumer(builder: (context, ref, _) {
                   final password = ref.watch(detailProvider.select((s) => s.password));
-                  if (password.isEmpty) return const SizedBox.shrink();
+                  //if (password.isEmpty) return const SizedBox.shrink();
                   final passwordStrength = ref.watch(detailProvider.select((s) => s.passwordStrength));
                   return Column(
                     children: [
                       ListTile(
                         title: const Text('Passwort'),
-                        subtitle: Text(_obscurePassword ? '••••••••' : password),
+                        subtitle: Text(password.isNotEmpty && _obscurePassword ? '••••••••' : password),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
+                          children: password.isNotEmpty ? [
                             IconButton(
                               icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                               tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
@@ -203,13 +203,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                               onPressed: () => _handleCopyToClipboard(password, 'Passwort'),
                               tooltip: 'Passwort kopieren',
                             ),
-                          ],
+                          ] : [],
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: PasswordStrengthBar(score: passwordStrength),
-                      ),
+                      if (password.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: PasswordStrengthBar(score: passwordStrength),
+                        ),
                       const Divider(),
                     ],
                   );
@@ -218,17 +219,17 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // URL
                 Consumer(builder: (context, ref, _) {
                   final url = ref.watch(detailProvider.select((s) => s.url));
-                  if (url.isEmpty) return const SizedBox.shrink();
+                  //if (url.isEmpty) return const SizedBox.shrink();
                   return Column(
                     children: [
                       ListTile(
                         title: const Text('URL'),
                         subtitle: Text(url),
-                        trailing: IconButton(
+                        trailing: url.isNotEmpty ? IconButton(
                           icon: const Icon(Icons.open_in_new),
                           onPressed: notifier.openUrl,
                           tooltip: 'URL öffnen',
-                        ),
+                        ) : null,
                       ),
                       const Divider(),
                     ],
@@ -260,6 +261,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   if (!canManageAttachments && attachments.isEmpty) return const SizedBox.shrink();
                   final attachmentMetas = ref.watch(detailProvider.select((s) => s.attachmentMetas));
                   return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (canManageAttachments)
                         _buildSectionHeaderWithAction(

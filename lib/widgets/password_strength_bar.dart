@@ -15,7 +15,7 @@ class PasswordStrengthBar extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
-              value: (score + 1) / 5,
+              value: score / 4,
               backgroundColor: Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation<Color>(_getStrengthColor(score)),
               minHeight: 4,

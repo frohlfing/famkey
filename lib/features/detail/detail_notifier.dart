@@ -78,8 +78,8 @@ class DetailNotifier extends Notifier<DetailState> {
   Future<void> load(int id) async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    // Status zurücksetzen
+    state = const DetailState().copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       // 1. Eintrag aus Datenbank laden
