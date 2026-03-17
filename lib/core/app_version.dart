@@ -2,6 +2,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/sync_protocol.dart';
 import 'package:privault/database/database.dart';
 
+// todo evtl eine setup.dart, global.dart oder config.dart anlegen und dort diese Werte speichern
+
 /// Zentrale Versionierungsinformationen.
 ///
 /// Alle Werte stammen aus ihren jeweiligen Single Sources of Truth.

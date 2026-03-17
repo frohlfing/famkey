@@ -1,5 +1,7 @@
 import 'package:privault/core/app_error.dart';
 
+// todo löschen!
+
 /// Ein generisches Ergebnis-Objekt für Operationen im ViewModel oder Service.
 ///
 /// [T] ist der Typ der Daten, die im Erfolgsfall zurückgegeben werden.

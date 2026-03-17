@@ -5,6 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
 
+// todo mal mit, mal ohne await. Wo ist await nicht erforderlich?
+// todo was bedeutete die doppelte Cascade (`..where`)?
+
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
   // ------------------------------------------------------------------------
@@ -223,6 +226,12 @@ class DatabaseService {
   Future<List<UserEntity>> getUsers() async {
     _ensureDbInitialized();
     return await _db!.select(_db!.users).get();
+  }
+
+  /// Lädt alle Freunde, die nicht ausgeblendet sind.
+  Future<List<UserEntity>> getNotHiddenFriends() async {
+    _ensureDbInitialized();
+    return await (_db!.select(_db!.users)..where((u) => u.id.isBiggerThanValue(1) & u.isHidden.equals(false))).get();
   }
 
   /// Lädt einen Benutzer anhand seiner internen ID.

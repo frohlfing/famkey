@@ -4,14 +4,14 @@ import 'package:privault/models/payloads/entry_payload.dart';
 /// Ein Enum für den Status von Aktionen
 enum EditActionStatus {
   initial, // Der Ausgangszustand
-  loading, // load() wird ausgeführt
-  creating, // save() wird im Insert-Modus ausgeführt
-  updating, // save() wird im Edit-Modus ausgeführt
-  deleting, // delete() wird ausgeführt
-  loadSuccess,
-  saveSuccess,
-  deleteSuccess,
-  failure,
+  loading, // Eintrag wird geladen
+  creating, // Neuer Eintrag wird gespeichert
+  updating, // Bestehender Eintrag wird gespeichert
+  deleting, // Eintrag wird gelöscht
+  loadSuccess, // Eintrag wurde erfolgreich geladen     // todo umbenennen in loadSuccess oder loaded
+  saveSuccess, // Eintrag wurde erfolgreich gespeichert // todo umbenennen in loadSuccess oder saved
+  deleteSuccess, // Eintrag wurde erfolgreich gelöscht  // todo umbenennen in loadSuccess oder deleted
+  failure, // Aktion mit Fehler beendet
 }
 
 /// Der State beinhaltet alles, was die UI wissen muss.

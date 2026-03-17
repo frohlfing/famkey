@@ -1,8 +1,7 @@
-//@formatter:off
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
 import 'package:open_filex/open_filex.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/icon_helper.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
@@ -21,6 +21,7 @@ import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 final detailProvider = NotifierProvider<DetailNotifier, DetailState>(() {
@@ -53,18 +54,6 @@ class DetailNotifier extends Notifier<DetailState> {
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
 
-  /// Meta-Daten der Anhänge
-  final Map<String, AttachmentMetaPayload> _attachmentMetas = {};
-
-  /// Vollständige Freundesliste der lokalen Datenbank
-  List<UserEntity> _friends = [];
-
-  /// Zugriffsstufen der Freunde
-  final Map<int, int> _friendAccessLevels = {};
-
-  /// Die Zugriffsstufe des aktuellen Benutzers (1=Lesen, 2=Schreiben, 3=Besitzer).
-  int _myAccessLevel = 1;
-
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -87,18 +76,20 @@ class DetailNotifier extends Notifier<DetailState> {
 
   /// Lädt den Eintrag anhand seiner ID.
   Future<void> load(int id) async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       // 1. Eintrag aus Datenbank laden
       _entry = await _databaseService.getEntry(id);
       if (_entry == null) throw Exception("Eintrag nicht gefunden");
 
-      // 2. Berechtigung prüfen
+      // 2. Berechtigung laden
       final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
       if (perm == null) throw Exception("Keine Berechtigung für diesen Eintrag");
-      _myAccessLevel = perm.accessLevel;
+      final myAccessLevel = perm.accessLevel;
 
       // 3. Entry-Key mittels RSA entschlüsseln
       if (_sessionService.privateKey == null) throw Exception("Sitzungsschlüssel fehlt");
@@ -108,39 +99,56 @@ class DetailNotifier extends Notifier<DetailState> {
       final decryptedData = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
       final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
 
-      // 5. UI‑State aktualisieren
+      // 5. Audit-Hinweis generieren
+      final auditHint = await _createAuditHint();
+
+      // 6. Dateianhänge laden
+      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
+      final attachmentMetas = await _loadAttachmentMetas(attachments);
+
+      // 7. Freunde laden
+      // todo dies kann alles zusammen mit einer Datenbankabfrage zusammengefasst werden und in einer Map auf benannten Record gespeichert werden
+      final allFriends = await _databaseService.getNotHiddenFriends();
+      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
+      final sharedFriends = await _loadSharedFriends(permissions);
+      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+
+      // 8. Alles zusammen in den State schreiben
       state = state.copyWith(
-        title: payload.title,
+        // Stammdaten
         category: payload.category,
+        title: payload.title,
         username: payload.username,
         password: payload.password,
+        passwordStrength: _passwordService.estimateStrength(payload.password),
         url: payload.url,
         notes: payload.notes,
         favicon: _entry!.favicon,
+        auditHint: auditHint,
+        // Anhänge
+        attachments: attachments,
+        attachmentMetas: attachmentMetas,
+        // Freunde
+        allFriends: allFriends,
+        sharedFriends: sharedFriends,
+        friendAccessLevels: friendAccessLevels,
+        // Zugriffsrecht
+        myAccessLevel: myAccessLevel,
+        // Status
+        status: DetailActionStatus.success,
       );
-
-      // 6. Metadaten und Listen laden
-      await _updateAuditHint();
-      await _loadAttachments();
-      await _loadSharedFriends();
-      await _loadFriends();
-
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   // ------------------------------------------------------------------------
-  // --- Audit-Hinweis ---
+  // --- Stammdaten ---
   // ------------------------------------------------------------------------
 
-  /// Aktualisiert den Audit-Hinweis über Ersteller und letzte Änderung.
-  Future<void> _updateAuditHint() async {
+  /// Generiert einen Audit-Hinweis über Ersteller und letzte Änderung.
+  Future<String> _createAuditHint() async {
     var creator = "Unbekannt";
     var updater = "Unbekannt";
 
@@ -151,9 +159,28 @@ class DetailNotifier extends Notifier<DetailState> {
     if (uu != null) updater = uu.name;
 
     final dateStr = DateFormat("dd.MM.yyyy HH:mm:ss").format(_entry!.updatedAt.toLocal());
-    final hint = "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
 
-    state = state.copyWith(auditHint: hint);
+    return "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
+  }
+
+  /// Kopiert den Text in die Zwischenablage.
+  void copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+  }
+
+   /// Öffnet die URL in einem neuen Browser-Tab.
+  Future<void> openUrl() async {
+    if (state.url.isEmpty) return;
+    final uri = Uri.parse(state.url.startsWith('http') ? state.url : 'https://${state.url}');
+    try {
+      final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!success) {
+        state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown, text: 'Die URL konnte nicht geöffnet werden.'));
+      }
+    } catch (e, st) {
+      Logger().fatal('Fehler beim Öffnen der URL ${state.url}: $e', stack: st);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -161,22 +188,21 @@ class DetailNotifier extends Notifier<DetailState> {
   // ------------------------------------------------------------------------
 
   /// Lädt und entschlüsselt die Metadaten aller Anhänge (Lazy Loading).
-  Future<void> _loadAttachments() async {
-    final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
-    _attachmentMetas.clear();
-
+  Future<Map<String, AttachmentMetaPayload>> _loadAttachmentMetas(List<AttachmentEntity> attachments) async {
+    final metas = <String, AttachmentMetaPayload>{};
     for (var att in attachments) {
       final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
-      _attachmentMetas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
+      metas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
     }
-
-    state = state.copyWith(attachments: attachments);
+    return metas;
   }
 
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
-  Future<bool> addAttachment() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> addAttachment() async {
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Anhängen einer Datei geladen.');
@@ -184,10 +210,13 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // Datei auswählen
       final result = await FilePicker.platform.pickFiles(withData: true);
-      if (result == null || result.files.isEmpty) return false;
+      if (result == null || result.files.isEmpty) {
+        state = state.copyWith(status: DetailActionStatus.initial);
+        return;
+      }
       final file = result.files.first;
       final bytes = file.bytes!;
-      final mimeType = _getMimeType(file.name);
+      final mimeType = getMimeType(file.name);
 
       // Thumbnail erzeugen (wenn es ein Bild ist)
       String? thumbnailBase64;
@@ -224,29 +253,30 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 5. State aktualisieren
-      await _loadAttachments();
-      return true;
-
+      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
+      final attachmentMetas = await _loadAttachmentMetas(attachments);
+      state = state.copyWith(
+        attachments: attachments,
+        attachmentMetas: attachmentMetas,
+        status: DetailActionStatus.attachmentAdded,
+      );
     } catch (e, st) {
       Logger().fatal('Fehler beim Hinzufügen eines Anhangs: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   /// Entschlüsselt einen Anhang und öffnet ihn mit der System-App.
-  Future<bool> openAttachment(AttachmentEntity attachment) async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> openAttachment(AttachmentEntity attachment) async {
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Öffnen des Anhangs geladen.');
       if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
-      final meta = _attachmentMetas[attachment.uuid];
+      final meta = state.attachmentMetas[attachment.uuid];
       if (meta == null) throw Exception("Metadaten des Anhangs ${attachment.uuid} fehlen");
 
       // Inhalt entschlüsseln
@@ -276,37 +306,32 @@ class DetailNotifier extends Notifier<DetailState> {
         }
       });
 
-      return true;
-
+      state = state.copyWith(status: DetailActionStatus.success);
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   /// Löscht einen spezifischen Anhang.
-  Future<bool> deleteAttachment(AttachmentEntity attachment) async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> deleteAttachment(AttachmentEntity attachment) async {
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       await _databaseService.deleteAttachment(attachment.id);
-      await _loadAttachments();
-      return true;
-
+      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
+      final attachmentMetas = await _loadAttachmentMetas(attachments);
+      state = state.copyWith(
+        attachments: attachments,
+        attachmentMetas: attachmentMetas,
+        status: DetailActionStatus.attachmentDeleted,
+      );
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -339,103 +364,42 @@ class DetailNotifier extends Notifier<DetailState> {
     }
   }
 
-  /// Ermittelt den Datei-Typ basierend auf Dateiendung.
-  String _getMimeType(String filename) {
-    // @formatter:off
-    final ext = filename.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'jpg': return 'image/jpeg';
-      case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'bmp': return 'image/bmp';
-      case 'webp': return 'image/webp';
-      case 'pdf': return 'application/pdf';
-      case 'doc': return 'application/msword';
-      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'ppt': return 'application/vnd.ms-powerpoint';
-      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      case 'xls': return 'application/vnd.ms-excel';
-      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case 'csv': return 'text/csv';
-      case 'vcf': return 'text/vcard';
-      case 'mp3': return 'audio/mpeg';
-      case 'wav': return 'audio/wav';
-      case 'flac': return 'audio/flac';
-      case 'aac': return 'audio/aac';
-      case 'ogg': return 'audio/ogg';
-      case 'mp4': return 'video/mp4';
-      case 'avi': return 'video/x-msvideo';
-      case 'mov': return 'video/quicktime';
-      case 'mkv': return 'video/x-matroska';
-      case 'webm': return 'video/webm';
-      case 'zip': return 'application/zip';
-      case 'rar': return 'application/vnd.rar';
-      case 'tar': return 'application/x-tar';
-      case '7z': return 'application/x-7z-compressed';
-      case 'txt': return 'text/plain';
-      case 'md': return 'text/markdown';
-      default: return 'application/octet-stream';
-    }
-    // @formatter:on
-  }
-
-  /// Ermittelt den Datei-Typ basierend auf Dateiendung oder MIME-Typ (Portiert aus MAUI).
-  String getIconType(String filename, String mimeType) {
-    final file = filename.toLowerCase();
-    if (file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".jpeg") || file.endsWith(".gif") || file.endsWith(".bmp") || file.endsWith(".webp")) return "image";
-    if (file.endsWith(".pdf")) return "pdf";
-    if (file.endsWith(".doc") || file.endsWith(".docx")) return "word";
-    if (file.endsWith(".ppt") || file.endsWith(".pptx")) return "slides";
-    if (file.endsWith(".xls") || file.endsWith(".xlsx") || file.endsWith(".csv")) return "excel";
-    if (file.endsWith(".vcf")) return "vcard";
-    if (file.endsWith(".mp3") || file.endsWith(".wav") || file.endsWith(".flac") || file.endsWith(".aac") || file.endsWith(".ogg")) return "audio";
-    if (file.endsWith(".mp4") || file.endsWith(".avi") || file.endsWith(".mov") || file.endsWith(".mkv") || file.endsWith(".webm")) return "video";
-    if (file.endsWith(".zip") || file.endsWith(".rar") || file.endsWith(".tar") || file.endsWith(".7z")) return "archive";
-    if (file.endsWith(".txt") || file.endsWith(".md")) return "text";
-
-    final mime = mimeType.toLowerCase();
-    if (mime.startsWith("image/")) return "image";
-    if (mime.contains("pdf")) return "pdf";
-    if (mime.contains("word") || mime.contains("msword") || mime.contains("doc")) return "word";
-    if (mime.contains("presentation") || mime.contains("powerpoint") || mime.contains("ppt")) return "slides";
-    if (mime.contains("excel") || mime.contains("sheet") || mime.contains("xls")) return "excel";
-    if (mime.contains("vcard") || mime.contains("contact")) return "vcard";
-    if (mime.contains("audio")) return "audio";
-    if (mime.contains("video")) return "video";
-    if (mime.contains("zip") || mime.contains("rar") || mime.contains("7z") || mime.contains("tar")) return "archive";
-    if (mime.contains("text")) return "text";
-
-    return "generic";
-  }
-
-  /// Formatiert Byte-Größen in lesbare Einheiten (KB, MB, GB).
-  String formatSize(int bytes) {
-    const scale = 1024;
-    const orders = ["B", "KB", "MB", "GB"];
-    double size = bytes.toDouble();
-    int order = 0;
-    while (size >= scale && order < orders.length - 1) {
-      order++;
-      size /= scale;
-    }
-    return "${size.toStringAsFixed(2)} ${orders[order]}";
-  }
-
   // ------------------------------------------------------------------------
   // --- Geteilt mit ---
   // ------------------------------------------------------------------------
 
-  /// Lädt die vollständige Liste aller Benutzer aus der lokalen Datenbank
-  Future<void> _loadFriends() async {
-    final allUsers = await _databaseService.getUsers();
-    _friends = allUsers.where((u) => u.id > 1 && !u.isHidden).toList();
+  /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
+  Future<List<UserEntity>> _loadSharedFriends(List<PermissionEntity> permissions) async {
+    List<UserEntity> shared = [];
+    for (var p in permissions) {
+      if (p.userId == 1 || p.accessLevel == 0) continue; // Benutzer der App (id=1) ist kein Freund
+      final friend = await _databaseService.getUser(p.userId);
+      if (friend != null) {
+        shared.add(friend);
+      }
+    }
+    return shared;
+  }
+
+  /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
+  Future<Map<int, int>> _loadFriendAccessLevels(List<PermissionEntity> permissions) async {
+    final accessLevels = <int, int>{};
+    for (var p in permissions) {
+      if (p.userId == 1 || p.accessLevel == 0) continue; // Benutzer der App (id=1) ist kein Freund
+      final friend = await _databaseService.getUser(p.userId);
+      if (friend != null) {
+        accessLevels[friend.id] = p.accessLevel;
+      }
+    }
+    return accessLevels;
   }
 
   /// Teilt den Eintrag mit einem Freund.
-  Future<bool> shareWith(UserEntity targetUser) async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> shareWith(UserEntity targetUser) async {
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -469,31 +433,33 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 4. State aktualisieren
-      await _loadSharedFriends();
-      return true;
-
+      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
+      final sharedFriends = await _loadSharedFriends(permissions);
+      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+      state = state.copyWith(
+        sharedFriends: sharedFriends,
+        friendAccessLevels: friendAccessLevels,
+        status: DetailActionStatus.shareUpdated,
+      );
     } catch (e, st) {
       Logger().fatal('Fehler beim Teilen: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   /// Aktualisiert die Berechtigungsstufe eines Freundes.
-  Future<bool> updateAccessLevel(UserEntity user, int newLevel) async {
+  Future<void> updateAccessLevel(UserEntity user, int newLevel) async {
     // Validierung der Parameter
     if (newLevel < 0 || newLevel > 2) {
       // 2 = Lesen und Schreiben is ok, aber 3 = Vollzugriff ist hier nicht erlaubt
-      state = state.copyWith(error: FormError(ErrorCode.valueInvalid));
-      return false;
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.valueInvalid));
+      return;
     }
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    if (state.isBusy) return;
+
+    // Status auf loading setzen
+    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -503,12 +469,15 @@ class DetailNotifier extends Notifier<DetailState> {
       final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, user.id);
       if (perm != null) {
         // Parameter user ist nicht korrekt!
-        state = state.copyWith(error: FormError(ErrorCode.valueInvalid, text: 'Eintrag ${_entry!.id} wird nicht mit Freund ${user.name} geteilt. Berechtigung kann nicht geändert werden.'));
-        return false;
+        state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.valueInvalid, text: 'Eintrag ${_entry!.id} wird nicht mit Freund ${user.name} geteilt. Berechtigung kann nicht geändert werden.'));
+        return;
       }
 
       // Trivial-Check: keine Änderung?
-      if (perm!.accessLevel == newLevel) return true; // keine Änderung -> Operation erfolgreich!
+      if (perm!.accessLevel == newLevel) {
+        state = state.copyWith(status: DetailActionStatus.success);
+        return; // keine Änderung -> Operation erfolgreich!
+      }
 
       // 2. Entry-Key löschen bzw. neu generieren, falls erforderlich
       String encKey = perm.encryptedKey;
@@ -526,103 +495,20 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 5. State aktualisieren
-      await _loadSharedFriends();
-      return true;
-
+      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
+      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+      state = state.copyWith(
+        friendAccessLevels: friendAccessLevels,
+        status: newLevel > 0 ? DetailActionStatus.shareUpdated : DetailActionStatus.accessRevoked,
+      );
     } catch (e, st) {
       Logger().fatal('Rechte konnten nicht geändert werden: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   /// Entzieht einem Freund den Zugriff auf diesen Eintrag.
-  Future<bool> revokeAccess(UserEntity user) async {
-    return await updateAccessLevel(user, 0);
-  }
-
-  /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
-  Future<void> _loadSharedFriends() async {
-    // Aktuelle Berechtigungen laden
-    final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
-
-    // Freundesliste und Mapping-Tabelle für die Zugriffsrechte aktualisieren
-    List<UserEntity> shared = [];
-    _friendAccessLevels.clear();
-    for (var p in permissions) {
-      if (p.userId == 1 || p.accessLevel == 0) continue;
-      final friend = await _databaseService.getUser(p.userId);
-      if (friend != null) {
-        shared.add(friend);
-        _friendAccessLevels[friend.id] = p.accessLevel;
-      }
-    }
-
-    // State aktualisieren
-    state = state.copyWith(
-      sharedFriends: shared,
-      canEdit: _myAccessLevel >= 2,
-      canManageShares: _myAccessLevel >= 3,
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Convenience Setter & Getter ---
-  // ------------------------------------------------------------------------
-
-  // --- Stammdaten ---
-
-  /// Berechnete Stärke des Passworts (0-4).
-  int getPasswordStrength() {
-    return _passwordService.estimateStrength(state.password);
-  }
-
-  /// Festhalten, dass die Daten geändert wurden.
-  void markAsChanged() {
-    state = state.copyWith(hasChanged: true);
-  }
-
-  // --- Anhänge ---
-
-  /// Gibt an, ob der aktuelle Benutzer Anhänge verwalten darf.
-  bool canManageAttachments() {
-    return _myAccessLevel >= 2;
-  }
-
-  /// Liefert die entschlüsselten Metadaten eines Anhangs.
-  AttachmentMetaPayload? getAttachmentMeta(String uuid) {
-    return _attachmentMetas[uuid];
-  }
-
-  // --- Geteilt mit ---
-
-  /// Gibt an, ob der aktuelle Benutzer Schreibrechte besitzt.
-  bool canEdit() {
-    return _myAccessLevel >= 2;
-  }
-
-  /// Gibt an, ob der aktuelle Benutzer die Freigaben verwalten darf (nur Besitzer).
-  bool canManageShares() {
-    return _myAccessLevel >= 3;
-  }
-
-  /// Liste der Freunde, mit denen der Eintrag noch nicht geteilt wurde.
-  List<UserEntity> getUnsharedFriends() {
-    final sharedIds = state.sharedFriends.map((u) => u.id).toSet();
-    return _friends.where((u) => u.id != 1 && !sharedIds.contains(u.id)).toList();
-  }
-
-  /// Ermittelt die Zugriffsstufe für einen bestimmten Freund.
-  int getAccessLevel(int userId) {
-    return _friendAccessLevels[userId] ?? 1;
-  }
-
-  /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
-  String? getFieldErrorText(String field) {
-    return state.error.field == field ? state.error.text : null;
+  Future<void> revokeAccess(UserEntity user) async {
+    await updateAccessLevel(user, 0);
   }
 }

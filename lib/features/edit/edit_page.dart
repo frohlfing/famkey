@@ -118,16 +118,18 @@ class _EditPageState extends ConsumerState<EditPage> {
     });
 
     // Gezielte `watches` für maximale Performance
-    final notifier = ref.read(editProvider.notifier);
     final isBusy = ref.watch(editProvider.select((s) => s.isBusy));
     final isEditMode = ref.watch(editProvider.select((s) => s.isEditMode));
     final displayTitle = ref.watch(editProvider.select((s) => s.displayTitle));
+
+    // Notifier holen
+    final notifier = ref.read(editProvider.notifier);
 
     return Stack(
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Text(displayTitle),
+            title: Text(displayTitle), // todo in ein Consumer packen
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -323,11 +325,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
   /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
-    // Busy-Check
     final state = ref.read(editProvider);
-    if (state.isBusy) return;
-
-    // Änderungen speichern, wenn gewünscht
     if (state.isDirty) {
       final confirmed = await ConfirmDialog.show(
         context,
@@ -336,33 +334,26 @@ class _EditPageState extends ConsumerState<EditPage> {
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
-      if (confirmed != true || !mounted) return;
-      final notifier = ref.read(editProvider.notifier);
-      notifier.save();
-      return;
+      if (mounted && confirmed == true) {
+        final notifier = ref.read(editProvider.notifier);
+        notifier.save(); // Statt Cancel die Save-Action ausführen
+        return;
+      }
     }
-
-    // Zur vorherigen Seite navigieren
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(); // Zur vorherigen Seite navigieren
   }
 
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.
   Future<void> _handleDeleteEntry() async {
-    // Busy-Check
-    final state = ref.read(editProvider);
-    if (state.isBusy) return;
-
-    // Sicherheitsabfrage
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Eintrag löschen',
       text: 'Soll dieser Eintrag wirklich gelöscht werden?',
       ok: 'Ja, löschen',
     );
-    if (confirmed != true || !mounted) return;
-
-    // Eintrag löschen
-    final notifier = ref.read(editProvider.notifier);
-    notifier.deleteEntry();
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(editProvider.notifier);
+      notifier.deleteEntry();
+    }
   }
 }

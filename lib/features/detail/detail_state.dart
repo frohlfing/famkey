@@ -1,10 +1,20 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
-import 'package:flutter/material.dart';
+import 'package:privault/models/payloads/attachment_meta_payload.dart';
+
+/// Ein Enum für den Status von Aktionen
+enum DetailActionStatus {
+  initial, // Der Ausgangszustand
+  loading, // Eintrag wird geladen
+  success, // Eintrag wurde erfolgreich geladen // todo umbenennen in loadSuccess oder loaded
+  attachmentAdded, // Dateianhang wurde erfolgreich hinzugefügt
+  attachmentDeleted, // Dateianhang wurde erfolgreich gelöscht
+  shareUpdated, // Freigabe wurde erfolgreich aktualisiert
+  accessRevoked, // Zugriffsrecht wurde erfolgreich entzogen
+  failure, // Aktion mit Fehler beendet
+}
 
 class DetailState {
-  /// Gibt an, ob ein Ladesymbol angezeigt wird
-  final bool isBusy;
 
   // --- Stammdaten ---
 
@@ -19,6 +29,9 @@ class DetailState {
 
   /// Der Passwort des Eintrag.
   final String password;
+
+  /// Die berechnete Passwortstärke
+  final int passwordStrength;
 
   /// Die zugehörige Adresse der Webseite oder des Dienstes.
   final String url;
@@ -35,81 +48,121 @@ class DetailState {
 
   // --- Anhänge ---
 
+  // todo man könnte diese beiden Felder ersetzen mit eine Liste von benannten Records: List<{id, filename, mime, size, timestamp, thumbnail}> attachments;  oder List<{AttachmentEntity attachment, AttachmentMetaPayload meta}> attachments;
+
   /// Liste der Dateianhänge
   final List<AttachmentEntity> attachments;
 
-  // --- Geteilt mit ---
-
-  /// Liste der Freunde mit Zugriff auf diesen Eintrag
-  final List<UserEntity> sharedFriends;
+  /// Meta-Angaben der Dateianhänge
+  final Map<String, AttachmentMetaPayload> attachmentMetas;
 
   // --- Teilen mit ---
 
-  final bool canEdit;
-  final bool canManageShares;
+  // todo man könnte die 3 Felder ersetzen mit eine Liste von benannten Records: List<{id, username, accessLevel}> friends; oder List<{UserEntity user, int accessLevel}> friends;
 
-  // --- Änderungsstatus ---
+  /// Vollständige Freundesliste (ohne ausgeblendete Freunde).
+  final List<UserEntity> allFriends;
 
-  /// Gibt an, ob während der Ansicht editiert wurde
-  final bool hasChanged;
+  /// Freunde mit Zugriff auf diesen Eintrag
+  final List<UserEntity> sharedFriends;
+
+  /// Zugriffsrechte der Freunde auf diesen Eintrag
+  final Map<int, int> friendAccessLevels;
+
+  // --- Zugriffsrecht ---
+
+  /// Das Zugriffsrecht des aktuelle Benutzer auf diesen Eintrag
+  /// (0=kein Zugriffsrecht, 1=Lesen, 2=Schreiben, 3=Besitzer).
+  final int myAccessLevel;
+
+  // --- Status ---
+
+  /// Der Status der letzten Aktion.
+  final DetailActionStatus status;
 
   // --- Error ---
 
   /// Der Fehler der letzten Operation.
   final FormError error;
 
+  // --- Getter ---
+
+  /// Gibt an, ob gerade eine Hintergrundaktion läuft.
+  bool get isBusy => status == DetailActionStatus.loading;
+
+  /// Gibt an, ob der aktuelle Benutzer Schreibrechte besitzt.
+  bool get canEdit => myAccessLevel >= 2;
+
+  /// Gibt an, ob der aktuelle Benutzer Anhänge verwalten darf.
+  bool get canManageAttachments => myAccessLevel >= 2;
+
+  /// Gibt an, ob der aktuelle Benutzer die Freigaben verwalten darf (nur Besitzer).
+  bool get canManageShares => myAccessLevel >= 3;
+
+  /// Liste der Freunde, mit denen der Eintrag noch nicht geteilt wurde.
+  List<UserEntity> get unsharedFriends {
+    final sharedIds = sharedFriends.map((u) => u.id).toSet();
+    return allFriends.where((u) => !sharedIds.contains(u.id)).toList();
+  }
+
   /// Konstruktor
   const DetailState({
-    this.isBusy = false,
-    this.title = '',
     this.category = '',
+    this.title = '',
     this.username = '',
     this.password = '',
+    this.passwordStrength = 0,
     this.url = '',
     this.notes = '',
     this.favicon = '',
     this.auditHint = '',
     this.attachments = const [],
+    this.attachmentMetas = const {},
+    this.allFriends = const [],
     this.sharedFriends = const [],
-    this.canEdit = false,
-    this.canManageShares = false,
-    this.hasChanged = false,
+    this.friendAccessLevels = const {},
+    this.myAccessLevel = 1,
+    this.status = DetailActionStatus.initial,
     this.error = const FormError.none(),
   });
 
   /// Status aktualisieren (immutable)
   DetailState copyWith({
-    bool? isBusy,
-    String? title,
     String? category,
+    String? title,
     String? username,
     String? password,
+    int? passwordStrength,
     String? url,
     String? notes,
     String? favicon,
     String? auditHint,
     List<AttachmentEntity>? attachments,
+    Map<String, AttachmentMetaPayload>? attachmentMetas,
+    List<UserEntity>? allFriends,
     List<UserEntity>? sharedFriends,
-    bool? canEdit,
-    bool? canManageShares,
-    bool? hasChanged,
+    Map<int, int>? friendAccessLevels,
+    int? myAccessLevel,
+    DetailActionStatus? status,
     FormError? error,
   }) {
     return DetailState(
-      isBusy: isBusy ?? this.isBusy,
-      title: title ?? this.title,
       category: category ?? this.category,
+      title: title ?? this.title,
       username: username ?? this.username,
       password: password ?? this.password,
+      passwordStrength: passwordStrength ?? this.passwordStrength,
       url: url ?? this.url,
       notes: notes ?? this.notes,
       favicon: favicon ?? this.favicon,
       auditHint: auditHint ?? this.auditHint,
       attachments: attachments ?? this.attachments,
+      attachmentMetas: attachmentMetas ?? this.attachmentMetas,
+      allFriends: allFriends ?? this.allFriends,
       sharedFriends: sharedFriends ?? this.sharedFriends,
-      canEdit: canEdit ?? this.canEdit,
-      canManageShares: canManageShares ?? this.canManageShares,
-      hasChanged: hasChanged ?? this.hasChanged,
+      friendAccessLevels: friendAccessLevels ?? this.friendAccessLevels,
+      myAccessLevel: myAccessLevel ?? this.myAccessLevel,
+      status: status ?? this.status,
       error: error ?? this.error,
     );
   }
