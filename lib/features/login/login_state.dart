@@ -1,61 +1,81 @@
 import 'package:privault/core/app_error.dart';
 
+/// Ein Enum für den Status von Aktionen
+enum LoginActionStatus {
+  initial, // Der Ausgangszustand
+  loading, // Daten werden geladen
+  success, // Login wurde erfolgreich beendet
+  failure, // Aktion mit Fehler beendet
+  askToCreateVault, // Frage, ob ein neuer Tresor erstellt werden soll
+  askToCleanUp, // Frage, ob die Datenbank gelöscht werden soll (weil sie korrupt ist)
+  askToEnableBiometrics, // Frage, ob die Biometrie aktiviert werden soll
+}
+
 class LoginState {
-  /// Gibt an, ob ein Ladesymbol angezeigt wird.
-  final bool isBusy;
 
   /// Der Name des Tresors, der geöffnet oder neu erstellt werden soll.
   final String vaultName;
 
-  /// Das eingegebene Master-Passwort.
-  final String password;
+  /// Eine Liste aller auf diesem Gerät gefundenen Tresore.
+  final List<String> existingVaults;
 
   /// Gibt an, ob der gewählte Tresor bereits lokal existiert.
   final bool isExists;
 
+  /// Das eingegebene Master-Passwort.
+  final String password;
+
+  /// Die berechnete Passwortstärke
+  final int passwordStrength;
+
   /// Gibt an, ob für den aktuell gewählten Tresor der Master-Key im Secure-Store liegt.
   final bool hasBiometricKey;
 
-  /// Eine Liste aller auf diesem Gerät gefundenen Tresore.
-  final List<String> existingVaults;
-
-  /// Gibt an, ob gefragt werden soll, ob Biometrie aktiviert werden soll.
-  final bool askToEnableBiometrics;
+  /// Der Status der letzten Aktion.
+  final LoginActionStatus status;
 
   /// Der Fehler der letzten Operation.
   final FormError error;
 
+  // --- Getter ---
+
+  /// Gibt an, ob gerade eine Hintergrundaktion läuft.
+  bool get isBusy => status == LoginActionStatus.loading;
+
+  /// Gibt an, ob der Login-Button aktiv sein sollte.
+  bool get canLogin => password.isNotEmpty || (isExists && hasBiometricKey);
+
   /// Konstruktor
   const LoginState({
-    this.isBusy = false,
     this.vaultName = '',
-    this.password = '',
-    this.isExists = false,
-    this.hasBiometricKey = false,
     this.existingVaults = const [],
-    this.askToEnableBiometrics = false,
+    this.isExists = false,
+    this.password = '',
+    this.passwordStrength = 0,
+    this.hasBiometricKey = false,
+    this.status = LoginActionStatus.initial,
     this.error = const FormError.none(),
   });
 
   /// Status aktualisieren (immutable)
   LoginState copyWith({
-    bool? isBusy,
     String? vaultName,
-    String? password,
-    bool? isExists,
-    bool? hasBiometricKey,
     List<String>? existingVaults,
-    bool? askToEnableBiometrics,
+    bool? isExists,
+    String? password,
+    int? passwordStrength,
+    bool? hasBiometricKey,
+    LoginActionStatus? status,
     FormError? error,
   }) {
     return LoginState(
-      isBusy: isBusy ?? this.isBusy,
       vaultName: vaultName ?? this.vaultName,
-      password: password ?? this.password,
-      isExists: isExists ?? this.isExists,
-      hasBiometricKey: hasBiometricKey ?? this.hasBiometricKey,
       existingVaults: existingVaults ?? this.existingVaults,
-      askToEnableBiometrics: askToEnableBiometrics ?? this.askToEnableBiometrics,
+      isExists: isExists ?? this.isExists,
+      password: password ?? this.password,
+      passwordStrength: passwordStrength ?? this.passwordStrength,
+      hasBiometricKey: hasBiometricKey ?? this.hasBiometricKey,
+      status: status ?? this.status,
       error: error ?? this.error,
     );
   }

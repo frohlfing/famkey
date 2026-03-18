@@ -92,7 +92,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       }
     });
 
-    // Gezielte `watches` für maximale Performance
+    // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(detailProvider.select((s) => s.isBusy));
     final canEdit = ref.watch(detailProvider.select((s) => s.canEdit));
 

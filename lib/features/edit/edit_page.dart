@@ -117,7 +117,7 @@ class _EditPageState extends ConsumerState<EditPage> {
       if (_notesController.text != next.notes) _notesController.text = next.notes;
     });
 
-    // Gezielte `watches` für maximale Performance
+    // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(editProvider.select((s) => s.isBusy));
     final isEditMode = ref.watch(editProvider.select((s) => s.isEditMode));
     final displayTitle = ref.watch(editProvider.select((s) => s.displayTitle));
@@ -171,7 +171,9 @@ class _EditPageState extends ConsumerState<EditPage> {
                             notifier.setCategory(val);
                             _categoryController.text = val;
                           },
-                          itemBuilder: (context) => existingCategories.map((c) => PopupMenuItem(value: c, child: Text(c))).toList(),
+                          itemBuilder: (BuildContext context) {
+                            return existingCategories.map((String category) => PopupMenuItem<String>(value: category, child: Text(category))).toList();
+                          },
                         ) : null,
                       ),
                       onChanged: notifier.setCategory,
@@ -222,7 +224,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                 // --- Passwort ---
                 Consumer(
                   builder: (context, ref, _) {
-                    final password = ref.watch(editProvider.select((s) => s.password));
+                    //final password = ref.watch(editProvider.select((s) => s.password));
                     final passwordStrength = ref.watch(editProvider.select((s) => s.passwordStrength));
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
                     return Column(
@@ -242,7 +244,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                           ],
                           onChanged: notifier.setPassword,
                         ),
-                        //const SizedBox(height: 6),
+                        // --- Passwortstärke ---
                         //if (password.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),

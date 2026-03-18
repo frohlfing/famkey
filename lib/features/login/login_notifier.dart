@@ -51,50 +51,78 @@ class LoginNotifier extends Notifier<LoginState> {
     _sessionService = getIt();
 
     // Initialer State
-    return LoginState(vaultName: _configService.lastVaultName); // todo warum vaultName übergeben?
+    return LoginState();
   }
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    if (state.isBusy) return;
+
+    // 1. Status zurücksetzen
+    state = const LoginState().copyWith(status: LoginActionStatus.loading, error: FormError.none());
 
     try {
-      await _refreshVaultList();
+      // 2. Der zuletzt ausgewählte Tresor als Default nehmen
+      final vaultName = _configService.lastVaultName;
+
+      // 3. Liste der Tresore ermitteln
+      final vaults = await _databaseService.getExistingVaults();
+
+      // 4. Gibt es diesem Tresor noch?
+      final exists = vaultName.isNotEmpty ? vaults.contains(vaultName) : false;
+
+      // 5. Gibt es Biometrie-Unterstützung zu diesem Tresor?
+      final hasBiometricKey = exists ? await _biometricService.containsMasterKey(vaultName) : false;
+
+      // 6. State aktualisieren
+      state = state.copyWith(
+        vaultName: vaultName,
+        existingVaults: vaults,
+        isExists: exists,
+        hasBiometricKey: hasBiometricKey,
+        status: LoginActionStatus.initial,
+      );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      Logger().fatal("Fehler beim Laden: $e", stack: st);
+      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
-  }
-
-  /// Scannt das Dateisystem nach vorhandenen Tresoren.
-  Future<void> _refreshVaultList() async {
-    final vaults = await _databaseService.getExistingVaults();
-    final exists = vaults.contains(state.vaultName);
-    state = state.copyWith(existingVaults: vaults, isExists: exists);
   }
 
   /// Führt eine Bereinigung durch (z.B. bei einer korrupten SQLite-Datei).
   Future<void> cleanUp() async {
-    // 1. Datenbank + Salt löschen
-    await _databaseService.deleteCurrentDatabaseAndSaltFile();
+    if (state.isBusy) return;
 
-    // 2. Session löschen
-    _sessionService.clearSession();
+    // 1. Status auf loading setzen
+    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
 
-    // 3. State zurücksetzen
-    state = const LoginState();
+    try {
 
-    // 4. Letzten Tresor im ConfigService löschen
-    _configService.lastVaultName = '';
+      // 2. Datenbank + Salt löschen
+      await _databaseService.deleteCurrentDatabaseAndSaltFile();
 
-    // 5. Liste der Tresore aktualisieren
-    await _refreshVaultList();
+      // 3. Master-Key aus dem Secure-Store löschen (wenn vorhanden, sonst passiert nichts)
+      await _biometricService.removeMasterKey(state.vaultName);
+
+      // 4. Session löschen
+      _sessionService.clearSession();
+
+      // 5. Letzten Tresor im ConfigService löschen
+      _configService.lastVaultName = '';
+
+      // 6. Liste der Tresore aktualisieren
+      final vaults = await _databaseService.getExistingVaults();
+
+      // 7. State zurücksetzen
+      state = const LoginState().copyWith(
+        existingVaults: vaults,
+        status: LoginActionStatus.initial,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Bereinigen: $e", stack: st);
+      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -102,234 +130,186 @@ class LoginNotifier extends Notifier<LoginState> {
   // ------------------------------------------------------------------------
 
   /// Startet den Login-Prozess.
-  Future<bool> login({bool forceCreate = false}) async {
-    // Validierung der Benutzereingabe
-    if (state.vaultName.isEmpty) {
+  Future<void> login({bool forceCreate = false}) async {
+    if (state.isBusy) return;
+
+    Uint8List? masterKey;
+    final vaultName = state.vaultName;
+    final password = state.password;
+
+    // 1. Validierung der Benutzereingabe
+    if (vaultName.isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'vaultName'));
-      return false;
+      return;
     }
-    if (!state.isExists && !forceCreate) {
-      state = state.copyWith(error: FormError(ErrorCode.vaultNotFound, field: 'vaultName'));
-      return false;
+    if (password.isEmpty && (!state.isExists || !state.hasBiometricKey)) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
+      return;
     }
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none(), askToEnableBiometrics: false);
+    // 2. Wenn der Tresor nicht existiert, mit der Frage abbrechen, ob er angelegt werden soll
+    if (!state.isExists && !forceCreate) {
+      state = state.copyWith(status: LoginActionStatus.askToCreateVault);
+      return;
+    }
+
+    // 3. Status auf loading setzen
+    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
 
     try {
-      // Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
+      // 4. Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Sicherstellen, dass keine alte Verbindung mehr offen ist
+      // 5. Sicherstellen, dass keine alte Verbindung mehr offen ist
       await _databaseService.close();
 
-      // falls der Tresor existiert,Tresor öffnen, sonst neu anlegen
-      if (state.isExists) {
-        return await _openVault();
-      } else {
-        if (state.password.isEmpty) {
-          state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
-          return false;
-        }
-        return await _createVault();
+      // 6. Salt laden bzw. neu generieren
+      final salt = state.isExists ? await _databaseService.getSalt(vaultName) : _cryptoService.generateSalt();
+      if (salt == null) {
+        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(state.isExists ? ErrorCode.vaultNotFound : ErrorCode.unknown));
+        return;
       }
+
+      // 7. Master-Key ableiten
+      if (password.isEmpty) {
+        // Biometrie verwenden: Master-Key aus Secure-Store holen (löst System-Dialog aus)
+        masterKey = await _biometricService.getMasterKey(vaultName);
+        if (masterKey == null) {
+          state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.biometricCanceled));
+          return;
+        }
+      } else {
+        // Master-Key ableiten aus Passwort und Salt berechnen
+        masterKey = await _cryptoService.deriveKey(password, salt);
+      }
+
+      Uint8List privateKey;
+      UserEntity? user;
+      SettingsEntity? settings;
+
+      // 8. Datenbank öffnen bzw. anlegen
+      await _databaseService.initialize(vaultName, masterKey);
+
+      if (state.isExists) {
+        // DB geöffnet
+
+        // Benutzer und Settings laden
+        user = await _databaseService.getUser(1);
+        settings = await _databaseService.getSettings();
+        if (user == null || settings == null) {
+          // Status auf askToCleanUp setzen (nicht auf failure), so dass nachgefragt wird, ob die Datenbank gelöscht werden soll
+          state = state.copyWith(status: LoginActionStatus.askToCleanUp, error: FormError(ErrorCode.vaultCorrupt));
+          return;
+        }
+
+        // Private Key entschlüsseln
+        try {
+          privateKey = await _cryptoService.decrypt(settings.encryptedPrivateKey, masterKey);
+        } catch (e) {
+          if (password.isEmpty) {
+            // Biometrie fehlgeschlagen
+            await _biometricService.removeMasterKey(vaultName);
+            state = state.copyWith(
+              hasBiometricKey: false,
+              status: LoginActionStatus.failure,
+              error: FormError(ErrorCode.wrongBiometric, field: 'password'),
+            );
+            return;
+          }
+          // Passwort falsch
+          state = state.copyWith(
+            status: LoginActionStatus.failure,
+            error: FormError(ErrorCode.wrongPassword, field: 'password'),
+          );
+          return;
+        }
+      } else {
+        // DB angelegt
+
+        // Salt-Datei ebenfalls anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
+        await _databaseService.saveSalt(vaultName, salt);
+        final (pubKey, privKey) = await _cryptoService.generateRsaKeyPair();
+        final encryptedPrivKey = await _cryptoService.encrypt(privKey, masterKey);
+        privateKey = privKey;
+
+        // Benutzer der App (ID = 1) anlegen
+        // SQLite-net schaut beim Insert in seine interne Sequenz-Tabelle.
+        // Da die Datenbank neu ist, ist die nächste freie ID immer die 1.
+        user = await _databaseService.saveUser(
+          UserEntity(
+            id: 0,
+            uuid: const Uuid().v4(),
+            name: Platform.environment['USERNAME'] ?? 'User',
+            publicKey: pubKey,
+            isVerified: true,
+            isHidden: false,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+        );
+
+        // Settings anlegen
+        settings = await _databaseService.saveSettings(
+          SettingsEntity(
+            id: 0,
+            salt: base64.encode(salt),
+            encryptedPrivateKey: encryptedPrivKey,
+            host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
+            apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
+            useBiometric: false,
+            pwLength: 16,
+            pwSpecialChars: '',
+            pwAvoidIlO0: true,
+            categoryPlaceholder: '',
+            lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
+          ),
+        );
+      }
+
+      // 9. Tresor für den nächsten Login merken
+      _configService.lastVaultName = vaultName;
+
+      // 10. Session anlegen
+      _sessionService.setSession(
+        user: user,
+        privateKey: privateKey,
+        vaultName: vaultName,
+        settings: settings,
+      );
+
+      // 11. Status ermitteln
+      // Falls mit Passwort eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen, ob Biometrie aktiviert werden soll
+      final status = password.isNotEmpty && settings.useBiometric && !state.hasBiometricKey
+          ? LoginActionStatus.askToEnableBiometrics
+          : LoginActionStatus.success;
+
+      // 12. State aktualisieren
+      state = state.copyWith(
+        isExists: true,
+        existingVaults: !state.isExists ? await _databaseService.getExistingVaults() : null,
+        password: '', // Passwortfeld leeren
+        passwordStrength: 0, // Passwortstärke zurücksetzen
+        status: status,
+      );
 
     } catch (e, st) {
+      await _databaseService.close(); // Datenbank schließen (wenn sie nicht offen ist, passiert nichts)
       final msg = e.toString().toLowerCase();
-
-      if (msg.contains('database is locked')) {
-        state = state.copyWith(error: FormError(ErrorCode.vaultLocked));
-        return false;
+      if (msg.contains('file is not a database') || msg.contains('authentication failed') || msg.contains('file is encrypted or is not a database')) {
+        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        return;
       }
 
-      if (msg.contains('file is not a database') ||
-          msg.contains('authentication failed') ||
-          msg.contains('file is encrypted or is not a database')) {
-        state = state.copyWith(error: FormError(ErrorCode.wrongPassword, field: 'password'));
-        return false;
+      if (msg.contains('database is locked')) {
+        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.vaultLocked));
+        return;
       }
 
       Logger().fatal('Fehler beim Login: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
+      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
 
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
-    }
-  }
-
-  /// Erstellt einen neuen Tresor.
-  Future<bool> _createVault() async {
-    final vaultName = state.vaultName;
-    final password = state.password;
-
-    // Validierung der Benutzereingabe
-    if (password.isEmpty) {
-      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
-      return false;
-    }
-
-    // 1. Salt generieren
-    final salt = _cryptoService.generateSalt();
-
-    // 2. Master-Key ableiten
-    final masterKey = await _cryptoService.deriveKey(password, salt);
-
-    try {
-      // Bestehende löschen
-      //await _databaseService.deleteCurrentDatabase();
-
-      // 3. Datenbank initialisieren (erstellt Tabellen)
-      await _databaseService.initialize(vaultName, masterKey);
-
-      // 4. Salt-Datei anlegen
-      await _databaseService.saveSalt(vaultName, salt);
-
-      // 5. RSA-Schlüsselpaar generieren
-      final (pubKey, privKeyBytes) = await _cryptoService.generateRsaKeyPair();
-
-      // 6. Privaten Schlüssel verschlüsseln
-      final encryptedPrivKey = await _cryptoService.encrypt(privKeyBytes, masterKey);
-
-      // 7. User (Benutzer der App; ID = 1) anlegen
-      // SQLite-net schaut beim Insert in seine interne Sequenz-Tabelle.
-      // Da die Datenbank neu ist, ist die nächste freie ID immer die 1.
-      final newUser = await _databaseService.saveUser(
-        UserEntity(
-          id: 0,
-          uuid: const Uuid().v4(),
-          name: Platform.environment['USERNAME'] ?? 'User',
-          publicKey: pubKey,
-          isVerified: true,
-          isHidden: false,
-          updatedAt: DateTime.now().toUtc(),
-        ),
-      );
-
-      // 8. Settings anlegen
-      final newSettings = await _databaseService.saveSettings(
-        SettingsEntity(
-          id: 0,
-          salt: base64.encode(salt),
-          encryptedPrivateKey: encryptedPrivKey,
-          host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
-          apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
-          useBiometric: false,
-          pwLength: 16,
-          pwSpecialChars: '',
-          pwAvoidIlO0: true,
-          categoryPlaceholder: '',
-          lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
-        ),
-      );
-
-      // 9. Letzten Tresor speichern und Liste der verfügbaren Tresore aktualisieren
-      _configService.lastVaultName = vaultName;
-      await _refreshVaultList();
-
-      // 10. Session setzen
-      _sessionService.setSession(
-        user: newUser,
-        privateKey: privKeyBytes,
-        vaultName: vaultName,
-        settings: newSettings,
-      );
-
-      // 11. Passwort löschen
-      state = state.copyWith(password: '');
-
-      return true;
-    } finally {
-      // Master-Key sofort aus dem RAM löschen
-      _cryptoService.wipeKey(masterKey);
-    }
-  }
-
-  /// Öffnet einen bestehenden Tresor
-  Future<bool> _openVault() async {
-    final vaultName = state.vaultName;
-    final password = state.password;
-    final isManualLogin = password.isNotEmpty;
-
-    // 1. Salt laden
-    final salt = await _databaseService.getSalt(vaultName);
-    if (salt == null) {
-      state = state.copyWith(error: FormError(ErrorCode.vaultNotFound));
-      return false;
-    }
-
-    // 2. Master-Key aus dem Secure-Store holen oder aus dem eingegebenen Master-Passwort ableiten
-    Uint8List? masterKey;
-    if (!isManualLogin && state.hasBiometricKey) {
-      // Master-Key aus Secure-Store holen (löst System-Dialog aus)
-      masterKey = await _biometricService.getMasterKey(vaultName);
-      if (masterKey == null) {
-        state = state.copyWith(error: FormError(ErrorCode.biometricCanceled));
-        return false;
-      }
-    } else {
-      // Master-Key aus eingegebenes Master-Passwort und Salt ableiten (Argon2id)
-      if (password.isEmpty) {
-        state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
-        return false;
-      }
-      masterKey = await _cryptoService.deriveKey(password, salt);
-    }
-
-    try {
-      // 3. Datenbank öffnen
-      await _databaseService.initialize(vaultName, masterKey);
-      final settings = await _databaseService.getSettings();
-      final user = await _databaseService.getUser(1);
-      if (settings == null || user == null) {
-        state = state.copyWith(error: FormError(ErrorCode.vaultCorrupt));
-        return false;
-      }
-
-      // 4. Private Key entschlüsseln
-      try {
-        final privKeyBytes =
-        await _cryptoService.decrypt(settings.encryptedPrivateKey, masterKey);
-        _sessionService.setSession(
-          user: user,
-          privateKey: privKeyBytes,
-          vaultName: vaultName,
-          settings: settings,
-        );
-      } catch (e) {
-        if (!isManualLogin && state.hasBiometricKey) {
-          // Biometrie fehlgeschlagen
-          await _biometricService.removeMasterKey(vaultName);
-          state = state.copyWith(
-              hasBiometricKey: false,
-              error: FormError(ErrorCode.wrongBiometric, field: 'password'),
-          );
-          return false;
-        }
-        // Passwort falsch
-        state = state.copyWith(error: FormError(ErrorCode.wrongPassword, field: 'password'));
-        return false;
-      }
-
-      // 5. Tresor für den nächsten Login merken
-      _configService.lastVaultName = vaultName;
-
-      // 6. Passwort aus dem RAM löschen
-      state = state.copyWith(password: '');
-
-      // 7. Biometrie anbieten?
-      // Falls manuell eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen
-      if (isManualLogin && settings.useBiometric && !state.hasBiometricKey) {
-        state = state.copyWith(askToEnableBiometrics: true);
-      }
-      return true;
-    } catch (e) {
-      await _databaseService.close();
-      rethrow; // wird im login() gefangen
     } finally {
       // Master-Key aus dem RAM löschen
-      _cryptoService.wipeKey(masterKey);
+      if (masterKey != null) _cryptoService.wipeKey(masterKey);
     }
   }
 
@@ -337,69 +317,92 @@ class LoginNotifier extends Notifier<LoginState> {
   // --- Biometrie ---
   // ------------------------------------------------------------------------
 
-  /// Speichert den Master-Key im biometrischen Secure-Store.
-  /// Entspricht saveMasterKey() im alten ViewModel.
-  Future<bool> saveMasterKey(String password) async {
+  /// Speichert den Master-Key im biometrischen Secure-Store und setzt danach
+  /// den Status auf Erfolg, um die Navigation zur Hauptseite auszulösen.
+  ///
+  /// Wird aufgerufen, wenn der Benutzer die Biometrie-Einrichtung akzeptiert.
+  Future<void> saveMasterKeyAndCompleteLogin(String password) async {
+    if (state.isBusy) return;
     Uint8List? masterKey;
-    final vaultName = state.vaultName;
+
+    // 1. Status auf loading setzen
+    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
 
     try {
-      // 1. Salt laden
-      final salt = await _databaseService.getSalt(vaultName);
+      // 2. Salt laden
+      final salt = await _databaseService.getSalt(state.vaultName);
       if (salt == null) throw Exception("Das Salt liegt nicht in der Datenbank.");
 
-      // 2. Master-Key ableiten
+      // 3. Master-Key ableiten
       masterKey = await _cryptoService.deriveKey(password, salt);
 
-      // 3. Im Secure-Store speichern
-      await _biometricService.saveMasterKey(vaultName, masterKey);
+      // 4. Im Secure-Store speichern
+      await _biometricService.saveMasterKey(state.vaultName, masterKey);
 
-      // 4. State aktualisieren
-      state = state.copyWith(hasBiometricKey: true);
-      return true;
+      // 5. State aktualisieren (setzt den Status auf Erfolg, um die Navigation auszulösen)
+      state = state.copyWith(
+        hasBiometricKey: true,
+        status: LoginActionStatus.success,
+      );
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern des Master-Keys im biometrischen Secure-Store: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
+      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
-      if (masterKey != null)  _cryptoService.wipeKey(masterKey);
+      if (masterKey != null) _cryptoService.wipeKey(masterKey);
     }
   }
 
+  /// Setzt den Status auf Erfolg, um die Navigation zur Hauptseite auszulösen.
+  ///
+  /// Wird aufgerufen, wenn der Benutzer die Biometrie-Einrichtung ablehnt.
+  void completeLogin() {
+    state = state.copyWith(
+      hasBiometricKey: false,
+      status: LoginActionStatus.success,
+    );
+  }
+
   // ------------------------------------------------------------------------
-  // --- Convenience Setter & Getter ---
+  // --- Setter ---
   // ------------------------------------------------------------------------
 
   /// Setter für Tresorname.
-  void setVaultName(String value) {
+  Future<void> setVaultName(String value) async {
     // Ungültige Zeichen für Dateinamen filtern
-    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
-    final exists = state.existingVaults.contains(cleaned);
+    final vaultName = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+
+    // Zustand vor dem await sichern
+    if (vaultName == state.vaultName) return; // Keine Änderung, nichts tun
+
+    // Zuerst den Namen synchron aktualisieren, damit die UI sofort reagiert
+    final exists = vaultName.isNotEmpty ? state.existingVaults.contains(vaultName) : false;
     final error = state.error.field == 'vaultName' ? FormError.none() : null;
-    state = state.copyWith(vaultName: cleaned, isExists: exists, error: error);
+    state = state.copyWith(vaultName: vaultName, isExists: exists, hasBiometricKey: false, error: error);
+
+    // Dann asynchron die Biometrie-Info nachladen
+    final hasBiometricKey = exists ? await _biometricService.containsMasterKey(vaultName) : false;
+
+    // Nur aktualisieren, wenn der Benutzer in der Zwischenzeit nichts anderes eingegeben hat
+    if (state.vaultName == vaultName) {
+      state = state.copyWith(hasBiometricKey: hasBiometricKey);
+    }
   }
 
   /// Setter für Passwort.
-  void setPassword(String value) {
+  void setPassword(String value) async {
     final error = state.error.field == 'password' ? FormError.none() : null;
-    state = state.copyWith(password: value, error: error);
+    state = state.copyWith(
+      password: value,
+      passwordStrength: _passwordService.estimateStrength(value),
+      error: error,
+    );
   }
 
   /// Alias für `setPassword('')`.
   void clearPassword() {
     setPassword('');
-  }
-
-  /// Berechnete Stärke des aktuell eingegebenen Passworts (0–4).
-  int getPasswordStrength() {
-    return _passwordService.estimateStrength(state.password);
-  }
-
-  /// Gibt die Fehlermeldung für ein bestimmtes Feld zurück oder null.
-  String? getFieldErrorText(String field) {
-    return state.error.field == field ? state.error.text : null;
   }
 }

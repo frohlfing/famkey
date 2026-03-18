@@ -74,6 +74,7 @@ class BiometricService {
   }
 
   /// Löscht den gespeicherten Master-Key für diesen Tresor aus dem Keystore.
+  /// Wenn der Key nicht existiert, passiert nichts.
   Future<void> removeMasterKey(String vaultName) async {
     await _storage.delete(key: _getKeyName(vaultName));
   }
