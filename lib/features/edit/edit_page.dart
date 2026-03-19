@@ -111,12 +111,14 @@ class _EditPageState extends ConsumerState<EditPage> {
 
     // Listener, der die Controller nur bei Initialladung oder Generierung füllt
     ref.listen(editProvider, (previous, next) {
-      if (_categoryController.text != next.category) _categoryController.text = next.category;
-      if (_titleController.text != next.title) _titleController.text = next.title;
-      if (_usernameController.text != next.username) _usernameController.text = next.username;
-      if (_passwordController.text != next.password) _passwordController.text = next.password;
-      if (_urlController.text != next.url) _urlController.text = next.url;
-      if (_notesController.text != next.notes) _notesController.text = next.notes;
+      if (previous == next) return;
+      final formData = next.formData;
+      if (_categoryController.text != formData.category) _categoryController.text = formData.category;
+      if (_titleController.text != formData.title) _titleController.text = formData.title;
+      if (_usernameController.text != formData.username) _usernameController.text = formData.username;
+      if (_passwordController.text != formData.password) _passwordController.text = formData.password;
+      if (_urlController.text != formData.url) _urlController.text = formData.url;
+      if (_notesController.text != formData.notes) _notesController.text = formData.notes;
     });
 
     // Gezielte Watches für maximale Performance
@@ -171,10 +173,11 @@ class _EditPageState extends ConsumerState<EditPage> {
                         border: const OutlineInputBorder(),
                         suffixIcon: existingCategories.isNotEmpty ? PopupMenuButton<String>(
                           icon: const Icon(Icons.filter_list),
-                          onSelected: (val) {
-                            notifier.setCategory(val);
-                            _categoryController.text = val;
-                          },
+                          onSelected: notifier.setCategory,
+                          // onSelected: (val) {
+                          //   notifier.setCategory(val);
+                          //   _categoryController.text = val;
+                          // },
                           itemBuilder: (BuildContext context) {
                             return existingCategories.map((String category) => PopupMenuItem<String>(value: category, child: Text(category))).toList();
                           },

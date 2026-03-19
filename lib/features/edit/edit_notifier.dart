@@ -8,6 +8,7 @@ import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/edit/edit_form_data.dart';
 import 'package:privault/features/edit/edit_state.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -101,31 +102,30 @@ class EditNotifier extends Notifier<EditState> {
         final payload = EntryPayload.fromJson(json.decode(jsonStr));
 
         // UI-State aktualisieren
-        state = state.copyWith(
-          entryId: _entry!.id,
+        final formData = EditFormData(
           category: payload.category,
           title: payload.title,
           username: payload.username,
           password: payload.password,
-          passwordStrength: _passwordService.estimateStrength(payload.password),
           url: payload.url,
           notes: payload.notes,
-          originalPayload: payload,
+        );
+        state = state.copyWith(
+          entryId: _entry!.id,
+          formData: formData,
+          originalFormData: formData,
+          passwordStrength: _passwordService.estimateStrength(payload.password),
           status: EditActionStatus.loaded,
         );
 
       } else {
-        // Insert-Modus -> Payload ind alle UI-Felder leeren
+        // Insert-Modus -> Payload und alle UI-Felder leeren
+        final formData = const EditFormData();
         state = state.copyWith(
           entryId: 0,
-          category: '',
-          title: '',
-          username: '',
-          password: '',
+          formData: formData,
+          originalFormData: formData,
           passwordStrength: 0,
-          url: '',
-          notes: '',
-          originalPayload: null,
           status: EditActionStatus.loaded,
         );
       }
@@ -144,9 +144,10 @@ class EditNotifier extends Notifier<EditState> {
   /// Verschlüsselt dabei alle sensiblen Felder.
   Future<void> save() async {
     if (state.isBusy) return;
+    final formData = state.formData;
 
     // Benutzereingabe validieren
-    if (state.title.trim().isEmpty) {
+    if (formData.title.trim().isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'title'));
       return;
     }
@@ -161,19 +162,19 @@ class EditNotifier extends Notifier<EditState> {
 
       // 2. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
-      if (state.url.trim().isNotEmpty && (state.originalPayload == null || state.url != state.originalPayload!.url)) {
-        final icon = await _downloadFavicon(state.url.trim());
+      if (formData.url.trim().isNotEmpty && formData.url != state.originalFormData.url) {
+        final icon = await _downloadFavicon(formData.url.trim());
         if (icon != null) favicon = icon;
       }
 
       // 3. Payload bauen und verschlüsseln (AES)
       final payload = EntryPayload(
-        category: state.category.trim(),
-        title: state.title.trim(),
-        username: state.username.trim(),
-        password: state.password,
-        url: state.url.trim(),
-        notes: state.notes.trim(),
+        category: formData.category.trim(),
+        title: formData.title.trim(),
+        username: formData.username.trim(),
+        password: formData.password,
+        url: formData.url.trim(),
+        notes: formData.notes.trim(),
         favicon: favicon,
       );
 
@@ -187,10 +188,10 @@ class EditNotifier extends Notifier<EditState> {
       final entity = EntryEntity(
         id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
-        category: state.category.trim(),
-        title: state.title.trim(),
-        url: state.url.trim(),
-        notes: state.notes.trim(),
+        category: formData.category.trim(),
+        title: formData.title.trim(),
+        url: formData.url.trim(),
+        notes: formData.notes.trim(),
         favicon: favicon,
         encryptedData: encryptedData,
         creatorId: _sessionService.user!.id,
@@ -202,7 +203,7 @@ class EditNotifier extends Notifier<EditState> {
       // 6. State aktualisieren
       state = state.copyWith(
         entryId: _entry!.id,
-        originalPayload: payload,
+        originalFormData: formData,
         status: EditActionStatus.saved,
       );
 
@@ -241,14 +242,11 @@ class EditNotifier extends Notifier<EditState> {
       _entry = null;
 
       // UI-Felder leeren
+      final formData = const EditFormData();
       state = state.copyWith(
-        category: '',
-        title: '',
-        username: '',
-        password: '',
-        url: '',
-        notes: '',
-        originalPayload: null,
+        formData: formData,
+        originalFormData: formData,
+        passwordStrength: 0,
       );
 
     } catch (e, st) {
@@ -272,7 +270,8 @@ class EditNotifier extends Notifier<EditState> {
       settings.pwSpecialChars,
     );
 
-    state = state.copyWith(password: pw);
+    final formData = state.formData.copyWith(password: pw);
+    state = state.copyWith(formData: formData);
   }
 
   // ------------------------------------------------------------------------
@@ -282,40 +281,46 @@ class EditNotifier extends Notifier<EditState> {
   /// Setter für die Kategorie.
   void setCategory(String value) {
     final error = state.error.field == 'category' ? FormError.none() : null;
-    state = state.copyWith(category: value, error: error);
+    final formData = state.formData.copyWith(category: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Titel des Eintrags.
   void setTitle(String value) {
     final error = state.error.field == 'title' ? FormError.none() : null;
-    state = state.copyWith(title: value, error: error);
+    final formData = state.formData.copyWith(title: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Benutzernamen des Eintrags.
   void setUsername(String value) {
     final error = state.error.field == 'username' ? FormError.none() : null;
-    state = state.copyWith(username: value, error: error);
+    final formData = state.formData.copyWith(username: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für das Passwort des Eintrags.
   void setPassword(String value) {
     final error = state.error.field == 'password' ? FormError.none() : null;
+    final formData = state.formData.copyWith(password: value);
     state = state.copyWith(
-        password: value,
-        passwordStrength: _passwordService.estimateStrength(value),
-        error: error,
+      formData: formData,
+      passwordStrength: _passwordService.estimateStrength(value),
+      error: error,
     );
   }
 
   /// Setter für die URL des Eintrags.
   void setUrl(String value) {
     final error = state.error.field == 'url' ? FormError.none() : null;
-    state = state.copyWith(url: value, error: error);
+    final formData = state.formData.copyWith(url: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für Notizen des Eintrags.
   void setNotes(String value) {
     final error = state.error.field == 'notes' ? FormError.none() : null;
-    state = state.copyWith(notes: value, error: error);
+    final formData = state.formData.copyWith(notes: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 }
