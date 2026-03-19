@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
 import 'package:open_filex/open_filex.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/core/icon_helper.dart';
+import 'package:privault/core/helper.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
@@ -79,7 +79,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status zurücksetzen
-    state = const DetailState().copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = const DetailState().copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       // 1. Eintrag aus Datenbank laden
@@ -135,7 +135,7 @@ class DetailNotifier extends Notifier<DetailState> {
         // Zugriffsrecht
         myAccessLevel: myAccessLevel,
         // Status
-        status: DetailActionStatus.success,
+        status: DetailActionStatus.loaded,
       );
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
@@ -202,7 +202,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Anhängen einer Datei geladen.');
@@ -271,7 +271,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Öffnen des Anhangs geladen.');
@@ -306,7 +306,7 @@ class DetailNotifier extends Notifier<DetailState> {
         }
       });
 
-      state = state.copyWith(status: DetailActionStatus.success);
+      state = state.copyWith(status: DetailActionStatus.loaded);
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
@@ -318,7 +318,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       await _databaseService.deleteAttachment(attachment.id);
@@ -399,7 +399,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -459,7 +459,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -475,7 +475,7 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // Trivial-Check: keine Änderung?
       if (perm!.accessLevel == newLevel) {
-        state = state.copyWith(status: DetailActionStatus.success);
+        state = state.copyWith(status: DetailActionStatus.loaded);
         return; // keine Änderung -> Operation erfolgreich!
       }
 

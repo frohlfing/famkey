@@ -78,32 +78,34 @@ class _EditPageState extends ConsumerState<EditPage> {
     // Listener für Side-Effects (Navigation, SnackBars)
     // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
     ref.listen(editProvider.select((s) => s.status), (previous, next) {
-      if (next == EditActionStatus.saveSuccess) {
-        Snack.show(context, 'Gespeichert!');
-        final entryId = ref.read(editProvider).entryId;
+      final state = ref.read(editProvider);
 
-        // Entscheiden, wohin navigiert wird
-        if (previous == EditActionStatus.updating) {
-          Navigator.of(context).pop(true); // Zurück zur Detailseite
-        }
+      switch (next) {
+        case EditActionStatus.saved:
+          Snack.show(context, 'Gespeichert!');
+          // Entscheiden, wohin navigiert wird
+          if (previous == EditActionStatus.updating) {
+            Navigator.of(context).pop(true); // Zurück zur Detailseite
+          } else {
+            // Diese Seite wurde direkt von der Hauptseite aufgerufen (die Detailansicht wurde "übersprungen").
+            // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
+            Navigator.of(context).pushReplacementNamed('/detail', arguments: state.entryId, result: true);
+          }
+          break;
 
-        else {
-          // Diese Seite wurde direkt von der Hauptseite aufgerufen (die Detailansicht wurde "übersprungen").
-          // Wir ersetzen im Navigations-Stack diese Seite mit der Detailansicht.
-          Navigator.of(context).pushReplacementNamed('/detail', arguments: entryId, result: true);
-        }
-      }
+        case EditActionStatus.deleted:
+          Snack.show(context, 'Gelöscht!');
+          Navigator.of(context)..pop()..pop(true); // Zurück zur Detailansicht und weiter zurück zur Hauptansicht
+          break;
 
-      else if (next == EditActionStatus.deleteSuccess) {
-        Snack.show(context, 'Gelöscht!');
-        Navigator.of(context)..pop()..pop(true); // Zurück zur Detailansicht und weiter zurück zur Hauptansicht
-      }
+        case EditActionStatus.failure:
+          if (state.error.field == null) { // Nur allgemeine Fehler anzeigen
+            Snack.show(context, state.error.text);
+          }
+          break;
 
-      else if (next == EditActionStatus.failure) {
-        final error = ref.read(editProvider).error;
-        if (error.field == null) { // Nur allgemeine Fehler anzeigen
-          Snack.show(context, error.text);
-        }
+        default:
+          break;
       }
     });
 
@@ -120,7 +122,6 @@ class _EditPageState extends ConsumerState<EditPage> {
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(editProvider.select((s) => s.isBusy));
     final isEditMode = ref.watch(editProvider.select((s) => s.isEditMode));
-    final displayTitle = ref.watch(editProvider.select((s) => s.displayTitle));
 
     // Notifier holen
     final notifier = ref.read(editProvider.notifier);
@@ -129,7 +130,10 @@ class _EditPageState extends ConsumerState<EditPage> {
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Text(displayTitle), // todo in ein Consumer packen
+            title: Consumer(builder: (context, ref, _) {
+              final title = ref.watch(editProvider.select((s) => s.displayTitle));
+              return Text(title);
+            }),
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),

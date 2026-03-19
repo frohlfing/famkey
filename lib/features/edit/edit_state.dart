@@ -8,9 +8,9 @@ enum EditActionStatus {
   creating, // Neuer Eintrag wird gespeichert
   updating, // Bestehender Eintrag wird gespeichert
   deleting, // Eintrag wird gelöscht
-  loadSuccess, // Eintrag wurde erfolgreich geladen     // todo umbenennen in loadSuccess oder loaded
-  saveSuccess, // Eintrag wurde erfolgreich gespeichert // todo umbenennen in loadSuccess oder saved
-  deleteSuccess, // Eintrag wurde erfolgreich gelöscht  // todo umbenennen in loadSuccess oder deleted
+  loaded, // Eintrag wurde erfolgreich geladen
+  saved, // Eintrag wurde erfolgreich gespeichert
+  deleted, // Eintrag wurde erfolgreich gelöscht
   failure, // Aktion mit Fehler beendet
 }
 
@@ -46,13 +46,15 @@ class EditState {
   final String notes;
 
   /// Der ursprüngliche Payload für den Dirty-Check
-  final EntryPayload? originalPayload;
+  final EntryPayload? originalPayload; // todo nicht nullable machen
 
   /// Der Status der letzten Aktion.
   final EditActionStatus status;
 
   /// Der Fehler der letzten Aktion.
   final FormError error;
+
+  // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>

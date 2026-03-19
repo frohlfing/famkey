@@ -111,7 +111,7 @@ class EditNotifier extends Notifier<EditState> {
           url: payload.url,
           notes: payload.notes,
           originalPayload: payload,
-          status: EditActionStatus.loadSuccess,
+          status: EditActionStatus.loaded,
         );
 
       } else {
@@ -126,7 +126,7 @@ class EditNotifier extends Notifier<EditState> {
           url: '',
           notes: '',
           originalPayload: null,
-          status: EditActionStatus.loadSuccess,
+          status: EditActionStatus.loaded,
         );
       }
 
@@ -203,7 +203,7 @@ class EditNotifier extends Notifier<EditState> {
       state = state.copyWith(
         entryId: _entry!.id,
         originalPayload: payload,
-        status: EditActionStatus.saveSuccess,
+        status: EditActionStatus.saved,
       );
 
     } catch (e, st) {

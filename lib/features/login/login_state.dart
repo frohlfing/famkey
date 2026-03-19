@@ -3,7 +3,7 @@ import 'package:privault/core/app_error.dart';
 /// Ein Enum für den Status von Aktionen
 enum LoginActionStatus {
   initial, // Der Ausgangszustand
-  loading, // Daten werden geladen
+  progress, // Daten werden geladen
   success, // Login wurde erfolgreich beendet
   failure, // Aktion mit Fehler beendet
   askToCreateVault, // Frage, ob ein neuer Tresor erstellt werden soll
@@ -40,7 +40,7 @@ class LoginState {
   // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
-  bool get isBusy => status == LoginActionStatus.loading;
+  bool get isBusy => status == LoginActionStatus.progress;
 
   /// Gibt an, ob der Login-Button aktiv sein sollte.
   bool get canLogin => password.isNotEmpty || (isExists && hasBiometricKey);

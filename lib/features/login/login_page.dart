@@ -90,6 +90,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
 
     // Listener für Side-Effects (Navigation, SnackBars)
+    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
     ref.listen(loginProvider.select((s) => s.status), (previous, next) async {
       final notifier = ref.read(loginProvider.notifier);
       final state = ref.read(loginProvider);

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/icon_helper.dart';
+import 'package:privault/core/helper.dart';
 import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/features/detail/detail_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
@@ -66,29 +66,35 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   @override
   Widget build(BuildContext context) {
 
-    // --- NEU: Listener für alle Side-Effects ---
+    // Listener für Side-Effects (Navigation, SnackBars)
+    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
     ref.listen(detailProvider.select((s) => s.status), (previous, next) {
-      if (next == DetailActionStatus.attachmentAdded) {
-        Snack.show(context, 'Anhang hinzugefügt', success: true);
-      }
+      switch (next) {
+        case DetailActionStatus.attachmentAdded:
+          Snack.show(context, 'Anhang hinzugefügt', success: true);
+          break;
 
-      else if (next == DetailActionStatus.attachmentDeleted) {
-        Snack.show(context, 'Anhang gelöscht', success: true);
-      }
+        case DetailActionStatus.attachmentDeleted:
+          Snack.show(context, 'Anhang gelöscht', success: true);
+          break;
 
-      else if (next == DetailActionStatus.shareUpdated) {
-        Snack.show(context, 'Zugriffsrecht für Freund aktualisiert', success: true);
-      }
+        case DetailActionStatus.shareUpdated:
+          Snack.show(context, 'Zugriffsrecht für Freund aktualisiert', success: true);
+          break;
 
-      else if (next == DetailActionStatus.accessRevoked) {
-        Snack.show(context, 'Zugriffsrecht für Freund entzogen', success: true);
-      }
+        case DetailActionStatus.accessRevoked:
+          Snack.show(context, 'Zugriffsrecht für Freund entzogen', success: true);
+          break;
 
-      else if (next == DetailActionStatus.failure) {
-        final error = ref.read(detailProvider).error;
-        if (error.field == null) { // Nur allgemeine Fehler anzeigen
-          Snack.show(context, error.text);
-        }
+        case DetailActionStatus.failure:
+          final state = ref.read(detailProvider);
+          if (state.error.field == null) { // Nur allgemeine Fehler anzeigen
+            Snack.show(context, state.error.text);
+          }
+          break;
+
+        default:
+          break;
       }
     });
 

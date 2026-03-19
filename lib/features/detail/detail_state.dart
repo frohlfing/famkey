@@ -5,8 +5,8 @@ import 'package:privault/models/payloads/attachment_meta_payload.dart';
 /// Ein Enum für den Status von Aktionen
 enum DetailActionStatus {
   initial, // Der Ausgangszustand
-  loading, // Eintrag wird geladen
-  success, // Eintrag wurde erfolgreich geladen // todo umbenennen in loadSuccess oder loaded
+  progress, // Eintrag wird geladen
+  loaded, // Eintrag wurde erfolgreich geladen
   attachmentAdded, // Dateianhang wurde erfolgreich hinzugefügt
   attachmentDeleted, // Dateianhang wurde erfolgreich gelöscht
   shareUpdated, // Freigabe wurde erfolgreich aktualisiert
@@ -88,7 +88,7 @@ class DetailState {
   // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
-  bool get isBusy => status == DetailActionStatus.loading;
+  bool get isBusy => status == DetailActionStatus.progress;
 
   /// Gibt an, ob der aktuelle Benutzer Schreibrechte besitzt.
   bool get canEdit => myAccessLevel >= 2;

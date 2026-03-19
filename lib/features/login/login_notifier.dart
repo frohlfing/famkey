@@ -59,7 +59,7 @@ class LoginNotifier extends Notifier<LoginState> {
     if (state.isBusy) return;
 
     // 1. Status zurücksetzen
-    state = const LoginState().copyWith(status: LoginActionStatus.loading, error: FormError.none());
+    state = const LoginState().copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
       // 2. Der zuletzt ausgewählte Tresor als Default nehmen
@@ -94,7 +94,7 @@ class LoginNotifier extends Notifier<LoginState> {
     if (state.isBusy) return;
 
     // 1. Status auf loading setzen
-    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
 
@@ -154,7 +154,7 @@ class LoginNotifier extends Notifier<LoginState> {
     }
 
     // 3. Status auf loading setzen
-    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
       // 4. Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
@@ -326,7 +326,7 @@ class LoginNotifier extends Notifier<LoginState> {
     Uint8List? masterKey;
 
     // 1. Status auf loading setzen
-    state = state.copyWith(status: LoginActionStatus.loading, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
       // 2. Salt laden
