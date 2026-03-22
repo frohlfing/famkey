@@ -38,7 +38,7 @@ class PasswordField extends StatefulWidget {
   // Wenn auf true gesetzt, springt der Cursor sofort beim Öffnen des Screens in dieses Feld.
   final bool autofocus;
 
-  // Eine Funktion, die jedes Mal aufgerufen wird, wenn der Nutzer einen Buchstaben tippt oder löscht.
+  // Eine Funktion, die jedes Mal aufgerufen wird, wenn der Nutzer ein Zeichen tippt oder löscht.
   final ValueChanged<String>? onChanged;
 
   // Eine Funktion, die aufgerufen wird, wenn der Nutzer den Ok-Button auf der Tastatur drückt.

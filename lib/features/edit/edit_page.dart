@@ -82,7 +82,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
       switch (next) {
         case EditActionStatus.saved:
-          Snack.show(context, 'Gespeichert!');
+          Snack.show(context, 'Gespeichert!', success: true);
           // Entscheiden, wohin navigiert wird
           if (previous == EditActionStatus.updating) {
             Navigator.of(context).pop(true); // Zurück zur Detailseite
@@ -94,7 +94,7 @@ class _EditPageState extends ConsumerState<EditPage> {
           break;
 
         case EditActionStatus.deleted:
-          Snack.show(context, 'Gelöscht!');
+          Snack.show(context, 'Gelöscht!', success: true);
           Navigator.of(context)..pop()..pop(true); // Zurück zur Detailansicht und weiter zurück zur Hauptansicht
           break;
 

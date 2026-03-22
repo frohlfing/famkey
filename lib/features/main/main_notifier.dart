@@ -100,7 +100,7 @@ class MainNotifier extends Notifier<MainState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Setter für Suche, Filter und Gruppierung ---
+  // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
   /// Setter für Suchbegriff

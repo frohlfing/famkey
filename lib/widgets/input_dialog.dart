@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:privault/widgets/password_field.dart';
 
-/// Ein modaler Dialog zur Passwortabfrage.
-class PasswordDialog {
-  static Future<String?> show(BuildContext context, {required String title, required String text, String? errorText}) {
-    final controller = TextEditingController();
+/// Ein modaler Dialog zur Eingabeaufforderung.
+class InputDialog {
 
-    /// Öffnet den Dialog und gibt bei Bestätigung das eingegebene Passwort zurück.
+  /// Öffnet den Dialog und gibt bei Bestätigung den eingegebenen Wert zurück.
+  static Future<String?> show(BuildContext context, {required String title, required String text, String? label, String? value, String? errorText}) {
+    final controller = TextEditingController(text: value);
+
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -19,14 +19,17 @@ class PasswordDialog {
             children: [
               Text(text),
               const SizedBox(height: 16),
-              PasswordField(
+              TextField(
                 controller: controller,
-                label: 'Master-Passwort',
-                errorText: errorText,
-                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: label,
+                  errorText: errorText,
+                  border: const OutlineInputBorder(),
+                ),
                 onSubmitted: (val) {
                   if (val.isNotEmpty) Navigator.of(ctx).pop(val);
                 },
+                autofocus: true,
               ),
             ],
           ),

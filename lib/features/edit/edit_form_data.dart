@@ -1,4 +1,4 @@
-///  Alle editierbaren Daten in eine unveränderliche Klasse
+/// Alle Daten auf der Bearbeitungsseite, die für den Dirty-Check relevant sind.
 class EditFormData {
   /// Die Kategorie des Eintrags.
   final String category;
@@ -28,7 +28,7 @@ class EditFormData {
     this.notes = '',
   });
 
-  // copyWith für die Datenklasse
+  /// Daten aktualisieren (immutable)
   EditFormData copyWith({
     String? category,
     String? title,

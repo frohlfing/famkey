@@ -54,6 +54,9 @@
 - ❌ Sicheres Passwortfeld (direkt als byte array speichern), siehe https://copilot.microsoft.com/shares/gk2UA94MU96n6LiRoyyB1
 - ❌ Skripte zum Deployen, siehe https://copilot.microsoft.com/shares/hAWk4uv75JWVbYepVZiCg
 - ❌ Report über die Passwortstärke aller Einträge
+- ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
+- ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
+- ❌ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/) 
  
 ### 1.5 Meilenstein 5: Androide App
 - ❌ Emulator installieren

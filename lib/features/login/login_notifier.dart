@@ -93,7 +93,7 @@ class LoginNotifier extends Notifier<LoginState> {
   Future<void> cleanUp() async {
     if (state.isBusy) return;
 
-    // 1. Status auf loading setzen
+    // 1. Status auf progress setzen
     state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
@@ -153,7 +153,7 @@ class LoginNotifier extends Notifier<LoginState> {
       return;
     }
 
-    // 3. Status auf loading setzen
+    // 3. Status auf progress setzen
     state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
@@ -226,7 +226,7 @@ class LoginNotifier extends Notifier<LoginState> {
       } else {
         // DB angelegt
 
-        // Salt-Datei ebenfalls anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
+        // Salt-Datei anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
         await _databaseService.saveSalt(vaultName, salt);
         final (pubKey, privKey) = await _cryptoService.generateRsaKeyPair();
         final encryptedPrivKey = await _cryptoService.encrypt(privKey, masterKey);
@@ -325,7 +325,7 @@ class LoginNotifier extends Notifier<LoginState> {
     if (state.isBusy) return;
     Uint8List? masterKey;
 
-    // 1. Status auf loading setzen
+    // 1. Status auf progress setzen
     state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
 
     try {
@@ -366,33 +366,37 @@ class LoginNotifier extends Notifier<LoginState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Setter ---
+  // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
   /// Setter für Tresorname.
-  Future<void> setVaultName(String value) async {
-    // Ungültige Zeichen für Dateinamen filtern
+  void setVaultName(String value) {
+    // Ungültige Zeichen für Dateinamen entfernen
     final vaultName = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
 
-    // Zustand vor dem await sichern
-    if (vaultName == state.vaultName) return; // Keine Änderung, nichts tun
+    // Abbrechen, wenn sich nichts geändert hat
+    if (vaultName == state.vaultName) return;
 
-    // Zuerst den Namen synchron aktualisieren, damit die UI sofort reagiert
+    // State sofort aktualisieren
+    // Wir setzen hasBiometricKey erst mal auf false, bis der Hintergrund-Check fertig ist
     final exists = vaultName.isNotEmpty ? state.existingVaults.contains(vaultName) : false;
     final error = state.error.field == 'vaultName' ? FormError.none() : null;
     state = state.copyWith(vaultName: vaultName, isExists: exists, hasBiometricKey: false, error: error);
 
-    // Dann asynchron die Biometrie-Info nachladen
-    final hasBiometricKey = exists ? await _biometricService.containsMasterKey(vaultName) : false;
-
-    // Nur aktualisieren, wenn der Benutzer in der Zwischenzeit nichts anderes eingegeben hat
-    if (state.vaultName == vaultName) {
-      state = state.copyWith(hasBiometricKey: hasBiometricKey);
-    }
+    // Die Biometrie-Info im Hintergrund nachladen
+    if (!exists) return;
+    _biometricService.containsMasterKey(vaultName).then((hasBiometric) {
+      // Nur aktualisieren, wenn der User nicht schon einen anderen Namen getippt hat
+      if (state.vaultName == vaultName) {
+        state = state.copyWith(hasBiometricKey: hasBiometric);
+      }
+    }).catchError((e) {
+      Logger().error("Fehler beim Biometrie-Check: $e");
+    });
   }
 
   /// Setter für Passwort.
-  void setPassword(String value) async {
+  void setPassword(String value) {
     final error = state.error.field == 'password' ? FormError.none() : null;
     state = state.copyWith(
       password: value,

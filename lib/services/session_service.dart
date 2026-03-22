@@ -3,7 +3,8 @@ import 'package:privault/database/database.dart';
 import 'package:privault/services/crypto_service.dart';
 
 /// Hält den Zustand der aktuellen Benutzersitzung im Arbeitsspeicher.
-class SessionService extends ChangeNotifier {
+class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier erforderlich?
+
   // ------------------------------------------------------------------------
   // --- Verwendete Dienste (Abhängigkeiten) ---
   // ------------------------------------------------------------------------

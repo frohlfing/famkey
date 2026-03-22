@@ -10,7 +10,7 @@ import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/settings_snapshot.dart';
+import 'package:privault/features/settings/settings_form_data.dart';
 import 'package:privault/features/settings/settings_state.dart';
 import 'package:privault/services/autofill_service.dart';
 import 'package:privault/services/biometric_service.dart';
@@ -46,9 +46,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Die Datenbank-Entität.
   SettingsEntity? _settings;
 
-  /// Wird für Dirty Check beim Abbrechen benötigt.
-  SettingsSnapshot? _orig; // todo evtl. State _orig; verwenden
-
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -68,166 +65,58 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _sessionService = getIt<SessionService>();
     _webService = getIt<WebService>();
 
-    // Theme aus ConfigService laden
-    final theme = ThemeMode.values.firstWhere((t) => t.name == _configService.theme, orElse: () => ThemeMode.system);
-
     // Initialer State
-    return SettingsState(themeMode: theme); // todo warum themeMode übergeben?
+    return SettingsState();
   }
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    if (state.isBusy) return;
+
+    // Status zurücksetzen
+    state = const SettingsState().copyWith(status: SettingsActionStatus.loading, error: FormError.none());
+
 
     try {
       // Daten aus der Datenbank laden
       _settings = await _databaseService.getSettings();
-
-      // UI-State aktualisieren
-      if (_settings != null) {
-        state = state.copyWith(
-          vaultName: _sessionService.vaultName,
-          userName: _sessionService.user?.name ?? '',
-          useBiometric: _settings!.useBiometric,
-          isRegistered: _settings!.lastSyncAt.year > 1970,
-          host: _settings!.host,
-          apiToken: _settings!.apiToken,
-          pwLength: _settings!.pwLength,
-          pwSpecialChars: _settings!.pwSpecialChars,
-          pwAvoidIlO0: _settings!.pwAvoidIlO0,
-          categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
-        );
-
-      } else {
-        state = state.copyWith(
-          vaultName: _sessionService.vaultName,
-          userName: _sessionService.user?.name ?? '',
-          useBiometric: false,
-          isRegistered: false,
-          host: '',
-          apiToken: '',
-          pwLength: 16,
-          pwSpecialChars: '',
-          pwAvoidIlO0: true,
-          categoryPlaceholder: 'Allgemein',
-        );
-      }
-
-      // Snapshot für Dirty-Check
-      _orig = SettingsSnapshot(  // können wir als Snapshot nicht einfach eine Kopie von state machen?
-        vaultName: state.vaultName,
-        useBiometric: state.useBiometric,
-        userName: state.userName,
-        host: state.host,
-        apiToken: state.apiToken,
-        pwLength: state.pwLength,
-        pwSpecialChars: state.pwSpecialChars,
-        pwAvoidIlO0: state.pwAvoidIlO0,
-        categoryPlaceholder: state.categoryPlaceholder,
-      );
+      if (_settings == null) throw Exception('Settings nicht gefunden.'); // wird bereits direkt nach dem Login angelegt
 
       // Freundesliste laden
-      await _loadFriends();
+      final friends = await _databaseService.getNotHiddenFriends();
+      final fingerprints = _getFingerprints(friends);
+      final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
+
+      // Theme aus ConfigService laden
+      final theme = ThemeMode.values.firstWhere((t) => t.name == _configService.theme, orElse: () => ThemeMode.system);
+
+      // UI-State aktualisieren
+      final formData = SettingsFormData(
+        vaultName: _sessionService.vaultName,
+        useBiometric: _settings!.useBiometric,
+        userName: _sessionService.user?.name ?? '',
+        host: _settings!.host,
+        apiToken: _settings!.apiToken,
+        pwLength: _settings!.pwLength,
+        pwSpecialChars: _settings!.pwSpecialChars,
+        pwAvoidIlO0: _settings!.pwAvoidIlO0,
+        categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+      );
+      state = state.copyWith(
+        vaultStoragePath: _configService.vaultStoragePath,
+        formData: formData,
+        originalFormData: formData,
+        isRegistered: _settings!.lastSyncAt.year > 1970,
+        friends: friends,
+        fingerprints: fingerprints,
+        friendNeedsRekeying: friendNeedsRekeying,
+        themeMode: theme,
+        status: SettingsActionStatus.loaded,
+      );
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
-    }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Dirty-Check ---
-  // ------------------------------------------------------------------------
-
-  /// Gibt an, ob der Benutzer ein Feld verändert hat.
-  bool isDirty() {
-    return _orig == null || // sollte hier nicht vorkommen, da Settings bereits mit dem Login angelegt wird
-        state.vaultName != _orig!.vaultName ||
-        state.useBiometric != _orig!.useBiometric ||
-        state.userName != _orig!.userName ||
-        state.host != _orig!.host ||
-        state.apiToken != _orig!.apiToken ||
-        state.pwLength != _orig!.pwLength ||
-        state.pwSpecialChars != _orig!.pwSpecialChars ||
-        state.pwAvoidIlO0 != _orig!.pwAvoidIlO0 ||
-        state.categoryPlaceholder != _orig!.categoryPlaceholder;
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Speichern ---
-  // ------------------------------------------------------------------------
-
-  /// Speichert alle geänderten Einstellungen (mit Ausnahme des Tresornamens)
-  /// in der Datenbank und aktualisiert die Session.
-  Future<bool> save() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
-
-    try {
-
-      if (_settings == null) throw Exception("Settings nicht aus initialisiert.");
-
-      // 1. Falls Biometrie deaktiviert wurde, SecureStore leeren
-      if (_settings!.useBiometric && !state.useBiometric) {
-        await _biometricService.removeMasterKey(_sessionService.vaultName);
-        Logger().info("Biometrie-Key entfernt, da Option deaktiviert wurde.");
-      }
-
-      // 2. Alle Basis-Einstellungen in der DB speichern (Host, API, PW-Gen).
-      final updated = _settings!.copyWith(
-        host: state.host,
-        apiToken: state.apiToken,
-        useBiometric: state.useBiometric,
-        pwLength: state.pwLength,
-        pwSpecialChars: state.pwSpecialChars,
-        pwAvoidIlO0: state.pwAvoidIlO0,
-        categoryPlaceholder: state.categoryPlaceholder,
-      );
-      await _databaseService.saveSettings(updated);
-
-      // 3. Benutzername aktualisieren (falls nicht registriert)
-      var user = _sessionService.user!;
-      if (!state.isRegistered && state.userName != user.name) {
-        user = user.copyWith(name: state.userName);
-        await _databaseService.saveUser(user);
-      }
-
-      // 4. Session aktualisieren
-      _sessionService.setSession(
-        user: user,
-        privateKey: _sessionService.privateKey!,
-        vaultName: state.vaultName,
-        settings: updated,
-      );
-
-      // 5. Snapshot aktualisieren
-      _orig = SettingsSnapshot(
-        vaultName: state.vaultName,
-        useBiometric: state.useBiometric,
-        userName: state.userName,
-        host: state.host,
-        apiToken: state.apiToken,
-        pwLength: state.pwLength,
-        pwSpecialChars: state.pwSpecialChars,
-        pwAvoidIlO0: state.pwAvoidIlO0,
-        categoryPlaceholder: state.categoryPlaceholder,
-      );
-
-      return true;
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -238,24 +127,31 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Benennt den Tresor um und aktualisiert die Session.
   ///
   /// Das Master-Passwort wurde zuvor von der UI abgefragt.
-  Future<bool> renameVault(String password) async {
-    final newVaultName = state.vaultName;
-    final oldVaultName = _sessionService.vaultName; // bisheriger Name
-
-    // Validierung der Benutzereingabe
-    if (newVaultName == oldVaultName) {
-      state = state.copyWith(error: FormError(ErrorCode.vaultEqualName, field: 'vaultName'));
-      return false;
-    }
-    if (await _databaseService.databaseExists(newVaultName)) {
-      state = state.copyWith(error: FormError(ErrorCode.vaultAlreadyExists, field: 'vaultName'));
-      return false;
-    }
-
+  Future<void> renameVault(String password) async {
+    if (state.isBusy) return;
     Uint8List? masterKey;
+    final oldVaultName = state.originalFormData.vaultName;
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // 1. Benutzereingabe bereinigen
+    // Ungültige Zeichen für Dateinamen entfernen
+    final vaultName = state.formData.vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+
+    // 2. Benutzereingabe validieren
+    if (vaultName.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'vaultName'));
+      return;
+    }
+    if (vaultName == oldVaultName) {
+      state = state.copyWith(error: FormError(ErrorCode.valueNotChanged, field: 'vaultName'));
+      return;
+    }
+    if (await _databaseService.databaseExists(vaultName)) {
+      state = state.copyWith(error: FormError(ErrorCode.vaultAlreadyExists, field: 'vaultName'));
+      return;
+    }
+
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
 
     try {
       if (_settings == null) throw Exception("Settings ist nicht initialisiert.");
@@ -267,56 +163,64 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // 1. MasterKey ableiten (Argon2id)
+      // 4. MasterKey ableiten (Argon2id)
       final salt = base64Decode(_settings!.salt);
       masterKey = await _cryptoService.deriveKey(password, salt);
 
-      // 2. Passwort validieren
+      // 5. Passwort validieren
       try {
         await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        state = state.copyWith(error: FormError(ErrorCode.wrongPassword, field: 'password'));
-        return false;
+        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        return;
       }
 
-      // 3. Physisches Datenbank-Backup erstellen
+      // 6. Physisches Datenbank-Backup erstellen
       await _databaseService.createBackup();
       try {
         // --- Start Kritische Logik ---
 
-        // 4. Verbindung trennen & Umbenennen
+        // 7. Verbindung trennen & Umbenennen
         await _databaseService.close();
-        await _databaseService.renameDatabaseAndSaltFile(oldVaultName, newVaultName);
+        await _databaseService.renameDatabaseAndSaltFile(oldVaultName, vaultName);
 
-        // 5. Konfiguration (Login-Liste / Config) aktualisieren
+        // 8. Konfiguration (Login-Liste / Config) aktualisieren
         if (_configService.lastVaultName == oldVaultName) {
-          _configService.lastVaultName = newVaultName;
+          _configService.lastVaultName = vaultName;
         }
 
-        // 6. Neue Verbindung zur umbenannten Datei herstellen
-        await _databaseService.initialize(newVaultName, masterKey);
+        // 9. Neue Verbindung zur umbenannten Datei herstellen
+        await _databaseService.initialize(vaultName, masterKey);
 
-        // 7. Master-Key im SecureStore umziehen
+        // 10. Master-Key im SecureStore umziehen
         if (await _biometricService.containsMasterKey(oldVaultName)) {
           await _biometricService.removeMasterKey(oldVaultName);
           if (_settings!.useBiometric) {
-            await _biometricService.saveMasterKey(newVaultName, masterKey);
+            await _biometricService.saveMasterKey(vaultName, masterKey);
           }
         }
 
-        // 8. Session aktualisieren
+        // 11. Session aktualisieren
         _sessionService.setSession(
           user: _sessionService.user!,
           privateKey: _sessionService.privateKey!,
-          vaultName: newVaultName,
+          vaultName: vaultName,
           settings: _settings!,
         );
 
         // --- Ende Kritische Logik ---
 
-        // 9. Erfolg: Backup löschen
+        // 12. Erfolg: Backup löschen
         await _databaseService.removeBackup();
-        return true;
+
+        // 13. State aktualisieren
+        final formData = state.formData.copyWith(vaultName: vaultName);
+        final originalFormData = state.originalFormData.copyWith(vaultName: vaultName);
+        state = state.copyWith(
+          formData: formData,
+          originalFormData: originalFormData,
+          status: SettingsActionStatus.saved,
+        );
 
       } catch (_) {
         // Fehler während der Operation -> Rollback
@@ -330,53 +234,118 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Umbenennung des Tresors: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
-
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
     }
   }
 
   /// Löscht den aktuellen Tresor lokal vom Gerät.
-  Future<bool> deleteVault() async {
-    // Datenbank löschen
+  Future<void> deleteVault() async {
+    if (state.isBusy) return;
+
+    // 1. Status auf `deleting` setzen
+    state = state.copyWith(status: SettingsActionStatus.deleting, error: FormError.none());
+
+    // 2. Datenbank löschen
     await _databaseService.deleteCurrentDatabaseAndSaltFile();
 
-    // SecureStore leeren
+    // 3. SecureStore leeren
     await _biometricService.removeMasterKey(_sessionService.vaultName);
 
-    // Den Konfiguration bereinigen
+    // 4. Konfiguration bereinigen
     if (_configService.lastVaultName == _sessionService.vaultName) {
       _configService.lastVaultName = '';
     }
 
-    // Session zurücksetzen
+    // 5. Session zurücksetzen
     _sessionService.clearSession();
-    return true;
+
+    // 6. UI-State zurücksetzen
+    state = SettingsState().copyWith(
+      status: SettingsActionStatus.deleted,
+    );
   }
 
   // ------------------------------------------------------------------------
   // --- Bereich "Login" ---
   // ------------------------------------------------------------------------
 
-  /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<bool> changeMasterPassword(String newPassword, String password) async {
-    // Validierung der Benutzereingabe
-    if (newPassword == password) {
-      state = state.copyWith(error: FormError(ErrorCode.equalPassword, field: 'password'));
-      return false;
+  /// Speichert die Biometrie-Einstellung.
+  Future<void> saveBiometricSettings(bool useBiometric) async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe übernehmen
+    final useBiometric = state.formData.useBiometric;
+
+    // 2. Benutzereingabe validieren
+    final oldUseBiometric = state.originalFormData.useBiometric;
+    if (useBiometric == oldUseBiometric) {
+      state = state.copyWith(error: FormError(ErrorCode.valueNotChanged, field: 'useBiometric'));
+      return;
     }
 
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
+
+    try {
+      if (_settings == null || _sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+
+      // 4. Falls Biometrie deaktiviert wurde, SecureStore leeren
+      if (_settings!.useBiometric && !useBiometric) {
+        await _biometricService.removeMasterKey(_sessionService.vaultName);
+        Logger().info("Biometrie-Key entfernt, da Option deaktiviert wurde.");
+      }
+
+      // 5. Basiskonfiguration in der DB speichern.
+      final updatedSettings = _settings!.copyWith(useBiometric: useBiometric);
+      _settings = await _databaseService.saveSettings(updatedSettings);
+
+      // 6. Session aktualisieren
+      _sessionService.setSession(
+        user: _sessionService.user!,
+        privateKey: _sessionService.privateKey!,
+        vaultName: _sessionService.vaultName,
+        settings: _settings!,
+      );
+
+      // 7. State aktualisieren
+      final formData = state.formData.copyWith(useBiometric: useBiometric);
+      final originalFormData = state.originalFormData.copyWith(useBiometric: useBiometric);
+      state = state.copyWith(
+        formData: formData,
+        originalFormData: originalFormData,
+        status: SettingsActionStatus.saved,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
+  }
+
+  /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
+  Future<void> changeMasterPassword(String newPassword, String password) async {
+    if (state.isBusy) return;
     Uint8List? masterKey; // bisheriger Master-Key
     Uint8List? newMasterKey;
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // 1. Benutzereingabe validieren
+    if (newPassword.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
+      return;
+    }
+    if (newPassword == password) {
+      state = state.copyWith(error: FormError(ErrorCode.equalPassword, field: 'password'));
+      return;
+    }
+
+    // 2. Status auf progress setzen
+    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
 
     try {
       if (_settings == null) throw Exception("Settings ist nicht initialisiert.");
@@ -387,31 +356,27 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // 1. MasterKey ableiten (Argon2id)
+      // 3. MasterKey ableiten (Argon2id)
       final salt = base64Decode(_settings!.salt);
       masterKey = await _cryptoService.deriveKey(password, salt);
 
-      // 2. Passwort validieren
+      // 4. Passwort validieren
       try {
         await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        state = state.copyWith(error: FormError(ErrorCode.wrongPassword, field: 'password'));
-        return false;
+        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        return;
       }
 
-      // 3. Physisches Datenbank-Backup erstellen
+      // 5. Physisches Datenbank-Backup erstellen
       await _databaseService.createBackup();
 
       try {
         // --- Start Kritische Logik ---
 
-        // 4. Neues Salt generieren
+        // 6. Neues Salt generieren, neuen Master-Key ableiten und damit den Private-Key neu verschlüsseln
         final newSalt = _cryptoService.generateSalt();
-
-        // 5. Neuen Master-Key ableiten
         newMasterKey = await _cryptoService.deriveKey(newPassword, newSalt);
-
-        // 6. Private-Key mit dem neuen Master-Key verschlüsseln
         final newEncryptedPrivKey = await _cryptoService.encrypt(_sessionService.privateKey!, newMasterKey);
 
         // 7. Datenbankdatei mit dem neuen Master-Key umschlüsseln
@@ -427,8 +392,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
         // 10. Settings in DB aktualisieren
         final updatedSettings = _settings!.copyWith(
-            salt: base64Encode(newSalt),
-            encryptedPrivateKey: newEncryptedPrivKey,
+          salt: base64Encode(newSalt),
+          encryptedPrivateKey: newEncryptedPrivKey,
         );
         _settings = await _databaseService.saveSettings(updatedSettings);
 
@@ -444,7 +409,11 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
         // 12. Erfolg: Backup löschen
         await _databaseService.removeBackup();
-        return true;
+
+        // 13. State aktualisieren
+        state = state.copyWith(
+          status: SettingsActionStatus.saved,
+        );
 
       } catch (_) {
         // Fehler während der Operation -> Rollback
@@ -458,16 +427,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Ändern des Passworts: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
-
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
     }
   }
 
@@ -475,79 +440,222 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Bereich "Sync-Server" ---
   // ------------------------------------------------------------------------
 
-  /// Testet die Verbindung zum Sync-Server.
-  Future<bool> testConnection() async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  /// Speichert den neune Benutzernamen.
+  Future<void> saveUsername() async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe bereinigen
+    final userName = state.formData.userName.trim();
+
+    // 2. Benutzereingabe validieren
+    if (userName.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'userName'));
+      return;
+    }
+    if (userName == state.originalFormData.userName) {
+      state = state.copyWith(error: FormError(ErrorCode.valueNotChanged, field: 'userName'));
+      return;
+    }
+
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
 
     try {
-      // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
-      _initWebService();
+      if (_sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
-      // Verbindung testen, indem die Version abgefragt wird
+      // 4. Benutzername in der DB aktualisieren (falls nicht registriert)
+      var user = _sessionService.user!;
+      if (!state.isRegistered && userName != user.name) {
+        user = user.copyWith(name: userName);
+        await _databaseService.saveUser(user);
+      }
+
+      // 5. Session aktualisieren
+      _sessionService.setSession(
+        user: user,
+        privateKey: _sessionService.privateKey!,
+        vaultName: _sessionService.vaultName,
+        settings: _sessionService.settings!,
+      );
+
+      // 6. State aktualisieren
+      final formData = state.formData.copyWith(userName: userName);
+      final originalFormData = state.originalFormData.copyWith(userName: userName);
+      state = state.copyWith(
+        formData: formData,
+        originalFormData: originalFormData,
+        status: SettingsActionStatus.saved,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
+  }
+
+  /// Speichert die Einstellungen für den Sync-Server.
+  Future<void> saveSyncServer() async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe bereinigen
+    final host = _normalizeUrl(state.formData.host);
+    final apiToken = state.formData.apiToken.trim();
+
+    // 2. Benutzereingabe validieren
+    if (host.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'host'));
+      return;
+    }
+
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
+
+    try {
+
+      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+
+      // 4. Basiskonfiguration in der DB speichern.
+      final updatedSettings = _settings!.copyWith(host: host, apiToken: apiToken);
+      _settings = await _databaseService.saveSettings(updatedSettings);
+
+      // 5. Session aktualisieren
+      _sessionService.setSession(
+        user: _sessionService.user!,
+        privateKey: _sessionService.privateKey!,
+        vaultName: _sessionService.vaultName,
+        settings: _settings!,
+      );
+
+      // 6. State aktualisieren
+      final formData = state.formData.copyWith(host:host, apiToken: apiToken);
+      final originalFormData = state.originalFormData.copyWith(host: host, apiToken: apiToken);
+      state = state.copyWith(
+        formData: formData,
+        originalFormData: originalFormData,
+        status: SettingsActionStatus.saved,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
+  }
+
+  /// Testet die Verbindung zum Sync-Server.
+  Future<void> testConnection() async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe bereinigen
+    final host = _normalizeUrl(state.formData.host);
+    final apiToken = state.formData.apiToken.trim();
+
+    // 2. Benutzereingabe validieren
+    if (host.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'host'));
+      return;
+    }
+    if (apiToken.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'apiToken'));
+      return;
+    }
+
+    // 3. Busy setzen, Fehler zurücksetzen
+    state = state.copyWith(status: SettingsActionStatus.testing, error: FormError.none());
+
+    try {
+      // 4. WebService mit den aktuell sichtbaren Einstellungen konfigurieren
+      _webService.updateConfig(host: host, apiToken: apiToken);
+
+      // 5. Verbindung testen, indem die Version abgefragt wird
       final response = await _webService.getServerVersion();
-      return response.service.contains("PriVault");
+      final successful = response.service.contains("PriVault");
+      state = state.copyWith(status: successful ? SettingsActionStatus.testSuccessful : SettingsActionStatus.testFailed);
 
     } on DioException catch (de) {
       // Exception des HTTP-Clients
-      _setDioError(de);
-      return false;
+      state = state.copyWith(status: SettingsActionStatus.failure, error: _convertDioError(de));
 
     } catch (e) {
-      state = state.copyWith(error: FormError(ErrorCode.networkError, text: 'Verbindung fehlgeschlagen.'));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.networkError, text: 'Verbindung fehlgeschlagen.'));
     }
   }
 
-  /// Konfiguriert den WebService mit den aktuell sichtbaren Einstellungen.
-  ///
-  /// Wirft ein Exception, wenn die Host-URL oder API-Token nicht angegeben sind.
-  void _initWebService() {
-    if (state.host.isEmpty) {
-      throw Exception("Für die Synchronisation muss eine gültige Host-URL hinterlegt sein. Bitte trage sie in den Einstellungen ein.");
-    }
-
-    if (state.apiToken.isEmpty) {
-      throw Exception("Für die Synchronisation muss ein gültiger API-Token hinterlegt sein. Bitte trage ihn in den Einstellungen ein.");
-    }
-
-    _webService.updateConfig(host: state.host, apiToken: state.apiToken);
+  /// Entfernt ein Slash-Zeichen am Ende der URL.
+  String _normalizeUrl(String url) {
+    return url.trim().replaceAll(RegExp(r'/+$'), '');
   }
 
-  /// Wertet den Verbindungsfehler aus und speichert den Fehler im State.
-  void _setDioError(DioException de) {
+  /// Wandelt den Verbindungsfehler in ein FormError um.
+  FormError _convertDioError(DioException de) {
     if (de.response?.statusCode == 404) {
-      state = state.copyWith(error: FormError(ErrorCode.unauthorized, text: 'Die Host-URL ist ungültig.'));
+      return FormError(ErrorCode.unauthorized, text: 'Die Host-URL ist ungültig.');
     }
-    else if (de.response?.statusCode == 401 && (de.response?.statusMessage ?? '').contains('API-Token')) {
-      state = state.copyWith(error: FormError(ErrorCode.unauthorized, text: 'Die Host-URL ist korrekt, aber API-Token ist ungültig.'));
+    if (de.response?.statusCode == 401 && (de.response?.statusMessage ?? '').contains('API-Token')) {
+      return FormError(ErrorCode.unauthorized, text: 'Die Host-URL ist korrekt, aber API-Token ist ungültig.');
     }
-    else {
-      final text = '${de.response?.statusMessage ?? 'Verbindungsfehler'} (Code ${de.response?.statusCode}).';
-      state = state.copyWith(error: FormError(ErrorCode.unauthorized, text: text));
-    }
+    final text = '${de.response?.statusMessage ?? 'Verbindungsfehler'} (Code ${de.response?.statusCode}).';
+    return FormError(ErrorCode.unauthorized, text: text);
   }
 
-  // ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
   // --- Bereich "Passwort-Generator" ---
   // ------------------------------------------------------------------------
 
-  /// Setzt den Zeichensatz für den Passwortgenerator basierend auf vordefinierten Gruppen.
-  void setSpecialChars(String type) {
-    switch (type) {
-      case 'None':
-        state = state.copyWith(pwSpecialChars: '');
-        break;
-      case 'Standard':
-        state = state.copyWith(pwSpecialChars: '!@#\$%^&*()_+-=[]{}|;:,.<>?');
-        break;
-      case 'All':
-        state = state.copyWith(pwSpecialChars: '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
-        break;
+  /// Speichert Einstellungen für den Passwort-Generator.
+  Future<void> savePasswortGeneratorSettings() async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe bereinigen und im UI-State übernehmen
+    final pwLength = state.formData.pwLength;
+    final pwSpecialChars = state.formData.pwSpecialChars; //.trim(); darf Leerzeichen am Ende haben
+    final pwAvoidIlO0 = state.formData.pwAvoidIlO0;
+
+    // 2. Benutzereingabe validieren
+    if (pwLength < 1) {
+      state = state.copyWith(error: FormError(ErrorCode.valueInvalid, field: 'pwLength'));
+      return;
+    }
+
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
+
+    try {
+      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+
+      // 3. Basiskonfiguration in der DB speichern.
+      final updatedSettings = _settings!.copyWith(
+        pwLength: pwLength,
+        pwSpecialChars: pwSpecialChars,
+        pwAvoidIlO0: pwAvoidIlO0,
+      );
+      _settings = await _databaseService.saveSettings(updatedSettings);
+
+      // 4. Session aktualisieren
+      _sessionService.setSession(
+        user: _sessionService.user!,
+        privateKey: _sessionService.privateKey!,
+        vaultName: _sessionService.vaultName,
+        settings: _settings!,
+      );
+
+      // 6. State aktualisieren
+      final formData = state.formData.copyWith(pwLength: pwLength, pwSpecialChars: pwSpecialChars, pwAvoidIlO0: pwAvoidIlO0);
+      final originalFormData = state.originalFormData.copyWith(pwLength: pwLength, pwSpecialChars: pwSpecialChars, pwAvoidIlO0: pwAvoidIlO0);
+      state = state.copyWith(
+        formData: formData,
+        originalFormData: originalFormData,
+        status: SettingsActionStatus.saved,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -555,67 +663,57 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Bereich "Freunde" ---
   // ------------------------------------------------------------------------
 
-  /// Lädt die Freundesliste.
-  Future<void> _loadFriends() async {
-    // Alle Benutzer laden
-    final allUsers = await _databaseService.getUsers();
-
-    // Den Benutzer der App und ausgeblendete Benutzer herausfiltern.
-    // Übrig bleiben die sichtbaren Freunde.
-    final friends = allUsers.where((u) => u.id > 1 && !u.isHidden).toList();
-
-    // Alle Benutzer-IDs ermitteln, die ein Rekeying benötigen
-    final idsWithMissingKeys = await _databaseService.getUserIdsWithEmptyEntryKeys();
-
-    // Mapping-Tabelle für die UI aufbauen
-    final map = <int, bool>{};
-    for (var f in friends) {
-      map[f.id] = idsWithMissingKeys.contains(f.id);
-    }
-
-    // State aktualisieren
-    state = state.copyWith(friends: friends, friendNeedsRekeying: map);
-  }
-
   /// Fügt den einen Freund über den angegebenen Namen hinzu.
-  Future<bool> addFriend(String name) async {
-    name = name.trim();
+  Future<void> addFriend(String name) async {
+    if (state.isBusy) return;
 
-    // Validierung der Benutzereingabe
+    // 1. Benutzereingabe validieren
 
     // Name muss angegeben sein
+    name = name.trim();
     if (name.isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'name'));
-      return false;
+      return;
     }
 
     // Du kannst dich nicht selbst als Freund hinzufügen
     final lowerName = name.toLowerCase();
     if (lowerName == _sessionService.user?.name.toLowerCase()) {
       state = state.copyWith(error: FormError(ErrorCode.userSelfAdd));
-      return false;
+      return;
     }
 
     // Prüfen ob bereits in der Liste
     if (state.friends.any((f) => f.name.toLowerCase() == lowerName)) {
       state = state.copyWith(error: FormError(ErrorCode.userAlreadyAdded));
-      return false;
+      return;
     }
 
-    // WebService mit den aktuell sichtbaren Einstellungen konfigurieren
-    _initWebService();
+    // Host und API-Token müssen angegeben sein
+    final host = _normalizeUrl(state.formData.host);
+    final apiToken = state.formData.apiToken.trim();
+    if (host.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'host'));
+      return;
+    }
+    if (apiToken.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'apiToken'));
+      return;
+    }
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // 2. Status auf loading setzen
+    state = state.copyWith(status: SettingsActionStatus.loading, error: FormError.none());
 
     try {
+      // 3. Benutzer auf dem Server suchen
+      _webService.updateConfig(host: host, apiToken: apiToken);
       final userResponse = await _webService.findUser(_sessionService.vaultName, name);
       if (userResponse == null) {
-        state = state.copyWith(error: FormError(ErrorCode.userNotFound));
-        return false;
+        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.userNotFound));
+        return;
       }
 
-      // Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
+      // 4. Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
       await _databaseService.saveUser(UserEntity(
         id: 0,
         uuid: userResponse.userUuid,
@@ -625,118 +723,121 @@ class SettingsNotifier extends Notifier<SettingsState> {
         updatedAt: DateTime.now().toUtc(),
       ));
 
-      // UI-Liste neu laden
-      await _loadFriends();
-      return true;
+      // 5. UI-State aktualisieren
+      final friends = await _databaseService.getNotHiddenFriends();
+      final fingerprints = _getFingerprints(friends);
+      final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
+      state = state.copyWith(
+        friends: friends,
+        fingerprints: fingerprints,
+        friendNeedsRekeying: friendNeedsRekeying,
+        status: SettingsActionStatus.friendAdded,
+      );
 
     } on DioException catch (de) {
       // Exception des HTTP-Clients
-      _setDioError(de);
-      return false;
+      state = state.copyWith(status: SettingsActionStatus.failure, error: _convertDioError(de));
 
     } catch (e, st) {
       Logger().fatal("Suche fehlgeschlagen: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
-  /// Speichert den aktualisierten Verifizierungsstatus des Freundes.
-  Future<bool> toggleVerification(UserEntity friend) async {
-    final isVerified = !friend.isVerified;
+  /// Berechnet die SHA-256 Fingerprints der Freunde basierend auf dem PublicKey.
+  /// Nutzt ein unsichtbares Leerzeichen (\u200B) nach den Doppelpunkten für bessere Zeilenumbrüche in der UI.
+  Map<int, String> _getFingerprints(List<UserEntity> friends) {
+    final map = <int, String>{};
+    for (var f in friends) {
+      map[f.id] = _cryptoService.fingerprint(f.publicKey).replaceAll(":", ":\u200B");
+    }
+    return map;
+  }
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  /// Ermittelt für jeden Freund, ob dieser Zugriff auf Einträge mit geleerten  Entry-Key hat.
+  /// Zurückgegeben wird ein Mapping UserID -> true/false
+  Future<Map<int, bool>> _getFriendNeedsRekeying(List<UserEntity> friends) async {
+    final idsWithMissingKeys = await _databaseService.getUserIdsWithEmptyEntryKeys();
+    final map = <int, bool>{};
+    for (var f in friends) {
+      map[f.id] = idsWithMissingKeys.contains(f.id);
+    }
+    return map;
+  }
+
+  /// Speichert den aktualisierten Verifizierungsstatus des Freundes.
+  Future<void> toggleVerification(UserEntity friend) async {
+    if (state.isBusy) return;
+
+    final isVerified = !friend.isVerified;
+    final needsRekeying = state.friendNeedsRekeying; // todo muss friendNeedsRekeying im State sein?
+
+    // 1. Status auf loading setzen
+    state = state.copyWith(status: SettingsActionStatus.loading, error: FormError.none());
 
     try {
-      // Wenn verifiziert wird, fehlende Entry-Keys generieren.
+      // 2. Wenn verifiziert wird, fehlende Entry-Keys generieren.
       if (isVerified) {
         await _rekeyEntriesForFriend(friend);
+        if (state.friendNeedsRekeying[friend.id] ?? false) {
+          needsRekeying[friend.id] = false;
+        }
       }
 
-      // Änderung speichern
+      // 3. Änderung speichern
       final updatedUser = friend.copyWith(isVerified: isVerified, updatedAt: DateTime.now().toUtc());
       await _databaseService.saveUser(updatedUser);
 
-      // UI-Liste aktualisieren
-      await _loadFriends();
-      return true;
+      // 4. UI-State aktualisieren
+      state = state.copyWith(
+        friendNeedsRekeying: needsRekeying,
+        status: SettingsActionStatus.friendVerified,
+      );
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern der Verifizierung: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
   /// Verschlüsselt alle Entry-Keys, die aufgrund eines Identitätswechsels geleert wurden.
   ///
   /// Diese Methode wird aufgerufen, wenn ein Freund verifiziert wird.
-  Future<bool> _rekeyEntriesForFriend(UserEntity friend) async {
+  Future<void> _rekeyEntriesForFriend(UserEntity friend) async {
     if (_sessionService.privateKey == null) throw Exception("PrivateKey nicht initialisiert.");
 
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+    // 1. Die geleerten Berechtigungen des Freundes laden
+    final dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id);
 
-    try {
-      // 1. Die geleerten Berechtigungen des Freundes laden
-      var dirtyPermissions = await _databaseService.getPermissionsWithoutKeyByUserId(friend.id);
-      for (var perm in dirtyPermissions) {
-        // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
-        var myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
-        if (myPerm == null) continue;
+    for (var perm in dirtyPermissions) {
+      // 2. Wir brauchen meine eigene Berechtigung für diesen Eintrag, um an den AES-Entry-Key zu kommen
+      final myPerm = await _databaseService.getPermissionByEntryIdAndUserId(perm.entryId, 1); // 1 = Me
+      if (myPerm == null) continue;
 
-        // 3. Entry-Key mit meinem Private-Key entschlüsseln
-        var entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+      // 3. Entry-Key mit meinem Private-Key entschlüsseln
+      final entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
 
-        // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
-        final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);
+      // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
+      final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);
 
-        // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
-        perm = perm.copyWith(encryptedKey: encryptedKey);
-        await _databaseService.savePermission(perm);
-      }
-
-      // State aktualisieren
-      if (state.friendNeedsRekeying[friend.id] ?? false) { // todo muss friendNeedsRekeying im State sein?
-        final needsRekeying = state.friendNeedsRekeying;
-        needsRekeying[friend.id] = false;
-        state = state.copyWith(friendNeedsRekeying: needsRekeying);
-      }
-
-      return true;
-
-    } catch (e, st) {
-      Logger().fatal("Rekeying fehlgeschlagen: $e", stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
-
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+      // 5. In DB speichern (wird beim nächsten Sync hochgeladen)
+      perm = perm.copyWith(encryptedKey: encryptedKey);
+      await _databaseService.savePermission(perm);
     }
   }
 
   /// Entfernt einen Freund aus der Liste.
   ///
   /// Der Datensatz wird gelöscht, wenn keine Verknüpfungen bestehen, ansonsten wird er ausgeblendet.
-  Future<bool> deleteFriend(UserEntity? friend) async {
-    // Busy setzen, Fehler zurücksetzen
-    state = state.copyWith(isBusy: true, error: FormError.none());
+  Future<void> deleteFriend(UserEntity friend) async {
+    if (state.isBusy) return;
+
+    // 1. Status auf `deleting` setzen
+    state = state.copyWith(status: SettingsActionStatus.deleting, error: FormError.none());
 
     try {
-      if (friend == null) throw Exception('Kein Freund zum Löschen angegeben.');
-
-      // Prüfen, ob der User überhaupt Berechtigungen hat
-      var perms = await _databaseService.getPermissionsByUserId(friend.id);
+      // 2. Freund löschen bzw. ausblenden
+      final perms = await _databaseService.getPermissionsByUserId(friend.id);
       if (perms.isEmpty) {
         // Es werden keine Einträge mit dem Freund geteilt, daher kann er gelöscht werden.
         await _databaseService.deleteUser(friend.id);
@@ -745,18 +846,87 @@ class SettingsNotifier extends Notifier<SettingsState> {
         await _databaseService.hideUser(friend.id);
       }
 
-      // Aus der UI-Liste entfernen
-      await _loadFriends();
-      return true;
+      // 3. UI-State zurücksetzen
+      final friends = await _databaseService.getNotHiddenFriends();
+      final fingerprints = _getFingerprints(friends);
+      final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
+      state = state.copyWith(
+        friends: friends,
+        fingerprints: fingerprints,
+        friendNeedsRekeying: friendNeedsRekeying,
+        status: SettingsActionStatus.friendDeleted,
+      );
 
     } catch (e, st) {
       Logger().fatal('Löschen fehlgeschlagen: $e', stack: st);
-      state = state.copyWith(error: FormError(ErrorCode.unknown));
-      return false;
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+    }
+  }
 
-    } finally {
-      // Busy zurücksetzen
-      state = state.copyWith(isBusy: false);
+  // ------------------------------------------------------------------------
+  // --- Bereich "Design" ---
+  // ------------------------------------------------------------------------
+
+  /// Setter für das Farbschema.
+  ///
+  /// `PriVaultApp` (siehe `main.dart`) beobachtet das Farbschema indirekt über
+  /// das `MaterialApp`-Widget und reagiert auf diese Änderungen.
+  void setThemeMode(ThemeMode value) {
+    final error = state.error.field == 'themeMode' ? FormError.none() : null;
+    state = state.copyWith(themeMode: value, error: error);
+    if (_configService.theme == value.name) return;
+    _configService.theme = value.name;
+  }
+
+  /// Speichert den Platzhalter für eine leere Kategorie.
+  Future<void> saveCategoryPlaceholder(String categoryPlaceholder) async {
+    if (state.isBusy) return;
+
+    // 1. Benutzereingabe bereinigen
+    final categoryPlaceholder = state.formData.categoryPlaceholder.trim();
+
+    // 2. Benutzereingabe validieren
+    if (categoryPlaceholder.isEmpty) {
+      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'categoryPlaceholder'));
+      return;
+    }
+    if (categoryPlaceholder == state.originalFormData.categoryPlaceholder) {
+      state = state.copyWith(error: FormError(ErrorCode.valueNotChanged, field: 'categoryPlaceholder'));
+      return;
+    }
+
+    // 3. Status auf saving setzen
+    state = state.copyWith(status: SettingsActionStatus.saving, error: FormError.none());
+
+    try {
+      if (_settings == null || _sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
+      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
+      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+
+      // 4. Basiskonfiguration in der DB speichern.
+      final updatedSettings = _settings!.copyWith(categoryPlaceholder: categoryPlaceholder);
+      _settings = await _databaseService.saveSettings(updatedSettings);
+
+      // 5. Session aktualisieren
+      _sessionService.setSession(
+        user: _sessionService.user!,
+        privateKey: _sessionService.privateKey!,
+        vaultName: _sessionService.vaultName,
+        settings: _settings!,
+      );
+
+      // 6. State aktualisieren
+      final formData = state.formData.copyWith(categoryPlaceholder: categoryPlaceholder);
+      final originalFormData = state.originalFormData.copyWith(categoryPlaceholder: categoryPlaceholder);
+      state = state.copyWith(
+        formData: formData,
+        originalFormData: originalFormData,
+        status: SettingsActionStatus.saved,
+      );
+
+    } catch (e, st) {
+      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
     }
   }
 
@@ -808,62 +978,82 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Convenience Setter & Getter ---
+  // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
+
+  // todo
 
   /// Setter für Tresorname.
   void setVaultName(String value) {
-    // Ungültige Zeichen für Dateinamen filtern
-    final cleaned = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+    // Ungültige Zeichen für Dateinamen entfernen
+    final vaultName = value.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
     final error = state.error.field == 'vaultName' ? FormError.none() : null;
-    state = state.copyWith(vaultName: cleaned, error: error);
+    final formData = state.formData.copyWith(vaultName: vaultName);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für "Biometrie erlauben".
   void setUseBiometric(bool value) {
     final error = state.error.field == 'useBiometric' ? FormError.none() : null;
-    state = state.copyWith(useBiometric: value, error: error);
+    final formData = state.formData.copyWith(useBiometric: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Benutzername.
   void setUserName(String value) {
     final error = state.error.field == 'userName' ? FormError.none() : null;
-    state = state.copyWith(userName: value.trim(), error: error);
+    final formData = state.formData.copyWith(userName: value.trim());
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Host.
   void setHost(String value) {
     final error = state.error.field == 'host' ? FormError.none() : null;
-    state = state.copyWith(host: _normalizeUrl(value), error: error);
-  }
-
-  /// Entfernt ein Slash-Zeichen am Ende der URL.
-  String _normalizeUrl(String url) {
-    return url.trim().replaceAll(RegExp(r'/+$'), '');
+    final formData = state.formData.copyWith(host: value.trim());
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den API-Token.
   void setApiToken(String value) {
     final error = state.error.field == 'apiToken' ? FormError.none() : null;
-    state = state.copyWith(apiToken: value.trim(), error: error);
+    final formData = state.formData.copyWith(apiToken: value.trim());
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für Passwortlänge
   void setPwLength(int value) {
     final error = state.error.field == 'pwLength' ? FormError.none() : null;
-    state = state.copyWith(pwLength: value, error: error);
+    final formData = state.formData.copyWith(pwLength: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
-  /// Setter für Sonderzeichen im Passwort
+  /// Setter für Passwort-Sonderzeichen
   void setPwSpecialChars(String value) {
     final error = state.error.field == 'pwSpecialChars' ? FormError.none() : null;
-    state = state.copyWith(pwSpecialChars: value.trim(), error: error);
+    final formData = state.formData.copyWith(pwSpecialChars: value);
+    state = state.copyWith(formData: formData, error: error);
+  }
+
+  /// Setzt keine Passwort-Sonderzeichen
+  void setNonePwSpecialChars() {
+    setPwSpecialChars('');
+  }
+
+  /// Setzt empfohlene Passwort-Sonderzeichen.
+  void setDefaultPwSpecialChars() {
+    setPwSpecialChars('!@#\$%^&*()_+-=[]{}|;:,.<>?');
+  }
+
+  /// Setzt alle Passwort-Sonderzeichen.
+  void setAllPwSpecialChars() {
+    setPwSpecialChars('!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
   }
 
   /// Setter für "verwechselbare Zeichen auslassen".
   void setPwAvoidIlO0(bool value) {
     final error = state.error.field == 'pwAvoidIlO0' ? FormError.none() : null;
-    state = state.copyWith(pwAvoidIlO0: value, error: error);
+    final formData = state.formData.copyWith(pwAvoidIlO0: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für das Farbschema.
@@ -871,7 +1061,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Das Theme wird sofort übernommen (ohne auf "Speichern" zu klicken).
   /// `PriVaultApp` (siehe `main.dart`) beobachtet das Farbschema indirekt über
   /// das `MaterialApp`-Widget und reagiert auf Änderungen.
-  void setThemeMode(ThemeMode value) {
+  void setThemeMode2(ThemeMode value) {
     final error = state.error.field == 'themeMode' ? FormError.none() : null;
     state = state.copyWith(themeMode: value, error: error);
     if (_configService.theme == value.name) return;
@@ -881,28 +1071,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Setter für die Kategorie.
   void setCategoryPlaceholder(String value) {
     final error = state.error.field == 'category' ? FormError.none() : null;
-    state = state.copyWith(categoryPlaceholder: value.trim(), error: error);
-  }
-
-  /// Gibt den Speicherort der Tresore zurück.
-  String getVaultStoragePath() {
-    return _configService.vaultStoragePath;
-  }
-
-  /// Gibt an, ob der Tresor umbenannt wurde
-  bool isVaultRenamed() {
-    return state.vaultName != _sessionService.vaultName;
-  }
-
-  /// Berechnet den SHA-256 Fingerprint basierend auf dem PublicKey.
-  /// Nutzt ein unsichtbares Leerzeichen (\u200B) nach den Doppelpunkten für bessere Zeilenumbrüche in der UI.
-  String getFingerprint(String publicKey) {
-    return _cryptoService.fingerprint(publicKey).replaceAll(":", ":\u200B");
-  }
-
-  /// Gibt an, ob für diesen Freund Einträge neu verschlüsselt werden müssen.
-  /// Dies ist der Fall, wenn sein RSA-Key geändert und die lokalen Permission-Keys geleert wurden.
-  bool needsRekeying(int userId) {
-    return state.friendNeedsRekeying[userId] ?? false;
+    final formData = state.formData.copyWith(categoryPlaceholder: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 }

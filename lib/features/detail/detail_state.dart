@@ -5,7 +5,7 @@ import 'package:privault/models/payloads/attachment_meta_payload.dart';
 /// Ein Enum für den Status von Aktionen
 enum DetailActionStatus {
   initial, // Der Ausgangszustand
-  progress, // Eintrag wird geladen
+  progress, // Aktion läuft
   loaded, // Eintrag wurde erfolgreich geladen
   attachmentAdded, // Dateianhang wurde erfolgreich hinzugefügt
   attachmentDeleted, // Dateianhang wurde erfolgreich gelöscht

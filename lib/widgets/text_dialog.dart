@@ -2,13 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Ein modaler Hinweis.
 class TextDialog {
-  static Future<void> show(
-    BuildContext context, {
-    required String title,
-    required String text,
-    String? ok,
-  }) {
-    /// Öffnet den Dialog.
+  /// Öffnet den Dialog.
+  static Future<void> show(BuildContext context, {required String title, required String text,  String? ok}) {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,

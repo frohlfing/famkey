@@ -5,8 +5,9 @@ import 'package:privault/database/database.dart'; // Pfad ggf. anpassen
 ///
 /// Dieser Dialog wird im `DetailScreen` aufgerufen.
 class FriendSelectorDialog {
+
+  /// Öffnet den Dialog und gibt bei Bestätigung den ausgewählten Freund zurück.
   static Future<UserEntity?> show(BuildContext context, List<UserEntity> available) async {
-    /// Öffnet den Dialog und gibt bei Bestätigung den ausgewählten Freund zurück.
     return showDialog<UserEntity>(
       context: context,
       barrierDismissible: false, // wird nicht geschlossen, wenn man außerhalb des Dialoges klickt

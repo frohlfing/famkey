@@ -11,6 +11,9 @@ enum ErrorCode {
   /// Eingabe ungültig
   valueInvalid,
 
+  /// Die Eingabe wurde nicht verändert.
+  valueNotChanged,
+
   /// Validierungsfehler
   validationFailed,
 
@@ -20,7 +23,7 @@ enum ErrorCode {
   vaultNotFound,
 
   /// Die Namen sind identisch.
-  vaultEqualName,
+  vaultEqualName, // todo == valueNotChanged
 
   /// Tresor existiert bereits
   vaultAlreadyExists,
@@ -45,7 +48,7 @@ enum ErrorCode {
   // --- Passwort ---
 
   /// Die Passwörter sind identisch.
-  equalPassword,
+  equalPassword, // todo == valueNotChanged
 
   /// Falsches Passwort
   wrongPassword,
@@ -98,6 +101,7 @@ extension ErrorCodeExtension on ErrorCode {
       case ErrorCode.none: return '';
       case ErrorCode.valueRequired: return 'Eingabe erforderlich';
       case ErrorCode.valueInvalid: return 'Eingabe ungültig';
+      case ErrorCode.valueNotChanged: return 'Eingabe wurde nicht verändert';
       case ErrorCode.validationFailed: return 'Bitte korrigiere die markierten Eingabefelder.';
 
       // --- Tresor ---

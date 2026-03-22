@@ -4,6 +4,7 @@ import 'package:privault/features/edit/edit_form_data.dart';
 /// Ein Enum für den Status von Aktionen
 enum EditActionStatus {
   initial, // Der Ausgangszustand
+  // todo Unterscheidung notwendig?
   loading, // Eintrag wird geladen
   creating, // Neuer Eintrag wird gespeichert
   updating, // Bestehender Eintrag wird gespeichert

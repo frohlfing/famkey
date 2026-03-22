@@ -2,15 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Ein modaler Dialog für eine Ja/Nein-Frage.
 class ConfirmDialog {
-  static Future<bool?> show(
-    BuildContext context, {
-    required String title,
-    required String text,
-    String? ok,
-    String? cancel,
-    bool autofocus = true,
-  }) {
-    /// Öffnet den Dialog und gibt bei Bestätigung `true` zurück.
+
+  /// Öffnet den Dialog und gibt bei Bestätigung `true` zurück.
+  static Future<bool?> show(BuildContext context, {required String title, required String text, String? ok, String? cancel, bool autofocus = true}) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,

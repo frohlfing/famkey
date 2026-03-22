@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 ///
 /// Dieser Dialog wird im `SettingsScreen` aufgerufen.
 class FriendSearchDialog {
+
+  /// Öffnet den Dialog und gibt bei Bestätigung das eingegebene Namen zurück.
   static Future<String?> show(BuildContext context, {String? errorText}) async {
     final controller = TextEditingController();
-
-    /// Öffnet den Dialog und gibt bei Bestätigung das eingegebene Namen zurück.
     return showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 /// Ein Wrapper um [SharedPreferences] für App-übergreifende (Tresor-unabhängige) Einstellungen.
 /// Der Speicherort ist Plattformabhängig. Unter Windows: `AppData/Roaming/.../`
 class ConfigService {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen & Konstanten ---
   // ------------------------------------------------------------------------

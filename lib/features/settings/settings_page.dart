@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
+import 'package:privault/features/settings/settings_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_search_dialog.dart';
 import 'package:privault/widgets/password_dialog.dart';
@@ -51,16 +52,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       // Daten laden
       final notifier = ref.read(settingsProvider.notifier);
       await notifier.load();
-
-      // Textfelder synchronisieren
-      final state = ref.read(settingsProvider);
-      _vaultNameController.text = state.vaultName;
-      _userNameController.text = state.userName;
-      _hostController.text = state.host;
-      _apiTokenController.text = state.apiToken;
-      _pwSpecialCharsController.text = state.pwSpecialChars;
-      _pwLengthController.text = state.pwLength.toString();
-      _categoryPlaceholderController.text = state.categoryPlaceholder;
     });
   }
 
@@ -77,17 +68,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.dispose();
   }
 
-  // todo testen, ob erforderlich
-  // /// Aktualisiert insbesondere das Feld für Sonderzeichen, falls dieses extern
-  // /// (via Buttons) geändert wurde.
-  // void _onViewModelChanged() {
-  //   if (!mounted) return;
-  //   // Nur das Sonderzeichen-Feld aktualisieren, wenn es vom VM abweicht
-  //   if (_pwSpecialCharsController.text != _viewModel.pwSpecialChars) {
-  //     _pwSpecialCharsController.text = _viewModel.pwSpecialChars;
-  //   }
-  // }
-
   // ------------------------------------------------------------------------
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
@@ -95,10 +75,80 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
-    // Notifier und State holen
-    final notifier = ref.read(settingsProvider.notifier);
-    final state = ref.watch(settingsProvider);
 
+    // todo Listener anpassen
+    // Listener für Side-Effects (Navigation, SnackBars)
+    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    ref.listen(settingsProvider.select((s) => s.status), (previous, next) {
+      final state = ref.read(settingsProvider);
+
+      switch (next) {
+        case SettingsActionStatus.saved:
+          Snack.show(context, 'Gespeichert!', success: true);
+          Navigator.of(context).pop(true); // Zurück zur Hauptseite
+          break;
+
+        case SettingsActionStatus.deleted:
+          Snack.show(context, 'Tresor gelöscht!', success: true);
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
+          break;
+
+        case SettingsActionStatus.testSuccessful:
+          Snack.show(context, 'Verbindung erfolgreich.', success: true);
+          break;
+
+        case SettingsActionStatus.testFailed:
+          Snack.show(context, state.error.text);
+          break;
+
+        case SettingsActionStatus.changingVaultName:
+          _handleRenameVault();
+          break;
+
+        case SettingsActionStatus.changingPassword:
+          _handleChangePassword();
+          break;
+
+        case SettingsActionStatus.friendAdded:
+          Snack.show(context, 'Freund wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
+          break;
+
+        case SettingsActionStatus.friendDeleted:
+          Snack.show(context, 'Freund gelöscht', success: true);
+          break;
+
+        case SettingsActionStatus.failure:
+          if (state.error.field == null) { // Nur allgemeine Fehler anzeigen
+            Snack.show(context, state.error.text);
+          }
+          break;
+
+        default:
+          break;
+      }
+    });
+
+    // Listener, der die Controller nur bei Initialladung oder Generierung füllt
+    ref.listen(settingsProvider, (previous, next) {
+      if (previous == next) return;
+      final formData = next.formData;
+      if (_vaultNameController.text != formData.vaultName) _vaultNameController.text = formData.vaultName;
+      if (_userNameController.text != formData.userName) _userNameController.text = formData.userName;
+      if (_hostController.text != formData.host) _hostController.text = formData.host;
+      if (_apiTokenController.text != formData.apiToken) _apiTokenController.text = formData.apiToken;
+      if (_pwSpecialCharsController.text != formData.pwSpecialChars) _pwSpecialCharsController.text = formData.pwSpecialChars;
+      if (_pwLengthController.text != formData.pwLength.toString()) _pwLengthController.text = formData.pwLength.toString();
+      if (_categoryPlaceholderController.text != formData.categoryPlaceholder) _categoryPlaceholderController.text = formData.categoryPlaceholder;
+    });
+
+    // Gezielte Watches für maximale Performance
+    final isBusy = ref.watch(settingsProvider.select((s) => s.isBusy));
+    final isRegistered = ref.watch(settingsProvider.select((state) => state.isRegistered));
+
+    // Notifier holen
+    final notifier = ref.read(settingsProvider.notifier);
+
+    // todo Consumer einbauen (Skeleton hab ich bereits an den entsprechenden Stellen eingefügt)
     return Stack(
       children: [
         Scaffold(
@@ -110,34 +160,60 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               onPressed: _handleCancel,
               tooltip: "Zurück",
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.check),
-                tooltip: 'Speichern',
-                onPressed: _handleSave,
-              ),
-            ],
+            // actions: [
+            //   IconButton(
+            //     icon: const Icon(Icons.check),
+            //     tooltip: 'Speichern',
+            //     onPressed: notifier.save,
+            //   ),
+            // ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, // Button linksbündig
               children: [
+
                 // ------------------------------------------------------------------------
                 // --- Tresor ---
                 // ------------------------------------------------------------------------
                 _buildSectionTitle('Tresor'),
-                TextField(
-                  controller: _vaultNameController,
-                  enabled: !state.isRegistered,
-                  decoration: const InputDecoration(
-                    labelText: 'Tresorname',
-                    prefixIcon: Icon(Icons.shield_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setVaultName,
+
+                // --- Tresorname ---
+                //_buildText('Tresorname', (state) => state.formData.vaultName, icon: Icons.shield_outlined),
+                //const SizedBox(height: 16),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'vaultName' ? state.error.text : null));
+                    return TextField(
+                      controller: _vaultNameController,
+                      textInputAction: TextInputAction.next,
+                      enabled: !isRegistered,
+                      decoration: InputDecoration(
+                        labelText: 'Tresorname',
+                        prefixIcon: Icon(Icons.shield_outlined),
+                        errorText: errorText,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setVaultName,
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+
+                // --- Button für Tresor-Umbenennung ---
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isBusy || isRegistered ? null : _handleRenameVault,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Tresor umbenennen'),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Speicherort ---
                 Row(
                   children: [
                     const Icon(Icons.folder_open_outlined, size: 20, color: Colors.blueGrey),
@@ -150,9 +226,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             'Speicherort der Tresore',
                             style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold),
                           ),
-                          Text(
-                            notifier.getVaultStoragePath(),
-                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final vaultStoragePath = ref.watch(settingsProvider.select((state) => state.vaultStoragePath));
+                              return Text(
+                                vaultStoragePath,
+                                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -165,6 +246,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // --- Login ---
                 // ------------------------------------------------------------------------
                 _buildSectionTitle('Login'),
+
+                // --- Button für Passwortänderung ---
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isBusy ? null : _handleChangePassword,
+                  icon: const Icon(Icons.password_outlined),
+                  label: const Text('Master-Passwort ändern'),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Biometrie ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -183,21 +278,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ],
                       ),
                     ),
-                    Switch(
-                      value: state.useBiometric,
-                      onChanged: notifier.setUseBiometric,
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final useBiometric = ref.watch(settingsProvider.select((state) => state.formData.useBiometric));
+                        return Switch(
+                          value: useBiometric,
+                          onChanged: isBusy ? null : notifier.setUseBiometric,
+                        );
+                      },
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade800,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: _handlePasswordChange,
-                  icon: const Icon(Icons.password_outlined),
-                  label: const Text('Master-Passwort ändern'),
                 ),
                 const SizedBox(height: 32),
 
@@ -205,39 +295,92 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // --- Sync-Server ---
                 // ------------------------------------------------------------------------
                 _buildSectionTitle('Sync-Server'),
-                TextField(
-                  controller: _userNameController,
-                  enabled: !state.isRegistered,
-                  decoration: const InputDecoration(
-                    labelText: 'Benutzername',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setUserName,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _hostController,
-                  decoration: const InputDecoration(
-                    labelText: 'Host URL',
-                    prefixIcon: Icon(Icons.cloud_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setHost,
-                ),
-                const SizedBox(height: 16),
-                PasswordField(
-                  controller: _apiTokenController,
-                  label: 'API-Token',
-                  prefixIcon: Icons.vpn_key_outlined,
-                  onChanged: notifier.setApiToken,
+
+                // --- Benutzername ---
+                //_buildText('Benutzername', (state) => state.formData.userName, icon: Icons.person_outline),
+                //const SizedBox(height: 16),
+
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'userName' ? state.error.text : null));
+                    return TextField(
+                      controller: _userNameController,
+                      textInputAction: TextInputAction.next,
+                      enabled: !isRegistered,
+                      decoration: InputDecoration(
+                        labelText: 'Benutzername',
+                        prefixIcon: Icon(Icons.person_outline),
+                        errorText: errorText,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setUserName,
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
+
+                // --- Button für Namensänderung ---
                 ElevatedButton.icon(
-                  onPressed: _handleTestConnection,
+                  onPressed: isBusy || isRegistered ? null : notifier.saveUsername,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Benutzername speichern'),
+                ),
+                const SizedBox(height: 32),
+
+                // --- Host ---
+                //_buildText('Server-URL', (state) => state.formData.host, icon: Icons.cloud_outlined),
+                //const SizedBox(height: 16),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'host' ? state.error.text : null));
+                    return TextField(
+                      controller: _hostController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Server-URL',
+                        prefixIcon: Icon(Icons.cloud_outlined),
+                        errorText: errorText,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setHost,
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // --- API-Token ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'apiToken' ? state.error.text : null));
+                    return PasswordField(
+                      controller: _apiTokenController,
+                      textInputAction: TextInputAction.next,
+                      label: 'API-Token',
+                      prefixIcon: Icons.vpn_key_outlined,
+                      errorText: errorText,
+                      onChanged: notifier.setApiToken,
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                // --- Button für Verbindungtest ---
+                ElevatedButton.icon(
+                  onPressed: isBusy ? null : notifier.testConnection,
                   icon: const Icon(Icons.swap_calls_outlined),
                   label: const Text('Verbindung testen'),
                 ),
+                const SizedBox(width: 16),
+
+                // --- Button für Änderung der Verbindungsparameter ---
+                ElevatedButton.icon(
+                  onPressed: isBusy ? null : notifier.saveSyncServer,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Speichern'),
+                ),
+                ]),
                 const SizedBox(height: 32),
 
                 // ------------------------------------------------------------------------
@@ -245,87 +388,117 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // ------------------------------------------------------------------------
                 _buildSectionTitle('Passwort-Generator'),
 
-                TextField(
-                  controller: _pwLengthController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Länge',
-                    prefixIcon: const Icon(Icons.onetwothree_outlined),
-                    border: const OutlineInputBorder(),
-                    // Minus- und Plus-Button für die Länge
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () {
-                            final val = int.tryParse(_pwLengthController.text) ?? 0;
-                            if (val > 1) {
-                              final newVal = val - 1;
-                              _pwLengthController.text = newVal.toString();
-                              notifier.setPwLength(newVal);
-                            }
-                          },
+                // --- Länge ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'title' ? state.error.text : null));
+                    return TextField(
+                      controller: _pwLengthController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Länge',
+                        prefixIcon: const Icon(Icons.onetwothree_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        // Minus- und Plus-Button für die Länge
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: () {
+                                final val = int.tryParse(_pwLengthController.text) ?? 0;
+                                if (val > 1) {
+                                  final newVal = val - 1;
+                                  _pwLengthController.text = newVal.toString();
+                                  notifier.setPwLength(newVal);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () {
+                                final val = int.tryParse(_pwLengthController.text) ?? 0;
+                                final newVal = val + 1;
+                                _pwLengthController.text = newVal.toString();
+                                notifier.setPwLength(newVal);
+                              },
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            final val = int.tryParse(_pwLengthController.text) ?? 0;
-                            final newVal = val + 1;
-                            _pwLengthController.text = newVal.toString();
-                            notifier.setPwLength(newVal);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  onChanged: (val) {
-                    final parsed = int.tryParse(val);
-                    if (parsed != null) notifier.setPwLength(parsed);
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val);
+                        if (parsed != null) notifier.setPwLength(parsed);
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
 
-                TextField(
-                  controller: _pwSpecialCharsController,
-                  decoration: InputDecoration(
-                    labelText: 'Sonderzeichen',
-                    prefixIcon: Icon(Icons.emoji_symbols_outlined),
-                    border: OutlineInputBorder(),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.star),
-                          tooltip: 'Standard',
-                          onPressed: () => notifier.setSpecialChars('Standard'),
+                // --- Sonderzeichen ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'title' ? state.error.text : null));
+                    return TextField(
+                      controller: _pwSpecialCharsController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Sonderzeichen',
+                        prefixIcon: Icon(Icons.emoji_symbols_outlined),
+                        errorText: errorText,
+                        border: OutlineInputBorder(),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.star),
+                              tooltip: 'Standard',
+                              onPressed: notifier.setDefaultPwSpecialChars,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.all_inclusive),
+                              tooltip: 'Alle',
+                              onPressed: notifier.setAllPwSpecialChars,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle),
+                              tooltip: 'Keine',
+                              onPressed: notifier.setNonePwSpecialChars,
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.all_inclusive),
-                          tooltip: 'Alle',
-                          onPressed: () => notifier.setSpecialChars('All'),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle),
-                          tooltip: 'Keine',
-                          onPressed: () => notifier.setSpecialChars('None'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  onChanged: notifier.setPwSpecialChars,
+                      ),
+                      onChanged: notifier.setPwSpecialChars,
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
-                    Switch(
-                      value: state.pwAvoidIlO0,
-                      onChanged: notifier.setPwAvoidIlO0,
-                    ),
-                  ],
+                // --- Lesbarkeit optimieren ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final pwAvoidIlO0 = ref.watch(settingsProvider.select((state) => state.formData.pwAvoidIlO0));
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
+                        Switch(
+                          value: pwAvoidIlO0,
+                          onChanged: notifier.setPwAvoidIlO0,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+
+                // --- Button für Änderung der Passwort-Generator-Einstellungen ---
+                ElevatedButton.icon(
+                  onPressed: isBusy ? null : notifier.savePasswortGeneratorSettings,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Speichern'),
                 ),
                 const SizedBox(height: 32),
 
@@ -338,65 +511,67 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   'Person suchen',
                   _handleAddFriend,
                 ),
-                if (state.friends.isEmpty)
-                  Text('Dieser Tresor wird nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic))
-                else
-                  Column(
-                    children: state.friends
-                        .map(
-                          (friend) => Card(
-                            key: ValueKey('friend_${friend.uuid}'),
-                            child: ListTile(
-                              title: Text(friend.name),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    notifier.getFingerprint(friend.publicKey),
-                                    style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                                  ),
-                                  if (notifier.needsRekeying(friend.id))
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        'Fingerprint hat sich geändert!',
-                                        style: TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
 
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Verifiziert',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                // --- Liste ---
+                Consumer(builder: (context, ref, _) {
+                  final friends = ref.watch(settingsProvider.select((s) => s.friends));
+                  final fingerprints = ref.watch(settingsProvider.select((s) => s.fingerprints));
+                  final friendNeedsRekeying = ref.watch(settingsProvider.select((s) => s.friendNeedsRekeying));
+                  if (friends.isEmpty) {
+                    return Text('Dieser Tresor wird nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic));
+                  }
+                  return Column(
+                    children: friends.map((friend) => Card(
+                      key: ValueKey('friend_${friend.uuid}'),
+                      child: ListTile(
+                        title: Text(friend.name),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fingerprints[friend.id] ?? '',
+                              style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                            ),
+                            if (friendNeedsRekeying[friend.id] ?? false)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Fingerprint hat sich geändert!',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  Transform.scale(
-                                    scale: 0.75,
-                                    child: Switch(
-                                      value: friend.isVerified,
-                                      onChanged: (_) => notifier.toggleVerification(friend),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    tooltip: 'Löschen',
-                                    onPressed: () => _handleDeleteFriend(friend),
-                                  ),
-                                ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Verifiziert',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            Transform.scale(
+                              scale: 0.75,
+                              child: Switch(
+                                value: friend.isVerified,
+                                onChanged: (_) => notifier.toggleVerification(friend),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              tooltip: 'Löschen',
+                              onPressed: () => _handleDeleteFriend(friend),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )).toList(),
+                  );
+                }),
                 const SizedBox(height: 32),
 
                 // ------------------------------------------------------------------------
@@ -404,39 +579,50 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // ------------------------------------------------------------------------
                 _buildSectionTitle('Design'),
 
-                //const SizedBox(height: 16),
-                SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('System'),
-                      icon: Icon(Icons.brightness_auto_outlined),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('Hell'),
-                      icon: Icon(Icons.light_mode_outlined),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('Dunkel'),
-                      icon: Icon(Icons.dark_mode_outlined),
-                    ),
-                  ],
-                  selected: {state.themeMode},
-                  onSelectionChanged: (val) => notifier.setThemeMode(val.first),
+                // --- Theme ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final themeMode = ref.watch(settingsProvider.select((state) => state.themeMode));
+                    return SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          label: Text('System'),
+                          icon: Icon(Icons.brightness_auto_outlined),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text('Hell'),
+                          icon: Icon(Icons.light_mode_outlined),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          label: Text('Dunkel'),
+                          icon: Icon(Icons.dark_mode_outlined),
+                        ),
+                      ],
+                      selected: {themeMode},
+                      onSelectionChanged: (val) => notifier.setThemeMode(val.first),
+                    );
+                  },
                 ),
-
                 const SizedBox(height: 32),
 
-                TextField(
-                  controller: _categoryPlaceholderController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name für leere Kategorie',
-                    prefixIcon: Icon(Icons.label_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: notifier.setCategoryPlaceholder,
+                // --- Platzhalter für Kategorie ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final errorText = ref.watch(settingsProvider.select((state) => state.error.field == 'title' ? state.error.text : null));
+                    return TextField(
+                      controller: _categoryPlaceholderController,
+                      decoration: InputDecoration(
+                        labelText: 'Name für leere Kategorie',
+                        prefixIcon: Icon(Icons.label_outlined),
+                        errorText: errorText,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: notifier.setCategoryPlaceholder,
+                    );
+                  },
                 ),
                 const SizedBox(height: 32),
 
@@ -466,8 +652,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   notifier.openAppSettings,
                 ),
 
-                const SizedBox(height: 64),
+                const SizedBox(height: 32),
 
+                // ------------------------------------------------------------------------
+                // --- Footer ---
+                // ------------------------------------------------------------------------
+
+                // --- Button für Löschen ---
                 Center(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
@@ -475,7 +666,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     ),
-                    onPressed: _handleDeleteTresor,
+                    onPressed: _handleDeleteVault,
                     icon: const Icon(Icons.delete_outlined),
                     label: const Text('Tresor lokal löschen'),
                   ),
@@ -486,7 +677,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
 
-        if (state.isBusy)
+        if (isBusy)
           Container(
             color: Colors.black.withValues(alpha: 0.1),
             child: const Center(child: CircularProgressIndicator()),
@@ -498,6 +689,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   // ------------------------------------------------------------------------
   // --- Widgets ---
   // ------------------------------------------------------------------------
+
+  // /// Gibt den Wert aus mit einem Titel und einem Icon.
+  // Widget _buildText(String title, String Function(SettingsState) selector, {IconData? icon}) {
+  //   return Row(
+  //     children: [
+  //       Icon(icon, size: 20, color: Colors.blueGrey),
+  //       const SizedBox(width: 12),
+  //       Expanded(
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text(
+  //               title,
+  //               style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+  //             ),
+  //             Consumer(
+  //               builder: (context, ref, _) {
+  //                 final value = ref.watch(settingsProvider.select(selector));
+  //                 return Text(
+  //                   value,
+  //                   style: const TextStyle(fontSize: 14, color: Colors.grey),
+  //                 );
+  //               },
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   /// Erstellt eine einheitliche, fettgedruckte Überschrift für die verschiedenen
   /// Einstellungsbereiche (z. B. "Identifikation" oder "Synchronisation").
@@ -552,230 +773,129 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   // Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-
-    final notifier = ref.read(settingsProvider.notifier);
-    if (notifier.isDirty()) {
-      final confirmed = await ConfirmDialog.show(
-        context,
-        title: 'Eintrag speichern',
-        text: 'Möchtest du die Änderungen speichern?',
-        ok: 'Ja, speichern',
-        cancel: 'Nein, verwerfen',
-      );
-      if (confirmed == true) {
-        _handleSave();
-        return;
-      }
-    }
-
-    // Zur vorherigen Seite navigieren
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  // Speichert den Eintrag und springt dann zur Hauptseite.
-  Future<void> _handleSave() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-
-    // Tresor umbenennen, wenn ein anderer Name eingegeben wurde
-    final notifier = ref.read(settingsProvider.notifier);
-    if (notifier.isVaultRenamed()) {
-      final success = await _handleRenameVault();
-      if (!success || !mounted) return;
-    }
-
-    // Einstellungen speichern
-    final success = await notifier.save();
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(settingsProvider);
-
-    // Fehlerfall
-    if (!success) {
-      if (state.error.field == null) {
-        Snack.show(context, state.error.text);
-      }
-      return;
-    }
-
-    // Erfolgsfall
-    // Zurück zur Hauptseite navigieren
-    Snack.show(context, 'Einstellungen gespeichert.', success: true);
-    if (mounted) Navigator.of(context).pop();
-
+    // final state = ref.read(settingsProvider);
+    // if (state.isDirty) {
+    //   final confirmed = await ConfirmDialog.show(
+    //     context,
+    //     title: 'Eintrag speichern',
+    //     text: 'Möchtest du die Änderungen speichern?',
+    //     ok: 'Ja, speichern',
+    //     cancel: 'Nein, verwerfen',
+    //   );
+    //   if (mounted && confirmed == true) {
+    //     final notifier = ref.read(settingsProvider.notifier);
+    //     notifier.save(); // Statt Cancel die Save-Action ausführen
+    //     return;
+    //   }
+    // }
+    if (mounted) Navigator.of(context).pop(); // Zur vorherigen Seite navigieren
   }
 
   /// Benennt den Tresor um.
-  Future<bool> _handleRenameVault() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return false;
+  Future<void> _handleRenameVault() async {
+    // String? vaultName = state.formData.vaultName;
+    //
+    // // Neuer Name des Tresors abfragen
+    // if (vaultName == state.originalFormData.vaultName || state.error.field == 'vaultName') {
+    //   vaultName = await InputDialog.show(
+    //     context,
+    //     title: 'Tresor umbenennen',
+    //     text: 'Wie soll der Tresor heißen?',
+    //     label: 'Neuer Tresorname',
+    //     value: vaultName,
+    //     errorText: state.error.field == 'vaultName' ? state.error.text : null,
+    //   );
+    //   if (!mounted || vaultName == null) return;
+    // }
 
-    String? errorText;
-    while (true) {
-
-      // Passwort abfragen
-      final password = await PasswordDialog.show(
-        context,
-        title: 'Tresor umbenennen',
-        text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-        errorText: errorText,
-      );
-      if (password == null || !mounted) return false;
-
-      // Tresor umbenennen
+    final state = ref.read(settingsProvider);
+    final password = await PasswordDialog.show(
+      context,
+      title: 'Tresor umbenennen',
+      text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
+      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
+    );
+    if (mounted && password != null) {
       final notifier = ref.read(settingsProvider.notifier);
-      final success = await notifier.renameVault(password);
-      if (!mounted) return false;
-
-      // Aktuellen State holen
-      final state = ref.read(settingsProvider);
-
-      // Fehlerfall
-      if (!success) {
-        if (state.error.code == ErrorCode.wrongPassword) {
-          errorText = state.error.text;
-          continue; // Passwort falsch -> Passwortabfrage wiederholen
-        }
-        if (state.error.field == null) {
-          Snack.show(context, state.error.text);
-        }
-        return false; // irgendein anderer Fehler -> Abbruch
-      }
-
-      // Erfolgsfall
-      Snack.show(context, 'Tresor erfolgreich umbenannt.', success: true);
-      return true;
+      notifier.renameVault(password);
     }
   }
 
-  /// Fragt ein neues und das bisherige Passwort ab und ändert es schließlich.
-  Future<void> _handlePasswordChange() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
+  /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
+  Future<void> _handleDeleteVault() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Tresor lokal löschen',
+      text: 'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
+      ok: 'Ja, löschen',
+    );
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(settingsProvider.notifier);
+      notifier.deleteVault();
+    }
+  }
+
+  /// Ändert das Master-Passwort.
+  Future<void> _handleChangePassword() async {
+    final state = ref.read(settingsProvider);
+    String? newPassword = state.newPassword;
 
     // Neues Passwort abfragen
-    final newPassword = await PasswordDialog.show(
+    if (newPassword.isEmpty || state.error.field == 'newVPassword') {
+      newPassword = await PasswordDialog.show(
+        context,
+        title: 'Passwort ändern',
+        text: 'Bitte gib dein NEUES Master-Passwort ein.',
+        errorText: state.error.field == 'newPassword' ? state.error.text : null,
+      );
+      if (!mounted || newPassword == null) return;
+    }
+
+    // Bisheriges Passwort abfragen
+    final password = await PasswordDialog.show(
       context,
       title: 'Passwort ändern',
-      text: 'Bitte gib dein NEUES Master-Passwort ein.',
+      text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
+      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
     );
-    if (newPassword == null || !mounted) return;
+    if (!mounted || password == null) return;
 
-    String? errorText;
-    while (true) {
-
-      // Bisheriges Passwort abfragen
-      final currentPassword = await PasswordDialog.show(
-        context,
-        title: 'Passwort-Änderung autorisieren',
-        text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
-        errorText: errorText,
-      );
-      if (currentPassword == null || !mounted) return;
-
-      // Validierung: Die Passwörter dürfen nicht identisch sein
-      if (currentPassword == newPassword) {
-        Snack.show(context, "Neues und altes Master-Passwort sind identisch");
-        return;
-      }
-
-      // Passwort ändern
-      final notifier = ref.read(settingsProvider.notifier);
-      final success = await notifier.changeMasterPassword(newPassword, currentPassword);
-      if (!mounted) return;
-
-      // Aktuellen State holen
-      final state = ref.read(settingsProvider);
-
-      // Fehlerfall
-      if (!success) {
-        if (state.error.code == ErrorCode.wrongPassword) {
-          errorText = state.error.text;
-          continue; // Passwort falsch -> Passwortabfrage wiederholen
-        }
-        if (state.error.field == null) {
-          Snack.show(context, state.error.text);
-        }
-        return; // irgendein anderer Fehler -> Abbruch
-      }
-
-      // Erfolgsfall
-      Snack.show(context, 'Passwort erfolgreich geändert.', success: true);
-      return;
-    }
-  }
-
-  /// Testet, ob Host-URL und API-Token korrekt sind
-  Future<void> _handleTestConnection() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-
-    // Verbindung testen
     final notifier = ref.read(settingsProvider.notifier);
-    final success = await notifier.testConnection();
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(settingsProvider);
-
-    // Fehlerfall
-    if (!success) {
-      Snack.show(context, state.error.text);
-      return;
-    }
-
-    // Erfolgsfall
-    Snack.show(context, 'Verbindung erfolgreich.', success: true);
+    notifier.changeMasterPassword(newPassword, password);
   }
 
-  /// Öffnet den Freund-Such-Dialog und verarbeitet das Ergebnis.
-  /// Bei Fehlern wie "nicht gefunden" bleibt der Dialog offen,
-  /// andere Fehler werden per SnackBar gemeldet.
+  // /// Ändert den Benutzername.
+  // Future<void> _handleChangeUsername() async {
+  //   final state = ref.read(settingsProvider);
+  //   final name = await InputDialog.show(
+  //     context,
+  //     title: 'Benutzername ändern',
+  //     text: 'Bitte gib dein neuen Benutzername ein.',
+  //     value: state.formData.userName,
+  //     errorText: state.error.field == 'userName' ? state.error.text : null,
+  //   );
+  //   if (mounted && name != null) {
+  //     final notifier = ref.read(settingsProvider.notifier);
+  //     notifier.saveUsername(name);
+  //   }
+  // }
+
+  /// Fügt einen Freund zu Liste hinzu.
   Future<void> _handleAddFriend() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-    
-    String? errorText;
-    while (true) {
-      // Name des Freundes abfragen
-      final name = await FriendSearchDialog.show(context, errorText: errorText);
-      if (name == null || !mounted) return;
-
-      // Freund hinzufügen
+    final state = ref.read(settingsProvider);
+    final name = await FriendSearchDialog.show(
+      context,
+      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
+    );
+    if (mounted && name != null) {
       final notifier = ref.read(settingsProvider.notifier);
-      final success = await notifier.addFriend(name);
-      if (!mounted) return;
-
-      // Aktuellen State holen
-      final state = ref.read(settingsProvider);
-
-      // Fehlerfall
-      if (!success) {
-        if (state.error.code == ErrorCode.userNotFound || state.error.code == ErrorCode.userAlreadyAdded) {
-          errorText = state.error.text;
-          continue; // im Dialog anzeigen, NICHT SnackBar
-        }
-        if (state.error.field == null) {
-          Snack.show(context, state.error.text);
-        }
-        return; // irgendein anderer Fehler -> Abbruch
-      }
-
-      // Erfolgsfall
-      Snack.show(context, '"$name" wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
+      notifier.addFriend(name);
       return;
     }
   }
 
   /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
   Future<void> _handleDeleteFriend(dynamic user) async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-
-    // Löschen bestätigen lassen
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Person entfernen',
@@ -783,60 +903,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
       ok: 'Ja, löschen',
     );
-    if (confirmed != true || !mounted) return;
-
-    // Freund löschen
-    final notifier = ref.read(settingsProvider.notifier);
-    final success = await notifier.deleteFriend(user);
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(settingsProvider);
-
-    // Fehlerfall
-    if (!success) {
-      if (state.error.field == null) {
-        Snack.show(context, state.error.text);
-      }
-      return; // irgendein anderer Fehler -> Abbruch
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(settingsProvider.notifier);
+      notifier.deleteFriend(user);
     }
-
-    // Erfolgsfall
-    return; // ohne Meldung weiter machen
-  }
-
-  /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
-  Future<void> _handleDeleteTresor() async {
-    // Busy-Check
-    if (ref.read(settingsProvider).isBusy) return;
-
-    // Löschen bestätigen lassen
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Tresor lokal löschen',
-      text: 'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
-      ok: 'Ja, löschen',
-    );
-    if (confirmed != true || !mounted) return;
-
-    // Tresor löschen
-    final notifier = ref.read(settingsProvider.notifier);
-    final success = await notifier.deleteVault();
-    if (!mounted) return;
-
-    // Aktuellen State holen
-    final state = ref.read(settingsProvider);
-
-    // Fehlerfall
-    if (!success) {
-      if (state.error.field == null) {
-        Snack.show(context, state.error.text);
-      }
-      return; // irgendein anderer Fehler -> Abbruch
-    }
-
-    // Erfolgsfall
-    // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 }

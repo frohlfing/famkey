@@ -144,54 +144,63 @@ class EditNotifier extends Notifier<EditState> {
   /// Verschlüsselt dabei alle sensiblen Felder.
   Future<void> save() async {
     if (state.isBusy) return;
-    final formData = state.formData;
 
-    // Benutzereingabe validieren
-    if (formData.title.trim().isEmpty) {
+    // Benutzereingabe bereinigen und validieren
+
+    var formData = state.formData;
+    formData = formData.copyWith(
+      category: formData.category.trim(),
+      title: formData.title.trim(),
+      username: formData.username.trim(),
+      url: formData.url.trim(),
+      notes: formData.notes.trim(),
+    );
+
+    if (formData.title.isEmpty) {
       state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'title'));
       return;
     }
 
-    // Status auf saving setzen
+    // 1. Status auf saving setzen
     final status = state.isEditMode ? EditActionStatus.updating : EditActionStatus.creating;
     state = state.copyWith(status: status, error: FormError.none());
 
     try {
-      // 1. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
+      // 2. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
       _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
 
-      // 2. Favicon laden, falls URL sich geändert hat
+      // 3. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
-      if (formData.url.trim().isNotEmpty && formData.url != state.originalFormData.url) {
-        final icon = await _downloadFavicon(formData.url.trim());
+      if (formData.url.isNotEmpty && formData.url != state.originalFormData.url) {
+        final icon = await _downloadFavicon(formData.url);
         if (icon != null) favicon = icon;
       }
 
-      // 3. Payload bauen und verschlüsseln (AES)
+      // 4. Payload bauen und verschlüsseln (AES)
       final payload = EntryPayload(
-        category: formData.category.trim(),
-        title: formData.title.trim(),
-        username: formData.username.trim(),
+        category: formData.category,
+        title: formData.title,
+        username: formData.username,
         password: formData.password,
-        url: formData.url.trim(),
-        notes: formData.notes.trim(),
+        url: formData.url,
+        notes: formData.notes,
         favicon: favicon,
       );
 
       final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
       final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
 
-      // 4. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
+      // 5. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
 
-      // 5. Entity erstellen und speichern
+      // 6. Eintrag in der DB speichern
       final entity = EntryEntity(
         id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
-        category: formData.category.trim(),
-        title: formData.title.trim(),
-        url: formData.url.trim(),
-        notes: formData.notes.trim(),
+        category: formData.category,
+        title: formData.title,
+        url: formData.url,
+        notes: formData.notes,
         favicon: favicon,
         encryptedData: encryptedData,
         creatorId: _sessionService.user!.id,
@@ -200,9 +209,10 @@ class EditNotifier extends Notifier<EditState> {
       );
       _entry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
-      // 6. State aktualisieren
+      // 7. State aktualisieren
       state = state.copyWith(
         entryId: _entry!.id,
+        formData: formData,
         originalFormData: formData,
         status: EditActionStatus.saved,
       );
@@ -232,21 +242,18 @@ class EditNotifier extends Notifier<EditState> {
   Future<void> deleteEntry() async {
     if (state.isBusy) return;
 
-    // Status auf deleting setzen
+    // 1. Status auf `deleting` setzen
     state = state.copyWith(status: EditActionStatus.deleting, error: FormError.none());
 
     try {
-      // Eintrag löschen
+      // 2. Eintrag löschen
       if (_entry == null) throw Exception('Kein Eintrag zum Löschen geladen.');
       await _databaseService.deleteEntry(_entry!.id);
       _entry = null;
 
-      // UI-Felder leeren
-      final formData = const EditFormData();
-      state = state.copyWith(
-        formData: formData,
-        originalFormData: formData,
-        passwordStrength: 0,
+      // 3. UI-State zurücksetzen
+      state = EditState().copyWith(
+        status: EditActionStatus.deleted,
       );
 
     } catch (e, st) {
@@ -275,7 +282,7 @@ class EditNotifier extends Notifier<EditState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Setter ---
+  // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
   /// Setter für die Kategorie.

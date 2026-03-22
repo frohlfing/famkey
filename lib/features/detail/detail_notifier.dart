@@ -201,7 +201,7 @@ class DetailNotifier extends Notifier<DetailState> {
   Future<void> addAttachment() async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
+    // Status auf progress setzen
     state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
@@ -270,7 +270,7 @@ class DetailNotifier extends Notifier<DetailState> {
   Future<void> openAttachment(AttachmentEntity attachment) async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
+    // Status auf progress setzen
     state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
@@ -317,7 +317,7 @@ class DetailNotifier extends Notifier<DetailState> {
   Future<void> deleteAttachment(AttachmentEntity attachment) async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
+    // Status auf progress setzen
     state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
@@ -398,7 +398,7 @@ class DetailNotifier extends Notifier<DetailState> {
   Future<void> shareWith(UserEntity targetUser) async {
     if (state.isBusy) return;
 
-    // Status auf loading setzen
+    // Status auf progress setzen
     state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
 
     try {
