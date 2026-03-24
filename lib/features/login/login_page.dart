@@ -203,6 +203,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             icon: const Icon(Icons.list),
                             tooltip: 'Tresor auswählen',
                             onSelected: (val) {
+                              _vaultController.text = val;
                               notifier.setVaultName(val);
                               _passwordFocusNode.requestFocus();
                             },

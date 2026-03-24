@@ -111,14 +111,20 @@ class _MainPageState extends ConsumerState<MainPage> {
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(mainProvider.select((s) => s.isBusy));
-    final vaultName = ref.watch(mainProvider.select((s) => s.vaultName));
+    //final vaultName = ref.watch(mainProvider.select((s) => s.vaultName));
     final groupedEntries = ref.watch(mainProvider.select((s) => s.groupedEntries));
 
     return Stack(
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Text(vaultName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Consumer(
+              builder: (context, ref, _) {
+                final vaultName = ref.watch(mainProvider.select((state) => state.vaultName));
+                return Text(vaultName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold));
+              },
+            ),
+            //title: Text(vaultName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
             centerTitle: true,
 
             leading: PopupMenuButton<String>(
@@ -128,11 +134,10 @@ class _MainPageState extends ConsumerState<MainPage> {
                     notifier.sync();
                     break;
                   case 'settings':
-                    Navigator.of(context).pushNamed('/settings');
+                    _handleOpenSettings();
                     break;
                   case 'logout':
-                    notifier.logout();
-                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    _handleLogout();
                     break;
                 }
               },
@@ -311,6 +316,49 @@ class _MainPageState extends ConsumerState<MainPage> {
   // --- Handler ---
   // ------------------------------------------------------------------------
 
+  /// Öffnet die Einstellungen.
+  Future<void> _handleOpenSettings() async {
+    // Öffnet die Einstellungen und wartet, bis die Seite wieder geschlossen wird.
+    final hasChanged = await Navigator.of(context).pushNamed('/settings');
+
+    // Wenn der Einstellungen geändert wurden, die Liste neu laden.
+    if (mounted && hasChanged == true) {
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
+    }
+  }
+
+  /// Meldet den Benutzer ab und springt zur Anmeldeseite.
+  Future<void> _handleLogout() async {
+    final notifier = ref.read(mainProvider.notifier);
+    notifier.logout();
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+  }
+
+  /// Öffnet die Editierseite.
+  Future<void> _handleAddEntry() async {
+    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
+    final hasChanged = await Navigator.of(context).pushNamed('/edit');
+
+    // Wenn der Eintrag geändert wurde, die Liste neu laden.
+    if (mounted && hasChanged == true) {
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
+    }
+  }
+
+  /// Öffnet die Detailansicht.
+  Future<void> _handleViewEntry(dynamic entry) async {
+    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
+    final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.id);
+
+    // Wenn der Eintrag geändert wurde, die Liste neu laden.
+    if (hasChanged == true && mounted) {
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
+    }
+  }
+
   /// Adoptiert die auf dem Server gespeicherte Identität
   Future<void> _handleAdoptionRequest({required bool isOnboarding}) async {
     final message = isOnboarding
@@ -326,30 +374,6 @@ class _MainPageState extends ConsumerState<MainPage> {
     if (mounted && password != null) {
       final notifier = ref.read(mainProvider.notifier);
       notifier.adoptIdentity(password);
-    }
-  }
-
-  /// Öffnet die Editierseite.
-  Future<void> _handleAddEntry() async {
-    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
-    final hasChanged = await Navigator.of(context).pushNamed('/edit');
-
-    // Wenn der Eintrag geändert wurde, die Liste neu laden.
-    if (hasChanged == true && mounted) {
-      final notifier = ref.read(mainProvider.notifier);
-      notifier.load();
-    }
-  }
-
-  /// Öffnet die Detailansicht.
-  Future<void> _handleViewEntry(dynamic entry) async {
-    // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
-    final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.id);
-
-    // Wenn der Eintrag geändert wurde, die Liste neu laden.
-    if (hasChanged == true && mounted) {
-      final notifier = ref.read(mainProvider.notifier);
-      notifier.load();
     }
   }
 }

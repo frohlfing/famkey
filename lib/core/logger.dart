@@ -119,7 +119,7 @@ class Logger {
     }
 
     // Datei schreiben
-    await _logFile.writeAsString('$line\n', mode: FileMode.append);
+    await _logFile.writeAsString('\n$line\n', mode: FileMode.append);
     if (stack != null) {
       final readable = _getReadableStackTrace(stack, maxFrames: 5);
       await _logFile.writeAsString('$readable\n', mode: FileMode.append);

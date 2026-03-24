@@ -1,52 +1,83 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
-import 'package:privault/features/settings/settings_form_data.dart';
+import 'package:privault/features/settings/password_generator_dialog.dart';
+import 'package:privault/features/settings/server_settings_dialog.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SettingsActionStatus {
   initial, // Der Ausgangszustand
   progress, // Aktion läuft
 
-  // todo Unterscheidung notwendig?
-  loading, // Einstellungen werden geladen
-  saving, // Änderungen werden gespeichert
-  deleting, // Tresor wird gelöscht
   loaded, // Einstellungen wurden erfolgreich geladen
   saved, // Änderungen wurden erfolgreich gespeichert
   deleted, // Tresor wurde erfolgreich gelöscht
-
-  testing, // Server-Verbindung wird getestet
   testSuccessful, // Test erfolgreich
-  testFailed, // Test fehlgeschlagen
-
-  changingVaultName, // Tresor wird umbenannt
-  vaultNameChanged, // Tresor wurde erfolgreich umbenannt
-
-  changingPassword, // Master-Passwort wird geändert
-  passwordChanged, // Master-Passwort wurde erfolgreich geändert
-
   friendAdded, // Freund wurde erfolgreich hinzugefügt
   friendDeleted, // Freund wurde erfolgreich gelöscht
   friendVerified, // Freund wurde erfolgreich verifiziert
+
+  renameVaultFailed, // Tresor konnte nicht umbenannt werden
+  changePasswordFailed, // Passwort konnte nicht geändert werden
+  renameUserFailed, // Benutzer konnte nicht umbenannt werden
+  testFailed, // Test fehlgeschlagen
+  changeServerFailed, // Servereinstellung konnte nicht geändert werden
+  changePasswordGeneratorFailed, // Servereinstellung konnte nicht geändert werden
+  changeCategoryPlaceholderFailed, // Platzhalter für leere Kategorie konnte nicht geändert werden
   failure, // Aktion mit Fehler beendet
 }
 
 class SettingsState {
 
-  // --- Basiskonfiguration ---
+  // --- Tresor ---
 
   /// Speicherort der Tresore
   final String vaultStoragePath;
 
-  /// Die Formulardaten.
-  final SettingsFormData formData;
+  /// Der Tresorname.
+  final String vaultName;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
-  final SettingsFormData originalFormData;
+  /// Der neue Tresorname (für den Dialog, wenn der Tresor umbenannt wird).
+  final String newVaultName;
+
+  // --- Login ---
+
+  /// Neues Master-Passwort (für den Dialog, wenn das Master-Passwort geändert wird).
+  final String newPassword;
+
+  /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
+  final bool useBiometric;
+
+  // --- Server ---
+
+  /// Der Benutzername.
+  final String userName;
+
+  /// Der neue Benutzername (für den Dialog, wenn der Benutzer umbenannt wird).
+  final String newUserName;
 
   /// Gibt an, ob der Benutzer bereits mit dem Server synchronisiert wurde (registriert ist).
   final bool isRegistered;
+
+  /// Die URL des Servers für die Synchronisation.
+  final String host;
+
+  /// Daten für den Dialog, wenn der Server geändert werden.
+  final ServerSettingsDialogData serverSettingsDialogData;
+
+  // --- Passwortgenerator ---
+
+  /// Eingestellte Länge für den Passwortgenerator.
+  final int pwLength;
+
+  /// Der aktuell gewählte Satz an Sonderzeichen für generierte Passwörter.
+  final String pwSpecialChars;
+
+  /// Gibt an, ob optisch ähnliche Zeichen ('I', 'l', 'O', '0') ausgelassen werden.
+  final bool pwAvoidIlO0;
+
+  /// Daten für den Dialog, wenn der Passwortgenerator geändert werden.
+  final PasswordGeneratorDialogData passwordGeneratorDialogData;
 
   // --- Freunde---
 
@@ -64,13 +95,13 @@ class SettingsState {
   /// Das Farbschema ('System', 'Light' oder 'Dark').
   final ThemeMode themeMode;
 
+  /// Anzeigename für eine leere Kategorie.
+  final String categoryPlaceholder;
+
+  /// Anzeigename für eine leere Kategorie.
+  final String newCategoryPlaceholder;
+
   // --- Action-Status und -Error ---
-
-  /// Neuer Tresorname (wird gesetzt, wenn der Tresor umbenannt wird).
-  final String newVaultName;
-
-  /// Neues Master-Passwort (wird gesetzt, wenn das Master-Passwort geändert wird).
-  final String newPassword;
 
   /// Der Status der letzten Aktion.
   final SettingsActionStatus status;
@@ -81,15 +112,7 @@ class SettingsState {
   // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
-  bool get isBusy =>
-    status == SettingsActionStatus.progress ||
-    status == SettingsActionStatus.loading ||
-    status == SettingsActionStatus.saving ||
-    status == SettingsActionStatus.deleting ||
-    status == SettingsActionStatus.testing;
-
-  /// Gibt an, ob der Benutzer ein Feld verändert hat.
-  bool get isDirty => formData != originalFormData;
+  bool get isBusy => status == SettingsActionStatus.progress;
 
   /// Gibt an, ob für diesen Freund Einträge neu verschlüsselt werden müssen.
   /// Dies ist der Fall, wenn sein RSA-Key geändert und die lokalen Permission-Keys geleert wurden.
@@ -100,15 +123,25 @@ class SettingsState {
   /// Konstruktor
   const SettingsState({
     this.vaultStoragePath = '',
-    this.formData = const SettingsFormData(),
-    this.originalFormData = const SettingsFormData(),
+    this.vaultName = '',
+    this.newVaultName = '',
+    this.newPassword = '',
+    this.useBiometric = false,
+    this.userName = '',
+    this.newUserName = '',
     this.isRegistered = false,
+    this.host = '',
+    this.serverSettingsDialogData = const ServerSettingsDialogData(),
+    this.pwLength = 16,
+    this.pwSpecialChars = '',
+    this.pwAvoidIlO0 = false,
+    this.passwordGeneratorDialogData = const PasswordGeneratorDialogData(),
     this.friends = const [],
     this.fingerprints = const {},
     this.friendNeedsRekeying = const {},
     this.themeMode = ThemeMode.system,
-    this.newVaultName = '',
-    this.newPassword = '',
+    this.categoryPlaceholder = '',
+    this.newCategoryPlaceholder = '',
     this.status = SettingsActionStatus.initial,
     this.error = const FormError.none(),
   });
@@ -116,29 +149,49 @@ class SettingsState {
   /// Status aktualisieren (immutable)
   SettingsState copyWith({
     String? vaultStoragePath,
-    SettingsFormData? formData,
-    SettingsFormData? originalFormData,
+    String? vaultName,
+    String? newVaultName,
+    String? newPassword,
+    bool? useBiometric,
+    String? userName,
+    String? newUserName,
     bool? isRegistered,
+    String? host,
+    ServerSettingsDialogData? serverSettingsDialogData,
+    int? pwLength,
+    String? pwSpecialChars,
+    bool? pwAvoidIlO0,
+    PasswordGeneratorDialogData? passwordGeneratorDialogData,
     List<UserEntity>? friends,
     Map<int, String>? fingerprints,
     Map<int, bool>? friendNeedsRekeying,
     ThemeMode? themeMode,
-    String? newVaultName,
-    String? newPassword,
+    String? categoryPlaceholder,
+    String? newCategoryPlaceholder,
     SettingsActionStatus? status,
     FormError? error,
   }) {
     return SettingsState(
       vaultStoragePath: vaultStoragePath ?? this.vaultStoragePath,
-      formData: formData ?? this.formData,
-      originalFormData: originalFormData ?? this.originalFormData,
+      vaultName: vaultName ?? this.vaultName,
+      newVaultName: newVaultName ?? this.newVaultName,
+      newPassword: newPassword ?? this.newPassword,
+      useBiometric: useBiometric ?? this.useBiometric,
+      userName: userName ?? this.userName,
+      newUserName: newUserName ?? this.newUserName,
       isRegistered: isRegistered ?? this.isRegistered,
+      host: host ?? this.host,
+      serverSettingsDialogData: serverSettingsDialogData ?? this.serverSettingsDialogData,
+      pwLength: pwLength ?? this.pwLength,
+      pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
+      pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
+      passwordGeneratorDialogData: passwordGeneratorDialogData ?? this.passwordGeneratorDialogData,
       friends: friends ?? this.friends,
       fingerprints: fingerprints ?? this.fingerprints,
       friendNeedsRekeying: friendNeedsRekeying ?? this.friendNeedsRekeying,
       themeMode: themeMode ?? this.themeMode,
-      newVaultName: newVaultName ?? this.newVaultName,
-      newPassword: newPassword ?? this.newPassword,
+      categoryPlaceholder: categoryPlaceholder?? this.categoryPlaceholder,
+      newCategoryPlaceholder: newCategoryPlaceholder?? this.newCategoryPlaceholder,
       status: status ?? this.status,
       error: error ?? this.error,
     );

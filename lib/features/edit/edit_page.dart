@@ -173,11 +173,10 @@ class _EditPageState extends ConsumerState<EditPage> {
                         border: const OutlineInputBorder(),
                         suffixIcon: existingCategories.isNotEmpty ? PopupMenuButton<String>(
                           icon: const Icon(Icons.filter_list),
-                          onSelected: notifier.setCategory,
-                          // onSelected: (val) {
-                          //   notifier.setCategory(val);
-                          //   _categoryController.text = val;
-                          // },
+                          onSelected: (val) {
+                            _categoryController.text = val;
+                            notifier.setCategory(val);
+                          },
                           itemBuilder: (BuildContext context) {
                             return existingCategories.map((String category) => PopupMenuItem<String>(value: category, child: Text(category))).toList();
                           },

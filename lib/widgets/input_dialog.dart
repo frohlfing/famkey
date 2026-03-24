@@ -27,7 +27,8 @@ class InputDialog {
                   border: const OutlineInputBorder(),
                 ),
                 onSubmitted: (val) {
-                  if (val.isNotEmpty) Navigator.of(ctx).pop(val);
+                  //if (val.isNotEmpty) Navigator.of(ctx).pop(val);
+                  Navigator.of(ctx).pop(val);
                 },
                 autofocus: true,
               ),
@@ -40,9 +41,9 @@ class InputDialog {
             ),
             ElevatedButton(
               onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  Navigator.of(ctx).pop(controller.text);
-                }
+                //if (controller.text.isNotEmpty) {
+                Navigator.of(ctx).pop(controller.text);
+                //}
               },
               child: const Text('OK'),
             ),
