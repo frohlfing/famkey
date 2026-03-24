@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/features/settings/password_generator_dialog.dart';
-import 'package:privault/features/settings/server_settings_dialog.dart';
+import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
@@ -102,25 +102,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           break;
 
         case SettingsActionStatus.testSuccessful:
-          _showServerDialog();
-          //Snack.show(context, 'Verbindung erfolgreich.', success: true);
-          break;
-
         case SettingsActionStatus.testFailed:
-          _showServerDialog();
-          //Snack.show(context, state.error.text);
-          break;
-
         case SettingsActionStatus.changeServerFailed:
           _showServerDialog();
-          break;
-
-        case SettingsActionStatus.changePasswordGeneratorFailed:
-          _showPasswordGeneratorDialog();
-          break;
-
-        case SettingsActionStatus.changeCategoryPlaceholderFailed:
-          _showCategoryPlaceholderDialog();
           break;
 
         case SettingsActionStatus.friendAdded:
@@ -129,6 +113,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
         case SettingsActionStatus.friendDeleted:
           Snack.show(context, 'Freund gelöscht', success: true);
+          break;
+
+        case SettingsActionStatus.changePasswordGeneratorFailed:
+          _showPasswordGeneratorDialog();
+          break;
+
+        case SettingsActionStatus.changeCategoryPlaceholderFailed:
+          _showCategoryPlaceholderDialog();
           break;
 
         case SettingsActionStatus.failure:
@@ -270,35 +262,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const Divider(height: 32),
 
                 // ------------------------------------------------------------------------
-                // --- Passwort-Generator ---
-                // ------------------------------------------------------------------------
-
-                _buildSectionTitle('Passwortgenerator'),
-                const SizedBox(height: 16),
-
-                _buildText(
-                  'Länge',
-                  (state) => state.pwLength.toString(),
-                  icon: Icons.onetwothree_outlined,
-                  onPressed: _showPasswordGeneratorDialog,
-                  tooltip: 'Passwortgenerator ändern',
-                ),
-
-                _buildText(
-                  'Sonderzeichen',
-                  (state) => state.pwSpecialChars,
-                  icon: Icons.emoji_symbols_outlined,
-                ),
-
-                _buildText(
-                  'Lesbarkeit optimieren (I, l, O, 0 ausschließen)',
-                  (state) => state.pwAvoidIlO0 ? 'Ja' : 'Nein',
-                  icon: Icons.cloud_outlined,
-                ),
-
-                const Divider(height: 32),
-
-                // ------------------------------------------------------------------------
                 // --- Freunde ---
                 // ------------------------------------------------------------------------
 
@@ -306,15 +269,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   'Freunde',
                   Icons.person_add,
                   'Person suchen',
-                  _handleAddFriend,
+                  _showFriendSearchDialog,
                 ),
 
                 // --- Liste ---
                 Consumer(builder: (context, ref, _) {
+                  final host = ref.watch(settingsProvider.select((s) => s.host));
                   final friends = ref.watch(settingsProvider.select((s) => s.friends));
                   final fingerprints = ref.watch(settingsProvider.select((s) => s.fingerprints));
                   final friendNeedsRekeying = ref.watch(settingsProvider.select((s) => s.friendNeedsRekeying));
                   if (friends.isEmpty) {
+                    if (host.isEmpty) {
+                      return Text('Um Freunde hinzufügen zu können, muss der Sync-Server eingerichtet sein.', style: TextStyle(fontStyle: FontStyle.italic));
+                    }
                     return Text('Dieser Tresor wird nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic));
                   }
                   return Column(
@@ -361,7 +328,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             IconButton(
                               icon: const Icon(Icons.delete),
                               tooltip: 'Löschen',
-                              onPressed: () => _handleDeleteFriend(friend),
+                              onPressed: () => _showDeleteFriendDialog(friend),
                             ),
                           ],
                         ),
@@ -371,6 +338,35 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 }),
 
                 const SizedBox(height: 8),
+                const Divider(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Passwort-Generator ---
+                // ------------------------------------------------------------------------
+
+                _buildSectionTitle('Passwortgenerator'),
+                const SizedBox(height: 16),
+
+                _buildText(
+                  'Länge',
+                      (state) => state.pwLength.toString(),
+                  icon: Icons.onetwothree_outlined,
+                  onPressed: _showPasswordGeneratorDialog,
+                  tooltip: 'Passwortgenerator ändern',
+                ),
+
+                _buildText(
+                  'Sonderzeichen',
+                      (state) => state.pwSpecialChars,
+                  icon: Icons.emoji_symbols_outlined,
+                ),
+
+                _buildText(
+                  'Lesbarkeit optimieren (I, l, O, 0 ausschließen)',
+                      (state) => state.pwAvoidIlO0 ? 'Ja' : 'Nein',
+                  icon: Icons.cloud_outlined,
+                ),
+
                 const Divider(height: 32),
 
                 // ------------------------------------------------------------------------
@@ -462,7 +458,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     ),
-                    onPressed: _handleDeleteVault,
+                    onPressed: _showDeleteVaultDialog,
                     icon: const Icon(Icons.delete_outlined),
                     label: const Text('Tresor lokal löschen'),
                   ),
@@ -586,7 +582,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
-  Future<void> _handleDeleteVault() async {
+  Future<void> _showDeleteVaultDialog() async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Tresor lokal löschen',
@@ -634,7 +630,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final newUserName = await InputDialog.show(
       context,
       title: 'Benutzername ändern',
-      text: 'Bitte gib dein neuen Benutzername ein.',
+      text: 'Bitte gib deinen neuen Benutzernamen ein.',
+      label: 'Benutzername',
       value: state.newUserName,
       errorText: state.error.field == 'userName' ? state.error.text : null,
     );
@@ -648,16 +645,47 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _showServerDialog() async {
     final state = ref.read(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final dialogData = await ServerSettingsDialog.show(
+    final dialogData = await ServerDialog.show(
       context,
       host: state.serverSettingsDialogData.host,
       apiToken: state.serverSettingsDialogData.apiToken,
       hostErrorText: state.error.field == 'host' ? state.error.text : null,
       apiTokenErrorText: state.error.field == 'apiToken' ? state.error.text : null,
       onTestConnectionPressed: notifier.testConnection,
+      testStatus: state.status == SettingsActionStatus.testSuccessful ? TestStatus.success : (state.status == SettingsActionStatus.testFailed ? TestStatus.failure : null),
+      testResult: state.status == SettingsActionStatus.testFailed && state.error.field == null ? state.error.text : null,
     );
     if (mounted && dialogData != null && dialogData != state.serverSettingsDialogData) {
       notifier.saveSyncServer(dialogData);
+    }
+  }
+
+  /// Fügt einen Freund zu Liste hinzu.
+  Future<void> _showFriendSearchDialog() async {
+    final state = ref.read(settingsProvider);
+    final name = await FriendSearchDialog.show(
+      context,
+      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
+    );
+    if (mounted && name != null) {
+      final notifier = ref.read(settingsProvider.notifier);
+      notifier.addFriend(name);
+      return;
+    }
+  }
+
+  /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
+  Future<void> _showDeleteFriendDialog(dynamic user) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Person entfernen',
+      text: 'Möchtest du die Person aus deiner Liste löschen?\n'
+          'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
+      ok: 'Ja, löschen',
+    );
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(settingsProvider.notifier);
+      notifier.deleteFriend(user);
     }
   }
 
@@ -675,35 +703,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
     if (mounted && dialogData != null && dialogData != state.passwordGeneratorDialogData) {
       notifier.savePasswortGeneratorSettings(dialogData);
-    }
-  }
-
-  /// Fügt einen Freund zu Liste hinzu.
-  Future<void> _handleAddFriend() async {
-    final state = ref.read(settingsProvider);
-    final name = await FriendSearchDialog.show(
-      context,
-      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
-    );
-    if (mounted && name != null) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.addFriend(name);
-      return;
-    }
-  }
-
-  /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
-  Future<void> _handleDeleteFriend(dynamic user) async {
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Person entfernen',
-      text: 'Möchtest du die Person aus deiner Liste löschen?\n'
-          'Das Teilen von Einträgen mit dieser Person ist dann nicht mehr möglich.',
-      ok: 'Ja, löschen',
-    );
-    if (mounted && confirmed == true) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.deleteFriend(user);
     }
   }
 

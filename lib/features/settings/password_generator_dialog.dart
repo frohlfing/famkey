@@ -64,13 +64,13 @@ class PasswortGeneratorDialog {
         String? pwLengthErrorText,
         String? pwSpecialCharsErrorText,
   }) {
+    final pwLengthController = TextEditingController(text: pwLength.toString());
+    final pwSpecialCharsController = TextEditingController(text: pwSpecialChars);
+    //var newPwAvoidIlO0 = pwAvoidIlO0;
     return showDialog<PasswordGeneratorDialogData>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final pwLengthController = TextEditingController(text: pwLength.toString());
-        final pwSpecialCharsController = TextEditingController(text: pwSpecialChars);
-        var newPwAvoidIlO0 = pwAvoidIlO0;
         return StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
             title: const Text('Passwort-Generator'),
@@ -102,6 +102,9 @@ class PasswortGeneratorDialog {
                               if (val > 1) {
                                 final newVal = val - 1;
                                 pwLengthController.text = newVal.toString();
+                                if (pwLengthErrorText != null) {
+                                  setDialogState(() => pwLengthErrorText = null);
+                                }
                               }
                             },
                           ),
@@ -111,11 +114,20 @@ class PasswortGeneratorDialog {
                               final val = int.tryParse(pwLengthController.text) ?? 0;
                               final newVal = val + 1;
                               pwLengthController.text = newVal.toString();
+                              if (pwLengthErrorText != null) {
+                                setDialogState(() => pwLengthErrorText = null);
+                              }
                             },
                           ),
                         ],
                       ),
                     ),
+                    onChanged: (_) {
+                      // Sobald getippt wird, Fehlermeldung löschen
+                      if (pwLengthErrorText != null) {
+                        setDialogState(() => pwLengthErrorText = null);
+                      }
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -134,21 +146,42 @@ class PasswortGeneratorDialog {
                           IconButton(
                             icon: const Icon(Icons.star),
                             tooltip: 'Standard',
-                            onPressed: () => pwSpecialCharsController.text = '!@#\$%^&*()_+-=[]{}|;:,.<>?',
+                            onPressed: () {
+                              pwSpecialCharsController.text = '!@#\$%^&*()_+-=[]{}|;:,.<>?';
+                              if (pwSpecialCharsErrorText != null) {
+                                setDialogState(() => pwSpecialCharsErrorText = null);
+                              }
+                            },
                           ),
                           IconButton(
                             icon: const Icon(Icons.all_inclusive),
                             tooltip: 'Alle',
-                            onPressed: () => pwSpecialCharsController.text = '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~',
+                            onPressed: () {
+                              pwSpecialCharsController.text = '!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+                              if (pwSpecialCharsErrorText != null) {
+                                setDialogState(() => pwSpecialCharsErrorText = null);
+                              }
+                            },
                           ),
                           IconButton(
                             icon: const Icon(Icons.remove_circle),
                             tooltip: 'Keine',
-                            onPressed: () => pwSpecialCharsController.text = '',
+                            onPressed: () {
+                              pwSpecialCharsController.text = '';
+                              if (pwSpecialCharsErrorText != null) {
+                                setDialogState(() => pwSpecialCharsErrorText = null);
+                              }
+                            },
                           ),
                         ],
                       ),
                     ),
+                    onChanged: (_) {
+                      // Sobald getippt wird, Fehlermeldung löschen
+                      if (pwSpecialCharsErrorText != null) {
+                        setDialogState(() => pwSpecialCharsErrorText = null);
+                      }
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -158,10 +191,10 @@ class PasswortGeneratorDialog {
                     children: [
                       const Text('Lesbarkeit optimieren (I, l, O, 0 ausschließen)'),
                       Switch(
-                        value: newPwAvoidIlO0 ?? false,
+                        value: pwAvoidIlO0 ?? false,
                         onChanged: (val) {
                           setDialogState(() {
-                            newPwAvoidIlO0 = val;
+                            pwAvoidIlO0 = val;
                           });
                         },
                       ),
@@ -183,7 +216,7 @@ class PasswortGeneratorDialog {
                     final formData = PasswordGeneratorDialogData(
                       pwLength: length,
                       pwSpecialChars: pwSpecialCharsController.text,
-                      pwAvoidIlO0: newPwAvoidIlO0 ?? false,
+                      pwAvoidIlO0: pwAvoidIlO0 ?? false,
                     );
                     Navigator.of(ctx).pop(formData);
                   }

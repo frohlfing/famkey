@@ -2,7 +2,7 @@ import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
 import 'package:privault/features/settings/password_generator_dialog.dart';
-import 'package:privault/features/settings/server_settings_dialog.dart';
+import 'package:privault/features/settings/server_dialog.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SettingsActionStatus {
@@ -63,7 +63,18 @@ class SettingsState {
   final String host;
 
   /// Daten für den Dialog, wenn der Server geändert werden.
-  final ServerSettingsDialogData serverSettingsDialogData;
+  final ServerDialogData serverSettingsDialogData;
+
+  // --- Freunde---
+
+  /// Die Liste der Freunde.
+  final List<UserEntity> friends;
+
+  /// Fingerprints der Freunde.
+  final Map<int, String> fingerprints;
+
+  /// Freunde mit leeren Entry-Keys
+  final Map<int, bool> friendNeedsRekeying;
 
   // --- Passwortgenerator ---
 
@@ -78,17 +89,6 @@ class SettingsState {
 
   /// Daten für den Dialog, wenn der Passwortgenerator geändert werden.
   final PasswordGeneratorDialogData passwordGeneratorDialogData;
-
-  // --- Freunde---
-
-  /// Die Liste der Freunde.
-  final List<UserEntity> friends;
-
-  /// Fingerprints der Freunde.
-  final Map<int, String> fingerprints;
-
-  /// Freunde mit leeren Entry-Keys
-  final Map<int, bool> friendNeedsRekeying;
 
   // --- Farbschema ---
 
@@ -112,7 +112,8 @@ class SettingsState {
   // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
-  bool get isBusy => status == SettingsActionStatus.progress;
+  bool get isBusy =>
+    status == SettingsActionStatus.progress;
 
   /// Gibt an, ob für diesen Freund Einträge neu verschlüsselt werden müssen.
   /// Dies ist der Fall, wenn sein RSA-Key geändert und die lokalen Permission-Keys geleert wurden.
@@ -131,14 +132,14 @@ class SettingsState {
     this.newUserName = '',
     this.isRegistered = false,
     this.host = '',
-    this.serverSettingsDialogData = const ServerSettingsDialogData(),
+    this.serverSettingsDialogData = const ServerDialogData(),
+    this.friends = const [],
+    this.fingerprints = const {},
+    this.friendNeedsRekeying = const {},
     this.pwLength = 16,
     this.pwSpecialChars = '',
     this.pwAvoidIlO0 = false,
     this.passwordGeneratorDialogData = const PasswordGeneratorDialogData(),
-    this.friends = const [],
-    this.fingerprints = const {},
-    this.friendNeedsRekeying = const {},
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
     this.newCategoryPlaceholder = '',
@@ -157,14 +158,14 @@ class SettingsState {
     String? newUserName,
     bool? isRegistered,
     String? host,
-    ServerSettingsDialogData? serverSettingsDialogData,
+    ServerDialogData? serverSettingsDialogData,
+    List<UserEntity>? friends,
+    Map<int, String>? fingerprints,
+    Map<int, bool>? friendNeedsRekeying,
     int? pwLength,
     String? pwSpecialChars,
     bool? pwAvoidIlO0,
     PasswordGeneratorDialogData? passwordGeneratorDialogData,
-    List<UserEntity>? friends,
-    Map<int, String>? fingerprints,
-    Map<int, bool>? friendNeedsRekeying,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
     String? newCategoryPlaceholder,
@@ -182,13 +183,13 @@ class SettingsState {
       isRegistered: isRegistered ?? this.isRegistered,
       host: host ?? this.host,
       serverSettingsDialogData: serverSettingsDialogData ?? this.serverSettingsDialogData,
+      friends: friends ?? this.friends,
+      fingerprints: fingerprints ?? this.fingerprints,
+      friendNeedsRekeying: friendNeedsRekeying ?? this.friendNeedsRekeying,
       pwLength: pwLength ?? this.pwLength,
       pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       passwordGeneratorDialogData: passwordGeneratorDialogData ?? this.passwordGeneratorDialogData,
-      friends: friends ?? this.friends,
-      fingerprints: fingerprints ?? this.fingerprints,
-      friendNeedsRekeying: friendNeedsRekeying ?? this.friendNeedsRekeying,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder?? this.categoryPlaceholder,
       newCategoryPlaceholder: newCategoryPlaceholder?? this.newCategoryPlaceholder,

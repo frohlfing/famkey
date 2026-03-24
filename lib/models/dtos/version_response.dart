@@ -20,7 +20,7 @@ class VersionResponse {
   /// Wandelt ein JSON-Objekt in ein [VersionResponse] Objekt um.
   factory VersionResponse.fromJson(Map<String, dynamic> json) {
     return VersionResponse(
-      service: json['service'] as String? ?? 'PriVault',
+      service: json['service'] as String? ?? '',
       syncProtocolVersion: json['sync_protocol_version'] as int? ?? 0,
       minSyncProtocolVersion: json['min_sync_protocol_version'] as int? ?? 0,
     );

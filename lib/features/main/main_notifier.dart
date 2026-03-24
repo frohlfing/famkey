@@ -414,7 +414,7 @@ class MainNotifier extends Notifier<MainState> {
     }
     if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
       // Server zu alt
-      throw Exception("Der Server ist noch nicht auf dem aktuellen Stand. Versuche es später noch einmal.");
+      throw Exception("Der Server wird derzeit aktualisiert. Versuche es später noch einmal.");
     }
   }
 

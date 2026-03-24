@@ -24,6 +24,12 @@ class FriendSearchDialog {
                   border: const OutlineInputBorder(),
                   errorText: errorText,
                 ),
+                onChanged: (_) {
+                  // Sobald getippt wird, Fehlermeldung löschen
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
                 onSubmitted: (val) {
                   final name = val.trim();
                   if (name.isNotEmpty) {

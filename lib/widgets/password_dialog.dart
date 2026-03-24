@@ -24,6 +24,12 @@ class PasswordDialog {
                 label: 'Master-Passwort',
                 errorText: errorText,
                 autofocus: true,
+                onChanged: (_) {
+                  // Sobald getippt wird, Fehlermeldung löschen
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
                 onSubmitted: (val) {
                   if (val.isNotEmpty) Navigator.of(ctx).pop(val);
                 },

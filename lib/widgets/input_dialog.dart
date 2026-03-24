@@ -4,52 +4,59 @@ import 'package:flutter/material.dart';
 class InputDialog {
 
   /// Öffnet den Dialog und gibt bei Bestätigung den eingegebenen Wert zurück.
-  static Future<String?> show(BuildContext context, {required String title, required String text, String? label, String? value, String? errorText}) {
+  static Future<String?> show(
+    BuildContext context, {
+    required String title,
+    String? text,
+    String? label,
+    String? value,
+    String? errorText,
+  }) {
     final controller = TextEditingController(text: value);
-
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(text),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: label,
-                  errorText: errorText,
-                  border: const OutlineInputBorder(),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (text != null) Text(text),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    errorText: errorText,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) {
+                    // Sobald getippt wird, Fehlermeldung löschen
+                    if (errorText != null) {
+                      setDialogState(() => errorText = null);
+                    }
+                  },
+                  onSubmitted: (val) => Navigator.of(ctx).pop(val),
+                  autofocus: true,
                 ),
-                onSubmitted: (val) {
-                  //if (val.isNotEmpty) Navigator.of(ctx).pop(val);
-                  Navigator.of(ctx).pop(val);
-                },
-                autofocus: true,
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: const Text('Abbrechen'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(controller.text),
+                child: const Text('OK'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                //if (controller.text.isNotEmpty) {
-                Navigator.of(ctx).pop(controller.text);
-                //}
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
