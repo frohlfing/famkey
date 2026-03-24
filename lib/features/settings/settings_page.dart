@@ -655,7 +655,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       testStatus: state.status == SettingsActionStatus.testSuccessful ? TestStatus.success : (state.status == SettingsActionStatus.testFailed ? TestStatus.failure : null),
       testResult: state.status == SettingsActionStatus.testFailed && state.error.field == null ? state.error.text : null,
     );
-    if (mounted && dialogData != null && dialogData != state.serverSettingsDialogData) {
+    if (mounted && dialogData != null) {
       notifier.saveSyncServer(dialogData);
     }
   }
