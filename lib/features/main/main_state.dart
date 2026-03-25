@@ -65,7 +65,7 @@ class MainState {
   final MainActionStatus status;
 
   /// Der Fehler der letzten Operation.
-  final FormError error;
+  final AppError error;
 
   // --- Getter ---
 
@@ -82,7 +82,7 @@ class MainState {
     this.adoptionUserIdentity = const UserIdentity(),
     this.syncStatistics = const SyncStatistics(),
     this.status = MainActionStatus.initial,
-    this.error = const FormError.none(),
+    this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -95,7 +95,7 @@ class MainState {
     UserIdentity? adoptionUserIdentity,
     SyncStatistics? syncStatistics,
     MainActionStatus? status,
-    FormError? error,
+    AppError? error,
   }) {
 
     return MainState(

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:privault/core/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
@@ -57,9 +58,12 @@ class ConfigService {
   set showOnlyMine(bool value) => _prefs.setBool(_keyShowOnlyMine, value);
 
   /// Das aktuell vom Benutzer gewählte Farbschema (Theme).
-  String get theme => _prefs.getString(_keyTheme) ?? ''; // todo direkt in ThemMode umwandeln
+  ThemeMode get themeMode {
+    final value = _prefs.getString(_keyTheme);
+    return ThemeMode.values.firstWhere((e) => e.name == value, orElse: () => ThemeMode.system);
+  }
 
-  set theme(String value) => _prefs.setString(_keyTheme, value);
+  set themeMode(ThemeMode value) => _prefs.setString(_keyTheme, value.name);
 
   /// (Flutter-Spezifisch) Der Basispfad, in dem die SQLite-Tresordateien abgelegt werden.
   String get vaultStoragePath => _prefs.getString(_keyStoragePath) ?? '';

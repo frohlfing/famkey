@@ -71,10 +71,11 @@ class EditNotifier extends Notifier<EditState> {
   Future<void> load(int? id) async {
     if (state.isBusy) return;
 
-    // Status zurücksetzen
-    state = const EditState().copyWith(status: EditActionStatus.loading, error: FormError.none());
+    // Ladeanzeige einblenden
+    state = const EditState().copyWith(status: EditActionStatus.loading, error: AppError.none());
 
     try {
+
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
 
       // Vorhandene Kategorien für Vorschlagsliste laden
@@ -86,7 +87,7 @@ class EditNotifier extends Notifier<EditState> {
         _entry = await _databaseService.getEntry(id);
         if (_entry == null) {
           // Parameter user ist nicht korrekt!
-          state = state.copyWith(error: FormError(ErrorCode.valueInvalid, text: 'Eintrag $id zum Laden nicht gefunden.'));
+          state = state.copyWith(error: AppError(ErrorCode.valueInvalid, text: 'Eintrag $id zum Laden nicht gefunden.'));
           return;
         }
 
@@ -132,7 +133,7 @@ class EditNotifier extends Notifier<EditState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
-      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -157,13 +158,13 @@ class EditNotifier extends Notifier<EditState> {
     );
 
     if (formData.title.isEmpty) {
-      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'title'));
+      state = state.copyWith(error: AppError(ErrorCode.valueRequired, field: 'title'));
       return;
     }
 
     // 1. Status auf saving setzen
     final status = state.isEditMode ? EditActionStatus.updating : EditActionStatus.creating;
-    state = state.copyWith(status: status, error: FormError.none());
+    state = state.copyWith(status: status, error: AppError.none());
 
     try {
       // 2. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
@@ -219,7 +220,7 @@ class EditNotifier extends Notifier<EditState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -243,7 +244,7 @@ class EditNotifier extends Notifier<EditState> {
     if (state.isBusy) return;
 
     // 1. Status auf `deleting` setzen
-    state = state.copyWith(status: EditActionStatus.deleting, error: FormError.none());
+    state = state.copyWith(status: EditActionStatus.deleting, error: AppError.none());
 
     try {
       // 2. Eintrag löschen
@@ -258,7 +259,7 @@ class EditNotifier extends Notifier<EditState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen: $e', stack: st);
-      state = state.copyWith(status: EditActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -287,28 +288,28 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Setter für die Kategorie.
   void setCategory(String value) {
-    final error = state.error.field == 'category' ? FormError.none() : null;
+    final error = state.error.field == 'category' ? AppError.none() : null;
     final formData = state.formData.copyWith(category: value);
     state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Titel des Eintrags.
   void setTitle(String value) {
-    final error = state.error.field == 'title' ? FormError.none() : null;
+    final error = state.error.field == 'title' ? AppError.none() : null;
     final formData = state.formData.copyWith(title: value);
     state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für den Benutzernamen des Eintrags.
   void setUsername(String value) {
-    final error = state.error.field == 'username' ? FormError.none() : null;
+    final error = state.error.field == 'username' ? AppError.none() : null;
     final formData = state.formData.copyWith(username: value);
     state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für das Passwort des Eintrags.
   void setPassword(String value) {
-    final error = state.error.field == 'password' ? FormError.none() : null;
+    final error = state.error.field == 'password' ? AppError.none() : null;
     final formData = state.formData.copyWith(password: value);
     state = state.copyWith(
       formData: formData,
@@ -319,14 +320,14 @@ class EditNotifier extends Notifier<EditState> {
 
   /// Setter für die URL des Eintrags.
   void setUrl(String value) {
-    final error = state.error.field == 'url' ? FormError.none() : null;
+    final error = state.error.field == 'url' ? AppError.none() : null;
     final formData = state.formData.copyWith(url: value);
     state = state.copyWith(formData: formData, error: error);
   }
 
   /// Setter für Notizen des Eintrags.
   void setNotes(String value) {
-    final error = state.error.field == 'notes' ? FormError.none() : null;
+    final error = state.error.field == 'notes' ? AppError.none() : null;
     final formData = state.formData.copyWith(notes: value);
     state = state.copyWith(formData: formData, error: error);
   }

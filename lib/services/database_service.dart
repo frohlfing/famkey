@@ -5,9 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
 
-// todo mal mit, mal ohne await. Wo ist await nicht erforderlich?
-// todo was bedeutete die doppelte Cascade (`..where`)?
-
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
   // ------------------------------------------------------------------------
@@ -72,15 +69,15 @@ class DatabaseService {
   Future<Uint8List?> getSalt(String vaultName) async {
     final saltFile = File(_getSaltPath(vaultName));
     if (await saltFile.exists()) {
-      return await saltFile.readAsBytes();
+      return saltFile.readAsBytes();
     }
     return null;
   }
 
   /// Speichert das Salt in die Salt-Datei.
-  Future<void> saveSalt(String vaultName, Uint8List saltBytes) async {
+  Future<void> saveSalt(String vaultName, Uint8List saltBytes) {
     final saltFile = File(_getSaltPath(vaultName));
-    await saltFile.writeAsBytes(saltBytes);
+    return saltFile.writeAsBytes(saltBytes);
   }
 
   // /// Löscht eine Salt-Datei.
@@ -105,9 +102,9 @@ class DatabaseService {
   }
 
   /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
-  Future<bool> databaseExists(String vaultName) async {
+  Future<bool> databaseExists(String vaultName) {
     final path = getDatabasePath(vaultName);
-    return await File(path).exists();
+    return File(path).exists();
   }
 
   /// Scannt das Dateisystem nach vorhandenen Tresor-Datenbanken.
@@ -130,10 +127,10 @@ class DatabaseService {
   }
 
   /// Ändert das Verschlüsselungspasswort (bzw. den Key) der Datenbankdatei.
-  Future<void> rekey(Uint8List newMasterKey) async {
+  Future<void> rekey(Uint8List newMasterKey) {
     _ensureDbInitialized();
     final hexKey = newMasterKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    await _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
+    return _db!.customStatement("PRAGMA hexrekey = '$hexKey';");
   }
 
   // --- Backup & Restore ---
@@ -223,27 +220,27 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt alle registrierten Benutzerdatensätze.
-  Future<List<UserEntity>> getUsers() async {
+  Future<List<UserEntity>> getUsers() {
     _ensureDbInitialized();
-    return await _db!.select(_db!.users).get();
+    return _db!.select(_db!.users).get();
   }
 
   /// Lädt alle Freunde, die nicht ausgeblendet sind.
-  Future<List<UserEntity>> getNotHiddenFriends() async {
+  Future<List<UserEntity>> getNotHiddenFriends() {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.users)..where((u) => u.id.isBiggerThanValue(1) & u.isHidden.equals(false))).get();
+    return (_db!.select(_db!.users)..where((u) => u.id.isBiggerThanValue(1) & u.isHidden.equals(false))).get();
   }
 
   /// Lädt einen Benutzer anhand seiner internen ID.
-  Future<UserEntity?> getUser(int userId) async {
+  Future<UserEntity?> getUser(int userId) {
     _ensureDbInitialized();
     return (_db!.select(_db!.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
   }
 
   /// Lädt einen Benutzer anhand seiner globalen UUID.
-  Future<UserEntity?> getUserByUuid(String userUuid) async {
+  Future<UserEntity?> getUserByUuid(String userUuid) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.users)..where((u) => u.uuid.equals(userUuid))).getSingleOrNull();
+    return (_db!.select(_db!.users)..where((u) => u.uuid.equals(userUuid))).getSingleOrNull();
   }
 
   /// Prüft, ob es mindestens einen (sichtbaren) Benutzer gibt, der noch nicht verifiziert ist.
@@ -357,43 +354,38 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt alle nicht gelöschten Einträge aus dem Tresor.
-  Future<List<EntryEntity>> getEntries() async {
+  Future<List<EntryEntity>> getEntries() {
     _ensureDbInitialized();
-    return await _db!.select(_db!.entries).get();
+    return _db!.select(_db!.entries).get();
   }
 
   /// Lädt alle Einträge, die nach einem bestimmten Zeitpunkt aktualisiert wurden (inkrementeller Sync).
-  Future<List<EntryEntity>> getEntriesSince(DateTime since) async {
+  Future<List<EntryEntity>> getEntriesSince(DateTime since) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.entries)..where((e) => e.updatedAt.isBiggerThanValue(since))).get();
+    return (_db!.select(_db!.entries)..where((e) => e.updatedAt.isBiggerThanValue(since))).get();
   }
 
   /// Liefert die Liste der bereits gespeicherten Kategorien.
-  Future<List<String>> getCategories() async {
+  Future<List<String>> getCategories() {
     _ensureDbInitialized();
-
     final query = _db!.selectOnly(_db!.entries, distinct: true)
       ..addColumns([_db!.entries.category]) // Nur die Spalte 'category' selektieren
-      ..where(_db!.entries.category.isNotValue('')); // Filtert leere Strings aus
+      ..where(_db!.entries.category.isNotValue('')) // Filtert leere Strings aus
+      ..orderBy([OrderingTerm.asc(_db!.entries.category)]); // Datenbank sortiert
 
-    final rows = await query.get();
-
-    // Die Ergebnisse mappen und sortieren
-    final categories = rows.map((row) => row.read(_db!.entries.category)!).toList();
-
-    return categories..sort();
+    return query.map((row) => row.read(_db!.entries.category)!).get();
   }
 
   /// Lädt einen Eintrag anhand seiner internen ID.
-  Future<EntryEntity?> getEntry(int entryId) async {
+  Future<EntryEntity?> getEntry(int entryId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.entries)..where((e) => e.id.equals(entryId))).getSingleOrNull();
+    return (_db!.select(_db!.entries)..where((e) => e.id.equals(entryId))).getSingleOrNull();
   }
 
   /// Lädt einen Eintrag anhand seiner globalen UUID.
-  Future<EntryEntity?> getEntryByUuid(String entryUuid) async {
+  Future<EntryEntity?> getEntryByUuid(String entryUuid) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(entryUuid))).getSingleOrNull();
+    return (_db!.select(_db!.entries)..where((e) => e.uuid.equals(entryUuid))).getSingleOrNull();
   }
 
   /// Speichert einen Tresor-Eintrag und aktualisiert automatisch den Zeitstempel.
@@ -433,7 +425,7 @@ class DatabaseService {
   Future<EntryEntity> saveEntryWithPermissions(EntryEntity entry, int userId, String encryptedKey, {int accessLevel = 3}) async {
     _ensureDbInitialized();
 
-    return await _db!.transaction(() async {
+    return _db!.transaction(() async {
       // 1. Eintrag speichern (wie saveEntry)
 
       var companion = EntriesCompanion(
@@ -509,27 +501,27 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt alle Berechtigungen.
-  Future<List<PermissionEntity>> getPermissions() async {
+  Future<List<PermissionEntity>> getPermissions() {
     _ensureDbInitialized();
-    return await _db!.select(_db!.permissions).get();
+    return _db!.select(_db!.permissions).get();
   }
 
   /// Lädt alle Berechtigungen auf einen bestimmten Eintrag.
-  Future<List<PermissionEntity>> getPermissionsByEntryId(int entryId) async {
+  Future<List<PermissionEntity>> getPermissionsByEntryId(int entryId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId))).get();
+    return (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId))).get();
   }
 
   /// Lädt alle Berechtigungen eines bestimmten Benutzers.
-  Future<List<PermissionEntity>> getPermissionsByUserId(int userId) async {
+  Future<List<PermissionEntity>> getPermissionsByUserId(int userId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId))).get();
+    return (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId))).get();
   }
 
   /// Lädt alle Berechtigungen mit leeren Entry-Key eines bestimmten Benutzers.
-  Future<List<PermissionEntity>> getPermissionsWithoutKeyByUserId(int userId) async {
+  Future<List<PermissionEntity>> getPermissionsWithoutKeyByUserId(int userId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId) & p.encryptedKey.equals(''))).get();
+    return (_db!.select(_db!.permissions)..where((p) => p.userId.equals(userId) & p.encryptedKey.equals(''))).get();
   }
 
   /// Prüft, ob es Berechtigungen mit geleerten Entry-Keys gibt (durch `removeEntryKeysForUser`).
@@ -555,15 +547,15 @@ class DatabaseService {
   }
 
   /// Lädt eine Berechtigung anhand seiner internen ID.
-  Future<PermissionEntity?> getPermission(int permissionId) async {
+  Future<PermissionEntity?> getPermission(int permissionId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.permissions)..where((p) => p.id.equals(permissionId))).getSingleOrNull();
+    return (_db!.select(_db!.permissions)..where((p) => p.id.equals(permissionId))).getSingleOrNull();
   }
 
   /// Lädt die Berechtigung eines Benutzers für einen Eintrag.
-  Future<PermissionEntity?> getPermissionByEntryIdAndUserId(int entryId, int userId) async {
+  Future<PermissionEntity?> getPermissionByEntryIdAndUserId(int entryId, int userId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId))).getSingleOrNull();
+    return (_db!.select(_db!.permissions)..where((p) => p.entryId.equals(entryId) & p.userId.equals(userId))).getSingleOrNull();
   }
 
   /// Speichert eine neue oder aktualisierte Berechtigung.
@@ -656,9 +648,9 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt alle Löschmarker (Tombstones) seit dem angegebenen Zeitpunkt ab.
-  Future<List<TombstoneEntity>> getTombstonesSince(DateTime since) async {
+  Future<List<TombstoneEntity>> getTombstonesSince(DateTime since) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
+    return (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
   }
 
   /// Speichert einen Löschmarker, um die Entfernung eines Eintrags synchronisieren zu können.
@@ -690,27 +682,27 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt alle Anhänge eines bestimmten Eintrags.
-  Future<List<AttachmentEntity>> getAttachmentsByEntryId(int entryId) async {
+  Future<List<AttachmentEntity>> getAttachmentsByEntryId(int entryId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.attachments)..where((a) => a.entryId.equals(entryId))).get();
+    return (_db!.select(_db!.attachments)..where((a) => a.entryId.equals(entryId))).get();
   }
 
   /// Lädt alle Anhänge, die noch nicht erfolgreich mit dem Server synchronisiert wurden.
-  Future<List<AttachmentEntity>> getAttachmentsUnsynced() async {
+  Future<List<AttachmentEntity>> getAttachmentsUnsynced() {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.attachments)..where((a) => a.isSynced.equals(false))).get();
+    return (_db!.select(_db!.attachments)..where((a) => a.isSynced.equals(false))).get();
   }
 
   /// Lädt einen Anhang anhand seiner internen ID.
-  Future<AttachmentEntity?> getAttachment(int attachmentId) async {
+  Future<AttachmentEntity?> getAttachment(int attachmentId) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.attachments)..where((a) => a.id.equals(attachmentId))).getSingleOrNull();
+    return (_db!.select(_db!.attachments)..where((a) => a.id.equals(attachmentId))).getSingleOrNull();
   }
 
   /// Lädt einen Anhang anhand seiner UUID.
-  Future<AttachmentEntity?> getAttachmentByUuid(String attachmentUuid) async {
+  Future<AttachmentEntity?> getAttachmentByUuid(String attachmentUuid) {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.attachments)..where((a) => a.uuid.equals(attachmentUuid))).getSingleOrNull();
+    return (_db!.select(_db!.attachments)..where((a) => a.uuid.equals(attachmentUuid))).getSingleOrNull();
   }
 
   /// Speichert einen Anhang oder aktualisiert einen bestehenden.
@@ -751,9 +743,9 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Lädt die globalen Einstellungen für den aktuellen Tresor.
-  Future<SettingsEntity?> getSettings() async {
+  Future<SettingsEntity?> getSettings() {
     _ensureDbInitialized();
-    return await (_db!.select(_db!.settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    return (_db!.select(_db!.settings)..where((s) => s.id.equals(1))).getSingleOrNull();
   }
 
   /// Speichert oder ersetzt die globalen Tresor-Einstellungen.

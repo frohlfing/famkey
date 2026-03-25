@@ -59,7 +59,7 @@ class LoginNotifier extends Notifier<LoginState> {
     if (state.isBusy) return;
 
     // 1. Status zurücksetzen
-    state = const LoginState().copyWith(status: LoginActionStatus.progress, error: FormError.none());
+    state = const LoginState().copyWith(status: LoginActionStatus.progress, error: AppError.none());
 
     try {
       // 2. Der zuletzt ausgewählte Tresor als Default nehmen
@@ -85,7 +85,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
-      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -94,7 +94,7 @@ class LoginNotifier extends Notifier<LoginState> {
     if (state.isBusy) return;
 
     // 1. Status auf progress setzen
-    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -121,7 +121,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Bereinigen: $e", stack: st);
-      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -139,11 +139,11 @@ class LoginNotifier extends Notifier<LoginState> {
 
     // 1. Validierung der Benutzereingabe
     if (vaultName.isEmpty) {
-      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'vaultName'));
+      state = state.copyWith(error: AppError(ErrorCode.valueRequired, field: 'vaultName'));
       return;
     }
     if (password.isEmpty && (!state.isExists || !state.hasBiometricKey)) {
-      state = state.copyWith(error: FormError(ErrorCode.valueRequired, field: 'password'));
+      state = state.copyWith(error: AppError(ErrorCode.valueRequired, field: 'password'));
       return;
     }
 
@@ -154,7 +154,7 @@ class LoginNotifier extends Notifier<LoginState> {
     }
 
     // 3. Status auf progress setzen
-    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: AppError.none());
 
     try {
       // 4. Kurze Pause für den Lade-Indikator, bevor Argon2 blockiert
@@ -166,7 +166,7 @@ class LoginNotifier extends Notifier<LoginState> {
       // 6. Salt laden bzw. neu generieren
       final salt = state.isExists ? await _databaseService.getSalt(vaultName) : _cryptoService.generateSalt();
       if (salt == null) {
-        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(state.isExists ? ErrorCode.vaultNotFound : ErrorCode.unknown));
+        state = state.copyWith(status: LoginActionStatus.failure, error: AppError(state.isExists ? ErrorCode.vaultNotFound : ErrorCode.unknown));
         return;
       }
 
@@ -175,7 +175,7 @@ class LoginNotifier extends Notifier<LoginState> {
         // Biometrie verwenden: Master-Key aus Secure-Store holen (löst System-Dialog aus)
         masterKey = await _biometricService.getMasterKey(vaultName);
         if (masterKey == null) {
-          state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.biometricCanceled));
+          state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.biometricCanceled));
           return;
         }
       } else {
@@ -198,7 +198,7 @@ class LoginNotifier extends Notifier<LoginState> {
         settings = await _databaseService.getSettings();
         if (user == null || settings == null) {
           // Status auf askToCleanUp setzen (nicht auf failure), so dass nachgefragt wird, ob die Datenbank gelöscht werden soll
-          state = state.copyWith(status: LoginActionStatus.askToCleanUp, error: FormError(ErrorCode.vaultCorrupt));
+          state = state.copyWith(status: LoginActionStatus.askToCleanUp, error: AppError(ErrorCode.vaultCorrupt));
           return;
         }
 
@@ -212,14 +212,14 @@ class LoginNotifier extends Notifier<LoginState> {
             state = state.copyWith(
               hasBiometricKey: false,
               status: LoginActionStatus.failure,
-              error: FormError(ErrorCode.wrongBiometric, field: 'password'),
+              error: AppError(ErrorCode.wrongBiometric, field: 'password'),
             );
             return;
           }
           // Passwort falsch
           state = state.copyWith(
             status: LoginActionStatus.failure,
-            error: FormError(ErrorCode.wrongPassword, field: 'password'),
+            error: AppError(ErrorCode.wrongPassword, field: 'password'),
           );
           return;
         }
@@ -295,17 +295,17 @@ class LoginNotifier extends Notifier<LoginState> {
       await _databaseService.close(); // Datenbank schließen (wenn sie nicht offen ist, passiert nichts)
       final msg = e.toString().toLowerCase();
       if (msg.contains('file is not a database') || msg.contains('authentication failed') || msg.contains('file is encrypted or is not a database')) {
-        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.wrongPassword, field: 'password'));
         return;
       }
 
       if (msg.contains('database is locked')) {
-        state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.vaultLocked));
+        state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.vaultLocked));
         return;
       }
 
       Logger().fatal('Fehler beim Login: $e', stack: st);
-      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
@@ -326,7 +326,7 @@ class LoginNotifier extends Notifier<LoginState> {
     Uint8List? masterKey;
 
     // 1. Status auf progress setzen
-    state = state.copyWith(status: LoginActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: LoginActionStatus.progress, error: AppError.none());
 
     try {
       // 2. Salt laden
@@ -347,7 +347,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern des Master-Keys im biometrischen Secure-Store: $e", stack: st);
-      state = state.copyWith(status: LoginActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
@@ -380,7 +380,7 @@ class LoginNotifier extends Notifier<LoginState> {
     // State sofort aktualisieren
     // Wir setzen hasBiometricKey erst mal auf false, bis der Hintergrund-Check fertig ist
     final exists = vaultName.isNotEmpty ? state.existingVaults.contains(vaultName) : false;
-    final error = state.error.field == 'vaultName' ? FormError.none() : null;
+    final error = state.error.field == 'vaultName' ? AppError.none() : null;
     state = state.copyWith(vaultName: vaultName, isExists: exists, hasBiometricKey: false, error: error);
 
     // Die Biometrie-Info im Hintergrund nachladen
@@ -397,7 +397,7 @@ class LoginNotifier extends Notifier<LoginState> {
 
   /// Setter für Passwort.
   void setPassword(String value) {
-    final error = state.error.field == 'password' ? FormError.none() : null;
+    final error = state.error.field == 'password' ? AppError.none() : null;
     state = state.copyWith(
       password: value,
       passwordStrength: _passwordService.estimateStrength(value),

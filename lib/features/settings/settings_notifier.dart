@@ -76,7 +76,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // Status zurücksetzen
-    state = const SettingsState().copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = const SettingsState().copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
 
     try {
@@ -90,7 +90,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
 
       // Theme aus ConfigService laden
-      final theme = ThemeMode.values.firstWhere((t) => t.name == _configService.theme, orElse: () => ThemeMode.system);
+      final theme = _configService.themeMode;
 
       // UI-State aktualisieren
       state = state.copyWith(
@@ -124,7 +124,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Laden: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -145,28 +145,27 @@ class SettingsNotifier extends Notifier<SettingsState> {
     newVaultName = newVaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
 
     // 2. Ladeanzeige einblenden
-    state = state.copyWith(newVaultName: newVaultName, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(newVaultName: newVaultName, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 3. Benutzereingabe validieren
       if (newVaultName.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: FormError(ErrorCode.valueRequired, field: 'vaultName'));
+        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.valueRequired, field: 'vaultName'));
         return;
       }
       if (newVaultName == oldVaultName) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: FormError(ErrorCode.valueNotChanged, field: 'vaultName'));
+        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.valueNotChanged, field: 'vaultName'));
         return;
       }
       if (await _databaseService.databaseExists(newVaultName)) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: FormError(ErrorCode.vaultAlreadyExists, field: 'vaultName'));
+        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.vaultAlreadyExists, field: 'vaultName'));
         return;
       }
 
       if (_settings == null) throw Exception("Settings ist nicht initialisiert.");
       if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in Settings leer");
       if (_settings!.salt.isEmpty) throw Exception("Das Salt ist nicht in Settings gespeichert.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
       if (state.isRegistered) throw Exception("Dieser Tresor wurde bereits synchronisiert und kann daher nicht mehr umbenannt werden.");
 
       // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
@@ -180,7 +179,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       try {
         await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.wrongPassword, field: 'password'));
         return;
       }
 
@@ -210,12 +209,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
         }
 
         // 11. Session aktualisieren
-        _sessionService.setSession( // todo setVaultName einbauen
-          user: _sessionService.user!,
-          privateKey: _sessionService.privateKey!,
-          vaultName: newVaultName,
-          settings: _settings!,
-        );
+        _sessionService.setVaultName(newVaultName);
+        _sessionService.setSettings(_settings);
 
         // --- Ende Kritische Logik ---
 
@@ -240,7 +235,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Umbenennung des Tresors: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
@@ -253,7 +248,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -278,7 +273,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen des Tresors: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -291,19 +286,18 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 2. Benutzereingabe validieren
       if (useBiometric == state.useBiometric) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.valueNotChanged, field: 'useBiometric'));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.valueNotChanged, field: 'useBiometric'));
         return;
       }
 
-      if (_settings == null || _sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
-      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
+
 
       // 3. Falls Biometrie deaktiviert wurde, SecureStore leeren
       if (_settings!.useBiometric && !useBiometric) {
@@ -316,12 +310,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _settings = await _databaseService.saveSettings(updatedSettings);
 
       // 5. Session aktualisieren
-      _sessionService.setSession(
-        user: _sessionService.user!,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: _settings!,
-      );
+      _sessionService.setSettings(_settings);
 
       // 6. State aktualisieren
       state = state.copyWith(
@@ -331,7 +320,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -342,17 +331,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
     Uint8List? newMasterKey;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 2. Benutzereingabe validieren
       if (newPassword.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: FormError(ErrorCode.valueRequired, field: 'password'));
+        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.valueRequired, field: 'password'));
         return;
       }
       if (newPassword == password) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: FormError(ErrorCode.equalPassword, field: 'password'));
+        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.equalPassword, field: 'password'));
         return;
       }
 
@@ -372,7 +361,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       try {
         await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
       } catch (_) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: FormError(ErrorCode.wrongPassword, field: 'password'));
+        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.wrongPassword, field: 'password'));
         return;
       }
 
@@ -406,12 +395,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         _settings = await _databaseService.saveSettings(updatedSettings);
 
         // 11. Session aktualisieren
-        _sessionService.setSession(
-          user: _sessionService.user!,
-          privateKey: _sessionService.privateKey!,
-          vaultName: _sessionService.vaultName,
-          settings: _settings!,
-        );
+        _sessionService.setSettings(_settings);
 
         // --- Ende Kritische Logik ---
 
@@ -435,7 +419,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Ändern des Passworts: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
@@ -457,23 +441,21 @@ class SettingsNotifier extends Notifier<SettingsState> {
     newUserName = newUserName.trim();
 
     // 2. Ladeanzeige einblenden
-    state = state.copyWith(newUserName: newUserName, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(newUserName: newUserName, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 2. Benutzereingabe validieren
       if (newUserName.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: FormError(ErrorCode.valueRequired, field: 'userName'));
+        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: AppError(ErrorCode.valueRequired, field: 'userName'));
         return;
       }
       if (newUserName == oldUserName) {
-        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: FormError(ErrorCode.valueNotChanged, field: 'userName'));
+        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: AppError(ErrorCode.valueNotChanged, field: 'userName'));
         return;
       }
 
-      if (_sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
       if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 4. Benutzername in der DB aktualisieren (falls nicht registriert)
       var user = _sessionService.user!;
@@ -483,12 +465,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       }
 
       // 5. Session aktualisieren
-      _sessionService.setSession(
-        user: user,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: _sessionService.settings!,
-      );
+      _sessionService.setUser(user);
 
       // 6. State aktualisieren
       state = state.copyWith(
@@ -498,7 +475,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -512,17 +489,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
     dialogData = dialogData.copyWith(host: host, apiToken: apiToken);
 
     // 2. Ladeanzeige anzeigen
-    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 3. WebService konfigurieren
       if (host.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.valueRequired, field: 'host'));
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.valueRequired, field: 'host'));
         return;
       }
       if (apiToken.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.valueRequired, field: 'apiToken'));
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.valueRequired, field: 'apiToken'));
         return;
       }
       _webService.updateConfig(host: host, apiToken: apiToken);
@@ -531,15 +508,15 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // Falls die Serverantwort ein unerwartetes Format hat, wird `VersionResponse` mit leeren Werten zurückgegeben.
       final serverVersion = await _webService.getServerVersion();
       if (!serverVersion.service.contains("PriVault")) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.noSyncService));
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.noSyncService));
         return;
       }
       if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.appIsOutdated));
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.appIsOutdated));
         return;
       }
       if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.serverIsOutdated));
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.serverIsOutdated));
         return;
       }
 
@@ -550,7 +527,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Verbindungstest: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -564,7 +541,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     dialogData = dialogData.copyWith(host: host, apiToken: apiToken);
 
     // 2. Ladeanzeige einblenden
-    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -579,20 +556,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // }
 
       if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 4. Basiskonfiguration in der DB speichern.
       final updatedSettings = _settings!.copyWith(host: host, apiToken: apiToken);
       _settings = await _databaseService.saveSettings(updatedSettings);
 
       // 5. Session aktualisieren
-      _sessionService.setSession(
-        user: _sessionService.user!,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: _settings!,
-      );
+      _sessionService.setSettings(_settings);
 
       // 6. State aktualisieren
       state = state.copyWith(
@@ -602,7 +572,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -617,7 +587,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   /// Wandelt den Verbindungsfehler in ein FormError um.
-  FormError _convertDioError(DioException de) {
+  AppError _convertDioError(DioException de) {
     String message;
     ErrorCode code = ErrorCode.networkError;
 
@@ -655,7 +625,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         message = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
     }
 
-    return FormError(code, text: message);
+    return AppError(code, text: message);
   }
 
   // ------------------------------------------------------------------------
@@ -667,7 +637,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -676,20 +646,20 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // Name muss angegeben sein
       name = name.trim();
       if (name.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.valueRequired, field: 'name'));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'name'));
         return;
       }
 
       // Du kannst dich nicht selbst als Freund hinzufügen
       final lowerName = name.toLowerCase();
       if (lowerName == _sessionService.user?.name.toLowerCase()) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.userSelfAdd));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userSelfAdd));
         return;
       }
 
       // Prüfen ob bereits in der Liste
       if (state.friends.any((f) => f.name.toLowerCase() == lowerName)) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.userAlreadyAdded));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userAlreadyAdded));
         return;
       }
 
@@ -699,7 +669,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final host = _settings!.host;
       final apiToken = _settings!.apiToken;
       if (host.isEmpty || apiToken.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.valueRequired, text: 'Der Sync-Server ist nicht konfiguriert. Dieser ist für die Suche erforderlich.'));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Der Sync-Server ist nicht konfiguriert. Dieser ist für die Suche erforderlich.'));
         return;
       }
       _webService.updateConfig(host: host, apiToken: apiToken);
@@ -707,7 +677,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // 4. Benutzer auf dem Server suchen
       final userResponse = await _webService.findUser(_sessionService.vaultName, name);
       if (userResponse == null) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.userNotFound));
+        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userNotFound));
         return;
       }
 
@@ -735,11 +705,11 @@ class SettingsNotifier extends Notifier<SettingsState> {
     } on DioException catch (de) { // Exception des HTTP-Clients
       final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
       final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-      FormError(ErrorCode.networkError, text: text);
+      AppError(ErrorCode.networkError, text: text);
 
     } catch (e, st) {
       Logger().fatal("Suche fehlgeschlagen: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -768,10 +738,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> toggleVerification(UserEntity friend) async {
     if (state.isBusy) return;
     final isVerified = !friend.isVerified;
-    final needsRekeying = state.friendNeedsRekeying; // todo muss friendNeedsRekeying im State sein?
+    final needsRekeying = state.friendNeedsRekeying;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -795,7 +765,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern der Verifizierung: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -832,7 +802,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
@@ -859,7 +829,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Löschen fehlgeschlagen: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -877,19 +847,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
     final pwAvoidIlO0 = dialogData.pwAvoidIlO0;
 
     // 2. Ladeanzeige einblenden
-    state = state.copyWith(passwordGeneratorDialogData: dialogData, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(passwordGeneratorDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 3. Benutzereingabe validieren
       if (pwLength < 1) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordGeneratorFailed, error: FormError(ErrorCode.valueInvalid, field: 'pwLength'));
+        state = state.copyWith(status: SettingsActionStatus.changePasswordGeneratorFailed, error: AppError(ErrorCode.valueInvalid, field: 'pwLength'));
         return;
       }
 
       if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 3. Basiskonfiguration in der DB speichern.
       final updatedSettings = _settings!.copyWith(
@@ -900,12 +868,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _settings = await _databaseService.saveSettings(updatedSettings);
 
       // 4. Session aktualisieren
-      _sessionService.setSession(
-        user: _sessionService.user!,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: _settings!,
-      );
+      _sessionService.setSettings(_settings);
 
       // 6. State aktualisieren
       state = state.copyWith(
@@ -917,7 +880,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -930,10 +893,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// `PriVaultApp` (siehe `main.dart`) beobachtet das Farbschema indirekt über
   /// das `MaterialApp`-Widget und reagiert auf diese Änderungen.
   void setThemeMode(ThemeMode value) {
-    final error = state.error.field == 'themeMode' ? FormError.none() : null;
+    final error = state.error.field == 'themeMode' ? AppError.none() : null;
     state = state.copyWith(themeMode: value, error: error);
-    if (_configService.theme == value.name) return;
-    _configService.theme = value.name;
+    if (_configService.themeMode == value) return;
+    _configService.themeMode = value;
   }
 
   /// Speichert den Platzhalter für eine leere Kategorie.
@@ -944,35 +907,28 @@ class SettingsNotifier extends Notifier<SettingsState> {
     newCategoryPlaceholder = newCategoryPlaceholder.trim();
 
     // 2. Ladeanzeige einblenden
-    state = state.copyWith(newCategoryPlaceholder: newCategoryPlaceholder, status: SettingsActionStatus.progress, error: FormError.none());
+    state = state.copyWith(newCategoryPlaceholder: newCategoryPlaceholder, status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
 
       // 3. Benutzereingabe validieren
       if (newCategoryPlaceholder.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: FormError(ErrorCode.valueRequired, field: 'categoryPlaceholder'));
+        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: AppError(ErrorCode.valueRequired, field: 'categoryPlaceholder'));
         return;
       }
       if (newCategoryPlaceholder == state.categoryPlaceholder) {
-        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: FormError(ErrorCode.valueNotChanged, field: 'categoryPlaceholder'));
+        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: AppError(ErrorCode.valueNotChanged, field: 'categoryPlaceholder'));
         return;
       }
 
-      if (_settings == null || _sessionService.settings == null) throw Exception("Die Settings sind nicht geladen.");
-      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
+      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
 
       // 4. Basiskonfiguration in der DB speichern.
       final updatedSettings = _settings!.copyWith(categoryPlaceholder: newCategoryPlaceholder);
       _settings = await _databaseService.saveSettings(updatedSettings);
 
       // 5. Session aktualisieren
-      _sessionService.setSession(
-        user: _sessionService.user!,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: _settings!,
-      );
+      _sessionService.setSettings(_settings);
 
       // 6. State aktualisieren
 
@@ -983,7 +939,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 

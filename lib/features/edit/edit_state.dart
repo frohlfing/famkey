@@ -4,7 +4,6 @@ import 'package:privault/features/edit/edit_form_data.dart';
 /// Ein Enum für den Status von Aktionen
 enum EditActionStatus {
   initial, // Der Ausgangszustand
-  // todo Unterscheidung notwendig?
   loading, // Eintrag wird geladen
   creating, // Neuer Eintrag wird gespeichert
   updating, // Bestehender Eintrag wird gespeichert
@@ -38,7 +37,7 @@ class EditState {
   final EditActionStatus status;
 
   /// Der Fehler der letzten Aktion.
-  final FormError error;
+  final AppError error;
 
   // --- Getter ---
 
@@ -66,7 +65,7 @@ class EditState {
     this.originalFormData = const EditFormData(),
     this.passwordStrength = 0,
     this.status = EditActionStatus.initial,
-    this.error = const FormError.none(),
+    this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -77,7 +76,7 @@ class EditState {
     EditFormData? originalFormData,
     int? passwordStrength,
     EditActionStatus? status,
-    FormError? error,
+    AppError? error,
   }) {
     return EditState(
       existingCategories: existingCategories ?? this.existingCategories,

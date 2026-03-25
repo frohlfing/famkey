@@ -22,9 +22,6 @@ enum ErrorCode {
   /// Tresor nicht gefunden
   vaultNotFound,
 
-  /// Die Namen sind identisch.
-  vaultEqualName, // todo == valueNotChanged
-
   /// Tresor existiert bereits
   vaultAlreadyExists,
 
@@ -47,8 +44,8 @@ enum ErrorCode {
 
   // --- Passwort ---
 
-  /// Die Passwörter sind identisch.
-  equalPassword, // todo == valueNotChanged
+  /// Das altes und das neue Passwort sind identisch.
+  equalPassword,
 
   /// Falsches Passwort
   wrongPassword,
@@ -115,7 +112,6 @@ extension ErrorCodeExtension on ErrorCode {
 
       // --- Tresor ---
       case ErrorCode.vaultNotFound: return 'Der angegebene Tresor konnte auf diesem Gerät nicht gefunden werden.';
-      case ErrorCode.vaultEqualName: return 'Neuer und alter Name sind identisch.';
       case ErrorCode.vaultAlreadyExists: return 'Ein Tresor mit diesem Namen existiert bereits.';
       case ErrorCode.vaultCorrupt: return 'Die Tresordatei scheint beschädigt oder keine gültige Datenbank zu sein.';
       case ErrorCode.vaultLocked: return 'Der Tresor ist blockiert. Bitte App neu starten.';
@@ -156,10 +152,10 @@ extension ErrorCodeExtension on ErrorCode {
 }
 
 /// Zentrale Klasse für fachlichen Fehler der App
-class FormError { // todo in AppError umbenennen
+class AppError {
   final ErrorCode code;
   final String text;
   final String? field;
-  FormError(this.code, {String? text, this.field}) : text = text ?? code.defaultText;
-  const FormError.none() : code = ErrorCode.none, text = '', field = null;
+  AppError(this.code, {String? text, this.field}) : text = text ?? code.defaultText;
+  const AppError.none() : code = ErrorCode.none, text = '', field = null;
 }

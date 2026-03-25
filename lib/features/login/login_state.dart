@@ -35,7 +35,7 @@ class LoginState {
   final LoginActionStatus status;
 
   /// Der Fehler der letzten Operation.
-  final FormError error;
+  final AppError error;
 
   // --- Getter ---
 
@@ -54,7 +54,7 @@ class LoginState {
     this.passwordStrength = 0,
     this.hasBiometricKey = false,
     this.status = LoginActionStatus.initial,
-    this.error = const FormError.none(),
+    this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -66,7 +66,7 @@ class LoginState {
     int? passwordStrength,
     bool? hasBiometricKey,
     LoginActionStatus? status,
-    FormError? error,
+    AppError? error,
   }) {
     return LoginState(
       vaultName: vaultName ?? this.vaultName,

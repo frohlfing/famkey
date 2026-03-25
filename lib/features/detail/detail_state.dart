@@ -83,7 +83,7 @@ class DetailState {
   // --- Error ---
 
   /// Der Fehler der letzten Operation.
-  final FormError error;
+  final AppError error;
 
   // --- Getter ---
 
@@ -123,7 +123,7 @@ class DetailState {
     this.friendAccessLevels = const {},
     this.myAccessLevel = 1,
     this.status = DetailActionStatus.initial,
-    this.error = const FormError.none(),
+    this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -144,7 +144,7 @@ class DetailState {
     Map<int, int>? friendAccessLevels,
     int? myAccessLevel,
     DetailActionStatus? status,
-    FormError? error,
+    AppError? error,
   }) {
     return DetailState(
       category: category ?? this.category,

@@ -79,7 +79,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status zurücksetzen
-    state = const DetailState().copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = const DetailState().copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       // 1. Eintrag aus Datenbank laden
@@ -139,7 +139,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -175,11 +175,11 @@ class DetailNotifier extends Notifier<DetailState> {
     try {
       final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!success) {
-        state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown, text: 'Die URL konnte nicht geöffnet werden.'));
+        state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown, text: 'Die URL konnte nicht geöffnet werden.'));
       }
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen der URL ${state.url}: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -202,7 +202,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf progress setzen
-    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Anhängen einer Datei geladen.');
@@ -262,7 +262,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Hinzufügen eines Anhangs: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -271,7 +271,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf progress setzen
-    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Öffnen des Anhangs geladen.');
@@ -301,7 +301,7 @@ class DetailNotifier extends Notifier<DetailState> {
           } catch (e) {
             // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
             Logger().error('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
-            state = state.copyWith(error: FormError(ErrorCode.cleanupFailed));
+            state = state.copyWith(error: AppError(ErrorCode.cleanupFailed));
           }
         }
       });
@@ -309,7 +309,7 @@ class DetailNotifier extends Notifier<DetailState> {
       state = state.copyWith(status: DetailActionStatus.loaded);
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -318,7 +318,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf progress setzen
-    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       await _databaseService.deleteAttachment(attachment.id);
@@ -331,7 +331,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Löschen: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -399,7 +399,7 @@ class DetailNotifier extends Notifier<DetailState> {
     if (state.isBusy) return;
 
     // Status auf progress setzen
-    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -443,7 +443,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Teilen: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -452,14 +452,14 @@ class DetailNotifier extends Notifier<DetailState> {
     // Validierung der Parameter
     if (newLevel < 0 || newLevel > 2) {
       // 2 = Lesen und Schreiben is ok, aber 3 = Vollzugriff ist hier nicht erlaubt
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.valueInvalid));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.valueInvalid));
       return;
     }
 
     if (state.isBusy) return;
 
     // Status auf loading setzen
-    state = state.copyWith(status: DetailActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Teilen geladen.');
@@ -469,7 +469,7 @@ class DetailNotifier extends Notifier<DetailState> {
       final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, user.id);
       if (perm != null) {
         // Parameter user ist nicht korrekt!
-        state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.valueInvalid, text: 'Eintrag ${_entry!.id} wird nicht mit Freund ${user.name} geteilt. Berechtigung kann nicht geändert werden.'));
+        state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.valueInvalid, text: 'Eintrag ${_entry!.id} wird nicht mit Freund ${user.name} geteilt. Berechtigung kann nicht geändert werden.'));
         return;
       }
 
@@ -503,7 +503,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
     } catch (e, st) {
       Logger().fatal('Rechte konnten nicht geändert werden: $e', stack: st);
-      state = state.copyWith(status: DetailActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 

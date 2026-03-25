@@ -3,7 +3,7 @@ import 'package:privault/database/database.dart';
 import 'package:privault/services/crypto_service.dart';
 
 /// Hält den Zustand der aktuellen Benutzersitzung im Arbeitsspeicher.
-class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier erforderlich?
+class SessionService {
 
   // ------------------------------------------------------------------------
   // --- Verwendete Dienste (Abhängigkeiten) ---
@@ -33,7 +33,6 @@ class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier er
     _privateKey = privateKey;
     _vaultName = vaultName;
     _settings = settings;
-    notifyListeners();
   }
 
   /// Beendet die Sitzung, löscht alle zwischengespeicherten Daten und vernichtet sensible Schlüssel im RAM.
@@ -47,8 +46,6 @@ class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier er
       _cryptoService.wipeKey(_privateKey);
       _privateKey = null;
     }
-
-    notifyListeners();
   }
 
   // ------------------------------------------------------------------------
@@ -58,7 +55,7 @@ class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier er
   /// Der aktuell angemeldete Benutzer.
   UserEntity? get user => _user;
 
-  /// Der entschlüsselte RSA Private Key des Benutzers (als Byte-Array).
+  /// Der entschlüsselte RSA Private-Key des Benutzers (als Byte-Array).
   Uint8List? get privateKey => _privateKey;
 
   /// Der Name des geöffneten Tresors (Mandantenkennung).
@@ -66,4 +63,28 @@ class SessionService extends ChangeNotifier { // todo Ist ChangeNotifier hier er
 
   /// Die Konfigurationseinstellungen der aktuellen Sitzung.
   SettingsEntity? get settings => _settings;
+
+  // ------------------------------------------------------------------------
+  // --- Setter ---
+  // ------------------------------------------------------------------------
+
+  /// Setter für den aktuellen Benutzer.
+  void setUser(UserEntity? value) {
+    _user = value;
+  }
+
+  /// Setter für den RSA Private-Key des Benutzers.
+  void setPrivateKey(Uint8List? value) {
+    _privateKey = value;
+  }
+
+  /// Setter für den Namen des geöffneten Tresors.
+  void setVaultName(String value) {
+    _vaultName = value;
+  }
+
+  /// Setter für die Konfigurationseinstellungen.
+  void setSettings(SettingsEntity? value) {
+    _settings = value;
+  }
 }

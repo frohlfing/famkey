@@ -72,7 +72,7 @@ class PriVaultApp extends ConsumerWidget {
       // Helles Design
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blueGrey
+          seedColor: Colors.blueGrey
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(centerTitle: true),

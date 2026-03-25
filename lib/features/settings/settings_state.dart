@@ -107,7 +107,7 @@ class SettingsState {
   final SettingsActionStatus status;
 
   /// Der Fehler der letzten Operation.
-  final FormError error;
+  final AppError error;
 
   // --- Getter ---
 
@@ -144,7 +144,7 @@ class SettingsState {
     this.categoryPlaceholder = '',
     this.newCategoryPlaceholder = '',
     this.status = SettingsActionStatus.initial,
-    this.error = const FormError.none(),
+    this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
@@ -170,7 +170,7 @@ class SettingsState {
     String? categoryPlaceholder,
     String? newCategoryPlaceholder,
     SettingsActionStatus? status,
-    FormError? error,
+    AppError? error,
   }) {
     return SettingsState(
       vaultStoragePath: vaultStoragePath ?? this.vaultStoragePath,

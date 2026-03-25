@@ -69,7 +69,7 @@ class MainNotifier extends Notifier<MainState> {
     if (state.isBusy) return;
 
     // Status zurücksetzen
-    state = const MainState().copyWith(status: MainActionStatus.progress, error: FormError.none());
+    state = const MainState().copyWith(status: MainActionStatus.progress, error: AppError.none());
 
     try {
       _allEntries = await _databaseService.getEntries();
@@ -81,7 +81,7 @@ class MainNotifier extends Notifier<MainState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Laden: $e", stack: st);
-      state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -168,7 +168,7 @@ class MainNotifier extends Notifier<MainState> {
       adoptionUserIdentity: const UserIdentity(),
       syncStatistics: const SyncStatistics(),
       status: MainActionStatus.progress,
-      error: FormError.none(),
+      error: AppError.none(),
     );
 
     try {
@@ -178,7 +178,7 @@ class MainNotifier extends Notifier<MainState> {
 
       // 1. WebService konfigurieren
       if (_sessionService.settings!.host.isEmpty || _sessionService.settings!.apiToken.isEmpty) {
-        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.valueRequired, text: 'Der Sync-Server ist noch nicht eingerichtet.'));
+        state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Der Sync-Server ist noch nicht eingerichtet.'));
         return;
       }
       _webService.updateConfig(host: _sessionService.settings!.host, apiToken: _sessionService.settings!.apiToken);
@@ -187,15 +187,15 @@ class MainNotifier extends Notifier<MainState> {
       // 2. Server-Version prüfen
       final serverVersion = await _webService.getServerVersion();
       if (!serverVersion.service.contains("PriVault")) {
-        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.noSyncService));
+        state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.noSyncService));
         return;
       }
       if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
-        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.appIsOutdated));
+        state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.appIsOutdated));
         return;
       }
       if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
-        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.serverIsOutdated));
+        state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.serverIsOutdated));
         return;
       }
 
@@ -225,7 +225,7 @@ class MainNotifier extends Notifier<MainState> {
       // 6. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
-        state = state.copyWith(status: MainActionStatus.syncAskForRekeying, error: FormError(ErrorCode.syncEmptyEntryKey));
+        state = state.copyWith(status: MainActionStatus.syncAskForRekeying, error: AppError(ErrorCode.syncEmptyEntryKey));
         return;
       }
 
@@ -255,11 +255,11 @@ class MainNotifier extends Notifier<MainState> {
       final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
       final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
       Logger().error(text);
-      state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.networkError, text: text));
+      state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.networkError, text: text));
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Sync: $e", stack: st);
-      state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -276,7 +276,7 @@ class MainNotifier extends Notifier<MainState> {
     Uint8List? newMasterKey; // Master-Key der neuen Identität
 
     // Status auf `progress` setzen
-    state = state.copyWith(status: MainActionStatus.progress, error: FormError.none());
+    state = state.copyWith(status: MainActionStatus.progress, error: AppError.none());
 
     // userResponse wird aus dem State geholt
     final userIdentity = state.adoptionUserIdentity;
@@ -302,7 +302,7 @@ class MainNotifier extends Notifier<MainState> {
       } catch (_) {
         state = state.copyWith(
           status: _isOnboarding() ? MainActionStatus.syncAskForOnboarding : MainActionStatus.syncAskForAdoption,
-          error: FormError(ErrorCode.wrongPassword),
+          error: AppError(ErrorCode.wrongPassword),
         );
         return;
       }
@@ -369,12 +369,9 @@ class MainNotifier extends Notifier<MainState> {
         await _databaseService.saveSettings(settings);
 
         // 12. Session aktualisieren
-        _sessionService.setSession(
-          user: user,
-          privateKey: newPrivateKey,
-          vaultName: _sessionService.vaultName,
-          settings: settings,
-        );
+        _sessionService.setUser(user);
+        _sessionService.setPrivateKey(newPrivateKey);
+        _sessionService.setSettings(settings);
 
         // --- Ende Kritische Logik ---
 
@@ -396,7 +393,7 @@ class MainNotifier extends Notifier<MainState> {
 
     } catch (e, st) {
       Logger().fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
-      state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.unknown));
+      state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
       // Master-Key aus dem RAM löschen
@@ -432,12 +429,8 @@ class MainNotifier extends Notifier<MainState> {
       user = await _databaseService.saveUser(user);
 
       // Session aktualisieren
-      _sessionService.setSession(
-        user: user,
-        privateKey: _sessionService.privateKey!,
-        vaultName: _sessionService.vaultName,
-        settings: settings,
-      );
+      _sessionService.setUser(user);
+      _sessionService.setSettings(settings);
     }
     else {
       if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
