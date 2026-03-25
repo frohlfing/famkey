@@ -39,6 +39,7 @@ class WebService {
           options.headers['Authorization'] = 'Bearer $_apiToken';
           options.headers['X-API-Token'] = _apiToken;
           options.headers['Content-Type'] = 'application/json';
+          options.headers['Accept'] = 'application/json';
           if (kDebugMode) {
             options.headers['Cookie'] = 'XDEBUG_SESSION=PHPSTORM';
           }
@@ -117,6 +118,9 @@ class WebService {
   // ------------------------------------------------------------------------
 
   /// Fragt die aktuelle API-Version des Servers ab.
+  ///
+  /// Falls die Serverantwort ein unerwartetes Format hat, wird
+  /// `VersionResponse` mit leeren Werten zurückgegeben.
   Future<VersionResponse> getServerVersion() async {
     final response = await _dio.get('version');
     return VersionResponse.fromJson(response.data);

@@ -18,11 +18,16 @@ class VersionResponse {
   });
 
   /// Wandelt ein JSON-Objekt in ein [VersionResponse] Objekt um.
-  factory VersionResponse.fromJson(Map<String, dynamic> json) {
+  /// Falls das JSON ungültig ist, wird ein Objekt mit leeren Werten geliefert.
+  factory VersionResponse.fromJson(dynamic json) {
+    if (json is! Map<String, dynamic>) {
+      return VersionResponse(service: '', syncProtocolVersion: 0, minSyncProtocolVersion: 0);
+    }
+
     return VersionResponse(
-      service: json['service'] as String? ?? '',
-      syncProtocolVersion: json['sync_protocol_version'] as int? ?? 0,
-      minSyncProtocolVersion: json['min_sync_protocol_version'] as int? ?? 0,
+      service: json['service']?.toString() ?? '',
+      syncProtocolVersion: int.tryParse(json['sync_protocol_version']?.toString() ?? '0') ?? 0,
+      minSyncProtocolVersion: int.tryParse(json['min_sync_protocol_version']?.toString() ?? '0') ?? 0,
     );
   }
 }

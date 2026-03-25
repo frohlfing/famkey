@@ -516,7 +516,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     try {
 
-      // 3. Benutzereingabe validieren
+      // 3. WebService konfigurieren
       if (host.isEmpty) {
         state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.valueRequired, field: 'host'));
         return;
@@ -525,32 +525,27 @@ class SettingsNotifier extends Notifier<SettingsState> {
         state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.valueRequired, field: 'apiToken'));
         return;
       }
-
-      // 4. WebService mit den aktuell sichtbaren Einstellungen konfigurieren
       _webService.updateConfig(host: host, apiToken: apiToken);
 
-      // 5. Verbindung testen, indem die Version abgefragt wird
-      final response = await _webService.getServerVersion();
-      final successful = response.service.contains("PriVault");
-      if (!successful) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.networkError, text: 'Ein Server hat geantwortet, aber nicht PriVault.'));
+      // 4. Server-Version prüfen
+      // Falls die Serverantwort ein unerwartetes Format hat, wird `VersionResponse` mit leeren Werten zurückgegeben.
+      final serverVersion = await _webService.getServerVersion();
+      if (!serverVersion.service.contains("PriVault")) {
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.noSyncService));
         return;
       }
-
-      if (AppVersion.syncProtocolVersion < response.minSyncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.appIsOutdated, text: 'Der Server ist aktueller als die App. Du musst die App aktualisieren, wenn du diesen Server verwenden willst.'));
+      if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.appIsOutdated));
         return;
       }
-
-      if (AppVersion.syncProtocolVersion > response.syncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.appIsOutdated, text: 'Der Server wird derzeit aktualisiert. Wiederhole den Test später nochmal.'));
+      if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
+        state = state.copyWith(status: SettingsActionStatus.testFailed, error: FormError(ErrorCode.serverIsOutdated));
         return;
       }
 
       state = state.copyWith(status: SettingsActionStatus.testSuccessful);
 
-    } on DioException catch (de) {
-      // Exception des HTTP-Clients
+    } on DioException catch (de) { // Exception des HTTP-Clients
       state = state.copyWith(status: SettingsActionStatus.testFailed, error: _convertDioError(de));
 
     } catch (e, st) {
@@ -611,22 +606,56 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
-  /// Entfernt ein Slash-Zeichen am Ende der URL.
+  /// Normalisiert die URL
   String _normalizeUrl(String url) {
+    // Kleiner Check auf das Protokoll
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
+    // Entfernt ein Slash-Zeichen am Ende der URL.
     return url.trim().replaceAll(RegExp(r'/+$'), '');
   }
 
   /// Wandelt den Verbindungsfehler in ein FormError um.
   FormError _convertDioError(DioException de) {
-    if (de.response?.statusCode == 404) {
-      return FormError(ErrorCode.networkError, text: 'Die Serveradresse ist ungültig.');
+    String message;
+    ErrorCode code = ErrorCode.networkError;
+
+    switch (de.type) {
+      case DioExceptionType.connectionError:
+        message = 'Verbindung fehlgeschlagen: Prüfe die Adresse oder deine Internetverbindung (DNS/Host offline).';
+        break;
+
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        message = 'Zeitüberschreitung: Der Server antwortet nicht rechtzeitig. Ist er online?';
+        break;
+
+      case DioExceptionType.badCertificate:
+        message = 'SSL-Fehler: Das Sicherheitszertifikat des Servers ist ungültig oder abgelaufen.';
+        break;
+
+      case DioExceptionType.badResponse: // z.B. kein JSON
+        final status = de.response?.statusCode;
+        if (status == 404) {
+          message = 'Der Server wurde nicht gefunden (404).';
+        } else if (status == 401) {
+          code = ErrorCode.unauthorized;
+          message = 'Der API-Token wurde vom Server abgelehnt (401).';
+        } else { // Fallback
+          final msg = de.response?.statusMessage ?? (de.message ?? 'Serverfehler');
+          message = status != null ? '$msg (Code $status)' : msg;
+        }
+        break;
+
+      default:
+        // Fallback
+        final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
+        message = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
     }
-    if (de.response?.statusCode == 401 && (de.response?.statusMessage ?? '').contains('API-Token')) {
-      return FormError(ErrorCode.unauthorized, text: 'Der API-Token ist ungültig.');
-    }
-    final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler.');
-    final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-    return FormError(ErrorCode.networkError, text: text);
+
+    return FormError(code, text: message);
   }
 
   // ------------------------------------------------------------------------
@@ -703,11 +732,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
         status: SettingsActionStatus.friendAdded,
       );
 
-    } on DioException catch (de) {
-      // Exception des HTTP-Clients
-      //var error = _convertDioError(de);
-      //error = FormError(error.code, text: error.text); // field ignorieren
-      state = state.copyWith(status: SettingsActionStatus.failure, error: _convertDioError(de));
+    } on DioException catch (de) { // Exception des HTTP-Clients
+      final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
+      final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
+      FormError(ErrorCode.networkError, text: text);
 
     } catch (e, st) {
       Logger().fatal("Suche fehlgeschlagen: $e", stack: st);

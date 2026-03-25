@@ -177,10 +177,27 @@ class MainNotifier extends Notifier<MainState> {
       if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 1. WebService konfigurieren
-      _configWebService();
+      if (_sessionService.settings!.host.isEmpty || _sessionService.settings!.apiToken.isEmpty) {
+        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.valueRequired, text: 'Der Sync-Server ist noch nicht eingerichtet.'));
+        return;
+      }
+      _webService.updateConfig(host: _sessionService.settings!.host, apiToken: _sessionService.settings!.apiToken);
+      _webService.setSignatureData(userUuid: _sessionService.user!.uuid, privateKey: _sessionService.privateKey!, publicKey: _sessionService.user!.publicKey);
 
       // 2. Server-Version prüfen
-      await _checkVersion();
+      final serverVersion = await _webService.getServerVersion();
+      if (!serverVersion.service.contains("PriVault")) {
+        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.noSyncService));
+        return;
+      }
+      if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
+        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.appIsOutdated));
+        return;
+      }
+      if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
+        state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.serverIsOutdated));
+        return;
+      }
 
       // 3. Benutzer registrieren, falls noch nicht geschehen
       final userResponse = await _registerUserIfNeeded();
@@ -234,9 +251,9 @@ class MainNotifier extends Notifier<MainState> {
       // 11. State aktualisieren
       state = state.copyWith(status: MainActionStatus.synced);
 
-    } on DioException catch (de) {
-      // Exception des HTTP-Clients
-      final text = '${de.response?.statusMessage ?? 'Verbindungsfehler'} (Code ${de.response?.statusCode}).';
+    } on DioException catch (de) { // Exception des HTTP-Clients
+      final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
+      final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
       Logger().error(text);
       state = state.copyWith(status: MainActionStatus.failure, error: FormError(ErrorCode.networkError, text: text));
 
@@ -385,36 +402,6 @@ class MainNotifier extends Notifier<MainState> {
       // Master-Key aus dem RAM löschen
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
-    }
-  }
-
-  /// Konfiguriert den WebService mit den aktuellen Session-Daten.
-  void _configWebService() {
-    if (_sessionService.settings!.host.isEmpty) {
-      throw Exception("Für die Synchronisation muss eine gültige Host-URL hinterlegt sein. Bitte trage sie in den Einstellungen ein.");
-    }
-
-    if (_sessionService.settings!.apiToken.isEmpty) {
-      throw Exception("Für die Synchronisation muss ein gültiger API-Token hinterlegt sein. Bitte trage ihn in den Einstellungen ein.");
-    }
-
-    _webService.updateConfig(host: _sessionService.settings!.host, apiToken: _sessionService.settings!.apiToken);
-
-    _webService.setSignatureData(userUuid: _sessionService.user!.uuid, privateKey: _sessionService.privateKey!, publicKey: _sessionService.user!.publicKey);
-  }
-
-  /// Stellt sicher, dass die Server-Version zur App passt.
-  ///
-  /// Wenn die Version nicht kompatibel ist, wird eine Exception geworfen.
-  Future<void> _checkVersion() async {
-    final serverVersion = await _webService.getServerVersion();
-    if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
-      // App zu alt
-      throw Exception("Bitte aktualisiere die App und starte danach nochmal die Synchronisation.");
-    }
-    if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
-      // Server zu alt
-      throw Exception("Der Server wird derzeit aktualisiert. Versuche es später noch einmal.");
     }
   }
 

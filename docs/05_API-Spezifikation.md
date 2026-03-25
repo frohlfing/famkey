@@ -108,24 +108,26 @@ Das Zeitfenster beträgt 1 Minute.
 
 **Request:**
 
-Die Daten werden im JSON-Format übermittelt. Für jede Anforderung sollte daher im Header `Accept: application/json`
-angeben werden.  (!!!!! todo ist das so? !!!!!)
-
-Der `Content-Type` für `PUT`, `PATCH`- und `POST`-Anforderungen muss `application/json` sein.  (!!!!! todo noch andere Verben? !!!!!)
-
-Bei den Parametern wird zwischen Groß- und Kleinschreibung unterschieden.
+Die Kommunikation erfolgt im JSON-Format.
+- Jeder Request sollte den Header `Accept: application/json` enthalten. Der Client signalisiert dadurch, dass er eine Antwort im JSON-Format erwartet.
+- Bei Anforderungen mit Body (`POST`, `PUT`, `PATCH`) muss der `Content-Type` auf `application/json` gesetzt sein. `GET` und `DELETE` haben in der Regel keinen Body, daher ist dort kein `Content-Type` erforderlich.
+- Bei Parametern und JSON-Keys wird zwischen Groß- und Kleinschreibung unterschieden.
 
 **Response:**
 
-Im Regelfall ist der `Content-Type` der Antwort `application/json`.   (!!!!! todo nur im Regelfall? !!!!!)
+- Der `Content-Type` der Antwort ist in der Regel `application/json`.
+- Im Erfolgsfall (2xx) werden die Daten direkt im Body zurückgegeben.
+- Im Fehlerfall (4xx, 5xx) wird ein JSON-Objekt mit folgenden Attributen zurückgegeben:
+    - `error`: Kurze, standardisierte Fehlertext. 
+    - `message`: Interne/entwicklerfreundliche Nachricht. Wird nur im Debug-Mode (`DEBUG=true`) an den Client gesendet.
+    - `status`: HTTP-Statuscode. Wird nur im Debug-Mode (`DEBUG=true`) an den Client gesendet.
 
-Im Fehlerfall wird der Fehlertext über ein JSON-Attribut `error` zurückgesendet.  (!!!!! todo ist das so? !!!!!)
-Beispiel:
-```
-{
-   "error": "No query results for entity [User]."
-}
-```
+    Beispiel:
+    ```
+    {
+       "error": "No query results for entity [User]."
+    }
+    ```
 
 ## 6. Datentypen
 

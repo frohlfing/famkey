@@ -63,6 +63,15 @@ enum ErrorCode {
 
   // --- Synchronisation ---
 
+  /// Kein Sync-Service
+  noSyncService,
+
+  /// App ist veraltet
+  appIsOutdated,
+
+  /// Sync-Server ist veraltet
+  serverIsOutdated,
+
   /// Die UUID oder das Salt des Benutzers stimmen nicht überein.
   syncSaltMismatch,
 
@@ -79,12 +88,6 @@ enum ErrorCode {
 
   /// Tresor noch nicht synchronisiert
   notRegistered,
-
-  /// App ist veraltet
-  appIsOutdated,
-
-  /// Sync-Server ist veraltet
-  serverIsOutdated,
 
   // --- Dateien ---
 
@@ -131,6 +134,9 @@ extension ErrorCodeExtension on ErrorCode {
       case ErrorCode.wrongBiometric: return 'Die biometrische Authentifizierung ist veraltet. Die Eingabe des Passworts ist erforderlich.';
 
       // --- Synchronisation ---
+      case ErrorCode.noSyncService: return 'Auf dem Server läuft kein PriVault Sync-Service.';
+      case ErrorCode.appIsOutdated: return 'Die App muss für diesen Server aktualisiert werden.';
+      case ErrorCode.serverIsOutdated: return 'Der Server ist zu alt für diese App-Version.';
       case ErrorCode.syncSaltMismatch: return 'Die Identität des Benutzers stimmt nicht überein.';
       case ErrorCode.syncEmptyEntryKey: return 'Der Entry-Key ist nicht gesetzt.';
 
@@ -138,8 +144,6 @@ extension ErrorCodeExtension on ErrorCode {
       case ErrorCode.networkError: return 'Es konnte keine Verbindung zum Server hergestellt werden.';
       case ErrorCode.unauthorized: return 'Die Anmeldung am Server ist fehlgeschlagen (API-Token ungültig).';
       case ErrorCode.notRegistered: return 'Dieser Tresor wurde noch nicht mit einem Server synchronisiert.';
-      case ErrorCode.appIsOutdated: return 'Die App ist veraltet.';
-      case ErrorCode.serverIsOutdated: return 'Der Sync-Server ist veraltet.';
 
       // --- Dateien ---
       case ErrorCode.cleanupFailed: return 'Fehler beim Entfernen der temporären Datei.';
