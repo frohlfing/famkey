@@ -231,6 +231,17 @@ class DatabaseService {
     return (_db!.select(_db!.users)..where((u) => u.id.isBiggerThanValue(1) & u.isHidden.equals(false))).get();
   }
 
+  /// Lädt alle Freunde, die nicht ausgeblendet sind zusammen mit den Zugriffsrechten auf den gegebenen Eintrag.
+  Future<List<({UserEntity user, int accessLevel})>> getNotHiddenFriendsWithAccessLevel(int entryId) async {
+    _ensureDbInitialized();
+    final allFriends = await getNotHiddenFriends();
+    final permissions = await getPermissionsByEntryId(entryId);
+    return allFriends.map((user) {
+      final perm = permissions.firstWhere((p) => p.userId == user.id, orElse: () => PermissionEntity(id: 0, entryId: 0, userId: 0, accessLevel: 0, encryptedKey: ''));
+      return (user: user, accessLevel: perm.accessLevel);
+    }).toList();
+  }
+
   /// Lädt einen Benutzer anhand seiner internen ID.
   Future<UserEntity?> getUser(int userId) {
     _ensureDbInitialized();

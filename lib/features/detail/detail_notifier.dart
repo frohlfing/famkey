@@ -103,19 +103,15 @@ class DetailNotifier extends Notifier<DetailState> {
       final auditHint = await _createAuditHint();
 
       // 6. Dateianhänge laden
-      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
-      final attachmentMetas = await _loadAttachmentMetas(attachments);
 
-      // 7. Freunde laden
-      // todo dies kann alles zusammen mit einer Datenbankabfrage zusammengefasst werden und in einer Map auf benannten Record gespeichert werden
-      final allFriends = await _databaseService.getNotHiddenFriends();
-      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
-      final sharedFriends = await _loadSharedFriends(permissions);
-      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+      // 6. Dateianhänge inkl. Metadaten laden
+      final attachments = await _loadAttachmentsWithMetas(_entry!.id);
+
+      // 7. Freunde und Berechtigungen laden
+      final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(_entry!.id);
 
       // 8. Alles zusammen in den State schreiben
       state = state.copyWith(
-        // Stammdaten
         category: payload.category,
         title: payload.title,
         username: payload.username,
@@ -125,16 +121,9 @@ class DetailNotifier extends Notifier<DetailState> {
         notes: payload.notes,
         favicon: _entry!.favicon,
         auditHint: auditHint,
-        // Anhänge
         attachments: attachments,
-        attachmentMetas: attachmentMetas,
-        // Freunde
-        allFriends: allFriends,
-        sharedFriends: sharedFriends,
-        friendAccessLevels: friendAccessLevels,
-        // Zugriffsrecht
+        friends: friends,
         myAccessLevel: myAccessLevel,
-        // Status
         status: DetailActionStatus.loaded,
       );
     } catch (e, st) {
@@ -187,14 +176,16 @@ class DetailNotifier extends Notifier<DetailState> {
   // --- Anhänge ---
   // ------------------------------------------------------------------------
 
-  /// Lädt und entschlüsselt die Metadaten aller Anhänge (Lazy Loading).
-  Future<Map<String, AttachmentMetaPayload>> _loadAttachmentMetas(List<AttachmentEntity> attachments) async {
-    final metas = <String, AttachmentMetaPayload>{};
+  /// Lädt alle Anhänge und entschlüsselt parallel die Metadaten.
+  Future<List<({AttachmentEntity attachment, AttachmentMetaPayload meta})>> _loadAttachmentsWithMetas(int entryId) async {
+    final attachments = await _databaseService.getAttachmentsByEntryId(entryId);
+    final List<({AttachmentEntity attachment, AttachmentMetaPayload meta})> result = [];
     for (var att in attachments) {
       final decryptedMeta = await _cryptoService.decrypt(att.encryptedMeta, _entryKey!);
-      metas[att.uuid] = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
+      final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(decryptedMeta)));
+      result.add((attachment: att, meta: meta));
     }
-    return metas;
+    return result;
   }
 
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
@@ -253,11 +244,9 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 5. State aktualisieren
-      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
-      final attachmentMetas = await _loadAttachmentMetas(attachments);
+      final attachments = await _loadAttachmentsWithMetas(_entry!.id);
       state = state.copyWith(
         attachments: attachments,
-        attachmentMetas: attachmentMetas,
         status: DetailActionStatus.attachmentAdded,
       );
     } catch (e, st) {
@@ -267,7 +256,7 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Entschlüsselt einen Anhang und öffnet ihn mit der System-App.
-  Future<void> openAttachment(AttachmentEntity attachment) async {
+  Future<void> openAttachment(AttachmentEntity attachment, String filename) async {
     if (state.isBusy) return;
 
     // Status auf progress setzen
@@ -276,13 +265,11 @@ class DetailNotifier extends Notifier<DetailState> {
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Öffnen des Anhangs geladen.');
       if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
-      final meta = state.attachmentMetas[attachment.uuid];
-      if (meta == null) throw Exception("Metadaten des Anhangs ${attachment.uuid} fehlen");
 
       // Inhalt entschlüsseln
       final decryptedContent = await _cryptoService.decrypt(attachment.encryptedContent, _entryKey!);
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/${meta.filename}');
+      final tempFile = File('${tempDir.path}/$filename');
       await tempFile.writeAsBytes(decryptedContent);
 
       // Datei öffnen
@@ -322,11 +309,9 @@ class DetailNotifier extends Notifier<DetailState> {
 
     try {
       await _databaseService.deleteAttachment(attachment.id);
-      final attachments = await _databaseService.getAttachmentsByEntryId(_entry!.id);
-      final attachmentMetas = await _loadAttachmentMetas(attachments);
+      final attachments = await _loadAttachmentsWithMetas(_entry!.id);
       state = state.copyWith(
         attachments: attachments,
-        attachmentMetas: attachmentMetas,
         status: DetailActionStatus.attachmentDeleted,
       );
     } catch (e, st) {
@@ -368,33 +353,7 @@ class DetailNotifier extends Notifier<DetailState> {
   // --- Geteilt mit ---
   // ------------------------------------------------------------------------
 
-  /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
-  Future<List<UserEntity>> _loadSharedFriends(List<PermissionEntity> permissions) async {
-    List<UserEntity> shared = [];
-    for (var p in permissions) {
-      if (p.userId == 1 || p.accessLevel == 0) continue; // Benutzer der App (id=1) ist kein Freund
-      final friend = await _databaseService.getUser(p.userId);
-      if (friend != null) {
-        shared.add(friend);
-      }
-    }
-    return shared;
-  }
-
-  /// Lädt die Liste der Freunde, mit denen dieser Eintrag geteilt wird.
-  Future<Map<int, int>> _loadFriendAccessLevels(List<PermissionEntity> permissions) async {
-    final accessLevels = <int, int>{};
-    for (var p in permissions) {
-      if (p.userId == 1 || p.accessLevel == 0) continue; // Benutzer der App (id=1) ist kein Freund
-      final friend = await _databaseService.getUser(p.userId);
-      if (friend != null) {
-        accessLevels[friend.id] = p.accessLevel;
-      }
-    }
-    return accessLevels;
-  }
-
-  /// Teilt den Eintrag mit einem Freund.
+   /// Teilt den Eintrag mit einem Freund.
   Future<void> shareWith(UserEntity targetUser) async {
     if (state.isBusy) return;
 
@@ -433,12 +392,9 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 4. State aktualisieren
-      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
-      final sharedFriends = await _loadSharedFriends(permissions);
-      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+      final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(_entry!.id);
       state = state.copyWith(
-        sharedFriends: sharedFriends,
-        friendAccessLevels: friendAccessLevels,
+        friends: friends,
         status: DetailActionStatus.shareUpdated,
       );
     } catch (e, st) {
@@ -495,10 +451,9 @@ class DetailNotifier extends Notifier<DetailState> {
       await _databaseService.saveEntry(_entry!);
 
       // 5. State aktualisieren
-      final permissions = await _databaseService.getPermissionsByEntryId(_entry!.id);
-      final friendAccessLevels = await _loadFriendAccessLevels(permissions);
+      final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(_entry!.id);
       state = state.copyWith(
-        friendAccessLevels: friendAccessLevels,
+        friends: friends,
         status: newLevel > 0 ? DetailActionStatus.shareUpdated : DetailActionStatus.accessRevoked,
       );
     } catch (e, st) {

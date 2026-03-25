@@ -48,26 +48,13 @@ class DetailState {
 
   // --- Anhänge ---
 
-  // todo man könnte diese beiden Felder ersetzen mit eine Liste von benannten Records: List<{id, filename, mime, size, timestamp, thumbnail}> attachments;  oder List<{AttachmentEntity attachment, AttachmentMetaPayload meta}> attachments;
-
-  /// Liste der Dateianhänge
-  final List<AttachmentEntity> attachments;
-
-  /// Meta-Angaben der Dateianhänge
-  final Map<String, AttachmentMetaPayload> attachmentMetas;
+  /// Liste der Dateianhänge inkl. Metadaten.
+  final List<({AttachmentEntity attachment, AttachmentMetaPayload meta})> attachments;
 
   // --- Teilen mit ---
 
-  // todo man könnte die 3 Felder ersetzen mit eine Liste von benannten Records: List<{id, username, accessLevel}> friends; oder List<{UserEntity user, int accessLevel}> friends;
-
-  /// Vollständige Freundesliste (ohne ausgeblendete Freunde).
-  final List<UserEntity> allFriends;
-
-  /// Freunde mit Zugriff auf diesen Eintrag
-  final List<UserEntity> sharedFriends;
-
-  /// Zugriffsrechte der Freunde auf diesen Eintrag
-  final Map<int, int> friendAccessLevels;
+  /// Alle sichtbaren Freunde zusammen mit den Zugriffsrechten auf diesen Eintrag.
+  final List<({UserEntity user, int accessLevel})> friends;
 
   // --- Zugriffsrecht ---
 
@@ -99,10 +86,14 @@ class DetailState {
   /// Gibt an, ob der aktuelle Benutzer die Freigaben verwalten darf (nur Besitzer).
   bool get canManageShares => myAccessLevel >= 3;
 
+  /// Liste der Freunde, mit denen der Eintrag geteilt wurde.
+  List<({UserEntity user, int accessLevel})> get sharedFriends {
+    return friends.where((f) => f.accessLevel > 0).toList();
+  }
+
   /// Liste der Freunde, mit denen der Eintrag noch nicht geteilt wurde.
   List<UserEntity> get unsharedFriends {
-    final sharedIds = sharedFriends.map((u) => u.id).toSet();
-    return allFriends.where((u) => !sharedIds.contains(u.id)).toList();
+    return friends.where((f) => f.accessLevel == 0).map((f) => f.user).toList();
   }
 
   /// Konstruktor
@@ -117,10 +108,7 @@ class DetailState {
     this.favicon = '',
     this.auditHint = '',
     this.attachments = const [],
-    this.attachmentMetas = const {},
-    this.allFriends = const [],
-    this.sharedFriends = const [],
-    this.friendAccessLevels = const {},
+    this.friends = const [],
     this.myAccessLevel = 1,
     this.status = DetailActionStatus.initial,
     this.error = const AppError.none(),
@@ -137,11 +125,8 @@ class DetailState {
     String? notes,
     String? favicon,
     String? auditHint,
-    List<AttachmentEntity>? attachments,
-    Map<String, AttachmentMetaPayload>? attachmentMetas,
-    List<UserEntity>? allFriends,
-    List<UserEntity>? sharedFriends,
-    Map<int, int>? friendAccessLevels,
+    List<({AttachmentEntity attachment, AttachmentMetaPayload meta})>? attachments,
+    List<({UserEntity user, int accessLevel})>? friends,
     int? myAccessLevel,
     DetailActionStatus? status,
     AppError? error,
@@ -157,10 +142,7 @@ class DetailState {
       favicon: favicon ?? this.favicon,
       auditHint: auditHint ?? this.auditHint,
       attachments: attachments ?? this.attachments,
-      attachmentMetas: attachmentMetas ?? this.attachmentMetas,
-      allFriends: allFriends ?? this.allFriends,
-      sharedFriends: sharedFriends ?? this.sharedFriends,
-      friendAccessLevels: friendAccessLevels ?? this.friendAccessLevels,
+      friends: friends ?? this.friends,
       myAccessLevel: myAccessLevel ?? this.myAccessLevel,
       status: status ?? this.status,
       error: error ?? this.error,

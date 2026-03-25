@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/features/detail/detail_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
@@ -265,7 +266,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   final canManageAttachments = ref.watch(detailProvider.select((s) => s.canManageAttachments));
                   final attachments =ref.watch(detailProvider.select((s) => s.attachments));
                   if (!canManageAttachments && attachments.isEmpty) return const SizedBox.shrink();
-                  final attachmentMetas = ref.watch(detailProvider.select((s) => s.attachmentMetas));
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -289,20 +289,19 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         )
                       else
                         ...attachments.map((attachment) {
-                          final meta = attachmentMetas[attachment.uuid];
-                          final iconType = getIconType(meta?.filename ?? '', meta?.mime ?? '');
+                          final iconType = getIconType(attachment.meta.filename, attachment.meta.mime);
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
                               leading: MouseRegion(
                                 cursor: SystemMouseCursors.click,
                                 child: GestureDetector(
-                                  onTap: () => notifier.openAttachment(attachment),
-                                  child: meta?.thumbnail != null && meta!.thumbnail!.isNotEmpty
+                                  onTap: () => notifier.openAttachment(attachment.attachment, attachment.meta.filename),
+                                  child: attachment.meta.thumbnail != null && attachment.meta.thumbnail!.isNotEmpty
                                       ? ClipRRect(
                                     borderRadius: BorderRadius.circular(4),
                                     child: Image.memory(
-                                      base64Decode(meta.thumbnail!),
+                                      base64Decode(attachment.meta.thumbnail!),
                                       width: 48,
                                       height: 48,
                                       fit: BoxFit.cover,
@@ -315,13 +314,13 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                                   ),
                                 ),
                               ),
-                              title: Text(meta?.filename ?? 'Datei'),
-                              subtitle: Text(formatSize(meta?.size ?? 0)),
+                              title: Text(attachment.meta.filename),
+                              subtitle: Text(formatSize(attachment.meta.size)),
                               trailing: canManageAttachments
                                   ? IconButton(
                                 icon: const Icon(Icons.delete),
                                 tooltip: 'Anhang löschen',
-                                onPressed: () => _handleDeleteAttachment(attachment),
+                                onPressed: () => _handleDeleteAttachment(attachment.attachment),
                               )
                                   : null,
                             ),
@@ -337,12 +336,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // ------------------------------------------------------------------------
 
                 Consumer(builder: (context, ref, _) {
-                  //final allFriends = ref.watch(detailProvider.select((s) => s.auditHint));
                   final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
                   final sharedFriends =ref.watch(detailProvider.select((s) => s.sharedFriends));
                   if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
-                  final friendAccessLevels =ref.watch(detailProvider.select((s) => s.friendAccessLevels));
-                  //final unsharedFriends = ref.watch(detailProvider.select((s) => s.unsharedFriends));
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -366,16 +362,16 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         )
                       else
                         ...sharedFriends.map((friend) {
-                          final isWritable = friendAccessLevels[friend.id] == 2;
+                          final isWritable = friend.accessLevel == 2;
                           Widget leadingIcon = Stack(
                             alignment: Alignment.bottomRight,
                             children: [
                               const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
-                              if (!friend.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
+                              if (!friend.user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
                             ],
                           );
 
-                          if (!friend.isVerified) {
+                          if (!friend.user.isVerified) {
                             leadingIcon = MouseRegion(
                               cursor: SystemMouseCursors.click,
                               child: GestureDetector(
@@ -383,7 +379,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                                   await Navigator.pushNamed(
                                     context,
                                     '/settings',
-                                    arguments: {'focus_user_uuid': friend.uuid},
+                                    arguments: {'focus_user_uuid': friend.user.uuid},
                                   );
                                   if (mounted) notifier.load(widget.entryId);
                                 },
@@ -399,7 +395,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
                               leading: leadingIcon,
-                              title: Text(friend.name),
+                              title: Text(friend.user.name),
                               trailing: canManageShares
                                   ? Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -412,14 +408,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                                     scale: 0.75,
                                     child: Switch(
                                       value: isWritable,
-                                      onChanged: (bool value) => notifier.updateAccessLevel(friend, value ? 2 : 1),
+                                      onChanged: (bool value) => notifier.updateAccessLevel(friend.user, value ? 2 : 1),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.delete),
                                     tooltip: 'Zugriff entziehen',
-                                    onPressed: () => _handleDeleteFriend(friend),
+                                    onPressed: () => _handleDeleteFriend(friend.user),
                                   ),
                                 ],
                               )
@@ -534,7 +530,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   }
 
   /// Fragt nach Bestätigung und löscht dann den Anhang.
-  Future<void> _handleDeleteAttachment(dynamic attachment) async {
+  Future<void> _handleDeleteAttachment(AttachmentEntity attachment) async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Anhang löschen',
@@ -562,7 +558,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   }
 
   /// Fragt nach Bestätigung und entzieht dann den Zugriff für den Benutzer.
-  Future<void> _handleDeleteFriend(dynamic user) async {
+  Future<void> _handleDeleteFriend(UserEntity user) async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Zugriff entziehen',

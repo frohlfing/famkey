@@ -95,17 +95,23 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // UI-State aktualisieren
       state = state.copyWith(
         vaultStoragePath: _configService.vaultStoragePath,
+
         vaultName: _sessionService.vaultName,
         newVaultName: _sessionService.vaultName,
+
         useBiometric: _settings!.useBiometric,
+
         userName: _sessionService.user?.name ?? '',
         newUserName: _sessionService.user?.name ?? '',
+
         isRegistered: _settings!.lastSyncAt.year > 1970,
+
         host: _settings!.host,
         serverSettingsDialogData: ServerDialogData(
           host: _settings!.host,
           apiToken: _settings!.apiToken,
         ),
+
         pwLength: _settings!.pwLength,
         pwSpecialChars: _settings!.pwSpecialChars,
         pwAvoidIlO0: _settings!.pwAvoidIlO0,
@@ -114,11 +120,15 @@ class SettingsNotifier extends Notifier<SettingsState> {
           pwSpecialChars: _settings!.pwSpecialChars,
           pwAvoidIlO0: _settings!.pwAvoidIlO0,
         ),
+
         friends: friends,
         fingerprints: fingerprints,
         friendNeedsRekeying: friendNeedsRekeying,
         themeMode: theme,
+
         categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+        newCategoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+
         status: SettingsActionStatus.loaded,
       );
 
