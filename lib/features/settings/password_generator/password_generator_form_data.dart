@@ -34,20 +34,20 @@ class PasswordGeneratorFormData {
   /// Operator `==` für das Objekt anpassen
   @override
   bool operator == (Object other) =>
-      identical(this, other) ||
-          other is PasswordGeneratorFormData && (
-              runtimeType == other.runtimeType &&
-                  pwLength == other.pwLength &&
-                  pwSpecialChars == other.pwSpecialChars &&
-                  pwAvoidIlO0 == other.pwAvoidIlO0
-          );
+    identical(this, other) ||
+      other is PasswordGeneratorFormData && (
+        runtimeType == other.runtimeType &&
+          pwLength == other.pwLength &&
+          pwSpecialChars == other.pwSpecialChars &&
+          pwAvoidIlO0 == other.pwAvoidIlO0
+      );
 
   /// Liefert den HashCode für das Objekt
   /// (erforderlich, wenn ein Operators überschrieben wird)
   @override
   int get hashCode =>
-      pwLength.hashCode ^
-      pwSpecialChars.hashCode ^
-      pwAvoidIlO0.hashCode;
+    pwLength.hashCode ^
+    pwSpecialChars.hashCode ^
+    pwAvoidIlO0.hashCode;
 // @formatter:on
 }

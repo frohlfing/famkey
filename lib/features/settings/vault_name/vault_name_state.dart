@@ -15,7 +15,7 @@ class VaultNameState {
   /// Die Formulardaten.
   final VaultNameFormData formData;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
+  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final VaultNameFormData originalFormData;
 
   /// Der Status der letzten Aktion.
@@ -28,7 +28,7 @@ class VaultNameState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-      status == VaultNameActionStatus.progress;
+    status == VaultNameActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => formData != originalFormData;

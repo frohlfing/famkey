@@ -8,7 +8,6 @@ import 'package:privault/features/settings/password_generator/password_generator
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 
-
 final passwordGeneratorProvider = NotifierProvider<PasswordGeneratorNotifier, PasswordGeneratorState>(() {
   return PasswordGeneratorNotifier();
 });
@@ -51,13 +50,13 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
-    // Ladeanzeige einblenden
-    state = const PasswordGeneratorState().copyWith(status: PasswordGeneratorActionStatus.progress, error: AppError.none());
+    // UI-State zurücksetzen
+    state = const PasswordGeneratorState().copyWith(status: PasswordGeneratorActionStatus.progress);
     
     try {
       // Daten aus der Datenbank laden
       _settings = await _databaseService.getSettings();
-      if (_settings == null) throw Exception('Settings nicht gefunden.'); // wird bereits direkt nach dem Login angelegt
+      if (_settings == null) throw Exception('Die Einstellungen sind nicht in der Datenbank hinterlegt.'); // wird bereits direkt nach dem Login angelegt
 
       // UI-State aktualisieren
       final formData = PasswordGeneratorFormData(
@@ -87,15 +86,11 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
 
     var formData = state.formData;
 
-    // Benutzereingabe bereinigen
-    // formData = formData.copyWith(
-    //   pwLength: formData.pwLength,
-    //   pwSpecialChars: formData.pwSpecialChars, //.trim(); darf Leerzeichen am Ende haben
-    //   pwAvoidIlO0: formData.pwAvoidIlO0,
-    // );
-
-    // 1. Ladeanzeige einblenden
-    state = state.copyWith(formData: formData, status: PasswordGeneratorActionStatus.progress, error: AppError.none());
+    // 1. UI-State aktualisieren
+    state = state.copyWith(
+      formData: formData,
+      status: PasswordGeneratorActionStatus.progress, error: AppError.none(),
+    );
 
     try {
 
@@ -105,19 +100,19 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
         return;
       }
 
-      // 3. Basiskonfiguration in der DB speichern.
-      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-      final updatedSettings = _settings!.copyWith(
-        pwLength: formData.pwLength,
-        pwSpecialChars: formData.pwSpecialChars,
-        pwAvoidIlO0: formData.pwAvoidIlO0,
-      );
-      _settings = await _databaseService.saveSettings(updatedSettings);
+      // 3. Datenbank und Session aktualisieren
+      if (formData != state.originalFormData) {
+        if (_settings == null) throw Exception("Die Einstellungen sind nicht geladen.");
+        final updatedSettings = _settings!.copyWith(
+          pwLength: formData.pwLength,
+          pwSpecialChars: formData.pwSpecialChars,
+          pwAvoidIlO0: formData.pwAvoidIlO0,
+        );
+        _settings = await _databaseService.saveSettings(updatedSettings);
+        _sessionService.setSettings(_settings);
+      }
 
-      // 4. Session aktualisieren
-      _sessionService.setSettings(_settings);
-
-      // 6. State aktualisieren
+      // 4. UI-State aktualisieren
       state = state.copyWith(
         originalFormData: formData,
         status: PasswordGeneratorActionStatus.saved,
@@ -164,7 +159,7 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
 
   /// Setzt empfohlene Passwort-Sonderzeichen.
   void setDefaultPwSpecialChars() {
-    setPwSpecialChars('!@#\$%^&*()_+-=[]{}|;:,.<>?');
+    setPwSpecialChars('!@#\$%^&*()_+-=[]{}|;:,.<>?'); // todo Zeichen sortieren
   }
 
   /// Setzt alle Passwort-Sonderzeichen.

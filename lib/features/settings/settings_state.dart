@@ -1,27 +1,17 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
-import 'package:privault/features/settings/server_dialog.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SettingsActionStatus {
   initial, // Der Ausgangszustand
   progress, // Aktion läuft
-
   loaded, // Einstellungen wurden erfolgreich geladen
   saved, // Änderungen wurden erfolgreich gespeichert
   deleted, // Tresor wurde erfolgreich gelöscht
-  testSuccessful, // Test erfolgreich
   friendAdded, // Freund wurde erfolgreich hinzugefügt
   friendDeleted, // Freund wurde erfolgreich gelöscht
   friendVerified, // Freund wurde erfolgreich verifiziert
-
-  renameVaultFailed, // Tresor konnte nicht umbenannt werden
-  changePasswordFailed, // Passwort konnte nicht geändert werden
-  renameUserFailed, // Benutzer konnte nicht umbenannt werden
-  testFailed, // Test fehlgeschlagen
-  changeServerFailed, // Servereinstellung konnte nicht geändert werden
-  changeCategoryPlaceholderFailed, // Platzhalter für leere Kategorie konnte nicht geändert werden
   failure, // Aktion mit Fehler beendet
 }
 
@@ -35,13 +25,7 @@ class SettingsState {
   /// Der Tresorname.
   final String vaultName;
 
-  /// Der neue Tresorname (für den Dialog, wenn der Tresor umbenannt wird).
-  final String newVaultName;
-
   // --- Login ---
-
-  /// Neues Master-Passwort (für den Dialog, wenn das Master-Passwort geändert wird).
-  final String newPassword;
 
   /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
   final bool useBiometric;
@@ -51,17 +35,11 @@ class SettingsState {
   /// Der Benutzername.
   final String userName;
 
-  /// Der neue Benutzername (für den Dialog, wenn der Benutzer umbenannt wird).
-  final String newUserName;
-
   /// Gibt an, ob der Benutzer bereits mit dem Server synchronisiert wurde (registriert ist).
   final bool isRegistered;
 
-  /// Die URL des Servers für die Synchronisation.
+  /// Die URL des Sync-Servers
   final String host;
-
-  /// Daten für den Dialog, wenn der Server geändert werden.
-  final ServerDialogData serverSettingsDialogData;
 
   // --- Freunde---
 
@@ -93,9 +71,6 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
-  /// Anzeigename für eine leere Kategorie.
-  final String newCategoryPlaceholder;
-
   // --- Action-Status und -Error ---
 
   /// Der Status der letzten Aktion.
@@ -120,14 +95,10 @@ class SettingsState {
   const SettingsState({
     this.vaultStoragePath = '',
     this.vaultName = '',
-    this.newVaultName = '',
-    this.newPassword = '',
     this.useBiometric = false,
     this.userName = '',
-    this.newUserName = '',
     this.isRegistered = false,
     this.host = '',
-    this.serverSettingsDialogData = const ServerDialogData(),
     this.friends = const [],
     this.fingerprints = const {},
     this.friendNeedsRekeying = const {},
@@ -136,7 +107,6 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
-    this.newCategoryPlaceholder = '',
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -145,14 +115,10 @@ class SettingsState {
   SettingsState copyWith({
     String? vaultStoragePath,
     String? vaultName,
-    String? newVaultName,
-    String? newPassword,
     bool? useBiometric,
     String? userName,
-    String? newUserName,
     bool? isRegistered,
     String? host,
-    ServerDialogData? serverSettingsDialogData,
     List<UserEntity>? friends,
     Map<int, String>? fingerprints,
     Map<int, bool>? friendNeedsRekeying,
@@ -161,21 +127,16 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
-    String? newCategoryPlaceholder,
     SettingsActionStatus? status,
     AppError? error,
   }) {
     return SettingsState(
       vaultStoragePath: vaultStoragePath ?? this.vaultStoragePath,
       vaultName: vaultName ?? this.vaultName,
-      newVaultName: newVaultName ?? this.newVaultName,
-      newPassword: newPassword ?? this.newPassword,
       useBiometric: useBiometric ?? this.useBiometric,
       userName: userName ?? this.userName,
-      newUserName: newUserName ?? this.newUserName,
       isRegistered: isRegistered ?? this.isRegistered,
       host: host ?? this.host,
-      serverSettingsDialogData: serverSettingsDialogData ?? this.serverSettingsDialogData,
       friends: friends ?? this.friends,
       fingerprints: fingerprints ?? this.fingerprints,
       friendNeedsRekeying: friendNeedsRekeying ?? this.friendNeedsRekeying,
@@ -184,7 +145,6 @@ class SettingsState {
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder?? this.categoryPlaceholder,
-      newCategoryPlaceholder: newCategoryPlaceholder?? this.newCategoryPlaceholder,
       status: status ?? this.status,
       error: error ?? this.error,
     );

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/password_generator/password_generator_notifier.dart';
 import 'package:privault/features/settings/password_generator/password_generator_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/snack.dart';
 
 /// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
 class PasswordGeneratorDialog extends ConsumerStatefulWidget {
@@ -176,6 +175,7 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
                 );
               },
             ),
+
             const SizedBox(height: 16),
 
             // --- Lesbarkeit optimieren ---
@@ -192,7 +192,7 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
               },
             ),
 
-            // --- Allgemeiner Fehler (error.field == null) ---
+            // --- Allgemeine Fehlermeldung (error.field == null) ---
             Consumer(builder: (context, ref, _) {
               final error = ref.watch(passwordGeneratorProvider.select((s) => s.error));
               if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();

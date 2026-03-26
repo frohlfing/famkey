@@ -28,18 +28,18 @@ class MasterPasswordFormData {
   /// Operator `==` für das Objekt anpassen
   @override
   bool operator == (Object other) =>
-      identical(this, other) ||
-          other is MasterPasswordFormData && (
-              runtimeType == other.runtimeType &&
-                  newPassword == other.newPassword &&
-                  password == other.password
-          );
+    identical(this, other) ||
+      other is MasterPasswordFormData && (
+        runtimeType == other.runtimeType &&
+          newPassword == other.newPassword &&
+          password == other.password
+        );
 
   /// Liefert den HashCode für das Objekt
   /// (erforderlich, wenn ein Operators überschrieben wird)
   @override
   int get hashCode =>
-      newPassword.hashCode ^
-      password.hashCode;
+    newPassword.hashCode ^
+    password.hashCode;
 // @formatter:on
 }

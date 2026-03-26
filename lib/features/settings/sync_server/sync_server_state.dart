@@ -7,6 +7,7 @@ enum SyncServerActionStatus {
   progress, // Aktion läuft
   loaded, // Einstellungen wurden erfolgreich geladen
   saved, // Änderungen wurden erfolgreich gespeichert
+  testSuccessful, // Test erfolgreich beendet
   failure, // Aktion mit Fehler beendet
 }
 
@@ -15,7 +16,7 @@ class SyncServerState {
   /// Die Formulardaten.
   final SyncServerFormData formData;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
+  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final SyncServerFormData originalFormData;
 
   /// Der Status der letzten Aktion.
@@ -28,7 +29,7 @@ class SyncServerState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-      status == SyncServerActionStatus.progress;
+    status == SyncServerActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => formData != originalFormData;

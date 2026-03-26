@@ -28,18 +28,18 @@ class SyncServerFormData {
   /// Operator `==` für das Objekt anpassen
   @override
   bool operator == (Object other) =>
-      identical(this, other) ||
-          other is SyncServerFormData && (
-              runtimeType == other.runtimeType &&
-                  host == other.host &&
-                  apiToken == other.apiToken
-          );
+    identical(this, other) ||
+      other is SyncServerFormData && (
+        runtimeType == other.runtimeType &&
+          host == other.host &&
+          apiToken == other.apiToken
+      );
 
   /// Liefert den HashCode für das Objekt
   /// (erforderlich, wenn ein Operators überschrieben wird)
   @override
   int get hashCode =>
-      host.hashCode ^
-      apiToken.hashCode;
+    host.hashCode ^
+    apiToken.hashCode;
 // @formatter:on
 }

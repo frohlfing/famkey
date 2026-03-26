@@ -14,7 +14,7 @@ class UserNameState {
   /// Die Formulardaten.
   final String userName;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
+  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final String originalUserName;
 
   /// Der Status der letzten Aktion.
@@ -27,7 +27,7 @@ class UserNameState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-      status == UserNameActionStatus.progress;
+    status == UserNameActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => userName != originalUserName;

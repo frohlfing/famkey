@@ -1,17 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_version.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_state.dart';
 import 'package:privault/services/autofill_service.dart';
 import 'package:privault/services/biometric_service.dart';
@@ -74,54 +70,35 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
-    // Status zurücksetzen
+    // UI-State zurücksetzen
     state = const SettingsState().copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
-      // Daten aus der Datenbank laden
+      // Einstellungen aus der Datenbank laden
       _settings = await _databaseService.getSettings();
-      if (_settings == null) throw Exception('Settings nicht gefunden.'); // wird bereits direkt nach dem Login angelegt
+      if (_settings == null) throw Exception('Die Einstellungen sind nicht in der Datenbank hinterlegt.'); // wird bereits direkt nach dem Login angelegt
 
       // Freundesliste laden
       final friends = await _databaseService.getNotHiddenFriends();
       final fingerprints = _getFingerprints(friends);
       final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
 
-      // Theme aus ConfigService laden
-      final theme = _configService.themeMode;
-
       // UI-State aktualisieren
       state = state.copyWith(
         vaultStoragePath: _configService.vaultStoragePath,
-
         vaultName: _sessionService.vaultName,
-        newVaultName: _sessionService.vaultName,
-
         useBiometric: _settings!.useBiometric,
-
         userName: _sessionService.user?.name ?? '',
-        newUserName: _sessionService.user?.name ?? '',
-
         isRegistered: _settings!.lastSyncAt.year > 1970,
-
         host: _settings!.host,
-        serverSettingsDialogData: ServerDialogData(
-          host: _settings!.host,
-          apiToken: _settings!.apiToken,
-        ),
-
         pwLength: _settings!.pwLength,
         pwSpecialChars: _settings!.pwSpecialChars,
         pwAvoidIlO0: _settings!.pwAvoidIlO0,
-
         friends: friends,
         fingerprints: fingerprints,
         friendNeedsRekeying: friendNeedsRekeying,
-        themeMode: theme,
-
+        themeMode: _configService.themeMode,
         categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
-        newCategoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
-
         status: SettingsActionStatus.loaded,
       );
 
@@ -132,125 +109,14 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Bereich "Tresor" ---
+  // --- Tresor löschen ---
   // ------------------------------------------------------------------------
-
-  /// Benennt den Tresor um und aktualisiert die Session.
-  ///
-  /// Das Master-Passwort wurde zuvor von der UI abgefragt.
-  Future<void> renameVault(String newVaultName, String password) async {
-    if (state.isBusy) return;
-    Uint8List? masterKey;
-    final oldVaultName = state.vaultName;
-
-    // 1. Benutzereingabe bereinigen
-    // Ungültige Zeichen für Dateinamen entfernen
-    newVaultName = newVaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
-
-    // 2. Ladeanzeige einblenden
-    state = state.copyWith(newVaultName: newVaultName, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 3. Benutzereingabe validieren
-      if (newVaultName.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.valueRequired, field: 'vaultName'));
-        return;
-      }
-      if (newVaultName == oldVaultName) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.valueNotChanged, field: 'vaultName'));
-        return;
-      }
-      if (await _databaseService.databaseExists(newVaultName)) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.vaultAlreadyExists, field: 'vaultName'));
-        return;
-      }
-
-      if (_settings == null) throw Exception("Settings ist nicht initialisiert.");
-      if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in Settings leer");
-      if (_settings!.salt.isEmpty) throw Exception("Das Salt ist nicht in Settings gespeichert.");
-      if (state.isRegistered) throw Exception("Dieser Tresor wurde bereits synchronisiert und kann daher nicht mehr umbenannt werden.");
-
-      // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // 4. MasterKey ableiten (Argon2id)
-      final salt = base64Decode(_settings!.salt);
-      masterKey = await _cryptoService.deriveKey(password, salt);
-
-      // 5. Passwort validieren
-      try {
-        await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
-      } catch (_) {
-        state = state.copyWith(status: SettingsActionStatus.renameVaultFailed, error: AppError(ErrorCode.wrongPassword, field: 'password'));
-        return;
-      }
-
-      // 6. Physisches Datenbank-Backup erstellen
-      await _databaseService.createBackup();
-      try {
-        // --- Start Kritische Logik ---
-
-        // 7. Verbindung trennen & Umbenennen
-        await _databaseService.close();
-        await _databaseService.renameDatabaseAndSaltFile(oldVaultName, newVaultName);
-
-        // 8. Konfiguration (Login-Liste / Config) aktualisieren
-        if (_configService.lastVaultName == oldVaultName) {
-          _configService.lastVaultName = newVaultName;
-        }
-
-        // 9. Neue Verbindung zur umbenannten Datei herstellen
-        await _databaseService.initialize(newVaultName, masterKey);
-
-        // 10. Master-Key im SecureStore umziehen
-        if (await _biometricService.containsMasterKey(oldVaultName)) {
-          await _biometricService.removeMasterKey(oldVaultName);
-          if (_settings!.useBiometric) {
-            await _biometricService.saveMasterKey(newVaultName, masterKey);
-          }
-        }
-
-        // 11. Session aktualisieren
-        _sessionService.setVaultName(newVaultName);
-        _sessionService.setSettings(_settings);
-
-        // --- Ende Kritische Logik ---
-
-        // 12. Erfolg: Backup löschen
-        await _databaseService.removeBackup();
-
-        // 13. State aktualisieren
-        state = state.copyWith(
-          vaultName: newVaultName,
-          status: SettingsActionStatus.saved,
-        );
-
-      } catch (_) {
-        // Fehler während der Operation -> Rollback
-        try {
-          await _databaseService.close();
-          await _databaseService.restoreBackup();
-          await _databaseService.initialize(_sessionService.vaultName, masterKey);
-        } catch (_) {}
-        rethrow;
-      }
-
-    } catch (e, st) {
-      Logger().fatal('Fehler beim Umbenennung des Tresors: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-
-    } finally {
-      // Master-Key aus dem RAM löschen
-      if (masterKey != null) _cryptoService.wipeKey(masterKey);
-    }
-  }
 
   /// Löscht den aktuellen Tresor lokal vom Gerät.
   Future<void> deleteVault() async {
     if (state.isBusy) return;
 
-    // 1. Ladeanzeige einblenden
+    // 1. UI-State aktualisieren
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
@@ -281,7 +147,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Bereich "Login" ---
+  // --- Biometrie aktivieren / deaktivieren ---
   // ------------------------------------------------------------------------
 
   /// Speichert die Biometrie-Einstellung.
@@ -327,312 +193,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
-  /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  Future<void> changeMasterPassword(String newPassword, String password) async {
-    if (state.isBusy) return;
-    Uint8List? masterKey; // bisheriger Master-Key
-    Uint8List? newMasterKey;
-
-    // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 2. Benutzereingabe validieren
-      if (newPassword.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.valueRequired, field: 'password'));
-        return;
-      }
-      if (newPassword == password) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.equalPassword, field: 'password'));
-        return;
-      }
-
-      if (_settings == null) throw Exception("Settings ist nicht initialisiert.");
-      if (_settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in Settings leer");
-      if (_settings!.salt.isEmpty) throw Exception("Das Salt ist nicht in Settings gespeichert.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
-
-      // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // 3. MasterKey ableiten (Argon2id)
-      final salt = base64Decode(_settings!.salt);
-      masterKey = await _cryptoService.deriveKey(password, salt);
-
-      // 4. Passwort validieren
-      try {
-        await _cryptoService.decrypt(_settings!.encryptedPrivateKey, masterKey);
-      } catch (_) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordFailed, error: AppError(ErrorCode.wrongPassword, field: 'password'));
-        return;
-      }
-
-      // 5. Physisches Datenbank-Backup erstellen
-      await _databaseService.createBackup();
-
-      try {
-        // --- Start Kritische Logik ---
-
-        // 6. Neues Salt generieren, neuen Master-Key ableiten und damit den Private-Key neu verschlüsseln
-        final newSalt = _cryptoService.generateSalt();
-        newMasterKey = await _cryptoService.deriveKey(newPassword, newSalt);
-        final newEncryptedPrivKey = await _cryptoService.encrypt(_sessionService.privateKey!, newMasterKey);
-
-        // 7. Datenbankdatei mit dem neuen Master-Key umschlüsseln
-        await _databaseService.rekey(newMasterKey);
-
-        // 8. Salt-Datei aktualisieren
-        await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
-
-        // 9. Master-Key im SecureStore aktualisieren
-        if (_settings!.useBiometric) {
-          await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
-        }
-
-        // 10. Settings in DB aktualisieren
-        final updatedSettings = _settings!.copyWith(
-          salt: base64Encode(newSalt),
-          encryptedPrivateKey: newEncryptedPrivKey,
-        );
-        _settings = await _databaseService.saveSettings(updatedSettings);
-
-        // 11. Session aktualisieren
-        _sessionService.setSettings(_settings);
-
-        // --- Ende Kritische Logik ---
-
-        // 12. Erfolg: Backup löschen
-        await _databaseService.removeBackup();
-
-        // 13. State aktualisieren
-        state = state.copyWith(
-          status: SettingsActionStatus.saved,
-        );
-
-      } catch (_) {
-        // Fehler während der Operation -> Rollback
-        try {
-          await _databaseService.close();
-          await _databaseService.restoreBackup();
-          await _databaseService.initialize(_sessionService.vaultName, masterKey);
-        } catch (_) {}
-        rethrow;
-      }
-
-    } catch (e, st) {
-      Logger().fatal('Fehler beim Ändern des Passworts: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-
-    } finally {
-      // Master-Key aus dem RAM löschen
-      if (masterKey != null) _cryptoService.wipeKey(masterKey);
-      if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
-    }
-  }
-
   // ------------------------------------------------------------------------
-  // --- Bereich "Sync-Server" ---
-  // ------------------------------------------------------------------------
-
-  /// Benennt den Benutzer um.
-  Future<void> renameUser(String newUserName) async {
-    if (state.isBusy) return;
-    final oldUserName = state.userName;
-
-    // 1. Benutzereingabe bereinigen
-    newUserName = newUserName.trim();
-
-    // 2. Ladeanzeige einblenden
-    state = state.copyWith(newUserName: newUserName, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 2. Benutzereingabe validieren
-      if (newUserName.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: AppError(ErrorCode.valueRequired, field: 'userName'));
-        return;
-      }
-      if (newUserName == oldUserName) {
-        state = state.copyWith(status: SettingsActionStatus.renameUserFailed, error: AppError(ErrorCode.valueNotChanged, field: 'userName'));
-        return;
-      }
-
-      if (_sessionService.user == null) throw Exception("Der Benutzer ist nicht geladen.");
-
-      // 4. Benutzername in der DB aktualisieren (falls nicht registriert)
-      var user = _sessionService.user!;
-      if (!state.isRegistered && newUserName != user.name) {
-        user = user.copyWith(name: newUserName);
-        await _databaseService.saveUser(user);
-      }
-
-      // 5. Session aktualisieren
-      _sessionService.setUser(user);
-
-      // 6. State aktualisieren
-      state = state.copyWith(
-        userName: newUserName,
-        status: SettingsActionStatus.saved,
-      );
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
-
-  /// Testet die Verbindung zum Sync-Server.
-  Future<void> testConnection(ServerDialogData dialogData) async {
-    if (state.isBusy) return;
-
-    // 1. Benutzereingabe bereinigen
-    final host = _normalizeUrl(dialogData.host);
-    final apiToken = dialogData.apiToken.trim();
-    dialogData = dialogData.copyWith(host: host, apiToken: apiToken);
-
-    // 2. Ladeanzeige anzeigen
-    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 3. WebService konfigurieren
-      if (host.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.valueRequired, field: 'host'));
-        return;
-      }
-      if (apiToken.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.valueRequired, field: 'apiToken'));
-        return;
-      }
-      _webService.updateConfig(host: host, apiToken: apiToken);
-
-      // 4. Server-Version prüfen
-      // Falls die Serverantwort ein unerwartetes Format hat, wird `VersionResponse` mit leeren Werten zurückgegeben.
-      final serverVersion = await _webService.getServerVersion();
-      if (!serverVersion.service.contains("PriVault")) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.noSyncService));
-        return;
-      }
-      if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.appIsOutdated));
-        return;
-      }
-      if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
-        state = state.copyWith(status: SettingsActionStatus.testFailed, error: AppError(ErrorCode.serverIsOutdated));
-        return;
-      }
-
-      state = state.copyWith(status: SettingsActionStatus.testSuccessful);
-
-    } on DioException catch (de) { // Exception des HTTP-Clients
-      state = state.copyWith(status: SettingsActionStatus.testFailed, error: _convertDioError(de));
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Verbindungstest: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
-
-  /// Speichert die Einstellungen für den Sync-Server.
-  Future<void> saveSyncServer(ServerDialogData dialogData) async {
-    if (state.isBusy) return;
-
-    // 1. Benutzereingabe bereinigen
-    final host = _normalizeUrl(dialogData.host);
-    final apiToken = dialogData.apiToken.trim();
-    dialogData = dialogData.copyWith(host: host, apiToken: apiToken);
-
-    // 2. Ladeanzeige einblenden
-    state = state.copyWith(serverSettingsDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 3. Benutzereingabe validieren
-      // if (host.isEmpty) {
-      //   state = state.copyWith(status: SettingsActionStatus.changeServerFailed, error: FormError(ErrorCode.valueRequired, field: 'host'));
-      //   return;
-      // }
-      // if (apiToken.isEmpty) {
-      //   state = state.copyWith(status: SettingsActionStatus.changeServerFailed, error: FormError(ErrorCode.valueRequired, field: 'apiToken'));
-      //   return;
-      // }
-
-      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-
-      // 4. Basiskonfiguration in der DB speichern.
-      final updatedSettings = _settings!.copyWith(host: host, apiToken: apiToken);
-      _settings = await _databaseService.saveSettings(updatedSettings);
-
-      // 5. Session aktualisieren
-      _sessionService.setSettings(_settings);
-
-      // 6. State aktualisieren
-      state = state.copyWith(
-        host: host,
-        status: SettingsActionStatus.saved,
-      );
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
-
-  /// Normalisiert die URL
-  String _normalizeUrl(String url) {
-    // Kleiner Check auf das Protokoll
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
-    }
-    // Entfernt ein Slash-Zeichen am Ende der URL.
-    return url.trim().replaceAll(RegExp(r'/+$'), '');
-  }
-
-  /// Wandelt den Verbindungsfehler in ein FormError um.
-  AppError _convertDioError(DioException de) {
-    String message;
-    ErrorCode code = ErrorCode.networkError;
-
-    switch (de.type) {
-      case DioExceptionType.connectionError:
-        message = 'Verbindung fehlgeschlagen: Prüfe die Adresse oder deine Internetverbindung (DNS/Host offline).';
-        break;
-
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        message = 'Zeitüberschreitung: Der Server antwortet nicht rechtzeitig. Ist er online?';
-        break;
-
-      case DioExceptionType.badCertificate:
-        message = 'SSL-Fehler: Das Sicherheitszertifikat des Servers ist ungültig oder abgelaufen.';
-        break;
-
-      case DioExceptionType.badResponse: // z.B. kein JSON
-        final status = de.response?.statusCode;
-        if (status == 404) {
-          message = 'Der Server wurde nicht gefunden (404).';
-        } else if (status == 401) {
-          code = ErrorCode.unauthorized;
-          message = 'Der API-Token wurde vom Server abgelehnt (401).';
-        } else { // Fallback
-          final msg = de.response?.statusMessage ?? (de.message ?? 'Serverfehler');
-          message = status != null ? '$msg (Code $status)' : msg;
-        }
-        break;
-
-      default:
-        // Fallback
-        final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
-        message = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-    }
-
-    return AppError(code, text: message);
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Bereich "Freunde" ---
+  // --- Freunde verwalten ---
   // ------------------------------------------------------------------------
 
   /// Fügt den einen Freund über den angegebenen Namen hinzu.
@@ -837,7 +399,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Bereich "Design" ---
+  // --- Farbschema ändern ---
   // ------------------------------------------------------------------------
 
   /// Setter für das Farbschema.
@@ -851,52 +413,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _configService.themeMode = value;
   }
 
-  /// Speichert den Platzhalter für eine leere Kategorie.
-  Future<void> saveCategoryPlaceholder(String newCategoryPlaceholder) async {
-    if (state.isBusy) return;
-
-    // 1. Benutzereingabe bereinigen
-    newCategoryPlaceholder = newCategoryPlaceholder.trim();
-
-    // 2. Ladeanzeige einblenden
-    state = state.copyWith(newCategoryPlaceholder: newCategoryPlaceholder, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 3. Benutzereingabe validieren
-      if (newCategoryPlaceholder.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: AppError(ErrorCode.valueRequired, field: 'categoryPlaceholder'));
-        return;
-      }
-      if (newCategoryPlaceholder == state.categoryPlaceholder) {
-        state = state.copyWith(status: SettingsActionStatus.changeCategoryPlaceholderFailed, error: AppError(ErrorCode.valueNotChanged, field: 'categoryPlaceholder'));
-        return;
-      }
-
-      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-
-      // 4. Basiskonfiguration in der DB speichern.
-      final updatedSettings = _settings!.copyWith(categoryPlaceholder: newCategoryPlaceholder);
-      _settings = await _databaseService.saveSettings(updatedSettings);
-
-      // 5. Session aktualisieren
-      _sessionService.setSettings(_settings);
-
-      // 6. State aktualisieren
-
-      state = state.copyWith(
-        categoryPlaceholder: newCategoryPlaceholder,
-        status: SettingsActionStatus.saved,
-      );
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
-
   // ------------------------------------------------------------------------
-  // --- Bereich "Systemeinstellungen" ---
+  // --- Buttons für Systemeinstellungen ---
   // ------------------------------------------------------------------------
 
   /// Öffnet die Systemeinstellungen für Biometrie.

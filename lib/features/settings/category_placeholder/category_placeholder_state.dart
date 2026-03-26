@@ -14,7 +14,7 @@ class CategoryPlaceholderState {
   /// Die Formulardaten.
   final String categoryPlaceholder;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
+  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final String originalCategoryPlaceholder;
 
   /// Der Status der letzten Aktion.
@@ -27,7 +27,7 @@ class CategoryPlaceholderState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-      status == CategoryPlaceholderActionStatus.progress;
+    status == CategoryPlaceholderActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => categoryPlaceholder != originalCategoryPlaceholder;

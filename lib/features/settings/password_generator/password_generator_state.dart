@@ -15,7 +15,7 @@ class PasswordGeneratorState {
   /// Die Formulardaten.
   final PasswordGeneratorFormData formData;
 
-  /// Der ursprünglichen Formulardaten (für den Dirty-Check).
+  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final PasswordGeneratorFormData originalFormData;
 
   /// Der Status der letzten Aktion.
@@ -28,7 +28,7 @@ class PasswordGeneratorState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-      status == PasswordGeneratorActionStatus.progress;
+    status == PasswordGeneratorActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => formData != originalFormData;

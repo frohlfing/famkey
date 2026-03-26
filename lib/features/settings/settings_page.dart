@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
+import 'package:privault/features/settings/master_password/master_password_dialog.dart';
 import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
-import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_state.dart';
+import 'package:privault/features/settings/sync_server/sync_server_dialog.dart';
+import 'package:privault/features/settings/user_name/user_name_dialog.dart';
+import 'package:privault/features/settings/vault_name/vault_name_dialog.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/friend_search_dialog.dart';
-import 'package:privault/widgets/input_dialog.dart';
-import 'package:privault/widgets/password_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 
 /// Der [SettingsPage] ermöglicht die Konfiguration der App und des aktuellen Tresors.
@@ -89,34 +91,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
           break;
 
-        case SettingsActionStatus.renameVaultFailed:
-          _showRenameVaultDialog();
-          break;
-
-        case SettingsActionStatus.changePasswordFailed:
-          _showChangePasswordDialog();
-          break;
-
-        case SettingsActionStatus.renameUserFailed:
-          _showRenameUserDialog();
-          break;
-
-        case SettingsActionStatus.testSuccessful:
-        case SettingsActionStatus.testFailed:
-        case SettingsActionStatus.changeServerFailed:
-          _showServerDialog();
-          break;
-
         case SettingsActionStatus.friendAdded:
           Snack.show(context, 'Freund wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
           break;
 
         case SettingsActionStatus.friendDeleted:
           Snack.show(context, 'Freund gelöscht', success: true);
-          break;
-
-        case SettingsActionStatus.changeCategoryPlaceholderFailed:
-          _showCategoryPlaceholderDialog();
           break;
 
         case SettingsActionStatus.failure:
@@ -176,7 +156,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   'Tresorname',
                   (state) => state.vaultName,
                   icon: Icons.shield_outlined,
-                  onPressed: _showRenameVaultDialog,
+                  onPressed: _showVaultNameDialog,
                   tooltip: 'Tresor umbenennen',
                 ),
 
@@ -196,37 +176,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     backgroundColor: Colors.red.shade800,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: isBusy ? null : _showChangePasswordDialog,
-                  icon: const Icon(Icons.password_outlined),
+                  onPressed: isBusy ? null : _showMasterPasswordDialog,
+                  icon: const Icon(Icons.key_outlined),
                   label: const Text('Master-Passwort ändern'),
                 ),
 
                 const SizedBox(height: 16),
 
                 // --- Biometrie ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Biometrie verwenden'),
-                          Text('Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.', style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Consumer(
-                      builder: (ctx, ref, _) {
-                        final useBiometric = ref.watch(settingsProvider.select((state) => state.useBiometric));
-                        return Switch(
-                          value: useBiometric,
-                          onChanged: isBusy ? null : notifier.saveBiometricSettings,
-                        );
-                      },
-                    ),
-                  ],
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final useBiometric = ref.watch(settingsProvider.select((state) => state.useBiometric));
+                    return SwitchListTile(
+                      title: const Text('Biometrie verwenden'),
+                      subtitle: const Text('Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.'),
+                      contentPadding: EdgeInsets.zero,
+                      value: useBiometric,
+                      onChanged: isBusy ? null : notifier.saveBiometricSettings,
+                    );
+                  },
                 ),
 
                 const Divider(height: 32),
@@ -242,7 +210,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   'Benutzername',
                   (state) => state.userName,
                   icon: Icons.person_outline,
-                  onPressed: _showRenameUserDialog,
+                  onPressed: _showUserNameDialog,
                   tooltip: 'Benutzername ändern',
                 ),
 
@@ -251,7 +219,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   'Serveradresse',
                   (state) => state.host,
                   icon: Icons.cloud_outlined,
-                  onPressed: _showServerDialog,
+                  onPressed: _showSyncServerDialog,
                   tooltip: 'Serveradresse ändern',
                 ),
 
@@ -549,32 +517,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   // ------------------------------------------------------------------------
 
   /// Benennt den Tresor um.
-  Future<void> _showRenameVaultDialog() async {
-    final state = ref.read(settingsProvider);
-    String? newVaultName = state.newVaultName;
-
-    if (state.status != SettingsActionStatus.renameVaultFailed || state.error.field == 'vaultName') {
-      newVaultName = await InputDialog.show(
-        context,
-        title: 'Tresor umbenennen',
-        text: 'Wie soll der Tresor heißen?',
-        label: 'Neuer Tresorname',
-        value:  state.newVaultName,
-        errorText: state.error.field == 'vaultName' ? state.error.text : null,
-      );
-      if (!mounted || newVaultName == null || newVaultName == state.vaultName) return;
+  Future<void> _showVaultNameDialog() async {
+    final ok = await VaultNameDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
-
-    final password = await PasswordDialog.show(
-      context,
-      title: 'Tresor umbenennen',
-      text: 'Bitte bestätige dein Master-Passwort, um den Tresor umzubenennen.',
-      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
-    );
-    if (!mounted || password == null) return;
-
-    final notifier = ref.read(settingsProvider.notifier);
-    notifier.renameVault(newVaultName, password);
   }
 
   /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
@@ -592,74 +543,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// Ändert das Master-Passwort.
-  Future<void> _showChangePasswordDialog() async {
-    final state = ref.read(settingsProvider);
-    String? newPassword = state.newPassword;
-
-    // Neues Passwort abfragen
-    if (newPassword.isEmpty || state.error.field == 'newVPassword') {
-      newPassword = await PasswordDialog.show(
-        context,
-        title: 'Passwort ändern',
-        text: 'Bitte gib dein NEUES Master-Passwort ein.',
-        errorText: state.error.field == 'newPassword' ? state.error.text : null,
-      );
-      if (!mounted || newPassword == null) return;
+  Future<void> _showMasterPasswordDialog() async {
+    final ok = await MasterPasswordDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
-
-    // Bisheriges Passwort abfragen
-    final password = await PasswordDialog.show(
-      context,
-      title: 'Passwort ändern',
-      text: 'Bitte gib jetzt dein AKTUELLES Master-Passwort ein.',
-      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
-    );
-    if (!mounted || password == null) return;
-
-    final notifier = ref.read(settingsProvider.notifier);
-    notifier.changeMasterPassword(newPassword, password);
   }
 
   /// Ändert den Benutzername.
-  Future<void> _showRenameUserDialog() async {
-    final state = ref.read(settingsProvider);
-    final newUserName = await InputDialog.show(
-      context,
-      title: 'Benutzername ändern',
-      text: 'Bitte gib deinen neuen Benutzernamen ein.',
-      label: 'Benutzername',
-      value: state.newUserName,
-      errorText: state.error.field == 'userName' ? state.error.text : null,
-    );
-    if (mounted && newUserName != null && newUserName != state.userName) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.renameUser(newUserName);
+  Future<void> _showUserNameDialog() async {
+    final ok = await UserNameDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
   }
 
   /// Ändert den Host und den API-Token.
-  Future<void> _showServerDialog() async {
-    final state = ref.read(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    final dialogData = await ServerDialog.show(
-      context,
-      host: state.serverSettingsDialogData.host,
-      apiToken: state.serverSettingsDialogData.apiToken,
-      hostErrorText: state.error.field == 'host' ? state.error.text : null,
-      apiTokenErrorText: state.error.field == 'apiToken' ? state.error.text : null,
-      onTestConnectionPressed: notifier.testConnection,
-      testStatus: state.status == SettingsActionStatus.testSuccessful ? TestStatus.success : (state.status == SettingsActionStatus.testFailed ? TestStatus.failure : null),
-      testResult: state.status == SettingsActionStatus.testFailed && state.error.field == null ? state.error.text : null,
-    );
-    if (mounted && dialogData != null) {
-      notifier.saveSyncServer(dialogData);
+  Future<void> _showSyncServerDialog() async {
+    final ok = await SyncServerDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
   }
 
   /// Fügt einen Freund zu Liste hinzu.
   Future<void> _showFriendSearchDialog() async {
     final state = ref.read(settingsProvider);
-    final name = await FriendSearchDialog.show(
+    final name = await FriendSearchDialog.show( // todo daraus ein Stateful-Dialog bauen
       context,
       errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
     );
@@ -685,7 +607,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Öffnet den Passwort-Generator-Dialog und aktualisiert die Einstellungen bei Rückkehr, falls Änderungen vorgenommen wurden.
+  /// Öffnet den Dialog zum Ändern der Passwort-Generators.
   Future<void> _showPasswordGeneratorDialog() async {
     final ok = await PasswordGeneratorDialog.show(context);
     if (ok == true) {
@@ -699,17 +621,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   /// Zeigt den Dialog zum Ändern des Platzhalters für eine Kategorie ohne Namen.
   Future<void> _showCategoryPlaceholderDialog() async {
-    final state = ref.read(settingsProvider);
-    final newCategoryPlaceholder = await InputDialog.show(
-      context,
-      title: 'Kategorie ohne Namen',
-      text: 'Platzhalters für eine leere Kategorie.',
-      value: state.newCategoryPlaceholder,
-      errorText: state.error.field == 'categoryPlaceholder' ? state.error.text : null,
-    );
-    if (mounted && newCategoryPlaceholder != null && newCategoryPlaceholder != state.categoryPlaceholder) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.saveCategoryPlaceholder(newCategoryPlaceholder);
+    final ok = await CategoryPlaceholderDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
   }
 }

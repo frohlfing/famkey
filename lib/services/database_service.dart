@@ -267,6 +267,7 @@ class DatabaseService {
     return (result ?? 0) > 0;
   }
 
+  // todo Pattern ändern: Nur wenn id == 0: DS nach UUID suchen und id übernehmen
   /// Speichert einen neuen Benutzer oder aktualisiert einen bestehenden Datensatz.
   /// Zurückgegeben wird die Entität mit der aktualisierten ID.
   Future<UserEntity> saveUser(UserEntity user) async {
