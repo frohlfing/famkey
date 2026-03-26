@@ -1,4 +1,4 @@
-/// Alle Daten auf der Bearbeitungsseite, die für den Dirty-Check relevant sind.
+/// Alle Daten auf der Bearbeitungsseite, die der Benutzer ändern kann.
 class EditFormData {
   /// Die Kategorie des Eintrags.
   final String category;

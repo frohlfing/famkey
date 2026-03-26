@@ -144,10 +144,10 @@ class ServerDialog {
                         Icon(Icons.check_circle, color: Colors.green),
                         SizedBox(width: 8),
                         Text('Verbindung erfolgreich', style: TextStyle(color: Colors.green)),
-                      ]
+                      ],
                     )
                   else if (testStatus == TestStatus.failure && testResult != null)
-                      Row(
+                    Row(
                       children: [
                         Icon(Icons.error, color: Theme.of(context).colorScheme.error),
                         const SizedBox(width: 8),
@@ -158,8 +158,8 @@ class ServerDialog {
                             style: TextStyle(color: Theme.of(context).colorScheme.error),
                           ),
                         ),
-                      ]
-                    )
+                      ],
+                   )
                 ],
               ),
             ),

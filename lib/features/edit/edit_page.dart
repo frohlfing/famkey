@@ -7,7 +7,6 @@ import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
 
-
 /// Der [EditPage] stellt das Formular zum Erstellen oder Bearbeiten eines Tresor-Eintrags bereit.
 ///
 /// Die Ansicht validiert Eingaben in Echtzeit und bietet folgende Hilfsmittel:
@@ -16,6 +15,7 @@ import 'package:privault/widgets/snack.dart';
 /// * Visuelle Anzeige der Passwortstärke während der Eingabe.
 /// * Möglichkeit, bestehende Einträge endgültig aus dem Tresor zu löschen.
 class EditPage extends ConsumerStatefulWidget {
+
   /// Die ID des anzuzeigenden Eintrags
   final int? entryId;
 
@@ -75,8 +75,7 @@ class _EditPageState extends ConsumerState<EditPage> {
   @override
   Widget build(BuildContext context) {
 
-    // Listener für Side-Effects (Navigation, SnackBars)
-    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    // Listener für Status-Änderungen
     ref.listen(editProvider.select((s) => s.status), (previous, next) {
       final state = ref.read(editProvider);
 
@@ -132,7 +131,7 @@ class _EditPageState extends ConsumerState<EditPage> {
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Consumer(builder: (context, ref, _) {
+            title: Consumer(builder: (ctx, ref, _) {
               final title = ref.watch(editProvider.select((s) => s.displayTitle));
               return Text(title);
             }),
@@ -159,7 +158,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- Kategorie ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     // state.existingCategories beobachten -> wenn sich dieser Wert ändert, wird das Consumer-Widget neu gerendert
                     final existingCategories = ref.watch(editProvider.select((s) => s.existingCategories));
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'category' ? state.error.text : null));
@@ -177,7 +176,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                             _categoryController.text = val;
                             notifier.setCategory(val);
                           },
-                          itemBuilder: (BuildContext context) {
+                          itemBuilder: (BuildContext ctx) {
                             return existingCategories.map((String category) => PopupMenuItem<String>(value: category, child: Text(category))).toList();
                           },
                         ) : null,
@@ -190,7 +189,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- Titel ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     // errorText für Feld 'title' beobachten -> wenn sich dieser Wert ändert, wird das Consumer-Widget neu gerendert
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'title' ? state.error.text : null));
                     return TextField(
@@ -210,7 +209,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- Benutzername ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'username' ? state.error.text : null));
                     return TextField(
                       controller: _usernameController,
@@ -229,7 +228,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- Passwort ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     //final password = ref.watch(editProvider.select((s) => s.password));
                     final passwordStrength = ref.watch(editProvider.select((s) => s.passwordStrength));
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
@@ -264,7 +263,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- URL ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'url' ? state.error.text : null));
                     return TextField(
                       controller: _urlController,
@@ -283,7 +282,7 @@ class _EditPageState extends ConsumerState<EditPage> {
 
                 // --- Notizen ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'notes' ? state.error.text : null));
                     return TextField(
                       controller: _notesController,
@@ -342,13 +341,17 @@ class _EditPageState extends ConsumerState<EditPage> {
         ok: 'Ja, speichern',
         cancel: 'Nein, verwerfen',
       );
-      if (mounted && confirmed == true) {
+
+      if (!mounted) return;
+
+      if (confirmed == true) {
         final notifier = ref.read(editProvider.notifier);
         notifier.save(); // Statt Cancel die Save-Action ausführen
         return;
       }
     }
-    if (mounted) Navigator.of(context).pop(); // Zur vorherigen Seite navigieren
+
+    Navigator.of(context).pop(); // Zur vorherigen Seite navigieren
   }
 
   /// Speichert die Änderungen, wenn gewünscht und springt dann zurück zur Detailansicht.

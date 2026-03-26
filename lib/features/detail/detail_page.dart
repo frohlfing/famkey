@@ -67,8 +67,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   @override
   Widget build(BuildContext context) {
 
-    // Listener für Side-Effects (Navigation, SnackBars)
-    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    // Listener für Status-Änderungen
     ref.listen(detailProvider.select((s) => s.status), (previous, next) {
       switch (next) {
         case DetailActionStatus.attachmentAdded:
@@ -136,7 +135,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Header
                 // ------------------------------------------------------------------------
 
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final favicon = ref.watch(detailProvider.select((s) => s.favicon));
                   final title = ref.watch(detailProvider.select((s) => s.title));
                   final category = ref.watch(detailProvider.select((s) => s.category));
@@ -151,11 +150,11 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           category,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
+                          style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(color: Colors.grey),
                         ),
                       ],
                     ),
@@ -168,7 +167,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // ------------------------------------------------------------------------
 
                 // Benutzername
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final username = ref.watch(detailProvider.select((s) => s.username));
                   //if (username.isEmpty) return const SizedBox.shrink();
                   return Column(
@@ -188,7 +187,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 }),
 
                 // Passwort
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final password = ref.watch(detailProvider.select((s) => s.password));
                   //if (password.isEmpty) return const SizedBox.shrink();
                   final passwordStrength = ref.watch(detailProvider.select((s) => s.passwordStrength));
@@ -224,7 +223,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 }),
 
                 // URL
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final url = ref.watch(detailProvider.select((s) => s.url));
                   //if (url.isEmpty) return const SizedBox.shrink();
                   return Column(
@@ -244,7 +243,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 }),
 
                 // Notizen
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final notes = ref.watch(detailProvider.select((s) => s.notes));
                   if (notes.isEmpty) return const SizedBox.shrink();
                   return Column(
@@ -262,7 +261,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Anhänge
                 // ------------------------------------------------------------------------
 
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final canManageAttachments = ref.watch(detailProvider.select((s) => s.canManageAttachments));
                   final attachments =ref.watch(detailProvider.select((s) => s.attachments));
                   if (!canManageAttachments && attachments.isEmpty) return const SizedBox.shrink();
@@ -335,7 +334,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Geteilt mit
                 // ------------------------------------------------------------------------
 
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
                   final sharedFriends =ref.watch(detailProvider.select((s) => s.sharedFriends));
                   if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
@@ -377,7 +376,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                               child: GestureDetector(
                                 onTap: () async {
                                   await Navigator.pushNamed(
-                                    context,
+                                    ctx,
                                     '/settings',
                                     arguments: {'focus_user_uuid': friend.user.uuid},
                                   );
@@ -437,7 +436,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 }),
 
                 // Audit Hint
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final auditHint = ref.watch(detailProvider.select((s) => s.auditHint));
                   if (auditHint.isEmpty) return const SizedBox.shrink();
                   return Padding(

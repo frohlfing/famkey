@@ -146,8 +146,7 @@ class EditNotifier extends Notifier<EditState> {
   Future<void> save() async {
     if (state.isBusy) return;
 
-    // Benutzereingabe bereinigen und validieren
-
+    // 1. Benutzereingabe bereinigen
     var formData = state.formData;
     formData = formData.copyWith(
       category: formData.category.trim(),
@@ -157,27 +156,29 @@ class EditNotifier extends Notifier<EditState> {
       notes: formData.notes.trim(),
     );
 
-    if (formData.title.isEmpty) {
-      state = state.copyWith(error: AppError(ErrorCode.valueRequired, field: 'title'));
-      return;
-    }
-
-    // 1. Status auf saving setzen
+    // 1. Ladeanzeige einblenden
     final status = state.isEditMode ? EditActionStatus.updating : EditActionStatus.creating;
-    state = state.copyWith(status: status, error: AppError.none());
+    state = state.copyWith(formData: formData, status: status, error: AppError.none());
 
     try {
-      // 2. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
+
+      // 2. Benutzereingabe validieren
+      if (formData.title.isEmpty) {
+        state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'title'));
+        return;
+      }
+
+      // 3. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
       _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
 
-      // 3. Favicon laden, falls URL sich geändert hat
+      // 4. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
       if (formData.url.isNotEmpty && formData.url != state.originalFormData.url) {
         final icon = await _downloadFavicon(formData.url);
         if (icon != null) favicon = icon;
       }
 
-      // 4. Payload bauen und verschlüsseln (AES)
+      // 5. Payload bauen und verschlüsseln (AES)
       final payload = EntryPayload(
         category: formData.category,
         title: formData.title,
@@ -191,10 +192,10 @@ class EditNotifier extends Notifier<EditState> {
       final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
       final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
 
-      // 5. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
+      // 6. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
 
-      // 6. Eintrag in der DB speichern
+      // 7. Eintrag in der DB speichern
       final entity = EntryEntity(
         id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
@@ -210,10 +211,9 @@ class EditNotifier extends Notifier<EditState> {
       );
       _entry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
-      // 7. State aktualisieren
+      // 8. State aktualisieren
       state = state.copyWith(
         entryId: _entry!.id,
-        formData: formData,
         originalFormData: formData,
         status: EditActionStatus.saved,
       );

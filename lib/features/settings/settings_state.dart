@@ -1,7 +1,6 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
-import 'package:privault/features/settings/password_generator_dialog.dart';
 import 'package:privault/features/settings/server_dialog.dart';
 
 /// Ein Enum für den Status von Aktionen
@@ -22,7 +21,6 @@ enum SettingsActionStatus {
   renameUserFailed, // Benutzer konnte nicht umbenannt werden
   testFailed, // Test fehlgeschlagen
   changeServerFailed, // Servereinstellung konnte nicht geändert werden
-  changePasswordGeneratorFailed, // Servereinstellung konnte nicht geändert werden
   changeCategoryPlaceholderFailed, // Platzhalter für leere Kategorie konnte nicht geändert werden
   failure, // Aktion mit Fehler beendet
 }
@@ -87,9 +85,6 @@ class SettingsState {
   /// Gibt an, ob optisch ähnliche Zeichen ('I', 'l', 'O', '0') ausgelassen werden.
   final bool pwAvoidIlO0;
 
-  /// Daten für den Dialog, wenn der Passwortgenerator geändert werden.
-  final PasswordGeneratorDialogData passwordGeneratorDialogData;
-
   // --- Farbschema ---
 
   /// Das Farbschema ('System', 'Light' oder 'Dark').
@@ -139,7 +134,6 @@ class SettingsState {
     this.pwLength = 16,
     this.pwSpecialChars = '',
     this.pwAvoidIlO0 = false,
-    this.passwordGeneratorDialogData = const PasswordGeneratorDialogData(),
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
     this.newCategoryPlaceholder = '',
@@ -165,7 +159,6 @@ class SettingsState {
     int? pwLength,
     String? pwSpecialChars,
     bool? pwAvoidIlO0,
-    PasswordGeneratorDialogData? passwordGeneratorDialogData,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
     String? newCategoryPlaceholder,
@@ -189,7 +182,6 @@ class SettingsState {
       pwLength: pwLength ?? this.pwLength,
       pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
-      passwordGeneratorDialogData: passwordGeneratorDialogData ?? this.passwordGeneratorDialogData,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder?? this.categoryPlaceholder,
       newCategoryPlaceholder: newCategoryPlaceholder?? this.newCategoryPlaceholder,

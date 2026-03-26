@@ -89,8 +89,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
 
-    // Listener für Side-Effects (Navigation, SnackBars)
-    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    // Listener für Status-Änderungen
     ref.listen(loginProvider.select((s) => s.status), (previous, next) async {
       final notifier = ref.read(loginProvider.notifier);
       final state = ref.read(loginProvider);
@@ -187,7 +186,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                     // --- Tresor ---
 
-                    Consumer(builder: (context, ref, _) {
+                    Consumer(builder: (ctx, ref, _) {
                       final existingVaults = ref.watch(loginProvider.select((s) => s.existingVaults));
                       final errorText = ref.watch(loginProvider.select((s) => s.error.field == 'vaultName' ? s.error.text : null));
                       return TextField(
@@ -207,7 +206,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               notifier.setVaultName(val);
                               _passwordFocusNode.requestFocus();
                             },
-                            itemBuilder: (BuildContext context) {
+                            itemBuilder: (BuildContext ctx) {
                               return existingVaults.map((String vault) => PopupMenuItem<String>(value: vault, child: Text(vault))).toList();
                             },
                           ) : null,
@@ -218,7 +217,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 16),
 
                     // --- Passwort ---
-                    Consumer(builder: (context, ref, _) {
+                    Consumer(builder: (ctx, ref, _) {
                       final isExists = ref.watch(loginProvider.select((s) => s.isExists));
                       final password = ref.watch(loginProvider.select((s) => s.password));
                       final passwordStrength = ref.watch(loginProvider.select((s) => s.passwordStrength));

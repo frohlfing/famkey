@@ -63,8 +63,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     // Notifier holen
     final notifier = ref.read(mainProvider.notifier);
 
-    // Listener für Side-Effects (Navigation, SnackBars)
-    // Er wird nur einmal ausgelöst, wenn sich der Status ändert, und verursacht keine Rebuilds.
+    // Listener für Status-Änderungen
     ref.listen(mainProvider.select((s) => s.status), (previous, next) {
       final state = ref.read(mainProvider);
 
@@ -119,7 +118,7 @@ class _MainPageState extends ConsumerState<MainPage> {
         Scaffold(
           appBar: AppBar(
             title: Consumer(
-              builder: (context, ref, _) {
+              builder: (ctx, ref, _) {
                 final vaultName = ref.watch(mainProvider.select((state) => state.vaultName));
                 return Text(vaultName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold));
               },
@@ -141,7 +140,7 @@ class _MainPageState extends ConsumerState<MainPage> {
                     break;
                 }
               },
-              itemBuilder: (context) => [
+              itemBuilder: (ctx) => [
                 const PopupMenuItem(
                   value: 'sync',
                   child: ListTile(
@@ -185,7 +184,7 @@ class _MainPageState extends ConsumerState<MainPage> {
                 child: Column(
                   children: [
                     Consumer(
-                      builder: (context, ref, _) {
+                      builder: (ctx, ref, _) {
                         final searchQuery = ref.watch(mainProvider.select((s) => s.searchQuery));
                         return TextField(
                           controller: _searchController,
@@ -207,7 +206,7 @@ class _MainPageState extends ConsumerState<MainPage> {
                             ),
                             contentPadding: const EdgeInsets.symmetric(vertical: 0),
                             filled: true,
-                            fillColor: Theme.of(context).cardColor,
+                            fillColor: Theme.of(ctx).cardColor,
                           ),
                           onChanged: notifier.setSearchQuery,
                         );
@@ -215,7 +214,7 @@ class _MainPageState extends ConsumerState<MainPage> {
                     ),
                     const SizedBox(height: 8),
                     Consumer(
-                      builder: (context, ref, _) {
+                      builder: (ctx, ref, _) {
                         // Dieser Consumer lauscht NUR auf onlyMyEntries.
                         final onlyMyEntries = ref.watch(mainProvider.select((s) => s.onlyMyEntries));
                         return Row(
@@ -239,19 +238,19 @@ class _MainPageState extends ConsumerState<MainPage> {
                     ? const Center(child: Text('Keine Einträge gefunden.'))
                     : ListView.builder(
                         itemCount: groupedEntries.length,
-                        itemBuilder: (context, index) {
+                        itemBuilder: (ctx, index) {
                           final category = groupedEntries.keys.elementAt(index);
                           final items = groupedEntries[category]!;
 
                           return Consumer(
-                            builder: (context, ref, _) {
+                            builder: (ctx, ref, _) {
                               final isCollapsed = ref.watch(mainProvider.select((s) => s.collapsedCategories.contains(category)));
                               return Column(
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4, bottom: 2, left: 16, right: 16), // Hier den Abstand anpassen
                                     child: Material(
-                                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                      color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                                       child: ListTile(
                                         title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                         trailing: Icon(isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up),
@@ -260,7 +259,7 @@ class _MainPageState extends ConsumerState<MainPage> {
                                       ),
                                     ),
                                   ),
-                                  if (!isCollapsed) ...items.map((entry) => _buildEntryCard(context, entry)),
+                                  if (!isCollapsed) ...items.map((entry) => _buildEntryCard(ctx, entry)),
                                 ],
                               );
                             },

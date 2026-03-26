@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/password_generator_dialog.dart';
+import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
+import 'package:privault/features/settings/password_generator/password_generator_form_data.dart';
 import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_state.dart';
@@ -115,10 +116,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Snack.show(context, 'Freund gelöscht', success: true);
           break;
 
-        case SettingsActionStatus.changePasswordGeneratorFailed:
-          _showPasswordGeneratorDialog();
-          break;
-
         case SettingsActionStatus.changeCategoryPlaceholderFailed:
           _showCategoryPlaceholderDialog();
           break;
@@ -222,7 +219,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                     ),
                     Consumer(
-                      builder: (context, ref, _) {
+                      builder: (ctx, ref, _) {
                         final useBiometric = ref.watch(settingsProvider.select((state) => state.useBiometric));
                         return Switch(
                           value: useBiometric,
@@ -273,7 +270,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
 
                 // --- Liste ---
-                Consumer(builder: (context, ref, _) {
+                Consumer(builder: (ctx, ref, _) {
                   final host = ref.watch(settingsProvider.select((s) => s.host));
                   final friends = ref.watch(settingsProvider.select((s) => s.friends));
                   final fingerprints = ref.watch(settingsProvider.select((s) => s.fingerprints));
@@ -378,7 +375,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
                 // --- Theme ---
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (ctx, ref, _) {
                     final themeMode = ref.watch(settingsProvider.select((state) => state.themeMode));
                     return SegmentedButton<ThemeMode>(
                       segments: const [
@@ -514,7 +511,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return ListTile(
       title: Text(title),
       subtitle: Consumer(
-        builder: (context, ref, _) {
+        builder: (ctx, ref, _) {
           final value = ref.watch(settingsProvider.select(selector));
           return Text(value);
         },
@@ -689,20 +686,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Ändert die Einstellungen für das Passwort-Generator.
+  /// Öffnet den Passwort-Generator-Dialog und aktualisiert die Einstellungen bei Rückkehr, falls Änderungen vorgenommen wurden.
   Future<void> _showPasswordGeneratorDialog() async {
-    final state = ref.read(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    final dialogData = await PasswortGeneratorDialog.show(
-      context,
-      pwLength: state.passwordGeneratorDialogData.pwLength,
-      pwSpecialChars: state.passwordGeneratorDialogData.pwSpecialChars,
-      pwAvoidIlO0: state.passwordGeneratorDialogData.pwAvoidIlO0,
-      pwLengthErrorText: state.error.field == 'pwLength' ? state.error.text : null,
-      pwSpecialCharsErrorText: state.error.field == 'pwSpecialChars' ? state.error.text : null,
-    );
-    if (mounted && dialogData != null && dialogData != state.passwordGeneratorDialogData) {
-      notifier.savePasswortGeneratorSettings(dialogData);
+    final ok = await PasswordGeneratorDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
   }
 

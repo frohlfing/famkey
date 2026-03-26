@@ -11,7 +11,6 @@ import 'package:privault/core/app_version.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/password_generator_dialog.dart';
 import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_state.dart';
 import 'package:privault/services/autofill_service.dart';
@@ -78,7 +77,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     // Status zurücksetzen
     state = const SettingsState().copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
-
     try {
       // Daten aus der Datenbank laden
       _settings = await _databaseService.getSettings();
@@ -115,11 +113,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
         pwLength: _settings!.pwLength,
         pwSpecialChars: _settings!.pwSpecialChars,
         pwAvoidIlO0: _settings!.pwAvoidIlO0,
-        passwordGeneratorDialogData: PasswordGeneratorDialogData(
-          pwLength: _settings!.pwLength,
-          pwSpecialChars: _settings!.pwSpecialChars,
-          pwAvoidIlO0: _settings!.pwAvoidIlO0,
-        ),
 
         friends: friends,
         fingerprints: fingerprints,
@@ -839,57 +832,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     } catch (e, st) {
       Logger().fatal('Löschen fehlgeschlagen: $e', stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Bereich "Passwort-Generator" ---
-  // ------------------------------------------------------------------------
-
-  /// Speichert Einstellungen für den Passwort-Generator.
-  Future<void> savePasswortGeneratorSettings(PasswordGeneratorDialogData dialogData) async {
-    if (state.isBusy) return;
-
-    // 1. Benutzereingabe übernehmen
-    final pwLength = dialogData.pwLength;
-    final pwSpecialChars = dialogData.pwSpecialChars; //.trim(); darf Leerzeichen am Ende haben
-    final pwAvoidIlO0 = dialogData.pwAvoidIlO0;
-
-    // 2. Ladeanzeige einblenden
-    state = state.copyWith(passwordGeneratorDialogData: dialogData, status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 3. Benutzereingabe validieren
-      if (pwLength < 1) {
-        state = state.copyWith(status: SettingsActionStatus.changePasswordGeneratorFailed, error: AppError(ErrorCode.valueInvalid, field: 'pwLength'));
-        return;
-      }
-
-      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-
-      // 3. Basiskonfiguration in der DB speichern.
-      final updatedSettings = _settings!.copyWith(
-        pwLength: pwLength,
-        pwSpecialChars: pwSpecialChars,
-        pwAvoidIlO0: pwAvoidIlO0,
-      );
-      _settings = await _databaseService.saveSettings(updatedSettings);
-
-      // 4. Session aktualisieren
-      _sessionService.setSettings(_settings);
-
-      // 6. State aktualisieren
-      state = state.copyWith(
-        pwLength: pwLength,
-        pwSpecialChars: pwSpecialChars,
-        pwAvoidIlO0: pwAvoidIlO0,
-        status: SettingsActionStatus.saved,
-      );
-
-    } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
