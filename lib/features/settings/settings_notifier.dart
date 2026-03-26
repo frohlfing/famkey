@@ -303,18 +303,21 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> toggleVerification(UserEntity friend) async {
     if (state.isBusy) return;
     final isVerified = !friend.isVerified;
-    final needsRekeying = state.friendNeedsRekeying;
 
-    // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    // 1. UI-State aktualisieren
+    state = state.copyWith(
+      status: SettingsActionStatus.progress, error: AppError.none(),
+    );
 
     try {
 
       // 2. Wenn verifiziert wird, fehlende Entry-Keys generieren.
       if (isVerified) {
         await _rekeyEntriesForFriend(friend);
-        if (state.friendNeedsRekeying[friend.id] ?? false) {
-          needsRekeying[friend.id] = false;
+        if (state.friendNeedsRekeying[friend.id] == true) {
+          final updatedNeedsRekeying = Map<int, bool>.from(state.friendNeedsRekeying); // Map kopieren, damit wir sie sicher bearbeiten können
+          updatedNeedsRekeying[friend.id] = false;
+          state = state.copyWith(friendNeedsRekeying: updatedNeedsRekeying);
         }
       }
 
@@ -323,8 +326,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       await _databaseService.saveUser(updatedUser);
 
       // 4. UI-State aktualisieren
+      final friends = await _databaseService.getNotHiddenFriends();
       state = state.copyWith(
-        friendNeedsRekeying: needsRekeying,
+        friends: friends,
         status: SettingsActionStatus.friendVerified,
       );
 
