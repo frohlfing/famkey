@@ -1,5 +1,6 @@
 /// Alle Daten des Passwort-Generators, die der Benutzer ändern kann.
 class PasswordGeneratorFormData {
+
   /// Eingestellte Länge für den Passwortgenerator.
   final int pwLength;
 

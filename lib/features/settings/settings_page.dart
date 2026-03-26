@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
-import 'package:privault/features/settings/password_generator/password_generator_form_data.dart';
 import 'package:privault/features/settings/server_dialog.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_state.dart';
