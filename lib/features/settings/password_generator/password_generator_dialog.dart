@@ -110,6 +110,7 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
                 final errorText = ref.watch(passwordGeneratorProvider.select((state) => state.error.field == 'pwLength' ? state.error.text : null));
                 return TextField(
                   controller: _pwLengthController,
+                  autofocus: true,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(

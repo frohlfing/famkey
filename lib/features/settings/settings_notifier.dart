@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -15,7 +14,6 @@ import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(() {
@@ -34,7 +32,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
-  late final WebService _webService;
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen (nicht reaktiv, nicht UI‑relevant) ---
@@ -60,7 +57,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
     _sessionService = getIt<SessionService>();
-    _webService = getIt<WebService>();
 
     // Initialer State
     return SettingsState();
@@ -196,87 +192,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // ------------------------------------------------------------------------
   // --- Freunde verwalten ---
   // ------------------------------------------------------------------------
-
-  /// Fügt den einen Freund über den angegebenen Namen hinzu.
-  Future<void> addFriend(String name) async {
-    if (state.isBusy) return;
-
-    // 1. Ladeanzeige einblenden
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-
-    try {
-
-      // 1. Benutzereingabe validieren
-
-      // Name muss angegeben sein
-      name = name.trim();
-      if (name.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'name'));
-        return;
-      }
-
-      // Du kannst dich nicht selbst als Freund hinzufügen
-      final lowerName = name.toLowerCase();
-      if (lowerName == _sessionService.user?.name.toLowerCase()) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userSelfAdd));
-        return;
-      }
-
-      // Prüfen ob bereits in der Liste
-      if (state.friends.any((f) => f.name.toLowerCase() == lowerName)) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userAlreadyAdded));
-        return;
-      }
-
-      if (_settings == null) throw Exception("Die Settings sind nicht geladen.");
-
-      // 3. Webservice konfigurieren
-      final host = _settings!.host;
-      final apiToken = _settings!.apiToken;
-      if (host.isEmpty || apiToken.isEmpty) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Der Sync-Server ist nicht konfiguriert. Dieser ist für die Suche erforderlich.'));
-        return;
-      }
-      _webService.updateConfig(host: host, apiToken: apiToken);
-
-      // 4. Benutzer auf dem Server suchen
-      final userResponse = await _webService.findUser(_sessionService.vaultName, name);
-      if (userResponse == null) {
-        state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.userNotFound));
-        return;
-      }
-
-      // 5. Benutzer neu anlegen bzw. wieder einblenden, falls ausgeblendet ist
-      await _databaseService.saveUser(UserEntity(
-        id: 0,
-        uuid: userResponse.userUuid,
-        name: name,
-        publicKey: userResponse.publicKey,
-        isVerified: false, isHidden: false,
-        updatedAt: DateTime.now().toUtc(),
-      ));
-
-      // 6. UI-State aktualisieren
-      final friends = await _databaseService.getNotHiddenFriends();
-      final fingerprints = _getFingerprints(friends);
-      final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
-      state = state.copyWith(
-        friends: friends,
-        fingerprints: fingerprints,
-        friendNeedsRekeying: friendNeedsRekeying,
-        status: SettingsActionStatus.friendAdded,
-      );
-
-    } on DioException catch (de) { // Exception des HTTP-Clients
-      final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
-      final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-      AppError(ErrorCode.networkError, text: text);
-
-    } catch (e, st) {
-      Logger().fatal("Suche fehlgeschlagen: $e", stack: st);
-      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
-  }
 
   /// Berechnet die SHA-256 Fingerprints der Freunde basierend auf dem PublicKey.
   /// Nutzt ein unsichtbares Leerzeichen (\u200B) nach den Doppelpunkten für bessere Zeilenumbrüche in der UI.

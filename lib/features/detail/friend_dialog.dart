@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:privault/database/database.dart'; // Pfad ggf. anpassen
 
 /// Ein modaler Dialog zur Auswahl eines Freundes.
-///
-/// Dieser Dialog wird im `DetailScreen` aufgerufen.
-class FriendSelectorDialog {
+class FriendDialog {
 
   /// Öffnet den Dialog und gibt bei Bestätigung den ausgewählten Freund zurück.
   static Future<UserEntity?> show(BuildContext context, List<UserEntity> available) async {

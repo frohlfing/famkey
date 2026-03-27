@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
 import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
 import 'package:privault/features/settings/master_password/master_password_dialog.dart';
+import 'package:privault/features/settings/new_friend/new_friend_dialog.dart';
 import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_state.dart';
@@ -10,7 +10,6 @@ import 'package:privault/features/settings/sync_server/sync_server_dialog.dart';
 import 'package:privault/features/settings/user_name/user_name_dialog.dart';
 import 'package:privault/features/settings/vault_name/vault_name_dialog.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/friend_search_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 
 /// Der [SettingsPage] ermöglicht die Konfiguration der App und des aktuellen Tresors.
@@ -580,15 +579,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   /// Fügt einen Freund zu Liste hinzu.
   Future<void> _showFriendSearchDialog() async {
-    final state = ref.read(settingsProvider);
-    final name = await FriendSearchDialog.show( // todo daraus ein Stateful-Dialog bauen
-      context,
-      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
-    );
-    if (mounted && name != null) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.addFriend(name);
-      return;
+    final ok = await NewFriendDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
     }
   }
 

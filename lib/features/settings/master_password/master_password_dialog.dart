@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/master_password/master_password_notifier.dart';
 import 'package:privault/features/settings/master_password/master_password_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 
-/// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
+/// Ein modaler Dialog zum Ändern des Master-Passworts.
 class MasterPasswordDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
@@ -111,6 +110,7 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
                 final errorText = ref.watch(masterPasswordProvider.select((state) => state.error.field == 'newPassword' ? state.error.text : null));
                 return TextField(
                   controller: _newPasswordController,
+                  autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Neues Master-Passwort',
@@ -164,7 +164,7 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
       // --- Buttons ---
       actions: [
         TextButton(
-          onPressed: isBusy ? null : _handleCancel,
+          onPressed: isBusy ? null : () => Navigator.of(context).pop(false),
           child: const Text('Abbrechen'),
         ),
         ElevatedButton(
@@ -175,33 +175,5 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
         ),
       ],
     );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Handler ---
-  // ------------------------------------------------------------------------
-
-  /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
-  Future<void> _handleCancel() async {
-    final state = ref.read(masterPasswordProvider);
-    if (state.isDirty) {
-      final confirmed = await ConfirmDialog.show(
-        context,
-        title: 'Speichern',
-        text: 'Möchtest du die Änderungen speichern?',
-        ok: 'Ja, speichern',
-        cancel: 'Nein, verwerfen',
-      );
-
-      if (!mounted) return;
-
-      if (confirmed == true) {
-        final notifier = ref.read(masterPasswordProvider.notifier);
-        notifier.save(); // Statt Cancel die Save-Action ausführen
-        return;
-      }
-    }
-
-    Navigator.of(context).pop(false); // Zur vorherigen Seite navigieren
   }
 }

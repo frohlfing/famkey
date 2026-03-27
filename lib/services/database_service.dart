@@ -254,6 +254,13 @@ class DatabaseService {
     return (_db!.select(_db!.users)..where((u) => u.uuid.equals(userUuid))).getSingleOrNull();
   }
 
+  /// Lädt einen Benutzer anhand seines Namens (case-insensitive).
+  Future<UserEntity?> getUserByName(String userName) {
+    _ensureDbInitialized();
+    final lowerName = userName.toLowerCase();
+    return (_db!.select(_db!.users)..where((u) => u.name.lower().equals(lowerName))).getSingleOrNull();
+  }
+
   /// Prüft, ob es mindestens einen (sichtbaren) Benutzer gibt, der noch nicht verifiziert ist.
   ///
   /// Der Benutzer der App ist immer verifiziert. Es werden also ausschließlich die Freunde betrachtet.

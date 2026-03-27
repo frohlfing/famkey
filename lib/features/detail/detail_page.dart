@@ -6,7 +6,7 @@ import 'package:privault/database/database.dart';
 import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/features/detail/detail_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/friend_selector_dialog.dart';
+import 'package:privault/features/detail/friend_dialog.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
 
@@ -549,7 +549,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
   Future<void> _handleAddFriend() async {
     final state = ref.read(detailProvider);
-    final user = await FriendSelectorDialog.show(context, state.unsharedFriends);
+    final user = await FriendDialog.show(context, state.unsharedFriends);
     if (mounted && user != null) {
       final notifier = ref.read(detailProvider.notifier);
       notifier.shareWith(user);

@@ -4,7 +4,7 @@ import 'package:privault/features/settings/user_name/user_name_notifier.dart';
 import 'package:privault/features/settings/user_name/user_name_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 
-/// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
+/// Ein modaler Dialog zum Umbenennen des Benutzers.
 class UserNameDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
@@ -107,6 +107,7 @@ class _UserNameDialogState extends ConsumerState<UserNameDialog> {
                 final errorText = ref.watch(userNameProvider.select((state) => state.error.field == 'userName' ? state.error.text : null));
                 return TextField(
                   controller: _controller,
+                  autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Benutzername',

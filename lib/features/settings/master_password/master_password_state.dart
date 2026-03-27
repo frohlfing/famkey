@@ -15,7 +15,7 @@ class MasterPasswordState {
   /// Die Formulardaten.
   final MasterPasswordFormData formData;
 
-  // Wrd nicht benötigt, denn initial sind die Passwortfelder immer leer.
+  // Wird nicht benötigt, denn initial sind die Passwortfelder immer leer.
   //final MasterPasswordFormData originalFormData;
 
   /// Der Status der letzten Aktion.

@@ -107,6 +107,7 @@ class _CategoryPlaceholderDialogState extends ConsumerState<CategoryPlaceholderD
                 final errorText = ref.watch(categoryPlaceholderProvider.select((state) => state.error.field == 'categoryPlaceholder' ? state.error.text : null));
                 return TextField(
                   controller: _controller,
+                  autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Kategorie ohne Namen',

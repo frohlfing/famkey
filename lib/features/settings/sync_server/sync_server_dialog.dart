@@ -5,7 +5,7 @@ import 'package:privault/features/settings/sync_server/sync_server_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 
-/// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
+/// Ein modaler Dialog zum Konfigurieren des Sync-Servers.
 class SyncServerDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
@@ -111,6 +111,7 @@ class _SyncServerDialogState extends ConsumerState<SyncServerDialog> {
                 final errorText = ref.watch(syncServerProvider.select((state) => state.error.field == 'host' ? state.error.text : null));
                 return TextField(
                   controller: _hostController,
+                  autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Serveradresse',

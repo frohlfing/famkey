@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/vault_name/vault_name_notifier.dart';
-import 'package:privault/features/settings/vault_name/vault_name_state.dart';
-import 'package:privault/widgets/password_field.dart';
+import 'package:privault/features/settings/new_friend/new_friend_notifier.dart';
+import 'package:privault/features/settings/new_friend/new_friend_state.dart';
 
-/// Ein modaler Dialog zum Umbenennen des Tresors.
-class VaultNameDialog extends ConsumerStatefulWidget {
+/// Ein modaler Dialog zur Personensuche.
+class NewFriendDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
   // (keine)
 
   /// Konstruktor
-  const VaultNameDialog({super.key});
+  const NewFriendDialog({super.key});
 
   /// Statische Methode zum Anzeigen des Dialogs.
   /// Gibt [true] zurück, wenn gespeichert wurde, andernfalls [false] oder [null].
@@ -19,23 +18,22 @@ class VaultNameDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => VaultNameDialog(),
+      builder: (context) => NewFriendDialog(),
     );
   }
 
   @override
-  ConsumerState<VaultNameDialog> createState() => _VaultNameDialogState();
+  ConsumerState<NewFriendDialog> createState() => _NewFriendDialogState();
 }
 
-class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
+class _NewFriendDialogState extends ConsumerState<NewFriendDialog> {
 
   // ------------------------------------------------------------------------
   // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
-  final _vaultNameController = TextEditingController();
-  final _passwordController = TextEditingController();
-
+  final _controller = TextEditingController();
+  
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -47,7 +45,7 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Daten laden
-      final notifier = ref.read(vaultNameProvider.notifier);
+      final notifier = ref.read(newFriendProvider.notifier);
       await notifier.load();
     });
   }
@@ -55,8 +53,7 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
   /// Gibt Ressourcen frei.
   @override
   void dispose() {
-    _vaultNameController.dispose();
-    _passwordController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -68,11 +65,11 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
   Widget build(BuildContext context) {
 
     // Listener für Status-Änderungen
-    ref.listen(vaultNameProvider.select((s) => s.status), (previous, next) {
-      //final state = ref.read(vaultNameProvider);
+    ref.listen(newFriendProvider.select((s) => s.status), (previous, next) {
+      //final state = ref.read(newFriendProvider);
 
       switch (next) {
-        case VaultNameActionStatus.saved:
+        case NewFriendActionStatus.saved:
           Navigator.of(context).pop(true); // Zurück zur Detailseite
           break;
 
@@ -82,21 +79,20 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
     });
 
     // Listener, der die Controller nur bei Initialladung oder Generierung füllt
-    ref.listen(vaultNameProvider, (previous, next) {
+    ref.listen(newFriendProvider, (previous, next) {
       if (previous == next) return;
-      final formData = next.formData;
-      if (_vaultNameController.text != formData.vaultName) _vaultNameController.text = formData.vaultName;
-      if (_passwordController.text != formData.password) _passwordController.text = formData.password;
+      final value = next.userName;
+      if (_controller.text != value) _controller.text = value;
     });
 
     // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(vaultNameProvider.select((s) => s.isBusy));
+    final isBusy = ref.watch(newFriendProvider.select((s) => s.isBusy));
 
     // Notifier holen
-    final notifier = ref.read(vaultNameProvider.notifier);
+    final notifier = ref.read(newFriendProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Tresorname ändern'),
+      title: const Text('Person auf dem Sync-Server suchen'),
       content: SizedBox(
         width: 450,
         child: Column(
@@ -104,45 +100,28 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // --- Tresorname ---
+            // --- Platzhalter für leere Kategorien ---
             Consumer(
               builder: (ctx, ref, _) {
-                final errorText = ref.watch(vaultNameProvider.select((state) => state.error.field == 'vaultName' ? state.error.text : null));
+                final errorText = ref.watch(newFriendProvider.select((state) => state.error.field == 'userName' ? state.error.text : null));
                 return TextField(
-                  controller: _vaultNameController,
+                  controller: _controller,
                   autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Tresorname',
-                    prefixIcon: const Icon(Icons.shield_outlined),
+                    labelText: 'Name der Person',
+                    prefixIcon: const Icon(Icons.person_add_outlined),
                     errorText: errorText,
                     border: const OutlineInputBorder(),
                   ),
-                  onChanged: isBusy ? null : notifier.setVaultName,
-                );
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- Master-Passwort ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final errorText = ref.watch(vaultNameProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
-                return PasswordField(
-                  controller: _passwordController,
-                  textInputAction: TextInputAction.next,
-                  label: 'Master-Passwort',
-                  prefixIcon: Icons.key_outlined,
-                  errorText: errorText,
-                  onChanged: isBusy ? null : notifier.setPassword,
+                  onChanged: isBusy ? null : notifier.setUserName,
                 );
               },
             ),
 
             // --- Allgemeine Fehlermeldung (error.field == null) ---
             Consumer(builder: (context, ref, _) {
-              final error = ref.watch(vaultNameProvider.select((s) => s.error));
+              final error = ref.watch(newFriendProvider.select((s) => s.error));
               if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(top: 16),
