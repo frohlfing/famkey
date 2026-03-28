@@ -92,13 +92,17 @@ class _NewFriendDialogState extends ConsumerState<NewFriendDialog> {
     final notifier = ref.read(newFriendProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Person auf dem Sync-Server suchen'),
+      title: const Text('Freund hinzufügen'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
+            Text('Dein Freund muss einen Tresor unter dem gleichen Namen angelegt und mit dem Server synchronisiert haben.'),
+            const SizedBox(height: 16),
 
             // --- Platzhalter für leere Kategorien ---
             Consumer(
@@ -109,7 +113,7 @@ class _NewFriendDialogState extends ConsumerState<NewFriendDialog> {
                   autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Name der Person',
+                    labelText: 'Name des Freundes',
                     prefixIcon: const Icon(Icons.person_add_outlined),
                     errorText: errorText,
                     border: const OutlineInputBorder(),

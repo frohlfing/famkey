@@ -94,6 +94,7 @@ class _UserNameDialogState extends ConsumerState<UserNameDialog> {
 
     return AlertDialog(
       title: const Text('Benutzername ändern'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(

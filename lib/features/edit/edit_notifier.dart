@@ -121,6 +121,8 @@ class EditNotifier extends Notifier<EditState> {
 
       } else {
         // Insert-Modus -> Payload und alle UI-Felder leeren
+        _entry = null;
+        _entryKey = null;
         final formData = const EditFormData();
         state = state.copyWith(
           entryId: 0,

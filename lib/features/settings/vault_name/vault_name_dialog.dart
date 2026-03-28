@@ -97,6 +97,7 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
 
     return AlertDialog(
       title: const Text('Tresorname ändern'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(

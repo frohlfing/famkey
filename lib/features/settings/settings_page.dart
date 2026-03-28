@@ -231,7 +231,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _buildSectionHeaderWithAction(
                   'Freunde',
                   Icons.person_add,
-                  'Person suchen',
+                  'Freund hinzufügen',
                   _showFriendSearchDialog,
                 ),
 
@@ -370,11 +370,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
                 // --- Platzhalter für Kategorie ---
                 _buildText(
-                  'Name für leere Kategorie',
+                  'Umbenannte Kategorie',
                   (state) => state.categoryPlaceholder,
                   icon: Icons.label_outlined,
                   onPressed: _showCategoryPlaceholderDialog,
-                  tooltip: 'Name für leere Kategorie ändern',
+                  tooltip: 'Platzhalter für unbenannte Kategorie ändern',
                 ),
 
                 const Divider(height: 32),

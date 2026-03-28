@@ -93,7 +93,8 @@ class _CategoryPlaceholderDialogState extends ConsumerState<CategoryPlaceholderD
     final notifier = ref.read(categoryPlaceholderProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Platzhalter für namenlose Kategorie'),
+      title: const Text('Unbenannte Kategorie ändern'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(
@@ -110,7 +111,7 @@ class _CategoryPlaceholderDialogState extends ConsumerState<CategoryPlaceholderD
                   autofocus: true,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Kategorie ohne Namen',
+                    labelText: 'Unbenannte Kategorie',
                     prefixIcon: const Icon(Icons.label_outlined),
                     errorText: errorText,
                     border: const OutlineInputBorder(),

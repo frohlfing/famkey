@@ -18,6 +18,9 @@ class MasterPasswordState {
   // Wird nicht benötigt, denn initial sind die Passwortfelder immer leer.
   //final MasterPasswordFormData originalFormData;
 
+  /// Die berechnete Passwortstärke.
+  final int passwordStrength;
+
   /// Der Status der letzten Aktion.
   final MasterPasswordActionStatus status;
 
@@ -39,6 +42,7 @@ class MasterPasswordState {
   /// Konstruktor
   const MasterPasswordState({
     this.formData = const MasterPasswordFormData(),
+    this.passwordStrength = 0,
     this.status = MasterPasswordActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -46,11 +50,13 @@ class MasterPasswordState {
   /// Status aktualisieren (immutable)
   MasterPasswordState copyWith({
     MasterPasswordFormData? formData,
+    int? passwordStrength,
     MasterPasswordActionStatus? status,
     AppError? error,
   }) {
     return MasterPasswordState(
       formData: formData ?? this.formData,
+      passwordStrength: passwordStrength ?? this.passwordStrength,
       status: status ?? this.status,
       error: error ?? this.error,
     );

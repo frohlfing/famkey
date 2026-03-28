@@ -164,6 +164,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'category' ? state.error.text : null));
                     return TextField(
                       controller: _categoryController,
+                      autofocus: true,
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Kategorie',
@@ -181,7 +182,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                           },
                         ) : null,
                       ),
-                      onChanged: notifier.setCategory,
+                      onChanged: isBusy ? null : notifier.setCategory,
                     );
                   },
                 ),
@@ -201,7 +202,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                         errorText: errorText,
                         border: const OutlineInputBorder(),
                       ),
-                      onChanged: notifier.setTitle,
+                      onChanged: isBusy ? null : notifier.setTitle,
                     );
                   },
                 ),
@@ -220,7 +221,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                         errorText: errorText,
                         border: const OutlineInputBorder(),
                       ),
-                      onChanged: notifier.setUsername,
+                      onChanged: isBusy ? null : notifier.setUsername,
                     );
                   },
                 ),
@@ -229,7 +230,6 @@ class _EditPageState extends ConsumerState<EditPage> {
                 // --- Passwort ---
                 Consumer(
                   builder: (ctx, ref, _) {
-                    //final password = ref.watch(editProvider.select((s) => s.password));
                     final passwordStrength = ref.watch(editProvider.select((s) => s.passwordStrength));
                     final errorText = ref.watch(editProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
                     return Column(
@@ -237,6 +237,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                       children: [
                         PasswordField(
                           controller: _passwordController,
+                          textInputAction: TextInputAction.next,
                           label: 'Passwort',
                           prefixIcon: Icons.key_outlined,
                           errorText: errorText,
@@ -247,10 +248,9 @@ class _EditPageState extends ConsumerState<EditPage> {
                               onPressed: isBusy ? null : notifier.generatePassword,
                             ),
                           ],
-                          onChanged: notifier.setPassword,
+                          onChanged: isBusy ? null : notifier.setPassword,
                         ),
                         // --- Passwortstärke ---
-                        //if (password.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: PasswordStrengthBar(score: passwordStrength),
@@ -274,7 +274,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                         errorText: errorText,
                         border: const OutlineInputBorder(),
                       ),
-                      onChanged: notifier.setUrl,
+                      onChanged: isBusy ? null : notifier.setUrl,
                     );
                   },
                 ),
@@ -294,7 +294,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                         errorText: errorText,
                         border: const OutlineInputBorder(),
                       ),
-                      onChanged: notifier.setNotes,
+                      onChanged: isBusy ? null : notifier.setNotes,
                     );
                   },
                 ),

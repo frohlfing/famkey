@@ -10,6 +10,7 @@ import 'package:privault/features/settings/master_password/master_password_state
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
+import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 
 final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, MasterPasswordState>(() {
@@ -25,6 +26,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
   late final BiometricService _biometricService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
+  late final PasswordService _passwordService;
   late final SessionService _sessionService;
 
   // ------------------------------------------------------------------------
@@ -41,6 +43,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
     _biometricService = getIt<BiometricService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
+    _passwordService = getIt<PasswordService>();
     _sessionService = getIt<SessionService>();
 
     // Initialer State
@@ -171,7 +174,11 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
   void setNewPassword(String value) {
     final error = state.error.field == 'newPassword' ? AppError.none() : null;
     final formData = state.formData.copyWith(newPassword: value);
-    state = state.copyWith(formData: formData, error: error);
+    state = state.copyWith(
+      formData: formData,
+      passwordStrength: _passwordService.estimateStrength(value),
+      error: error,
+    );
   }
 
   /// Setter für bisheriges Passwort

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/master_password/master_password_notifier.dart';
 import 'package:privault/features/settings/master_password/master_password_state.dart';
 import 'package:privault/widgets/password_field.dart';
+import 'package:privault/widgets/password_strength_bar.dart';
 
 /// Ein modaler Dialog zum Ändern des Master-Passworts.
 class MasterPasswordDialog extends ConsumerStatefulWidget {
@@ -97,6 +98,7 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
 
     return AlertDialog(
       title: const Text('Master-Passwort ändern'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(
@@ -107,22 +109,29 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
             // --- Neues Master-Passwort ---
             Consumer(
               builder: (ctx, ref, _) {
+                final passwordStrength = ref.watch(masterPasswordProvider.select((s) => s.passwordStrength));
                 final errorText = ref.watch(masterPasswordProvider.select((state) => state.error.field == 'newPassword' ? state.error.text : null));
-                return TextField(
-                  controller: _newPasswordController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Neues Master-Passwort',
-                    prefixIcon: const Icon(Icons.key_outlined),
-                    errorText: errorText,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: isBusy ? null : notifier.setNewPassword,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PasswordField(
+                      controller: _newPasswordController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.next,
+                      label: 'Neues Master-Passwort',
+                      prefixIcon: Icons.key_outlined,
+                      errorText: errorText,
+                      onChanged: isBusy ? null : notifier.setNewPassword,
+                    ),
+                    // --- Passwortstärke ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PasswordStrengthBar(score: passwordStrength),
+                    ),
+                  ],
                 );
               },
             ),
-
             const SizedBox(height: 16),
 
             // --- Bisheriges Master-Passwort ---

@@ -98,6 +98,7 @@ class _SyncServerDialogState extends ConsumerState<SyncServerDialog> {
 
     return AlertDialog(
       title: const Text('Sync-Server'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
         child: Column(

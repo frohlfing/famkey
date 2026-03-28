@@ -6,7 +6,6 @@ import 'package:privault/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
 class PasswordGeneratorDialog extends ConsumerStatefulWidget {
-
   /// Initiale Parameter
   // (keine)
 
@@ -28,7 +27,6 @@ class PasswordGeneratorDialog extends ConsumerStatefulWidget {
 }
 
 class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialog> {
-
   // ------------------------------------------------------------------------
   // --- TextEditingController ---
   // ------------------------------------------------------------------------
@@ -66,7 +64,6 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
 
   @override
   Widget build(BuildContext context) {
-
     // Listener für Status-Änderungen
     ref.listen(passwordGeneratorProvider.select((s) => s.status), (previous, next) {
       //final state = ref.read(passwordGeneratorProvider);
@@ -97,120 +94,144 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
 
     return AlertDialog(
       title: const Text('Passwort-Generator'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Prüfen, ob wir genug Platz für die Icon-Row haben (ca. 400px)
+            final bool isWide = constraints.maxWidth > 410;
 
-            // --- Länge ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final errorText = ref.watch(passwordGeneratorProvider.select((state) => state.error.field == 'pwLength' ? state.error.text : null));
-                return TextField(
-                  controller: _pwLengthController,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Länge',
-                    prefixIcon: const Icon(Icons.onetwothree_outlined),
-                    errorText: errorText,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: isBusy ? null : notifier.decrementLength,
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Länge ---
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final errorText = ref.watch(passwordGeneratorProvider.select((state) => state.error.field == 'pwLength' ? state.error.text : null));
+                    return TextField(
+                      controller: _pwLengthController,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Länge',
+                        prefixIcon: const Icon(Icons.onetwothree_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: isBusy ? null : notifier.decrementLength,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: isBusy ? null : notifier.incrementLength,
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: isBusy ? null : notifier.incrementLength,
-                        ),
-                      ],
-                    ),
-                  ),
-                  onChanged: isBusy ? null : (val) => notifier.setPwLength(int.tryParse(val) ?? 0),
-                );
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- Sonderzeichen ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final errorText = ref.watch(passwordGeneratorProvider.select((state) => state.error.field == 'pwSpecialChars' ? state.error.text : null));
-                return TextField(
-                  controller: _pwSpecialCharsController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Sonderzeichen',
-                    prefixIcon: const Icon(Icons.emoji_symbols_outlined),
-                    errorText: errorText,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.star),
-                          tooltip: 'Standard',
-                          onPressed: isBusy ? null : notifier.setDefaultPwSpecialChars,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.all_inclusive),
-                          tooltip: 'Alle',
-                          onPressed: isBusy ? null : notifier.setAllPwSpecialChars,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle),
-                          tooltip: 'Keine',
-                          onPressed: isBusy ? null : notifier.setNonePwSpecialChars,
-                        ),
-                      ],
-                    ),
-                  ),
-                  onChanged: isBusy ? null : notifier.setPwSpecialChars,
-                );
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- Lesbarkeit optimieren ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final value = ref.watch(passwordGeneratorProvider.select((state) => state.formData.pwAvoidIlO0));
-                return SwitchListTile(
-                  title: const Text('Lesbarkeit optimieren'),
-                  subtitle: const Text('Ähnliche Zeichen (I, l, O, 0) ausschließen'),
-                  contentPadding: EdgeInsets.zero,
-                  value: value,
-                  onChanged: isBusy ? null : notifier.setPwAvoidIlO0,
-                );
-              },
-            ),
-
-            // --- Allgemeine Fehlermeldung (error.field == null) ---
-            Consumer(builder: (context, ref, _) {
-              final error = ref.watch(passwordGeneratorProvider.select((s) => s.error));
-              if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
-                  children: [
-                    Icon(Icons.error, color: Theme.of(context).colorScheme.error),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(error.text, softWrap: true, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-                  ],
+                      ),
+                      onChanged: isBusy ? null : (val) => notifier.setPwLength(int.tryParse(val) ?? 0),
+                    );
+                  },
                 ),
-              );
-            }),
 
-          ],
+                const SizedBox(height: 16),
+
+                // --- Sonderzeichen ---
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final errorText = ref.watch(passwordGeneratorProvider.select((state) => state.error.field == 'pwSpecialChars' ? state.error.text : null));
+                    return TextField(
+                      controller: _pwSpecialCharsController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Sonderzeichen',
+                        prefixIcon: const Icon(Icons.emoji_symbols_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: isWide
+                          ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.star),
+                                tooltip: 'Standard',
+                                onPressed: isBusy ? null : notifier.setDefaultPwSpecialChars,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.all_inclusive),
+                                tooltip: 'Alle',
+                                onPressed: isBusy ? null : notifier.setAllPwSpecialChars,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle),
+                                tooltip: 'Keine',
+                                onPressed: isBusy ? null : notifier.setNonePwSpecialChars,
+                              ),
+                            ],
+                          )
+                          : PopupMenuButton<String>(
+                            icon: const Icon(Icons.tune),
+                            onSelected: (value) {
+                              if (value == 'default') notifier.setDefaultPwSpecialChars();
+                              if (value == 'all') notifier.setAllPwSpecialChars();
+                              if (value == 'none') notifier.setNonePwSpecialChars();
+                            },
+                            itemBuilder: (context) => [
+                              _buildPopupItem('default', Icons.star, 'Standard'),
+                              _buildPopupItem('all', Icons.all_inclusive, 'Alle'),
+                              _buildPopupItem('none', Icons.remove_circle, 'Keine'),
+                            ],
+                          ),
+                      ),
+                      onChanged: isBusy ? null : notifier.setPwSpecialChars,
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // --- Lesbarkeit optimieren ---
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final value = ref.watch(passwordGeneratorProvider.select((state) => state.formData.pwAvoidIlO0));
+                    return SwitchListTile(
+                      title: const Text('Lesbarkeit optimieren'),
+                      subtitle: const Text('Ähnliche Zeichen (I, l, O, 0) ausschließen'),
+                      contentPadding: EdgeInsets.zero,
+                      value: value,
+                      onChanged: isBusy ? null : notifier.setPwAvoidIlO0,
+                    );
+                  },
+                ),
+
+                // --- Allgemeine Fehlermeldung (error.field == null) ---
+                Consumer(
+                  builder: (context, ref, _) {
+                    final error = ref.watch(passwordGeneratorProvider.select((s) => s.error));
+                    if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                        children: [
+                          Icon(Icons.error, color: Theme.of(context).colorScheme.error),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(error.text, softWrap: true, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
 
@@ -222,11 +243,22 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
         ),
         ElevatedButton(
           onPressed: isBusy ? null : notifier.save,
-          child: isBusy
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('OK'),
+          child: isBusy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('OK'),
         ),
       ],
+    );
+  }
+
+  PopupMenuItem<String> _buildPopupItem(String value, IconData icon, String label) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
     );
   }
 
