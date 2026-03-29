@@ -1,6 +1,7 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
+import 'package:privault/services/password_service.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SettingsActionStatus {
@@ -102,7 +103,7 @@ class SettingsState {
     this.friends = const [],
     this.fingerprints = const {},
     this.friendNeedsRekeying = const {},
-    this.pwLength = 16,
+    this.pwLength = defaultPwLength,
     this.pwSpecialChars = '',
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,

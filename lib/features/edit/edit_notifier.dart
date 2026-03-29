@@ -275,9 +275,10 @@ class EditNotifier extends Notifier<EditState> {
     if (settings == null) return;
 
     final pw = _passwordService.generatePassword(
-      settings.pwLength,
-      settings.pwAvoidIlO0,
-      settings.pwSpecialChars,
+      length: settings.pwLength,
+      specialChars: settings.pwSpecialChars,
+      withUmlauts: true,
+      avoidIlO0: settings.pwAvoidIlO0,
     );
 
     final formData = state.formData.copyWith(password: pw);

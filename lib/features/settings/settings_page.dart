@@ -91,7 +91,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           break;
 
         case SettingsActionStatus.friendAdded:
-          Snack.show(context, 'Freund wurde hinzugefügt. Bitte verifiziere zur Sicherheit den Fingerprint.', success: true);
+          Snack.show(context, 'Freund wurde hinzugefügt. Verifiziere zur Sicherheit den Fingerprint.', success: true);
+          break;
+
+        case SettingsActionStatus.friendVerified:
+          Snack.show(context, 'Verifizierungsstatus geändert', success: true);
           break;
 
         case SettingsActionStatus.friendDeleted:
@@ -255,9 +259,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              fingerprints[friend.id] ?? '',
-                              style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                            Tooltip(
+                              message: 'Fingerprint kopieren',
+                              child: InkWell(
+                                onTap: () => _handleCopyToClipboard(fingerprints[friend.id] ?? '', 'Fingerprint'),
+                                child: Text(
+                                  fingerprints[friend.id] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontFamily: 'monospace',
+                                    color: Colors.blueGrey, // Optional: Farbe ändern, damit es klickbar aussieht
+                                  ),
+                                ),
+                              ),
                             ),
                             if (friendNeedsRekeying[friend.id] ?? false)
                               const Padding(
@@ -575,6 +589,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         notifier.load();
       }
     }
+  }
+
+  /// Kopiert den Text in die Zwischenablage und gibt eine SnackBar mit dem Ergebnis aus.
+  /// `label` ist die Beschriftung des kopierten Textes.
+  void _handleCopyToClipboard(String text, String label) {
+    final notifier = ref.read(settingsProvider.notifier);
+    notifier.copyToClipboard(text);
+    Snack.show(context, '$label in die Zwischenablage kopiert', success: true);
   }
 
   /// Fügt einen Freund zu Liste hinzu.

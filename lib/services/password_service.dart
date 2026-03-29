@@ -1,6 +1,15 @@
 import 'dart:math';
 import 'package:zxcvbn/zxcvbn.dart';
 
+/// Standardlänge für Passwörter.
+const defaultPwLength = 20;
+
+/// Empfohlene Passwort-Sonderzeichen.
+const defaultPwSpecialChars = '!?§\$€%&#@()[]{}<>=_~-+*,;.:/|';
+
+/// Alle druckbaren Sonderzeichen (ohne Leerzeichen).
+const allPwSpecialChars = '!?§\$€%&#@()[]{}<>=_~-+*,;.:/|\\^´`\'"';
+
 /// Ein Hilfsdienst zur Generierung und Bewertung von Passwörtern.
 class PasswordService {
   // ------------------------------------------------------------------------
@@ -36,21 +45,26 @@ class PasswordService {
 
   /// Generiert ein kryptografisch sicheres Zufallspasswort.
   ///
+  /// Mit [specialChars] werden die Sonderzeichen angegeben, die im Passwort verwendet werden dürfen.
   /// Wenn [avoidIlO0] `true` ist, werden optisch leicht verwechselbare Zeichen (großes i, kleines L, großes o, Zahl 0) weggelassen.
-  /// Mit [specialChars] werden die Sonderzeichen angegeben, die im Passwort verwendet werden dürfen. Falls `null`, wird ein Standard-Set genutzt.
-  String generatePassword(int length, bool avoidIlO0, String? specialChars) {
+  String generatePassword({int length = defaultPwLength, String specialChars = defaultPwSpecialChars, bool withUmlauts = true, bool avoidIlO0 = true}) {
     // Basis-Zeichensatz (ohne die verwechselbaren Zeichen I, l, O, 0)
-    final chars = StringBuffer("abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789");
+    final chars = StringBuffer('abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789');
 
-    // Falls nicht verboten, die verwechselbaren Zeichen wieder hinzufügen
+    // Falls nicht verboten, die verwechselbaren Zeichen hinzufügen
     if (!avoidIlO0) {
-      chars.write("IlO0");
+      chars.write('IlO0');
+    }
+
+    if (withUmlauts) {
+      chars.write('äöüÄÖÜß');
     }
 
     // Sonderzeichen anfügen (Standard falls keine übergeben wurden)
-    chars.write(specialChars ?? "!@#\$%^&*()_+-=[]{}|;:,.<>?");
+    chars.write(specialChars);
 
-    final source = chars.toString();
+    // Duplikate entfernen
+    final source = chars.toString().split('').toSet().join();
 
     // Random.secure() greift auf die sichere Entropiequelle des OS zu
     final random = Random.secure();

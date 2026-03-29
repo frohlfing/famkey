@@ -219,18 +219,18 @@ class Settings extends Table {
   // --- Passwort-Generator ---
 
   /// Die vom Passwortgenerator verwendete Passwortlänge.
-  IntColumn get pwLength => integer().withDefault(const Constant(16))();
+  IntColumn get pwLength => integer()();
 
   /// Die vom Passwortgenerator verwendeten Sonderzeichen.
   TextColumn get pwSpecialChars => text()();
 
   /// Gibt an, ob der Passwortgenerator verwechselbare Zeichen (I, l, O, 0) ausschließen soll.
-  BoolColumn get pwAvoidIlO0 => boolean().withDefault(const Constant(true))();
+  BoolColumn get pwAvoidIlO0 => boolean().named('pw_avoid_ilo0')();
 
   // --- Aussehen ---
 
   /// Der Name, der in der UI als Platzhalter für Einträge ohne explizite Kategorie verwendet wird.
-  TextColumn get categoryPlaceholder => text()();
+  TextColumn get categoryPlaceholder => text()(); // todo umbenennen in unnamedCategory
 
   // --- Synchronisation ---
 

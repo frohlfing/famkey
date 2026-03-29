@@ -6,6 +6,7 @@ import 'package:privault/database/database.dart';
 import 'package:privault/features/settings/password_generator/password_generator_form_data.dart';
 import 'package:privault/features/settings/password_generator/password_generator_state.dart';
 import 'package:privault/services/database_service.dart';
+import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 
 final passwordGeneratorProvider = NotifierProvider<PasswordGeneratorNotifier, PasswordGeneratorState>(() {
@@ -148,7 +149,8 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
   /// Setter für Passwort-Sonderzeichen
   void setPwSpecialChars(String value) {
     final error = state.error.field == 'pwSpecialChars' ? AppError.none() : null;
-    final formData = state.formData.copyWith(pwSpecialChars: value);
+    final uniqueChars = value.split('').toSet().join(); // Duplikate entfernen
+    final formData = state.formData.copyWith(pwSpecialChars: uniqueChars);
     state = state.copyWith(formData: formData, error: error);
   }
 
@@ -159,12 +161,12 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
 
   /// Setzt empfohlene Passwort-Sonderzeichen.
   void setDefaultPwSpecialChars() {
-    setPwSpecialChars('!@#\$%^&*()_+-=[]{}|;:,.<>?'); // todo Zeichen sortieren
+    setPwSpecialChars(defaultPwSpecialChars);
   }
 
   /// Setzt alle Passwort-Sonderzeichen.
   void setAllPwSpecialChars() {
-    setPwSpecialChars('!"#\$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
+    setPwSpecialChars(allPwSpecialChars);
   }
 
   /// Setter für "verwechselbare Zeichen auslassen".

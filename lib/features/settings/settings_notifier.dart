@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/app_error.dart';
@@ -277,6 +278,11 @@ class SettingsNotifier extends Notifier<SettingsState> {
       perm = perm.copyWith(encryptedKey: encryptedKey);
       await _databaseService.savePermission(perm);
     }
+  }
+
+  /// Kopiert den Text in die Zwischenablage.
+  void copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
   }
 
   /// Entfernt einen Freund aus der Liste.

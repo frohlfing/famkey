@@ -256,8 +256,8 @@ class LoginNotifier extends Notifier<LoginState> {
             host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
             apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
             useBiometric: false,
-            pwLength: 16,
-            pwSpecialChars: '',
+            pwLength: defaultPwLength,
+            pwSpecialChars: defaultPwSpecialChars,
             pwAvoidIlO0: true,
             categoryPlaceholder: '',
             lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),

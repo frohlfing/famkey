@@ -1,3 +1,5 @@
+import 'package:privault/services/password_service.dart';
+
 /// Alle Daten des Passwort-Generators, die der Benutzer ändern kann.
 class PasswordGeneratorFormData {
 
@@ -12,7 +14,7 @@ class PasswordGeneratorFormData {
 
   /// Konstruktor
   const PasswordGeneratorFormData({
-    this.pwLength = 16,
+    this.pwLength = defaultPwLength,
     this.pwSpecialChars = '',
     this.pwAvoidIlO0 = false,
   });
