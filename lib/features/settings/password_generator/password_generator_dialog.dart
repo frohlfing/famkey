@@ -99,8 +99,8 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
         width: 450,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Prüfen, ob wir genug Platz für die Icon-Row haben (ca. 400px)
-            final bool isWide = constraints.maxWidth > 410;
+            // Prüfen, ob wir genug Platz für die Icon-Row haben
+            final bool isWide = constraints.maxWidth > 430;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
