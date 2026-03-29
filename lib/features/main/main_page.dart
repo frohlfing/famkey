@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
 import 'package:privault/core/helper.dart';
+import 'package:privault/features/main/adopt_identity/adopt_identity_dialog.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
-import 'package:privault/widgets/password_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 import 'package:privault/widgets/text_dialog.dart';
 
@@ -87,11 +86,7 @@ class _MainPageState extends ConsumerState<MainPage> {
           break;
 
         case MainActionStatus.syncAskForAdoption:
-          _handleAdoptionRequest(isOnboarding: false);
-          break;
-
-        case MainActionStatus.syncAskForOnboarding:
-          _handleAdoptionRequest(isOnboarding: true);
+          _handleAdoptionRequest();
           break;
 
         case MainActionStatus.syncAskForRekeying:
@@ -359,20 +354,15 @@ class _MainPageState extends ConsumerState<MainPage> {
   }
 
   /// Adoptiert die auf dem Server gespeicherte Identität
-  Future<void> _handleAdoptionRequest({required bool isOnboarding}) async {
-    final message = isOnboarding
-        ? "Dieser Tresor wird bereits auf einem anderen Gerät verwendet. Bitte gib das Master-Passwort ein, um die Identität zu übernehmen." // UUIDs stimmen nicht
-        : "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein.";
+  Future<void> _handleAdoptionRequest() async {
     final state = ref.read(mainProvider);
-    final password = await PasswordDialog.show(
-      context,
-      title: 'Account verknüpfen',
-      text: message,
-      errorText: state.error.code == ErrorCode.wrongPassword ? state.error.text : null,
-    );
-    if (mounted && password != null) {
-      final notifier = ref.read(mainProvider.notifier);
-      notifier.adoptIdentity(password);
+    final ok = await AdoptIdentityDialog.show(context, state.adoptionUserIdentity);
+    if (ok == true) {
+      if (mounted) {
+        final notifier = ref.read(mainProvider.notifier);
+        await notifier.load();
+        notifier.sync();
+      }
     }
   }
 }

@@ -1,20 +1,19 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_version.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/main/adopt_identity/user_identity.dart';
 import 'package:privault/features/main/main_state.dart';
 import 'package:privault/features/main/sync_statistics.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/friend_payload.dart';
-import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
@@ -30,7 +29,6 @@ class MainNotifier extends Notifier<MainState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
-  late final BiometricService _biometricService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
@@ -54,7 +52,6 @@ class MainNotifier extends Notifier<MainState> {
   @override
   MainState build() {
     // Dienste aus getIt holen
-    _biometricService = getIt();
     _cryptoService = getIt();
     _databaseService = getIt();
     _sessionService = getIt();
@@ -165,7 +162,6 @@ class MainNotifier extends Notifier<MainState> {
 
     // Status auf `progress` setzen
     state = state.copyWith(
-      adoptionUserIdentity: const UserIdentity(),
       syncStatistics: const SyncStatistics(),
       status: MainActionStatus.progress,
       error: AppError.none(),
@@ -202,18 +198,24 @@ class MainNotifier extends Notifier<MainState> {
       // 3. Benutzer registrieren, falls noch nicht geschehen
       final userResponse = await _registerUserIfNeeded();
 
+      // // todo Zeitstempel für Passwort vergleichen - auf dem Server nur speichern, wenn Passwort lokal aktueller ist, sost adoptieren
+      // if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
+      //   /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
+      //   await _webService.changePassword(_sessionService.user!.uuid, settings.salt, settings.encryptedPrivateKey);
+      // }
+
       // 4. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert (onboarding) oder es wurde auf einem anderen Gerät das Passwort geändert.
       if (_sessionService.user!.uuid != userResponse.userUuid || _sessionService.settings!.salt != userResponse.salt) {
-        // Status für UI-Nachfrage setzen
+        // Dialog für die Identitätsübernahme öffnen
         state = state.copyWith(
-            status: _isOnboarding() ? MainActionStatus.syncAskForOnboarding : MainActionStatus.syncAskForAdoption,
-            adoptionUserIdentity: UserIdentity(
-              userUuid: userResponse.userUuid,
-              salt: userResponse.salt,
-              publicKey: userResponse.publicKey,
-              encryptedPrivateKey: userResponse.encryptedPrivateKey,
-            ),
+          status: MainActionStatus.syncAskForAdoption,
+          adoptionUserIdentity: UserIdentity(
+            userUuid: userResponse.userUuid,
+            salt: userResponse.salt,
+            publicKey: userResponse.publicKey,
+            encryptedPrivateKey: userResponse.encryptedPrivateKey,
+          ),
         );
         return; // Sync-Prozess hier abbrechen
       }
@@ -263,145 +265,6 @@ class MainNotifier extends Notifier<MainState> {
     }
   }
 
-  /// Übernimmt eine neue Identität vom Server.
-  ///
-  /// Führt eine Umschlüsselung aller vorhandenen Berechtigungen durch, verschlüsselt die sqLite-Datei mit dem
-  /// neuen Master-Schlüssel und aktualisiert die Salt-Datei.
-  ///
-  /// Das Master-Passwort wurde zuvor von der UI abgefragt.
-  Future<void> adoptIdentity(String password) async {
-    if (state.isBusy) return;
-
-    Uint8List? masterKey; // bisheriger Master-Key
-    Uint8List? newMasterKey; // Master-Key der neuen Identität
-
-    // Status auf `progress` setzen
-    state = state.copyWith(status: MainActionStatus.progress, error: AppError.none());
-
-    // userResponse wird aus dem State geholt
-    final userIdentity = state.adoptionUserIdentity;
-
-    try {
-      if (userIdentity.userUuid.isEmpty) throw Exception("Der Server hat noch keine Benutzerdaten geliefert.");
-      if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
-      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
-      if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in der Session leer.");
-      if (_sessionService.settings!.salt.isEmpty) throw Exception("Das Salt liegt nicht in der Session.");
-      if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
-
-      // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // 1. MasterKey ableiten (Argon2id)
-      final salt = base64Decode(_sessionService.settings!.salt);
-      masterKey = await _cryptoService.deriveKey(password, salt);
-
-      // 2. Passwort validieren
-      try {
-        await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
-      } catch (_) {
-        state = state.copyWith(
-          status: _isOnboarding() ? MainActionStatus.syncAskForOnboarding : MainActionStatus.syncAskForAdoption,
-          error: AppError(ErrorCode.wrongPassword),
-        );
-        return;
-      }
-
-      // 3. Physisches Datenbank-Backup erstellen
-      await _databaseService.createBackup();
-
-      try {
-        // --- Start Kritische Logik ---
-
-        // 4. Neuen Master-Key mit dem Salt der neuen Identität berechnen
-        final newSalt = base64Decode(userIdentity.salt);
-        newMasterKey = await _cryptoService.deriveKey(password, newSalt);
-
-        // 5. Private-Key der neune Identität entschlüsseln
-        final newPrivateKey = await _cryptoService.decrypt(userIdentity.encryptedPrivateKey, newMasterKey);
-
-        // 6. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
-        final rsaKeyChanged = !const ListEquality().equals(_sessionService.privateKey, newPrivateKey);
-        if (rsaKeyChanged) {
-          final allPermissions = await _databaseService.getPermissions();
-          final updatedPermissions = <PermissionEntity>[];
-          for (var perm in allPermissions) {
-            if (perm.encryptedKey.isNotEmpty && _sessionService.privateKey != null) {
-              try {
-                // Entschlüsseln mit altem (aktuellem) Private-Key, verschlüsseln mit dem Public-Key der neuen Identität
-                final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
-                final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, userIdentity.publicKey);
-                updatedPermissions.add(perm.copyWith(encryptedKey: newEncryptedKey));
-              } catch (e) {
-                throw Exception("Fehler beim Umschlüsseln der Permission ${perm.id}: $e");
-              }
-            }
-          }
-          if (updatedPermissions.isNotEmpty) {
-            await _databaseService.updatePermissions(updatedPermissions);
-          }
-        }
-
-        // 7. Datenbankdatei mit dem neuen Master-Key umschlüsseln
-        await _databaseService.rekey(newMasterKey);
-
-        // 8. Salt-Datei aktualisieren
-        await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
-
-        // 9. Master-Key im SecureStore aktualisieren
-        if (_sessionService.settings!.useBiometric) {
-          await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
-        }
-
-        // 10. User-UUID übernehmen, falls geändert
-        UserEntity user = _sessionService.user!;
-        if (user.uuid != userIdentity.userUuid) {
-          // Wenn ein Zweitgerät das erste mal synchronisiert wird, muss auch die UUID des Benutzers übernommen werden.
-          user = user.copyWith(uuid: userIdentity.userUuid);
-          user = await _databaseService.saveUser(user);
-        }
-
-        // 11. Settings aktualisieren
-        final settings = _sessionService.settings!.copyWith(
-          salt: base64Encode(newSalt),
-          encryptedPrivateKey: userIdentity.encryptedPrivateKey,
-        );
-        await _databaseService.saveSettings(settings);
-
-        // 12. Session aktualisieren
-        _sessionService.setUser(user);
-        _sessionService.setPrivateKey(newPrivateKey);
-        _sessionService.setSettings(settings);
-
-        // --- Ende Kritische Logik ---
-
-        // 13. Erfolg: Backup löschen
-        await _databaseService.removeBackup();
-
-        //14. State aktualisieren (Die UI wird daraufhin die Synchronisation erneut anstoßen)
-        state = state.copyWith(status: MainActionStatus.adopted);
-
-      } catch (_) {
-        // Fehler während der Operation -> Rollback
-        try {
-          await _databaseService.close();
-          await _databaseService.restoreBackup();
-          await _databaseService.initialize(_sessionService.vaultName, masterKey);
-        } catch (_) {}
-        rethrow;
-      }
-
-    } catch (e, st) {
-      Logger().fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
-      state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.unknown));
-
-    } finally {
-      // Master-Key aus dem RAM löschen
-      if (masterKey != null) _cryptoService.wipeKey(masterKey);
-      if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
-    }
-  }
-
   // Registriert den Benutzer, wenn noch nicht geschehen.
   Future<UserResponse> _registerUserIfNeeded() async {
     final vaultName = _sessionService.vaultName;
@@ -432,26 +295,8 @@ class MainNotifier extends Notifier<MainState> {
       _sessionService.setUser(user);
       _sessionService.setSettings(settings);
     }
-    else {
-      if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
-        /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
-        await _webService.changePassword(_sessionService.user!.uuid, settings.salt, settings.encryptedPrivateKey);
-      }
-    }
 
     return userResponse;
-  }
-
-  /// Gibt im Falle eines `syncSaltMismatch`-Errors an, ob ein Zweitgerät zum
-  /// ersten mal mit dem Tresor auf dem Server synchronisiert werden soll.
-  ///
-  /// Dies trifft zu, wenn die vom Server gelieferte Benutzer-UUID nicht mit
-  /// der lokalen übereinstimmt. Andernfalls wurde auf dem anderen Gerät das
-  /// Passwort geändert.
-  bool _isOnboarding() {
-    final myUuid = _sessionService.user != null ? _sessionService.user!.uuid : '';
-    final otherUuid = state.adoptionUserIdentity.userUuid;
-    return otherUuid != myUuid;
   }
 
   /// Lädt die Freundesliste vom Server und verarbeitet Namensänderungen, Key-Wechsel und gelöschte Freunde.

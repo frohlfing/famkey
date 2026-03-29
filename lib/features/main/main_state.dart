@@ -1,29 +1,7 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/main/adopt_identity/user_identity.dart';
 import 'package:privault/features/main/sync_statistics.dart';
-
-/// Benutzerdaten, die für eine Identitätsübernahme benötigt werden (bei `syncAskForAdoption` bzw. `syncAskForOnboarding`).
-class UserIdentity {
-  /// Die globale eindeutige Identifikationsnummer (UUID v4) des Benutzers.
-  final String userUuid;
-
-  /// Das serverseitig gespeicherte Salt des Benutzers zur Ableitung des Master-Keys.
-  final String salt;
-
-  /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
-  final String publicKey;
-
-  /// Der mit dem Master-Passwort verschlüsselte RSA-Privatschlüssel des Benutzers (Base64).
-  final String encryptedPrivateKey;
-
-  /// Konstruktor
-  const UserIdentity({
-    this.userUuid = '',
-    this.salt = '',
-    this.publicKey = '',
-    this.encryptedPrivateKey = '',
-  });
-}
 
 /// Ein Enum für den Status von Aktionen
 enum MainActionStatus {
@@ -33,8 +11,7 @@ enum MainActionStatus {
   synced, // Sync wurde erfolgreich beendet
   adopted, // Benutzeridentität wurde erfolgreich adoptiert
   failure, // Aktion mit Fehler beendet
-  syncAskForAdoption, // Passwort wurde auf einem anderen Gerät geändert. Frage, ob die Identität adoptiert werden soll.
-  syncAskForOnboarding, // Zweitgerät soll zum ersten mal synchronisiert werden. Frage, ob die Identität adoptiert werden soll.
+  syncAskForAdoption, // Frage, ob die auf dem Server gespeicherte Identität adoptiert werden soll.
   syncAskForRekeying, // Schlüssel des Freundes ist ungültig
 }
 

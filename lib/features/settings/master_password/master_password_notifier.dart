@@ -13,11 +13,11 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 
-final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, MasterPasswordState>(() {
+final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, AdoptIdentityState>(() {
   return MasterPasswordNotifier();
 });
 
-class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
+class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
 
   // ------------------------------------------------------------------------
   // --- Services ---
@@ -38,7 +38,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
   /// Die Verwendung von `Ref.watch` oder `Ref.listen` innerhalb dieser Methode ist unbedenklich.
   /// Ändert sich eine Abhängigkeit dieses Notifiers (bei Verwendung von `Ref.watch`), wird der Build-Prozess erneut ausgeführt. Der Notifier selbst wird jedoch nicht neu erstellt. Seine Instanz bleibt zwischen den Build-Ausführungen erhalten.
   @override
-  MasterPasswordState build() {
+  AdoptIdentityState build() {
     // Dienste aus getIt holen
     _biometricService = getIt<BiometricService>();
     _cryptoService = getIt<CryptoService>();
@@ -47,7 +47,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
     _sessionService = getIt<SessionService>();
 
     // Initialer State
-    return MasterPasswordState();
+    return AdoptIdentityState();
   }
 
   /// Lädt die Daten für die Anzeige.
@@ -55,7 +55,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
     if (state.isBusy) return;
 
     // UI-State zurücksetzen
-    state = const MasterPasswordState();
+    state = const AdoptIdentityState();
   }
 
   // ------------------------------------------------------------------------

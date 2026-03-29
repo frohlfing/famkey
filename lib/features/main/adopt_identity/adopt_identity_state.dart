@@ -1,8 +1,7 @@
 import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/master_password/master_password_form_data.dart';
 
 /// Ein Enum für den Status von Aktionen
-enum MasterPasswordActionStatus {
+enum AdoptIdentityActionStatus {
   initial, // Der Ausgangszustand
   progress, // Aktion läuft
   loaded, // Einstellungen wurden erfolgreich geladen
@@ -12,17 +11,18 @@ enum MasterPasswordActionStatus {
 
 class AdoptIdentityState {
 
-  /// Die Formulardaten.
-  final MasterPasswordFormData formData;
+  /// Wenn `true`: Zweitgerät soll zum ersten mal synchronisiert werden.
+  /// Wenn `false`: Ein anderes Gerät hat das Master-Passwort geändert.
+  final bool isOnboarding;
 
-  // Wird nicht benötigt, denn initial sind die Passwortfelder immer leer.
-  //final MasterPasswordFormData originalFormData;
+  /// Das aktuelle Master-Passwort.
+  final String password;
 
-  /// Die berechnete Passwortstärke.
-  final int passwordStrength;
+  // Wird nicht benötigt, denn initial ist das Passwortfeld immer leer.
+  //final MasterPasswordFormData originalPassword;
 
   /// Der Status der letzten Aktion.
-  final MasterPasswordActionStatus status;
+  final AdoptIdentityActionStatus status;
 
   /// Der Fehler der letzten Aktion.
   final AppError error;
@@ -31,32 +31,30 @@ class AdoptIdentityState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-    status == MasterPasswordActionStatus.progress;
+    status == AdoptIdentityActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   // todo wird vermutlich nicht benötigt
-  bool get isDirty =>
-    formData.newPassword.isNotEmpty ||
-    formData.password.isNotEmpty;
+  bool get isDirty => password.isNotEmpty;
 
   /// Konstruktor
   const AdoptIdentityState({
-    this.formData = const MasterPasswordFormData(),
-    this.passwordStrength = 0,
-    this.status = MasterPasswordActionStatus.initial,
+    this.isOnboarding = false,
+    this.password = '',
+    this.status = AdoptIdentityActionStatus.initial,
     this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
   AdoptIdentityState copyWith({
-    MasterPasswordFormData? formData,
-    int? passwordStrength,
-    MasterPasswordActionStatus? status,
+    bool? isOnboarding,
+    String? password,
+    AdoptIdentityActionStatus? status,
     AppError? error,
   }) {
     return AdoptIdentityState(
-      formData: formData ?? this.formData,
-      passwordStrength: passwordStrength ?? this.passwordStrength,
+      isOnboarding: isOnboarding ?? this.isOnboarding,
+      password: password ?? this.password,
       status: status ?? this.status,
       error: error ?? this.error,
     );
