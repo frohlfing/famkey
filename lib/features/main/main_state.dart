@@ -1,18 +1,12 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/features/main/adopt_identity/user_identity.dart';
-import 'package:privault/features/main/sync_statistics.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum MainActionStatus {
-  initial, // Der Ausgangszustand
+  initial, // Ausgangszustand
   progress, // Aktion läuft
   loaded, // Liste wurde erfolgreich geladen
-  synced, // Sync wurde erfolgreich beendet
-  adopted, // Benutzeridentität wurde erfolgreich adoptiert
   failure, // Aktion mit Fehler beendet
-  syncAskForAdoption, // Frage, ob die auf dem Server gespeicherte Identität adoptiert werden soll.
-  syncAskForRekeying, // Schlüssel des Freundes ist ungültig
 }
 
 class MainState {
@@ -32,12 +26,6 @@ class MainState {
   /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
   final Set<String> collapsedCategories;
 
-  /// Benutzeridentität, die adoptiert werden muss.
-  final UserIdentity adoptionUserIdentity;
-
-  /// Die Sync-Statistik.
-  final SyncStatistics syncStatistics;
-
   /// Der Status der letzten Aktion.
   final MainActionStatus status;
 
@@ -56,8 +44,6 @@ class MainState {
     this.onlyMyEntries = false,
     this.groupedEntries = const {},
     this.collapsedCategories = const {},
-    this.adoptionUserIdentity = const UserIdentity(),
-    this.syncStatistics = const SyncStatistics(),
     this.status = MainActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -69,8 +55,6 @@ class MainState {
     bool? onlyMyEntries,
     Map<String, List<EntryEntity>>? groupedEntries,
     Set<String>? collapsedCategories,
-    UserIdentity? adoptionUserIdentity,
-    SyncStatistics? syncStatistics,
     MainActionStatus? status,
     AppError? error,
   }) {
@@ -81,8 +65,6 @@ class MainState {
       vaultName: vaultName ?? this.vaultName,
       searchQuery: searchQuery ?? this.searchQuery,
       onlyMyEntries: onlyMyEntries ?? this.onlyMyEntries,
-      adoptionUserIdentity: adoptionUserIdentity ?? this.adoptionUserIdentity,
-      syncStatistics: syncStatistics ?? this.syncStatistics,
       status: status ?? this.status,
       error: error ?? this.error,
     );

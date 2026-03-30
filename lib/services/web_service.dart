@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:privault/core/app_error.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/dtos/version_response.dart';
@@ -228,7 +229,7 @@ class WebService {
   }
 
   // ------------------------------------------------------------------------
-  // -- Methoden bzgl. Resource Vault --
+  // --- Methoden bzgl. Resource Vault ---
   // ------------------------------------------------------------------------
 
   /// Räumt den Test-Tresor serverseitig auf (DELETE /test?vault_hash=...).
@@ -237,5 +238,55 @@ class WebService {
   Future<void> cleanTest(String vaultName) async {
     final vaultHash = _cryptoService.computeHash(vaultName);
     await _dio.delete('vaults', queryParameters: {'vault_hash': vaultHash});
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Fehlerauswertung ---
+  // ------------------------------------------------------------------------
+
+  /// Wandelt den Verbindungsfehler in ein FormError um.
+  static AppError convertDioError(DioException de) {
+    String message;
+    ErrorCode code = ErrorCode.networkError;
+    final host = de.requestOptions.baseUrl;
+
+    switch (de.type) {
+      case DioExceptionType.connectionError:
+        message = 'Service auf $host nicht erreicht. Prüfe deine Internetverbindung und die Serveradresse.';
+        break;
+
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        message = 'Server $host antwortet nicht rechtzeitig. Ist er online?';
+        break;
+
+      case DioExceptionType.badCertificate:
+        message = 'Das Sicherheitszertifikat des Servers $host ist ungültig oder abgelaufen.';
+        break;
+
+      case DioExceptionType.badResponse: // z.B. kein JSON
+        final status = de.response?.statusCode;
+        if (status == 404) {
+          code = ErrorCode.noSyncService;
+          message = 'Auf dem Server $host läuft kein PriVault Sync-Service. Überprüfe die Serveradresse.';
+        } else if (status == 401) {
+          code = ErrorCode.unauthorized;
+          message = 'Der API-Token wurde vom Server abgelehnt.';
+        } else if (status == 503) {
+          message = 'Der Server $host kann vorübergehend keine Anfrage bearbeiten.';
+        } else { // Fallback
+          final msg = de.response?.statusMessage ?? (de.message ?? 'Serverfehler');
+          message = status != null ? '$msg (Code $status)' : msg;
+        }
+        break;
+
+      default:
+        // Fallback
+        final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
+        message = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
+    }
+
+    return AppError(code, text: message);
   }
 }

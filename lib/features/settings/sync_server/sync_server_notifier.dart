@@ -199,57 +199,12 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       state = state.copyWith(status: SyncServerActionStatus.testSuccessful);
 
     } on DioException catch (de) { // Exception des HTTP-Clients
-      state = state.copyWith(status: SyncServerActionStatus.failure, error: _convertDioError(de));
+      state = state.copyWith(status: SyncServerActionStatus.failure, error: WebService.convertDioError(de));
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Verbindungstest: $e", stack: st);
       state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
-  }
-
-  /// Wandelt den Verbindungsfehler in ein FormError um.
-  AppError _convertDioError(DioException de) {
-    String message;
-    ErrorCode code = ErrorCode.networkError;
-
-    switch (de.type) {
-      case DioExceptionType.connectionError:
-        message = 'Serve nicht erreicht. Prüfe deine Internetverbindung und die die Serveradresse.';
-        break;
-
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        message = 'Der Server antwortet nicht rechtzeitig. Ist er online?';
-        break;
-
-      case DioExceptionType.badCertificate:
-        message = 'Das Sicherheitszertifikat des Servers ist ungültig oder abgelaufen.';
-        break;
-
-      case DioExceptionType.badResponse: // z.B. kein JSON
-        final status = de.response?.statusCode;
-        if (status == 404) {
-          code = ErrorCode.noSyncService;
-          message = 'Auf dem Server läuft kein PriVault Sync-Service (404).';
-        } else if (status == 401) {
-          code = ErrorCode.unauthorized;
-          message = 'Der API-Token wurde vom Server abgelehnt (401).';
-        } else if (status == 503) {
-          message = 'Der Server kann vorübergehend keine Anfrage bearbeiten (503).';
-        } else { // Fallback
-          final msg = de.response?.statusMessage ?? (de.message ?? 'Serverfehler');
-          message = status != null ? '$msg (Code $status)' : msg;
-        }
-        break;
-
-      default:
-      // Fallback
-        final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
-        message = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-    }
-
-    return AppError(code, text: message);
   }
 
   // ------------------------------------------------------------------------

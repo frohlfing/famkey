@@ -117,9 +117,10 @@ class NewFriendNotifier extends Notifier<NewFriendState> {
       );
 
     } on DioException catch (de) { // Exception des HTTP-Clients
-      final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
-      final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-      state = state.copyWith(status: NewFriendActionStatus.failure, error: AppError(ErrorCode.networkError, text: text));
+      //final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
+      //final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
+      //state = state.copyWith(status: NewFriendActionStatus.failure, error: AppError(ErrorCode.networkError, text: text));
+      state = state.copyWith(status: NewFriendActionStatus.failure, error: WebService.convertDioError(de));
 
     } catch (e, st) {
       Logger().fatal("Fehler beim Speichern: $e", stack: st);

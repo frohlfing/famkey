@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
-import 'package:privault/features/main/adopt_identity/adopt_identity_dialog.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
+import 'package:privault/features/sync/sync_dialog.dart';
 import 'package:privault/widgets/snack.dart';
-import 'package:privault/widgets/text_dialog.dart';
 
 /// Der [MainPage] ist die zentrale Übersicht deines Tresors.
 ///
@@ -67,35 +66,11 @@ class _MainPageState extends ConsumerState<MainPage> {
       final state = ref.read(mainProvider);
 
       switch (next) {
-        case MainActionStatus.synced:
-          TextDialog.show(
-              context,
-              title: 'Info',
-              text: 'Synchronisation erfolgreich abgeschlossen.\n\n${state.syncStatistics}',
-          );
-          break;
-
-        case MainActionStatus.adopted:
-          notifier.sync();
-          break;
 
         case MainActionStatus.failure:
           if (state.error.field == null) { // Nur allgemeine Fehler anzeigen
             Snack.show(context, state.error.text);
           }
-          break;
-
-        case MainActionStatus.syncAskForAdoption:
-          _handleAdoptionRequest();
-          break;
-
-        case MainActionStatus.syncAskForRekeying:
-          TextDialog.show(
-            context,
-            title: 'Sicherheitsstopp',
-            text: "Der Fingerprint eines Freundes hat sich geändert.\n"
-                "Bitte verifiziere diesen in den Einstellungen, und starte danach die Synchronisation erneut.",
-          );
           break;
 
         default:
@@ -125,10 +100,10 @@ class _MainPageState extends ConsumerState<MainPage> {
               onSelected: isBusy ? null : (value) async {
                 switch (value) {
                   case 'sync':
-                    notifier.sync();
+                    _showSyncDialog();
                     break;
                   case 'settings':
-                    _handleOpenSettings();
+                    _showSettingsPage();
                     break;
                   case 'logout':
                     _handleLogout();
@@ -310,11 +285,19 @@ class _MainPageState extends ConsumerState<MainPage> {
   // --- Handler ---
   // ------------------------------------------------------------------------
 
+  /// Öffnet den Dialog zum Synchronisieren.
+  Future<void> _showSyncDialog() async {
+    final ok = await SyncDialog.show(context);
+    if (mounted && ok == true) {
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
+    }
+  }
+
   /// Öffnet die Einstellungen.
-  Future<void> _handleOpenSettings() async {
+  Future<void> _showSettingsPage() async {
     // Öffnet die Einstellungen und wartet, bis die Seite wieder geschlossen wird.
     final hasChanged = await Navigator.of(context).pushNamed('/settings');
-
     // Wenn der Einstellungen geändert wurden, die Liste neu laden.
     if (mounted && hasChanged == true) {
       final notifier = ref.read(mainProvider.notifier);
@@ -350,19 +333,6 @@ class _MainPageState extends ConsumerState<MainPage> {
     if (hasChanged == true && mounted) {
       final notifier = ref.read(mainProvider.notifier);
       notifier.load();
-    }
-  }
-
-  /// Adoptiert die auf dem Server gespeicherte Identität
-  Future<void> _handleAdoptionRequest() async {
-    final state = ref.read(mainProvider);
-    final ok = await AdoptIdentityDialog.show(context, state.adoptionUserIdentity);
-    if (ok == true) {
-      if (mounted) {
-        final notifier = ref.read(mainProvider.notifier);
-        await notifier.load();
-        notifier.sync();
-      }
     }
   }
 }

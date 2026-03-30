@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/main/adopt_identity/adopt_identity_notifier.dart';
-import 'package:privault/features/main/adopt_identity/adopt_identity_state.dart';
-import 'package:privault/features/main/adopt_identity/user_identity.dart';
+import 'package:privault/features/sync/adopt_identity/adopt_identity_notifier.dart';
+import 'package:privault/features/sync/adopt_identity/adopt_identity_state.dart';
+import 'package:privault/features/sync/adopt_identity/user_identity.dart';
 import 'package:privault/widgets/password_field.dart';
 
 /// Ein modaler Dialog zum Ändern des Master-Passworts.
