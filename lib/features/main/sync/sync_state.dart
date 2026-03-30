@@ -1,6 +1,6 @@
 import 'package:privault/core/app_error.dart';
-import 'package:privault/features/sync/adopt_identity/user_identity.dart';
-import 'package:privault/features/sync/sync_statistics.dart';
+import 'package:privault/features/main/sync/adopt_identity/user_identity.dart';
+import 'package:privault/features/main/sync/sync_statistics.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SyncStatus {

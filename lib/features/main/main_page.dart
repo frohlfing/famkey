@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
-import 'package:privault/features/sync/sync_dialog.dart';
+import 'package:privault/features/main/sync/sync_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 
 /// Der [MainPage] ist die zentrale Übersicht deines Tresors.

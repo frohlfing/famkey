@@ -6,9 +6,9 @@ import 'package:privault/core/app_version.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/features/sync/adopt_identity/user_identity.dart';
-import 'package:privault/features/sync/sync_state.dart';
-import 'package:privault/features/sync/sync_statistics.dart';
+import 'package:privault/features/main/sync/adopt_identity/user_identity.dart';
+import 'package:privault/features/main/sync/sync_state.dart';
+import 'package:privault/features/main/sync/sync_statistics.dart';
 import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
@@ -67,16 +67,20 @@ class SyncNotifier extends Notifier<SyncState> {
     try {
 
       if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
+      final settings = _sessionService.settings!;
+
       if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+      final user = _sessionService.user!;
+
       if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 1. WebService konfigurieren
-      if (_sessionService.settings!.host.isEmpty || _sessionService.settings!.apiToken.isEmpty) {
+      if (settings.host.isEmpty || settings.apiToken.isEmpty) {
         state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Der Sync-Server ist noch nicht eingerichtet.'));
         return;
       }
-      _webService.updateConfig(host: _sessionService.settings!.host, apiToken: _sessionService.settings!.apiToken);
-      _webService.setSignatureData(userUuid: _sessionService.user!.uuid, privateKey: _sessionService.privateKey!, publicKey: _sessionService.user!.publicKey);
+      _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
+      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
 
       // 2. Server-Version prüfen
       final serverVersion = await _webService.getServerVersion();
@@ -96,15 +100,15 @@ class SyncNotifier extends Notifier<SyncState> {
       // 3. Benutzer registrieren, falls noch nicht geschehen
       final userResponse = await _registerUserIfNeeded();
 
-      // // todo Zeitstempel für Passwort vergleichen - auf dem Server nur speichern, wenn Passwort lokal aktueller ist, sonst adoptieren
-      // if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
-      //   /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
-      //   await _webService.changePassword(_sessionService.user!.uuid, settings.salt, settings.encryptedPrivateKey);
-      // }
+      // todo Zeitstempel für Passwort vergleichen - auf dem Server nur speichern, wenn Passwort lokal aktueller ist, sonst adoptieren
+      if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
+        /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
+        await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey);
+      }
 
       // 4. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
       // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert (onboarding) oder es wurde auf einem anderen Gerät das Passwort geändert.
-      if (_sessionService.user!.uuid != userResponse.userUuid || _sessionService.settings!.salt != userResponse.salt) {
+      if (user.uuid != userResponse.userUuid || settings.salt != userResponse.salt) {
         // Dialog für die Identitätsübernahme öffnen
         state = state.copyWith(
           status: SyncStatus.askForAdoption,
@@ -141,7 +145,7 @@ class SyncNotifier extends Notifier<SyncState> {
       await _pushFriends();
 
       // 10. Zeitstempel setzen
-      final updatedSettings = _sessionService.settings!.copyWith(lastSyncAt: serverTime);
+      final updatedSettings = settings.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
 
       // 11. UI-State aktualisieren
@@ -198,8 +202,6 @@ class SyncNotifier extends Notifier<SyncState> {
 
   /// Lädt die Freundesliste vom Server und verarbeitet Namensänderungen, Key-Wechsel und gelöschte Freunde.
   Future<void> _pullFriends(UserResponse userResponse) async {
-    if (_sessionService.privateKey == null) throw Exception("RSA PrivateKey nicht gefunden");
-
     // 1. Clientseitig gespeicherte Benutzer holen
     final localUsers = await _databaseService.getUsers();
 
@@ -459,9 +461,7 @@ class SyncNotifier extends Notifier<SyncState> {
       final perms = await _databaseService.getPermissionsByEntryId(entry.id);
 
       // Meine eigene Permission (ID 1) holen
-      final myPerm = perms
-          .where((p) => p.userId == 1)
-          .firstOrNull;
+      final myPerm = perms.where((p) => p.userId == 1).firstOrNull;
 
       // Nur pushen, wenn Schreibrechte (Level >= 2) gegeben sind
       // Level 2 = Schreiben, Level 3 = Besitzer
@@ -469,15 +469,10 @@ class SyncNotifier extends Notifier<SyncState> {
 
       // Dateianhänge
       final localAttachmentsForEntry = await _databaseService.getAttachmentsByEntryId(entry.id);
-      final attachmentUuids = localAttachmentsForEntry.map((a) => a.uuid).where((u) =>
-      u
-          .trim()
-          .isNotEmpty).toSet().toList();
+      final attachmentUuids = localAttachmentsForEntry.map((a) => a.uuid).where((u) => u.trim().isNotEmpty).toSet().toList();
 
       // Liste der Freunde (UserId > 1) für den Server bauen
-      final friends = perms
-          .where((p) => p.userId > 1)
-          .map((p) {
+      final friends = perms.where((p) => p.userId > 1).map((p) {
         final uUuid = userMap[p.userId];
         if (uUuid == null || uUuid.isEmpty) return null;
         return FriendPermissionDto(
@@ -485,8 +480,7 @@ class SyncNotifier extends Notifier<SyncState> {
           encryptedKey: p.encryptedKey,
           accessLevel: p.accessLevel,
         );
-      }).nonNulls // Nur bekannte UUIDs, nulls filtern
-          .toList();
+      }).nonNulls.toList(); // Nur bekannte UUIDs, nulls filtern
 
       pushUpdates.add(
         SyncEntryDto(
@@ -504,15 +498,7 @@ class SyncNotifier extends Notifier<SyncState> {
     }
 
     // 2. Zu pushende Deletes ermitteln
-    final pushDeletes = localDeletes
-        .map(
-          (d) =>
-          SyncDeleteDto(
-            entryUuid: d.entryUuid,
-            deletedAt: d.deletedAt,
-          ),
-    )
-        .toList();
+    final pushDeletes = localDeletes.map((d) => SyncDeleteDto(entryUuid: d.entryUuid, deletedAt: d.deletedAt)).toList();
 
     // 3. Updates und Deletes an den Server pushen
     if (pushUpdates.isNotEmpty || pushDeletes.isNotEmpty) {
@@ -545,8 +531,6 @@ class SyncNotifier extends Notifier<SyncState> {
 
   /// Verschlüsselt die Freunde und lädt sie auf den Server hoch.
   Future<void> _pushFriends() async {
-    if (_sessionService.privateKey == null) throw Exception("RSA PrivateKey nicht gefunden");
-
     // Wir nutzen HKDF, um aus dem RSA-Private-Key einen stabilen AES-Key für die Freundesliste abzuleiten.
     final aesKey = _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
     try {

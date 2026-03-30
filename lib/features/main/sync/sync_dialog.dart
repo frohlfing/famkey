@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/sync/adopt_identity/adopt_identity_dialog.dart';
-import 'package:privault/features/sync/sync_notifier.dart';
-import 'package:privault/features/sync/sync_state.dart';
+import 'package:privault/features/main/sync/adopt_identity/adopt_identity_dialog.dart';
+import 'package:privault/features/main/sync/sync_notifier.dart';
+import 'package:privault/features/main/sync/sync_state.dart';
 
 /// Ein modaler Dialog zum Synchronisieren des Tresors.
 class SyncDialog extends ConsumerStatefulWidget {
