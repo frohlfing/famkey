@@ -14,6 +14,9 @@ class EntryPayload {
   /// Das Passwort des Eintrags.
   final String password;
 
+  /// Der Zeitstempel des Passworts (UTC).
+  final DateTime passwordTimestamp;
+
   /// Die zugehörige Web-Adresse.
   final String url;
 
@@ -25,27 +28,15 @@ class EntryPayload {
 
   /// Konstruktor
   EntryPayload({
-    this.category = '',
-    this.title = '',
-    this.username = '',
-    this.password = '',
-    this.url = '',
-    this.notes = '',
-    this.favicon = '',
+    required this.category,
+    required this.title,
+    required this.username,
+    required this.password,
+    required this.passwordTimestamp,
+    required this.url,
+    required this.notes,
+    required this.favicon,
   });
-
-  /// Konvertiert eine [EntryPayload] in eine Map für die JSON-Serialisierung.
-  Map<String, dynamic> toJson() {
-    return {
-      'category': category,
-      'title': title,
-      'username': username,
-      'password': password,
-      'url': url,
-      'notes': notes,
-      'favicon': favicon,
-    };
-  }
 
   /// Erstellt eine [EntryPayload] aus einer JSON-Map.
   factory EntryPayload.fromJson(Map<String, dynamic> json) {
@@ -54,9 +45,24 @@ class EntryPayload {
       title: json['title'] as String? ?? '',
       username: json['username'] as String? ?? '',
       password: json['password'] as String? ?? '',
+      passwordTimestamp: DateTime.tryParse(json['password_timestamp'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
       url: json['url'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       favicon: json['favicon'] as String? ?? '',
     );
+  }
+
+  /// Konvertiert eine [EntryPayload] in eine Map für die JSON-Serialisierung.
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'title': title,
+      'username': username,
+      'password': password,
+      'password_timestamp': passwordTimestamp.toIso8601String(),
+      'url': url,
+      'notes': notes,
+      'favicon': favicon,
+    };
   }
 }

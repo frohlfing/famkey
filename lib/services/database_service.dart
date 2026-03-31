@@ -775,14 +775,15 @@ class DatabaseService {
       id: const Value(1),
       salt: Value(settings.salt),
       encryptedPrivateKey: Value(settings.encryptedPrivateKey),
+      masterKeyTimestamp: Value(settings.masterKeyTimestamp),
       host: Value(settings.host),
       apiToken: Value(settings.apiToken),
+      lastSyncAt: Value(settings.lastSyncAt),
       useBiometric: Value(settings.useBiometric),
       pwLength: Value(settings.pwLength),
       pwSpecialChars: Value(settings.pwSpecialChars),
       pwAvoidIlO0: Value(settings.pwAvoidIlO0),
       categoryPlaceholder: Value(settings.categoryPlaceholder),
-      lastSyncAt: Value(settings.lastSyncAt),
     );
 
     await _db!.into(_db!.settings).insertOnConflictUpdate(companion);

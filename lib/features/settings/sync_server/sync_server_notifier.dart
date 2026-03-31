@@ -119,6 +119,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
         final updatedSettings = _settings!.copyWith(
           host: formData.host,
           apiToken: formData.apiToken,
+          lastSyncAt: formData.host != state.originalFormData.host ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true) : null, // auf 1970‑01‑01 00:00:00 UTC zurücksetzen, wenn die Serveradresse geändert wurde
         );
         _settings = await _databaseService.saveSettings(updatedSettings);
         _sessionService.setSettings(_settings);

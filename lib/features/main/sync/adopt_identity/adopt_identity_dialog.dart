@@ -94,7 +94,7 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
 
     // Hinweistext
     final text = isOnboarding
-        ? "Du verwendest diesen Tresor bereits auf einem anderen Gerät. Bitte gib dein Master-Passwort ein, um die Identität zu übernehmen." // UUIDs stimmen nicht
+        ? "Du verwendest diesen Tresor bereits auf einem anderen Gerät. Bitte gib dein Master-Passwort ein, um die Identität zu übernehmen. Die Passwörter beider Geräte müssen übereinstimmen." // UUIDs stimmen nicht
         : "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein.";
 
     // Notifier holen

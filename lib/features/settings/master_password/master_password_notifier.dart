@@ -110,7 +110,7 @@ class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
           // --- Start Kritische Logik ---
 
           // 3.5. Neues Salt generieren, neuen Master-Key ableiten und damit den Private-Key neu verschlüsseln
-          final newSalt = _cryptoService.generateSalt();
+          final newSalt = _cryptoService.generateSalt(); // todo erhöht ein neuer Salt die Sicherheit? salt ist ja kein Geheimnis. wenn nicht, brauchen webservice.changePassword kein salt-Parameter
           newMasterKey = await _cryptoService.deriveKey(formData.newPassword, newSalt);
           final newEncryptedPrivKey = await _cryptoService.encrypt(_sessionService.privateKey!, newMasterKey);
 
@@ -129,6 +129,7 @@ class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
           final updatedSettings = _sessionService.settings!.copyWith(
             salt: base64Encode(newSalt),
             encryptedPrivateKey: newEncryptedPrivKey,
+            masterKeyTimestamp: DateTime.now().toUtc(),
           );
           final settings = await _databaseService.saveSettings(updatedSettings);
           _sessionService.setSettings(settings);

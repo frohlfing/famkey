@@ -237,6 +237,9 @@ class _MainPageState extends ConsumerState<MainPage> {
                         },
                       ),
               ),
+
+              // --- Abstand zum unteren Rand ---
+              const SizedBox(height: 48),
             ],
           ),
         ),

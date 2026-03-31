@@ -312,6 +312,9 @@ class _EditPageState extends ConsumerState<EditPage> {
                     icon: const Icon(Icons.delete_outlined),
                     label: const Text('Eintrag löschen'),
                   ),
+
+                // --- Abstand zum unteren Rand ---
+                const SizedBox(height: 48),
               ],
             ),
           ),

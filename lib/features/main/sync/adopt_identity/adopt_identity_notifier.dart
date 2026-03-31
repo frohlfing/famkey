@@ -98,14 +98,14 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
         return;
       }
 
-      // 4. MasterKey ableiten (Argon2id)
+      // 4. Master-Key vom lokalen Salt ableiten (Argon2id)
       if (_sessionService.settings == null) throw Exception('Die Einstellungen sind nicht in der Session abgelegt.');
       if (_sessionService.settings!.salt.isEmpty) throw Exception("Das Salt liegt nicht in der Session.");
       await Future.delayed(const Duration(milliseconds: 50)); // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       final salt = base64Decode(_sessionService.settings!.salt);
       masterKey = await _cryptoService.deriveKey(password, salt);
 
-      // 5. Passwort validieren
+      // 5. Master-Passwort validieren (muss zum lokalen Tresor passen)
       if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in der Session leer.");
       try {
         await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
@@ -125,8 +125,14 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
         final newSalt = base64Decode(_userIdentity!.salt);
         newMasterKey = await _cryptoService.deriveKey(password, newSalt);
 
-        // 8. Private-Key der neune Identität entschlüsseln
-        final newPrivateKey = await _cryptoService.decrypt(_userIdentity!.encryptedPrivateKey, newMasterKey);
+        // 8. Private-Key der neuen Identität entschlüsseln
+        Uint8List newPrivateKey;
+        try {
+          newPrivateKey = await _cryptoService.decrypt(_userIdentity!.encryptedPrivateKey, newMasterKey);
+        } catch (_) {
+          state = state.copyWith(status: AdoptIdentityActionStatus.failure, error: AppError(ErrorCode.wrongPassword, text: 'Der Tresor auf dem Server ist mit einem anderen Master-Passwort verschlüsselt.'));
+          return;
+        }
 
         // 9. Falls sich das RSA-Schlüsselpaar geändert hat: Alle Permissions umschlüsseln
         if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");

@@ -440,6 +440,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     label: const Text('Tresor lokal löschen'),
                   ),
                 ),
+
+                // --- Abstand zum unteren Rand ---
                 const SizedBox(height: 48),
               ],
             ),

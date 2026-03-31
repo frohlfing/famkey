@@ -33,6 +33,9 @@ class DetailState {
   /// Die berechnete Passwortstärke
   final int passwordStrength;
 
+  /// Ein Text-Hinweis über das Alter des Passworts.
+  final String passwordHint;
+
   /// Die zugehörige Adresse der Webseite oder des Dienstes.
   final String url;
 
@@ -103,6 +106,7 @@ class DetailState {
     this.username = '',
     this.password = '',
     this.passwordStrength = 0,
+    this.passwordHint = '',
     this.url = '',
     this.notes = '',
     this.favicon = '',
@@ -121,6 +125,7 @@ class DetailState {
     String? username,
     String? password,
     int? passwordStrength,
+    String? passwordHint,
     String? url,
     String? notes,
     String? favicon,
@@ -137,6 +142,7 @@ class DetailState {
       username: username ?? this.username,
       password: password ?? this.password,
       passwordStrength: passwordStrength ?? this.passwordStrength,
+      passwordHint: passwordHint ?? this.passwordHint,
       url: url ?? this.url,
       notes: notes ?? this.notes,
       favicon: favicon ?? this.favicon,

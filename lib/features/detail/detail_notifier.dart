@@ -99,7 +99,8 @@ class DetailNotifier extends Notifier<DetailState> {
       final decryptedData = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
       final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
 
-      // 5. Audit-Hinweis generieren
+      // 5. Passwort- und Audit-Hinweis generieren
+      final passwordHint = _createPasswordHint(payload.passwordTimestamp);
       final auditHint = await _createAuditHint();
 
       // 6. Dateianhänge laden
@@ -117,6 +118,7 @@ class DetailNotifier extends Notifier<DetailState> {
         username: payload.username,
         password: payload.password,
         passwordStrength: _passwordService.estimateStrength(payload.password),
+        passwordHint: passwordHint,
         url: payload.url,
         notes: payload.notes,
         favicon: _entry!.favicon,
@@ -150,6 +152,34 @@ class DetailNotifier extends Notifier<DetailState> {
     final dateStr = DateFormat("dd.MM.yyyy HH:mm:ss").format(_entry!.updatedAt.toLocal());
 
     return "• Erstellt von: $creator \n• Zuletzt bearbeitet von: $updater, am $dateStr";
+  }
+
+  /// Generiert einen Passwort-Hinweis über das Alter des Passworts.
+  String _createPasswordHint(DateTime passwordTimestamp) {
+    final dateStr = DateFormat("dd.MM.yyyy").format(passwordTimestamp.toLocal());
+    return "Alter: ${_getPasswordAge(passwordTimestamp)} (geändert am $dateStr)";
+  }
+
+  /// Berechnet das Alter des Passworts.
+  String _getPasswordAge(DateTime passwordTimestamp) {
+    final days = DateTime.now().difference(passwordTimestamp).inDays;
+
+    if (days == 0) return '0 Tage';
+    if (days == 1) return '1 Tag';
+
+    final weeks = (days / 7).round();
+    if (weeks < 2) return '$days Tage';
+
+    final months = (days / 30).round();
+    if (months < 2) return '$weeks Wochen';
+
+    final years = (days / 365).round();
+    if (years < 2) return '$months Monate';
+
+    final remainingMonths = ((days - years * 365) / 30).round();
+    if (remainingMonths == 0) return '$years Jahre';
+    if (remainingMonths == 1) return '$years Jahre und 1 Monat';
+    return '$years Jahre und $remainingMonths Monate';
   }
 
   /// Kopiert den Text in die Zwischenablage.
@@ -219,11 +249,13 @@ class DetailNotifier extends Notifier<DetailState> {
       }
 
       // 1. Metadaten-Payload vorbereiten
-      final metaPayload = AttachmentMetaPayload(filename: file.name,
-          mime: mimeType,
-          size: bytes.length,
-          timestamp: DateTime.now().toUtc(),
-          thumbnail: thumbnailBase64);
+      final metaPayload = AttachmentMetaPayload(
+        filename: file.name,
+        mime: mimeType,
+        size: bytes.length,
+        thumbnail: thumbnailBase64,
+        timestamp: DateTime.now().toUtc(),
+      );
 
       // 2. Verschlüsseln (AES)
       final encryptedMeta = await _cryptoService.encrypt(Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), _entryKey!);

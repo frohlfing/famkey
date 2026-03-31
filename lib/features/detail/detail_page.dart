@@ -166,7 +166,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Stammdaten
                 // ------------------------------------------------------------------------
 
-                // Benutzername
+                // --- Benutzername ---
                 Consumer(builder: (ctx, ref, _) {
                   final username = ref.watch(detailProvider.select((s) => s.username));
                   //if (username.isEmpty) return const SizedBox.shrink();
@@ -186,7 +186,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   );
                 }),
 
-                // Passwort
+                // --- Passwort ---
                 Consumer(builder: (ctx, ref, _) {
                   final password = ref.watch(detailProvider.select((s) => s.password));
                   //if (password.isEmpty) return const SizedBox.shrink();
@@ -222,7 +222,24 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   );
                 }),
 
-                // URL
+                // --- Passwort-Hinweis ---
+                Consumer(builder: (ctx, ref, _) {
+                  final passwordHint = ref.watch(detailProvider.select((s) => s.passwordHint));
+                  if (passwordHint.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      passwordHint,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  );
+                }),
+
+                // --- URL ---
                 Consumer(builder: (ctx, ref, _) {
                   final url = ref.watch(detailProvider.select((s) => s.url));
                   //if (url.isEmpty) return const SizedBox.shrink();
@@ -242,7 +259,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   );
                 }),
 
-                // Notizen
+                // --- Notizen ---
                 Consumer(builder: (ctx, ref, _) {
                   final notes = ref.watch(detailProvider.select((s) => s.notes));
                   if (notes.isEmpty) return const SizedBox.shrink();
@@ -435,7 +452,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   );
                 }),
 
-                // Audit Hint
+                // --- Audit-Hinweis ---
                 Consumer(builder: (ctx, ref, _) {
                   final auditHint = ref.watch(detailProvider.select((s) => s.auditHint));
                   if (auditHint.isEmpty) return const SizedBox.shrink();
@@ -452,6 +469,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   );
                 }),
 
+                // --- Abstand zum unteren Rand ---
+                const SizedBox(height: 48),
               ],
             ),
           ),

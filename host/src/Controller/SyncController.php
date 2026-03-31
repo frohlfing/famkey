@@ -125,9 +125,9 @@ final class SyncController
         foreach ($stmt->fetchAll() as $row) {
             // Freunde laden, die Zugriff auf den Eintrag haben
             $stmtPerm = $pdo->prepare("
-                    SELECT user_uuid, encrypted_key, access_level
-                    FROM permissions 
-                    WHERE entry_uuid = ? AND user_uuid != ?
+                SELECT user_uuid, encrypted_key, access_level
+                FROM permissions 
+                WHERE entry_uuid = ? AND user_uuid != ?
                 ");
             $stmtPerm->execute([$row['uuid'], $userUuid]);
             $friends = $stmtPerm->fetchAll();

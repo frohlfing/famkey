@@ -47,6 +47,9 @@ class EditNotifier extends Notifier<EditState> {
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
 
+  /// Der Zeitstempel des Passworts (UTC) im Payload. Ist null bei einem neuen Eintrag.
+  DateTime? _passwordTimestamp;
+
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -102,7 +105,7 @@ class EditNotifier extends Notifier<EditState> {
         final jsonStr = utf8.decode(decrypted);
         final payload = EntryPayload.fromJson(json.decode(jsonStr));
 
-        // UI-State aktualisieren
+        // Formulardaten aus Payload laden
         final formData = EditFormData(
           category: payload.category,
           title: payload.title,
@@ -111,6 +114,11 @@ class EditNotifier extends Notifier<EditState> {
           url: payload.url,
           notes: payload.notes,
         );
+
+        // brauchen wir später beim Speichern des neuen Payloads
+        _passwordTimestamp = payload.passwordTimestamp;
+
+        // UI-State aktualisieren
         state = state.copyWith(
           entryId: _entry!.id,
           formData: formData,
@@ -124,6 +132,7 @@ class EditNotifier extends Notifier<EditState> {
         _entry = null;
         _entryKey = null;
         final formData = const EditFormData();
+        _passwordTimestamp = null;
         state = state.copyWith(
           entryId: 0,
           formData: formData,
@@ -181,11 +190,17 @@ class EditNotifier extends Notifier<EditState> {
       }
 
       // 5. Payload bauen und verschlüsseln (AES)
+      var passwordTimestamp = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true); // 1970‑01‑01 00:00:00 UTC
+      if (formData.password.isNotEmpty) {
+        passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
+      }
+
       final payload = EntryPayload(
         category: formData.category,
         title: formData.title,
         username: formData.username,
         password: formData.password,
+        passwordTimestamp: passwordTimestamp,
         url: formData.url,
         notes: formData.notes,
         favicon: favicon,

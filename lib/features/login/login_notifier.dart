@@ -191,7 +191,7 @@ class LoginNotifier extends Notifier<LoginState> {
       await _databaseService.initialize(vaultName, masterKey);
 
       if (state.isExists) {
-        // DB geöffnet
+        // Tresor geöffnet
 
         // Benutzer und Settings laden
         user = await _databaseService.getUser(1);
@@ -224,7 +224,7 @@ class LoginNotifier extends Notifier<LoginState> {
           return;
         }
       } else {
-        // DB angelegt
+        // Tresor angelegt
 
         // Salt-Datei anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
         await _databaseService.saveSalt(vaultName, salt);
@@ -253,14 +253,15 @@ class LoginNotifier extends Notifier<LoginState> {
             id: 0,
             salt: base64.encode(salt),
             encryptedPrivateKey: encryptedPrivKey,
+            masterKeyTimestamp: DateTime.now().toUtc(),
             host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
             apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
+            lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // 1970‑01‑01 00:00:00 UTC
             useBiometric: false,
             pwLength: defaultPwLength,
             pwSpecialChars: defaultPwSpecialChars,
             pwAvoidIlO0: true,
             categoryPlaceholder: '',
-            lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
           ),
         );
       }

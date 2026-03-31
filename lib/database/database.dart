@@ -195,6 +195,9 @@ class Settings extends Table {
   /// Da es sich um einen Singleton-Datensatz handelt, ist der Wert hierbei stets 1.
   IntColumn get id => integer().withDefault(const Constant(1))();
 
+  @override
+  Set<Column> get primaryKey => {id};
+
   // --- Kryptografie ---
 
   /// Das Salt, welches zur Ableitung des Master-Keys (Argon2id) verwendet wird.
@@ -203,6 +206,9 @@ class Settings extends Table {
   /// Der private RSA-Schlüssel des Benutzers - verschlüsselt mit dem Master-Key (AES-256-GCM).
   TextColumn get encryptedPrivateKey => text()();
 
+  /// Zeitstempel des Master-Keys (UTC).
+  DateTimeColumn get masterKeyTimestamp => dateTime()();
+
   // --- Sync-Einstellungen ---
 
   /// Die URL des Sync-Servers (Host).
@@ -210,6 +216,9 @@ class Settings extends Table {
 
   /// Das API-Token zur Authentifizierung gegenüber dem Sync-Server.
   TextColumn get apiToken => text()();
+
+  /// Zeitpunkt der letzten erfolgreichen Synchronisation (UTC, Serverzeit).
+  DateTimeColumn get lastSyncAt => dateTime()();
 
   // --- Biometrie ---
 
@@ -231,14 +240,6 @@ class Settings extends Table {
 
   /// Der Name, der in der UI als Platzhalter für Einträge ohne explizite Kategorie verwendet wird.
   TextColumn get categoryPlaceholder => text()(); // todo umbenennen in unnamedCategory
-
-  // --- Synchronisation ---
-
-  /// Zeitpunkt der letzten erfolgreichen Synchronisation (UTC, Serverzeit).
-  DateTimeColumn get lastSyncAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
 }
 
 @DriftDatabase(tables: [Users, Entries, Permissions, Attachments, Tombstones, Settings])

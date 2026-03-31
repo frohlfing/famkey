@@ -8,6 +8,7 @@ namespace App\Controller;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Time;
 use App\Core\Uuid;
 use PDOException;
 
@@ -42,6 +43,7 @@ final class UserController
      *   "salt": "{salt}",
      *   "public_key": "{public_key}",
      *   "encrypted_private_key": "{encrypted_private_key}",
+     *   "master_key_timestamp": "{master_key_timestamp}",
      *   "encrypted_friends": "{encrypted_friends}"
      * }
      * </code>
@@ -80,6 +82,7 @@ final class UserController
                 salt, 
                 public_key, 
                 encrypted_private_key,
+                master_key_timestamp,
                 encrypted_friends
             FROM users
             WHERE uuid = ?
@@ -123,6 +126,7 @@ final class UserController
      *   "salt": "{salt}",
      *   "public_key": "{public_key}",
      *   "encrypted_private_key": "{encrypted_private_key}",
+     *   "master_key_timestamp": "{master_key_timestamp}",
      *   "encrypted_friends": "{encrypted_friends}"
      * }
      * </code>
@@ -161,6 +165,7 @@ final class UserController
                 u.salt, 
                 u.public_key, 
                 u.encrypted_private_key,
+                u.master_key_timestamp,
                 u.encrypted_friends
             FROM users u
             JOIN vaults v ON u.vault_uuid = v.uuid
@@ -196,7 +201,8 @@ final class UserController
      *   "user_hash": "{user_hash}",
      *   "salt": "{salt}",
      *   "public_key": "{public_key}",
-     *   "encrypted_private_key": "{encrypted_private_key}"
+     *   "encrypted_private_key": "{encrypted_private_key}",
+     *   "master_key_timestamp": "{master_key_timestamp}",
      * }
      * </code>
      *
@@ -209,6 +215,7 @@ final class UserController
      *   "salt": "{salt}",
      *   "public_key": "{public_key}",
      *   "encrypted_private_key": "{encrypted_private_key}",
+     *   "master_key_timestamp": "{master_key_timestamp}",
      *   "encrypted_friends": "{encrypted_friends}"
      * }
      * </code>
@@ -231,13 +238,15 @@ final class UserController
     public function register(Request $request): Response
     {
         // Parameter holen
-        $request->ensureHas(['user_uuid', 'vault_hash', 'user_hash', 'salt', 'public_key', 'encrypted_private_key']);
+        $request->ensureHas(['user_uuid', 'vault_hash', 'user_hash', 'salt', 'public_key', 'encrypted_private_key', 'master_key_timestamp']);
         $userUuid = $request->string('user_uuid');
         $vaultHash = $request->string('vault_hash');
         $userHash = $request->string('user_hash');
         $salt = $request->string('salt');
         $publicKey = $request->string('public_key');
         $encryptedPrivateKey = $request->string('encrypted_private_key');
+        $masterKeyTimestamp = Time::iso8601ToMysql($request->date('master_key_timestamp'));
+
         // Header-Parameter
         $isTestRequest = !empty($request->server['HTTP_X_TEST']) ? 1 : 0;
 
@@ -282,8 +291,8 @@ final class UserController
             }
 
             // Benutzer anlegen
-            $stmt = $pdo->prepare('INSERT INTO users (uuid, vault_uuid, hash_name, salt, public_key, encrypted_private_key) VALUES (?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$userUuid, $vaultUuid, $userHash, $salt, $publicKey, $encryptedPrivateKey]);
+            $stmt = $pdo->prepare('INSERT INTO users (uuid, vault_uuid, hash_name, salt, public_key, encrypted_private_key, master_key_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$userUuid, $vaultUuid, $userHash, $salt, $publicKey, $encryptedPrivateKey, $masterKeyTimestamp]);
 
             // Antwort generieren
             return Response::json([
@@ -293,6 +302,7 @@ final class UserController
                 'salt' => $salt,
                 'public_key' => $publicKey,
                 'encrypted_private_key' => $encryptedPrivateKey,
+                'master_key_timestamp' => $masterKeyTimestamp,
                 'encrypted_friends' => null
             ], 201);
         }
@@ -324,7 +334,8 @@ final class UserController
      * <code>
      * {
      *   "salt": "{salt}",
-     *   "encrypted_private_key": "{encrypted_private_key}"
+     *   "encrypted_private_key": "{encrypted_private_key}",
+     *   "master_key_timestamp": "{master_key_timestamp}",
      * }
      * </code>
      *
@@ -348,10 +359,11 @@ final class UserController
     public function changePassword(Request $request): Response
     {
         // Parameter holen
-        $request->ensureHas(['user_uuid', 'salt', 'encrypted_private_key']);
+        $request->ensureHas(['user_uuid', 'salt', 'encrypted_private_key', 'master_key_timestamp']);
         $userUuid = $request->string('user_uuid');
         $salt = $request->string('salt');
         $encryptedPrivateKey = $request->string('encrypted_private_key');
+        $masterKeyTimestamp = Time::iso8601ToMysql($request->date('master_key_timestamp'));
 
         // Der zu ändernde Benutzer muss der authentifizierte Benutzer sein.
         if ($userUuid !== $request->authUserUuid()) {
@@ -360,8 +372,8 @@ final class UserController
 
         // Passwort ändern
         $pdo = Database::pdo();
-        $stmt = $pdo->prepare('UPDATE users SET salt = ?, encrypted_private_key = ? WHERE uuid = ?');
-        $stmt->execute([$salt, $encryptedPrivateKey, $userUuid]);
+        $stmt = $pdo->prepare('UPDATE users SET salt = ?, encrypted_private_key = ?, master_key_timestamp = ? WHERE uuid = ?');
+        $stmt->execute([$salt, $encryptedPrivateKey, $masterKeyTimestamp, $userUuid]);
 
         // Antwort generieren (204 No Content)
         return Response::empty();

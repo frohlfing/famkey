@@ -68,10 +68,11 @@ class SyncNotifier extends Notifier<SyncState> {
 
       if (_sessionService.settings == null) throw Exception("Settings liegt nicht in der Session.");
       final settings = _sessionService.settings!;
+      if (settings.encryptedPrivateKey.isEmpty) throw Exception("Der private RSA-Schlüssel liegt nicht in der Datenbank.");
+      if (settings.salt.isEmpty) throw Exception("Das Salt liegt nicht in der Datenbank.");
 
       if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
       final user = _sessionService.user!;
-
       if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
       // 1. WebService konfigurieren
@@ -97,29 +98,57 @@ class SyncNotifier extends Notifier<SyncState> {
         return;
       }
 
-      // 3. Benutzer registrieren, falls noch nicht geschehen
-      final userResponse = await _registerUserIfNeeded();
+      // 3. Benutzer über den Namen im angegebenen Tresor suchen.
+      var userResponse = await _webService.findUser(_sessionService.vaultName, user.name);
 
-      // todo Zeitstempel für Passwort vergleichen - auf dem Server nur speichern, wenn Passwort lokal aktueller ist, sonst adoptieren
-      if (userResponse.salt != settings.salt || userResponse.encryptedPrivateKey != settings.encryptedPrivateKey) {
-        /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
-        await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey);
-      }
+      // 4. Wenn der Benutzer nicht gefunden wurde, registrieren. Ansonsten sicherstellen, dass die UUID und die Schlüssel des Benutzers passen.
+      if (userResponse == null) {
+        // Benutzer existiert noch nicht
 
-      // 4. Sicherstellen, dass die UUID des Benutzers und das Salt übereinstimmen
-      // Wenn nicht, wird zum ersten mal ein Zweitgerät synchronisiert (onboarding) oder es wurde auf einem anderen Gerät das Passwort geändert.
-      if (user.uuid != userResponse.userUuid || settings.salt != userResponse.salt) {
-        // Dialog für die Identitätsübernahme öffnen
-        state = state.copyWith(
-          status: SyncStatus.askForAdoption,
-          adoptionUserIdentity: UserIdentity(
-            userUuid: userResponse.userUuid,
-            salt: userResponse.salt,
-            publicKey: userResponse.publicKey,
-            encryptedPrivateKey: userResponse.encryptedPrivateKey,
-          ),
+        // Jetzt registrieren.
+        userResponse = await _webService.registerUser(
+          vaultName: _sessionService.vaultName,
+          userName: user.name,
+          userUuid: user.uuid,
+          salt: settings.salt,
+          publicKey: user.publicKey,
+          encryptedPrivateKey: settings.encryptedPrivateKey,
+          masterKeyTimestamp: settings.masterKeyTimestamp,
         );
-        return; // Sync-Prozess hier abbrechen
+
+        // Die UUID des Benutzers muss gleich sein!
+        if (userResponse.userUuid != user.uuid) throw Exception("Die vom Server erhaltene UUID entspricht nicht dem lokalen Benutzer.");
+
+      } else {
+        // Der Name des Benutzers existiert auf dem Server.
+
+        // Fall ein anderes Gerät den Benutzer registriert hat und dieses Gerät noch nicht mit dem Server synchronisiert wurde, stimmt die UUID des Benutzers nicht.
+        // In diesem Fall wird die UUID des Benutzers, das Salt und das RSA-Schlüsselpaar des anderen Gerätes übernommen.
+        final isOnboarding = userResponse.userUuid != user.uuid;
+
+        // Falls das Master-Passwort geändert wurde, ist der private RSA-Schlüssel anders verpackt (und Salt wurde neu generiert). todo ist ein neuer Salt notwendig?
+        // In diesem Fall entscheidet der Zeitstempel des Master-Keys, ob die Schlüssel auf dem Server oder auf dem lokalen Gerät aktualisiert werden.
+        final isKeyConflict = userResponse.encryptedPrivateKey != settings.encryptedPrivateKey || userResponse.salt != settings.salt;
+        final isServerNewer = userResponse.masterKeyTimestamp.isAfter(settings.masterKeyTimestamp); // der Server ist aktueller
+
+        if (isOnboarding || (isKeyConflict && isServerNewer)) {
+          // Der Server ist aktueller -> Dialog für die Identitätsübernahme öffnen
+          Logger().info(isOnboarding ? 'Erste Synchronisation. Starte Adoption.' : 'Das lokale Master-Passwort ist veraltet. Starte Adoption.');
+          state = state.copyWith(
+            status: SyncStatus.askForAdoption,
+            adoptionUserIdentity: UserIdentity(
+              userUuid: userResponse.userUuid,
+              salt: userResponse.salt,
+              publicKey: userResponse.publicKey,
+              encryptedPrivateKey: userResponse.encryptedPrivateKey,
+            ),
+          );
+          return; // Sync-Prozess hier abbrechen; nach der Adoption wird die Synchronisation erneut gestartet
+        }
+        
+        // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
+        Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
+        await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
       }
 
       // 5. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
@@ -186,15 +215,9 @@ class SyncNotifier extends Notifier<SyncState> {
         salt: settings.salt,
         publicKey: user.publicKey,
         encryptedPrivateKey: settings.encryptedPrivateKey,
+        masterKeyTimestamp: settings.masterKeyTimestamp,
       );
-
-      // Die vom Server erhaltene UUID speichern
-      user = user.copyWith(uuid: userResponse.userUuid);
-      user = await _databaseService.saveUser(user);
-
-      // Session aktualisieren
-      _sessionService.setUser(user);
-      _sessionService.setSettings(settings);
+      if (userResponse.userUuid != user.uuid) throw Exception("Die vom Server erhaltene UUID entspricht nicht dem lokalen Benutzer.");
     }
 
     return userResponse;
@@ -326,13 +349,13 @@ class SyncNotifier extends Notifier<SyncState> {
 
     // 5. Updates einspielen
     for (var entryDto in pullResponse.updates.where((u) => u.accessLevel > 0)) {
-      if (entryDto.encryptedKey == null || entryDto.encryptedKey!.isEmpty) throw Exception("Heruntergeladenen Eintrag ${entryDto.entryUuid} hat kein Entry-Key.");
+      if (entryDto.encryptedKey.isEmpty) throw Exception("Heruntergeladenen Eintrag ${entryDto.entryUuid} hat kein Entry-Key.");
 
       // 5.1 Suchfelder aus dem verschlüsselten Payload extrahieren
       String category = '', title = '', url = '', notes = '', favicon = '';
       try {
         // Wir brauchen den EntryKey (AES), um an die Suchfelder zu kommen
-        final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey!, utf8.decode(_sessionService.privateKey!));
+        final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey, utf8.decode(_sessionService.privateKey!));
         final decryptedData = await _cryptoService.decrypt(entryDto.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
         category = payload.category;
@@ -369,7 +392,7 @@ class SyncNotifier extends Notifier<SyncState> {
       final savedEntry = await _databaseService.saveEntryWithPermissions(
         entity,
         1, // userId
-        entryDto.encryptedKey!,
+        entryDto.encryptedKey,
         accessLevel: entryDto.accessLevel,
       );
 
@@ -383,7 +406,7 @@ class SyncNotifier extends Notifier<SyncState> {
             id: 0,
             entryId: savedEntry.id,
             userId: friendUserId,
-            encryptedKey: remoteFriends.encryptedKey ?? '',
+            encryptedKey: remoteFriends.encryptedKey,
             accessLevel: remoteFriends.accessLevel,
           ));
         }

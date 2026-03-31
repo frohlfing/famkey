@@ -18,6 +18,9 @@ class UserResponse {
   /// Der mit dem Master-Passwort verschlüsselte RSA-Privatschlüssel des Benutzers (Base64).
   final String encryptedPrivateKey;
 
+  /// Zeitstempel des Master-Keys (UTC).
+  final DateTime masterKeyTimestamp;
+
   /// Die verschlüsselte Freundesliste des Benutzers (Base64), optional.
   final String? encryptedFriends;
 
@@ -29,7 +32,8 @@ class UserResponse {
     required this.salt,
     required this.publicKey,
     required this.encryptedPrivateKey,
-    this.encryptedFriends,
+    required this.masterKeyTimestamp,
+    required this.encryptedFriends,
   });
 
   /// Wandelt ein JSON-Objekt in ein [UserResponse] Objekt um.
@@ -41,6 +45,7 @@ class UserResponse {
       salt: json['salt'] as String,
       publicKey: json['public_key'] as String,
       encryptedPrivateKey: json['encrypted_private_key'] as String,
+      masterKeyTimestamp: DateTime.tryParse(json['master_key_timestamp'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
       encryptedFriends: json['encrypted_friends'] as String?,
     );
   }

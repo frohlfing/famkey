@@ -19,7 +19,13 @@ class FriendPayload {
   final DateTime updatedAt;
 
   /// Konstruktor
-  FriendPayload({required this.uuid, required this.name, required this.isVerified, required this.isHidden, required this.updatedAt});
+  FriendPayload({
+    required this.uuid,
+    required this.name,
+    required this.isVerified,
+    required this.isHidden,
+    required this.updatedAt
+  });
 
   /// Erstellt eine [FriendPayload] aus einer JSON-Map.
   factory FriendPayload.fromJson(Map<String, dynamic> json) {
@@ -28,7 +34,7 @@ class FriendPayload {
       name: json['name'] as String,
       isVerified: json['isVerified'] as bool,
       isHidden: json['isHidden'] as bool,
-      updatedAt: DateTime.parse(json['updatedAt'] as String).toUtc(),
+      updatedAt: DateTime.tryParse(json['updatedAt'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 

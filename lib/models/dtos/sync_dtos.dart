@@ -19,7 +19,7 @@ class SyncPullResponse {
     return SyncPullResponse(
       updates: (json['updates'] as List).map((e) => SyncEntryDto.fromJson(e as Map<String, dynamic>)).toList(),
       deletes: (json['deletes'] as List).map((e) => SyncDeleteDto.fromJson(e as Map<String, dynamic>)).toList(),
-      serverTime: DateTime.parse(json['server_time'] as String).toUtc(),
+      serverTime: DateTime.tryParse(json['server_time'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 }
@@ -30,19 +30,19 @@ class FriendPermissionDto {
   final String userUuid;
 
   /// Der für diesen Freund RSA-verschlüsselte Entry-Key.
-  final String? encryptedKey;
+  final String encryptedKey;
 
   /// Die Berechtigungsstufe (1=Lesen, 2=Schreiben).
   final int accessLevel;
 
   /// Konstruktor
-  FriendPermissionDto({required this.userUuid, this.encryptedKey, required this.accessLevel});
+  FriendPermissionDto({required this.userUuid, required this.encryptedKey, required this.accessLevel});
 
   factory FriendPermissionDto.fromJson(Map<String, dynamic> json) {
     return FriendPermissionDto(
       userUuid: json['user_uuid'] as String,
-      encryptedKey: json['encrypted_key'] as String?,
-      accessLevel: json['access_level'] as int,
+      encryptedKey: json['encrypted_key'] as String,
+      accessLevel: (json['access_level'] ?? 0) as int,
     );
   }
 
@@ -54,7 +54,6 @@ class FriendPermissionDto {
 
 /// Datenübertragungsobjekt für einen Tresoreintrag auf API-Ebene.
 /// Bündelt verschlüsselte Daten, Metadaten und Freigabeinformationen.
-/// Entspricht `EntryDto.cs` aus MAUI.
 class SyncEntryDto {
   /// Die globale eindeutige Identifikationsnummer (UUID v4) des Eintrags.
   final String entryUuid;
@@ -63,7 +62,7 @@ class SyncEntryDto {
   final String encryptedData;
 
   /// Der für den aktuellen Benutzer verschlüsselte Entry-Key (RSA-Umschlag, Base64).
-  final String? encryptedKey;
+  final String encryptedKey;
 
   /// Die Zugriffsebene des anfragenden Benutzers für diesen Eintrag.
   final int accessLevel;
@@ -87,7 +86,7 @@ class SyncEntryDto {
   SyncEntryDto({
     required this.entryUuid,
     required this.encryptedData,
-    this.encryptedKey,
+    required this.encryptedKey,
     required this.accessLevel,
     required this.attachmentUuids,
     required this.friends,
@@ -101,13 +100,13 @@ class SyncEntryDto {
     return SyncEntryDto(
       entryUuid: json['entry_uuid'] as String,
       encryptedData: json['encrypted_data'] as String,
-      encryptedKey: json['encrypted_key'] as String?,
+      encryptedKey: json['encrypted_key'] as String,
       accessLevel: json['access_level'] as int,
       attachmentUuids: List<String>.from(json['attachment_uuids'] ?? []),
       friends: (json['friends'] as List?)?.map((e) => FriendPermissionDto.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       creatorUuid: json['creator_uuid'] as String,
       updaterUuid: json['updater_uuid'] as String,
-      updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
+      updatedAt: DateTime.tryParse(json['updated_at'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 
@@ -141,12 +140,18 @@ class SyncDeleteDto {
 
   /// Wandelt ein JSON-Objekt in ein [SyncDeleteDto] Objekt um.
   factory SyncDeleteDto.fromJson(Map<String, dynamic> json) {
-    return SyncDeleteDto(entryUuid: json['entry_uuid'] as String, deletedAt: DateTime.parse(json['deleted_at'] as String).toUtc());
+    return SyncDeleteDto(
+      entryUuid: json['entry_uuid'] as String,
+      deletedAt: DateTime.tryParse(json['deleted_at'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+    );
   }
 
   /// Wandelt ein [SyncDeleteDto] Objekt in ein JSON-Objekt um.
   Map<String, dynamic> toJson() {
-    return {'entry_uuid': entryUuid, 'deleted_at': deletedAt.toIso8601String()};
+    return {
+      'entry_uuid': entryUuid,
+      'deleted_at': deletedAt.toIso8601String(),
+    };
   }
 }
 
@@ -163,6 +168,9 @@ class SyncPushRequest {
 
   /// Wandelt ein JSON-Objekt in ein [SyncPushRequest] Objekt um.
   Map<String, dynamic> toJson() {
-    return {'updates': updates.map((e) => e.toJson()).toList(), 'deletes': deletes.map((e) => e.toJson()).toList()};
+    return {
+      'updates': updates.map((e) => e.toJson()).toList(),
+      'deletes': deletes.map((e) => e.toJson()).toList(),
+    };
   }
 }

@@ -2232,6 +2232,17 @@ class $SettingsTable extends Settings
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _masterKeyTimestampMeta =
+      const VerificationMeta('masterKeyTimestamp');
+  @override
+  late final GeneratedColumn<DateTime> masterKeyTimestamp =
+      GeneratedColumn<DateTime>(
+        'master_key_timestamp',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
   static const VerificationMeta _hostMeta = const VerificationMeta('host');
   @override
   late final GeneratedColumn<String> host = GeneratedColumn<String>(
@@ -2250,6 +2261,17 @@ class $SettingsTable extends Settings
     aliasedName,
     false,
     type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSyncAtMeta = const VerificationMeta(
+    'lastSyncAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncAt = GeneratedColumn<DateTime>(
+    'last_sync_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _useBiometricMeta = const VerificationMeta(
@@ -2275,8 +2297,7 @@ class $SettingsTable extends Settings
     aliasedName,
     false,
     type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(16),
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _pwSpecialCharsMeta = const VerificationMeta(
     'pwSpecialChars',
@@ -2294,15 +2315,14 @@ class $SettingsTable extends Settings
   );
   @override
   late final GeneratedColumn<bool> pwAvoidIlO0 = GeneratedColumn<bool>(
-    'pw_avoid_il_o0',
+    'pw_avoid_ilo0',
     aliasedName,
     false,
     type: DriftSqlType.bool,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("pw_avoid_il_o0" IN (0, 1))',
+      'CHECK ("pw_avoid_ilo0" IN (0, 1))',
     ),
-    defaultValue: const Constant(true),
   );
   static const VerificationMeta _categoryPlaceholderMeta =
       const VerificationMeta('categoryPlaceholder');
@@ -2315,30 +2335,20 @@ class $SettingsTable extends Settings
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       );
-  static const VerificationMeta _lastSyncAtMeta = const VerificationMeta(
-    'lastSyncAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastSyncAt = GeneratedColumn<DateTime>(
-    'last_sync_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     salt,
     encryptedPrivateKey,
+    masterKeyTimestamp,
     host,
     apiToken,
+    lastSyncAt,
     useBiometric,
     pwLength,
     pwSpecialChars,
     pwAvoidIlO0,
     categoryPlaceholder,
-    lastSyncAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2374,6 +2384,17 @@ class $SettingsTable extends Settings
     } else if (isInserting) {
       context.missing(_encryptedPrivateKeyMeta);
     }
+    if (data.containsKey('master_key_timestamp')) {
+      context.handle(
+        _masterKeyTimestampMeta,
+        masterKeyTimestamp.isAcceptableOrUnknown(
+          data['master_key_timestamp']!,
+          _masterKeyTimestampMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_masterKeyTimestampMeta);
+    }
     if (data.containsKey('host')) {
       context.handle(
         _hostMeta,
@@ -2389,6 +2410,17 @@ class $SettingsTable extends Settings
       );
     } else if (isInserting) {
       context.missing(_apiTokenMeta);
+    }
+    if (data.containsKey('last_sync_at')) {
+      context.handle(
+        _lastSyncAtMeta,
+        lastSyncAt.isAcceptableOrUnknown(
+          data['last_sync_at']!,
+          _lastSyncAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastSyncAtMeta);
     }
     if (data.containsKey('use_biometric')) {
       context.handle(
@@ -2406,6 +2438,8 @@ class $SettingsTable extends Settings
         _pwLengthMeta,
         pwLength.isAcceptableOrUnknown(data['pw_length']!, _pwLengthMeta),
       );
+    } else if (isInserting) {
+      context.missing(_pwLengthMeta);
     }
     if (data.containsKey('pw_special_chars')) {
       context.handle(
@@ -2418,14 +2452,16 @@ class $SettingsTable extends Settings
     } else if (isInserting) {
       context.missing(_pwSpecialCharsMeta);
     }
-    if (data.containsKey('pw_avoid_il_o0')) {
+    if (data.containsKey('pw_avoid_ilo0')) {
       context.handle(
         _pwAvoidIlO0Meta,
         pwAvoidIlO0.isAcceptableOrUnknown(
-          data['pw_avoid_il_o0']!,
+          data['pw_avoid_ilo0']!,
           _pwAvoidIlO0Meta,
         ),
       );
+    } else if (isInserting) {
+      context.missing(_pwAvoidIlO0Meta);
     }
     if (data.containsKey('category_placeholder')) {
       context.handle(
@@ -2437,17 +2473,6 @@ class $SettingsTable extends Settings
       );
     } else if (isInserting) {
       context.missing(_categoryPlaceholderMeta);
-    }
-    if (data.containsKey('last_sync_at')) {
-      context.handle(
-        _lastSyncAtMeta,
-        lastSyncAt.isAcceptableOrUnknown(
-          data['last_sync_at']!,
-          _lastSyncAtMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_lastSyncAtMeta);
     }
     return context;
   }
@@ -2470,6 +2495,10 @@ class $SettingsTable extends Settings
         DriftSqlType.string,
         data['${effectivePrefix}encrypted_private_key'],
       )!,
+      masterKeyTimestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}master_key_timestamp'],
+      )!,
       host: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}host'],
@@ -2477,6 +2506,10 @@ class $SettingsTable extends Settings
       apiToken: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}api_token'],
+      )!,
+      lastSyncAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync_at'],
       )!,
       useBiometric: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -2492,15 +2525,11 @@ class $SettingsTable extends Settings
       )!,
       pwAvoidIlO0: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
-        data['${effectivePrefix}pw_avoid_il_o0'],
+        data['${effectivePrefix}pw_avoid_ilo0'],
       )!,
       categoryPlaceholder: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}category_placeholder'],
-      )!,
-      lastSyncAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_sync_at'],
       )!,
     );
   }
@@ -2522,11 +2551,17 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
   /// Der private RSA-Schlüssel des Benutzers - verschlüsselt mit dem Master-Key (AES-256-GCM).
   final String encryptedPrivateKey;
 
+  /// Zeitstempel des Master-Keys (UTC).
+  final DateTime masterKeyTimestamp;
+
   /// Die URL des Sync-Servers (Host).
   final String host;
 
   /// Das API-Token zur Authentifizierung gegenüber dem Sync-Server.
   final String apiToken;
+
+  /// Zeitpunkt der letzten erfolgreichen Synchronisation (UTC, Serverzeit).
+  final DateTime lastSyncAt;
 
   /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
   final bool useBiometric;
@@ -2542,21 +2577,19 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
 
   /// Der Name, der in der UI als Platzhalter für Einträge ohne explizite Kategorie verwendet wird.
   final String categoryPlaceholder;
-
-  /// Zeitpunkt der letzten erfolgreichen Synchronisation (UTC, Serverzeit).
-  final DateTime lastSyncAt;
   const SettingsEntity({
     required this.id,
     required this.salt,
     required this.encryptedPrivateKey,
+    required this.masterKeyTimestamp,
     required this.host,
     required this.apiToken,
+    required this.lastSyncAt,
     required this.useBiometric,
     required this.pwLength,
     required this.pwSpecialChars,
     required this.pwAvoidIlO0,
     required this.categoryPlaceholder,
-    required this.lastSyncAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2564,14 +2597,15 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
     map['id'] = Variable<int>(id);
     map['salt'] = Variable<String>(salt);
     map['encrypted_private_key'] = Variable<String>(encryptedPrivateKey);
+    map['master_key_timestamp'] = Variable<DateTime>(masterKeyTimestamp);
     map['host'] = Variable<String>(host);
     map['api_token'] = Variable<String>(apiToken);
+    map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
     map['use_biometric'] = Variable<bool>(useBiometric);
     map['pw_length'] = Variable<int>(pwLength);
     map['pw_special_chars'] = Variable<String>(pwSpecialChars);
-    map['pw_avoid_il_o0'] = Variable<bool>(pwAvoidIlO0);
+    map['pw_avoid_ilo0'] = Variable<bool>(pwAvoidIlO0);
     map['category_placeholder'] = Variable<String>(categoryPlaceholder);
-    map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
     return map;
   }
 
@@ -2580,14 +2614,15 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       id: Value(id),
       salt: Value(salt),
       encryptedPrivateKey: Value(encryptedPrivateKey),
+      masterKeyTimestamp: Value(masterKeyTimestamp),
       host: Value(host),
       apiToken: Value(apiToken),
+      lastSyncAt: Value(lastSyncAt),
       useBiometric: Value(useBiometric),
       pwLength: Value(pwLength),
       pwSpecialChars: Value(pwSpecialChars),
       pwAvoidIlO0: Value(pwAvoidIlO0),
       categoryPlaceholder: Value(categoryPlaceholder),
-      lastSyncAt: Value(lastSyncAt),
     );
   }
 
@@ -2602,8 +2637,12 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       encryptedPrivateKey: serializer.fromJson<String>(
         json['encryptedPrivateKey'],
       ),
+      masterKeyTimestamp: serializer.fromJson<DateTime>(
+        json['masterKeyTimestamp'],
+      ),
       host: serializer.fromJson<String>(json['host']),
       apiToken: serializer.fromJson<String>(json['apiToken']),
+      lastSyncAt: serializer.fromJson<DateTime>(json['lastSyncAt']),
       useBiometric: serializer.fromJson<bool>(json['useBiometric']),
       pwLength: serializer.fromJson<int>(json['pwLength']),
       pwSpecialChars: serializer.fromJson<String>(json['pwSpecialChars']),
@@ -2611,7 +2650,6 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       categoryPlaceholder: serializer.fromJson<String>(
         json['categoryPlaceholder'],
       ),
-      lastSyncAt: serializer.fromJson<DateTime>(json['lastSyncAt']),
     );
   }
   @override
@@ -2621,14 +2659,15 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       'id': serializer.toJson<int>(id),
       'salt': serializer.toJson<String>(salt),
       'encryptedPrivateKey': serializer.toJson<String>(encryptedPrivateKey),
+      'masterKeyTimestamp': serializer.toJson<DateTime>(masterKeyTimestamp),
       'host': serializer.toJson<String>(host),
       'apiToken': serializer.toJson<String>(apiToken),
+      'lastSyncAt': serializer.toJson<DateTime>(lastSyncAt),
       'useBiometric': serializer.toJson<bool>(useBiometric),
       'pwLength': serializer.toJson<int>(pwLength),
       'pwSpecialChars': serializer.toJson<String>(pwSpecialChars),
       'pwAvoidIlO0': serializer.toJson<bool>(pwAvoidIlO0),
       'categoryPlaceholder': serializer.toJson<String>(categoryPlaceholder),
-      'lastSyncAt': serializer.toJson<DateTime>(lastSyncAt),
     };
   }
 
@@ -2636,26 +2675,28 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
     int? id,
     String? salt,
     String? encryptedPrivateKey,
+    DateTime? masterKeyTimestamp,
     String? host,
     String? apiToken,
+    DateTime? lastSyncAt,
     bool? useBiometric,
     int? pwLength,
     String? pwSpecialChars,
     bool? pwAvoidIlO0,
     String? categoryPlaceholder,
-    DateTime? lastSyncAt,
   }) => SettingsEntity(
     id: id ?? this.id,
     salt: salt ?? this.salt,
     encryptedPrivateKey: encryptedPrivateKey ?? this.encryptedPrivateKey,
+    masterKeyTimestamp: masterKeyTimestamp ?? this.masterKeyTimestamp,
     host: host ?? this.host,
     apiToken: apiToken ?? this.apiToken,
+    lastSyncAt: lastSyncAt ?? this.lastSyncAt,
     useBiometric: useBiometric ?? this.useBiometric,
     pwLength: pwLength ?? this.pwLength,
     pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
     pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
     categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
-    lastSyncAt: lastSyncAt ?? this.lastSyncAt,
   );
   SettingsEntity copyWithCompanion(SettingsCompanion data) {
     return SettingsEntity(
@@ -2664,8 +2705,14 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       encryptedPrivateKey: data.encryptedPrivateKey.present
           ? data.encryptedPrivateKey.value
           : this.encryptedPrivateKey,
+      masterKeyTimestamp: data.masterKeyTimestamp.present
+          ? data.masterKeyTimestamp.value
+          : this.masterKeyTimestamp,
       host: data.host.present ? data.host.value : this.host,
       apiToken: data.apiToken.present ? data.apiToken.value : this.apiToken,
+      lastSyncAt: data.lastSyncAt.present
+          ? data.lastSyncAt.value
+          : this.lastSyncAt,
       useBiometric: data.useBiometric.present
           ? data.useBiometric.value
           : this.useBiometric,
@@ -2679,9 +2726,6 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
       categoryPlaceholder: data.categoryPlaceholder.present
           ? data.categoryPlaceholder.value
           : this.categoryPlaceholder,
-      lastSyncAt: data.lastSyncAt.present
-          ? data.lastSyncAt.value
-          : this.lastSyncAt,
     );
   }
 
@@ -2691,14 +2735,15 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
           ..write('id: $id, ')
           ..write('salt: $salt, ')
           ..write('encryptedPrivateKey: $encryptedPrivateKey, ')
+          ..write('masterKeyTimestamp: $masterKeyTimestamp, ')
           ..write('host: $host, ')
           ..write('apiToken: $apiToken, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
           ..write('useBiometric: $useBiometric, ')
           ..write('pwLength: $pwLength, ')
           ..write('pwSpecialChars: $pwSpecialChars, ')
           ..write('pwAvoidIlO0: $pwAvoidIlO0, ')
-          ..write('categoryPlaceholder: $categoryPlaceholder, ')
-          ..write('lastSyncAt: $lastSyncAt')
+          ..write('categoryPlaceholder: $categoryPlaceholder')
           ..write(')'))
         .toString();
   }
@@ -2708,14 +2753,15 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
     id,
     salt,
     encryptedPrivateKey,
+    masterKeyTimestamp,
     host,
     apiToken,
+    lastSyncAt,
     useBiometric,
     pwLength,
     pwSpecialChars,
     pwAvoidIlO0,
     categoryPlaceholder,
-    lastSyncAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -2724,88 +2770,98 @@ class SettingsEntity extends DataClass implements Insertable<SettingsEntity> {
           other.id == this.id &&
           other.salt == this.salt &&
           other.encryptedPrivateKey == this.encryptedPrivateKey &&
+          other.masterKeyTimestamp == this.masterKeyTimestamp &&
           other.host == this.host &&
           other.apiToken == this.apiToken &&
+          other.lastSyncAt == this.lastSyncAt &&
           other.useBiometric == this.useBiometric &&
           other.pwLength == this.pwLength &&
           other.pwSpecialChars == this.pwSpecialChars &&
           other.pwAvoidIlO0 == this.pwAvoidIlO0 &&
-          other.categoryPlaceholder == this.categoryPlaceholder &&
-          other.lastSyncAt == this.lastSyncAt);
+          other.categoryPlaceholder == this.categoryPlaceholder);
 }
 
 class SettingsCompanion extends UpdateCompanion<SettingsEntity> {
   final Value<int> id;
   final Value<String> salt;
   final Value<String> encryptedPrivateKey;
+  final Value<DateTime> masterKeyTimestamp;
   final Value<String> host;
   final Value<String> apiToken;
+  final Value<DateTime> lastSyncAt;
   final Value<bool> useBiometric;
   final Value<int> pwLength;
   final Value<String> pwSpecialChars;
   final Value<bool> pwAvoidIlO0;
   final Value<String> categoryPlaceholder;
-  final Value<DateTime> lastSyncAt;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.salt = const Value.absent(),
     this.encryptedPrivateKey = const Value.absent(),
+    this.masterKeyTimestamp = const Value.absent(),
     this.host = const Value.absent(),
     this.apiToken = const Value.absent(),
+    this.lastSyncAt = const Value.absent(),
     this.useBiometric = const Value.absent(),
     this.pwLength = const Value.absent(),
     this.pwSpecialChars = const Value.absent(),
     this.pwAvoidIlO0 = const Value.absent(),
     this.categoryPlaceholder = const Value.absent(),
-    this.lastSyncAt = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
     required String salt,
     required String encryptedPrivateKey,
+    required DateTime masterKeyTimestamp,
     required String host,
     required String apiToken,
-    required bool useBiometric,
-    this.pwLength = const Value.absent(),
-    required String pwSpecialChars,
-    this.pwAvoidIlO0 = const Value.absent(),
-    required String categoryPlaceholder,
     required DateTime lastSyncAt,
+    required bool useBiometric,
+    required int pwLength,
+    required String pwSpecialChars,
+    required bool pwAvoidIlO0,
+    required String categoryPlaceholder,
   }) : salt = Value(salt),
        encryptedPrivateKey = Value(encryptedPrivateKey),
+       masterKeyTimestamp = Value(masterKeyTimestamp),
        host = Value(host),
        apiToken = Value(apiToken),
+       lastSyncAt = Value(lastSyncAt),
        useBiometric = Value(useBiometric),
+       pwLength = Value(pwLength),
        pwSpecialChars = Value(pwSpecialChars),
-       categoryPlaceholder = Value(categoryPlaceholder),
-       lastSyncAt = Value(lastSyncAt);
+       pwAvoidIlO0 = Value(pwAvoidIlO0),
+       categoryPlaceholder = Value(categoryPlaceholder);
   static Insertable<SettingsEntity> custom({
     Expression<int>? id,
     Expression<String>? salt,
     Expression<String>? encryptedPrivateKey,
+    Expression<DateTime>? masterKeyTimestamp,
     Expression<String>? host,
     Expression<String>? apiToken,
+    Expression<DateTime>? lastSyncAt,
     Expression<bool>? useBiometric,
     Expression<int>? pwLength,
     Expression<String>? pwSpecialChars,
     Expression<bool>? pwAvoidIlO0,
     Expression<String>? categoryPlaceholder,
-    Expression<DateTime>? lastSyncAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (salt != null) 'salt': salt,
       if (encryptedPrivateKey != null)
         'encrypted_private_key': encryptedPrivateKey,
+      if (masterKeyTimestamp != null)
+        'master_key_timestamp': masterKeyTimestamp,
       if (host != null) 'host': host,
       if (apiToken != null) 'api_token': apiToken,
+      if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
       if (useBiometric != null) 'use_biometric': useBiometric,
       if (pwLength != null) 'pw_length': pwLength,
       if (pwSpecialChars != null) 'pw_special_chars': pwSpecialChars,
-      if (pwAvoidIlO0 != null) 'pw_avoid_il_o0': pwAvoidIlO0,
+      if (pwAvoidIlO0 != null) 'pw_avoid_ilo0': pwAvoidIlO0,
       if (categoryPlaceholder != null)
         'category_placeholder': categoryPlaceholder,
-      if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
     });
   }
 
@@ -2813,27 +2869,29 @@ class SettingsCompanion extends UpdateCompanion<SettingsEntity> {
     Value<int>? id,
     Value<String>? salt,
     Value<String>? encryptedPrivateKey,
+    Value<DateTime>? masterKeyTimestamp,
     Value<String>? host,
     Value<String>? apiToken,
+    Value<DateTime>? lastSyncAt,
     Value<bool>? useBiometric,
     Value<int>? pwLength,
     Value<String>? pwSpecialChars,
     Value<bool>? pwAvoidIlO0,
     Value<String>? categoryPlaceholder,
-    Value<DateTime>? lastSyncAt,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
       salt: salt ?? this.salt,
       encryptedPrivateKey: encryptedPrivateKey ?? this.encryptedPrivateKey,
+      masterKeyTimestamp: masterKeyTimestamp ?? this.masterKeyTimestamp,
       host: host ?? this.host,
       apiToken: apiToken ?? this.apiToken,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
       useBiometric: useBiometric ?? this.useBiometric,
       pwLength: pwLength ?? this.pwLength,
       pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
-      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
     );
   }
 
@@ -2851,11 +2909,19 @@ class SettingsCompanion extends UpdateCompanion<SettingsEntity> {
         encryptedPrivateKey.value,
       );
     }
+    if (masterKeyTimestamp.present) {
+      map['master_key_timestamp'] = Variable<DateTime>(
+        masterKeyTimestamp.value,
+      );
+    }
     if (host.present) {
       map['host'] = Variable<String>(host.value);
     }
     if (apiToken.present) {
       map['api_token'] = Variable<String>(apiToken.value);
+    }
+    if (lastSyncAt.present) {
+      map['last_sync_at'] = Variable<DateTime>(lastSyncAt.value);
     }
     if (useBiometric.present) {
       map['use_biometric'] = Variable<bool>(useBiometric.value);
@@ -2867,13 +2933,10 @@ class SettingsCompanion extends UpdateCompanion<SettingsEntity> {
       map['pw_special_chars'] = Variable<String>(pwSpecialChars.value);
     }
     if (pwAvoidIlO0.present) {
-      map['pw_avoid_il_o0'] = Variable<bool>(pwAvoidIlO0.value);
+      map['pw_avoid_ilo0'] = Variable<bool>(pwAvoidIlO0.value);
     }
     if (categoryPlaceholder.present) {
       map['category_placeholder'] = Variable<String>(categoryPlaceholder.value);
-    }
-    if (lastSyncAt.present) {
-      map['last_sync_at'] = Variable<DateTime>(lastSyncAt.value);
     }
     return map;
   }
@@ -2884,14 +2947,15 @@ class SettingsCompanion extends UpdateCompanion<SettingsEntity> {
           ..write('id: $id, ')
           ..write('salt: $salt, ')
           ..write('encryptedPrivateKey: $encryptedPrivateKey, ')
+          ..write('masterKeyTimestamp: $masterKeyTimestamp, ')
           ..write('host: $host, ')
           ..write('apiToken: $apiToken, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
           ..write('useBiometric: $useBiometric, ')
           ..write('pwLength: $pwLength, ')
           ..write('pwSpecialChars: $pwSpecialChars, ')
           ..write('pwAvoidIlO0: $pwAvoidIlO0, ')
-          ..write('categoryPlaceholder: $categoryPlaceholder, ')
-          ..write('lastSyncAt: $lastSyncAt')
+          ..write('categoryPlaceholder: $categoryPlaceholder')
           ..write(')'))
         .toString();
   }
@@ -4105,28 +4169,30 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int> id,
       required String salt,
       required String encryptedPrivateKey,
+      required DateTime masterKeyTimestamp,
       required String host,
       required String apiToken,
-      required bool useBiometric,
-      Value<int> pwLength,
-      required String pwSpecialChars,
-      Value<bool> pwAvoidIlO0,
-      required String categoryPlaceholder,
       required DateTime lastSyncAt,
+      required bool useBiometric,
+      required int pwLength,
+      required String pwSpecialChars,
+      required bool pwAvoidIlO0,
+      required String categoryPlaceholder,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<int> id,
       Value<String> salt,
       Value<String> encryptedPrivateKey,
+      Value<DateTime> masterKeyTimestamp,
       Value<String> host,
       Value<String> apiToken,
+      Value<DateTime> lastSyncAt,
       Value<bool> useBiometric,
       Value<int> pwLength,
       Value<String> pwSpecialChars,
       Value<bool> pwAvoidIlO0,
       Value<String> categoryPlaceholder,
-      Value<DateTime> lastSyncAt,
     });
 
 class $$SettingsTableFilterComposer
@@ -4153,6 +4219,11 @@ class $$SettingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get masterKeyTimestamp => $composableBuilder(
+    column: $table.masterKeyTimestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get host => $composableBuilder(
     column: $table.host,
     builder: (column) => ColumnFilters(column),
@@ -4160,6 +4231,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get apiToken => $composableBuilder(
     column: $table.apiToken,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4185,11 +4261,6 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get categoryPlaceholder => $composableBuilder(
     column: $table.categoryPlaceholder,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get lastSyncAt => $composableBuilder(
-    column: $table.lastSyncAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4218,6 +4289,11 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get masterKeyTimestamp => $composableBuilder(
+    column: $table.masterKeyTimestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get host => $composableBuilder(
     column: $table.host,
     builder: (column) => ColumnOrderings(column),
@@ -4225,6 +4301,11 @@ class $$SettingsTableOrderingComposer
 
   ColumnOrderings<String> get apiToken => $composableBuilder(
     column: $table.apiToken,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4252,11 +4333,6 @@ class $$SettingsTableOrderingComposer
     column: $table.categoryPlaceholder,
     builder: (column) => ColumnOrderings(column),
   );
-
-  ColumnOrderings<DateTime> get lastSyncAt => $composableBuilder(
-    column: $table.lastSyncAt,
-    builder: (column) => ColumnOrderings(column),
-  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -4279,11 +4355,21 @@ class $$SettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get masterKeyTimestamp => $composableBuilder(
+    column: $table.masterKeyTimestamp,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get host =>
       $composableBuilder(column: $table.host, builder: (column) => column);
 
   GeneratedColumn<String> get apiToken =>
       $composableBuilder(column: $table.apiToken, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get useBiometric => $composableBuilder(
     column: $table.useBiometric,
@@ -4305,11 +4391,6 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get categoryPlaceholder => $composableBuilder(
     column: $table.categoryPlaceholder,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get lastSyncAt => $composableBuilder(
-    column: $table.lastSyncAt,
     builder: (column) => column,
   );
 }
@@ -4348,52 +4429,56 @@ class $$SettingsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> salt = const Value.absent(),
                 Value<String> encryptedPrivateKey = const Value.absent(),
+                Value<DateTime> masterKeyTimestamp = const Value.absent(),
                 Value<String> host = const Value.absent(),
                 Value<String> apiToken = const Value.absent(),
+                Value<DateTime> lastSyncAt = const Value.absent(),
                 Value<bool> useBiometric = const Value.absent(),
                 Value<int> pwLength = const Value.absent(),
                 Value<String> pwSpecialChars = const Value.absent(),
                 Value<bool> pwAvoidIlO0 = const Value.absent(),
                 Value<String> categoryPlaceholder = const Value.absent(),
-                Value<DateTime> lastSyncAt = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 salt: salt,
                 encryptedPrivateKey: encryptedPrivateKey,
+                masterKeyTimestamp: masterKeyTimestamp,
                 host: host,
                 apiToken: apiToken,
+                lastSyncAt: lastSyncAt,
                 useBiometric: useBiometric,
                 pwLength: pwLength,
                 pwSpecialChars: pwSpecialChars,
                 pwAvoidIlO0: pwAvoidIlO0,
                 categoryPlaceholder: categoryPlaceholder,
-                lastSyncAt: lastSyncAt,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String salt,
                 required String encryptedPrivateKey,
+                required DateTime masterKeyTimestamp,
                 required String host,
                 required String apiToken,
-                required bool useBiometric,
-                Value<int> pwLength = const Value.absent(),
-                required String pwSpecialChars,
-                Value<bool> pwAvoidIlO0 = const Value.absent(),
-                required String categoryPlaceholder,
                 required DateTime lastSyncAt,
+                required bool useBiometric,
+                required int pwLength,
+                required String pwSpecialChars,
+                required bool pwAvoidIlO0,
+                required String categoryPlaceholder,
               }) => SettingsCompanion.insert(
                 id: id,
                 salt: salt,
                 encryptedPrivateKey: encryptedPrivateKey,
+                masterKeyTimestamp: masterKeyTimestamp,
                 host: host,
                 apiToken: apiToken,
+                lastSyncAt: lastSyncAt,
                 useBiometric: useBiometric,
                 pwLength: pwLength,
                 pwSpecialChars: pwSpecialChars,
                 pwAvoidIlO0: pwAvoidIlO0,
                 categoryPlaceholder: categoryPlaceholder,
-                lastSyncAt: lastSyncAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
