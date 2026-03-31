@@ -1,4 +1,4 @@
-/// Alle Daten des Passwort-Generators, die der Benutzer ändern kann.
+/// Alle Daten im Dialog, die der Benutzer ändern kann.
 class SyncServerFormData {
 
   /// Die URL des Servers für die Synchronisation.

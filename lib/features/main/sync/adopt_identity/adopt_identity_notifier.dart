@@ -6,6 +6,7 @@ import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/main/sync/adopt_identity/adopt_identity_form_data.dart';
 import 'package:privault/features/main/sync/adopt_identity/adopt_identity_state.dart';
 import 'package:privault/features/main/sync/adopt_identity/user_identity.dart';
 import 'package:privault/services/biometric_service.dart';
@@ -82,18 +83,22 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
     Uint8List? masterKey; // bisheriger Master-Key
     Uint8List? newMasterKey; // Master-Key der neuen Identität
 
-    var password = state.password;
+    var formData = state.formData;
 
     // 1. UI-State aktualisieren
     state = state.copyWith(
-      password: password,
+      formData: formData,
       status: AdoptIdentityActionStatus.progress, error: AppError.none(),
     );
 
     try {
 
       // 2. Benutzereingabe validieren
-      if (password.isEmpty) {
+      if (formData.newPassword.isEmpty) {
+        state = state.copyWith(status: AdoptIdentityActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'newPassword'));
+        return;
+      }
+      if (formData.password.isEmpty) {
         state = state.copyWith(status: AdoptIdentityActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'password'));
         return;
       }
@@ -103,7 +108,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
       if (_sessionService.settings!.salt.isEmpty) throw Exception("Das Salt liegt nicht in der Session.");
       await Future.delayed(const Duration(milliseconds: 50)); // Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
       final salt = base64Decode(_sessionService.settings!.salt);
-      masterKey = await _cryptoService.deriveKey(password, salt);
+      masterKey = await _cryptoService.deriveKey(formData.password, salt);
 
       // 5. Master-Passwort validieren (muss zum lokalen Tresor passen)
       if (_sessionService.settings!.encryptedPrivateKey.isEmpty) throw Exception("`encryptedPrivateKey` ist in der Session leer.");
@@ -123,7 +128,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
         // 7. Neuen Master-Key mit dem Salt der neuen Identität berechnen
         if (_userIdentity == null || _userIdentity!.userUuid.isEmpty) throw Exception('Keine Benutzeridentität zum adoptieren geladen.');
         final newSalt = base64Decode(_userIdentity!.salt);
-        newMasterKey = await _cryptoService.deriveKey(password, newSalt);
+        newMasterKey = await _cryptoService.deriveKey(formData.newPassword, newSalt);
 
         // 8. Private-Key der neuen Identität entschlüsseln
         Uint8List newPrivateKey;
@@ -206,7 +211,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
 
       // 17. State aktualisieren
       state = state.copyWith(
-        password: '', // Passwortfeld leeren
+        formData: AdoptIdentityFormData(), // Passwortfelder leeren
         status: AdoptIdentityActionStatus.saved,
       );
 
@@ -225,9 +230,17 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
   // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
-  /// Setter für bisheriges Passwort
+  /// Setter für "serverseitiges" Passwort
+  void setNewPassword(String value) {
+    final error = state.error.field == 'newPassword' ? AppError.none() : null;
+    final formData = state.formData.copyWith(newPassword: value);
+    state = state.copyWith(formData: formData, error: error);
+  }
+
+  /// Setter für lokales Passwort
   void setPassword(String value) {
     final error = state.error.field == 'password' ? AppError.none() : null;
-    state = state.copyWith(password: value, error: error);
+    final formData = state.formData.copyWith(password: value);
+    state = state.copyWith(formData: formData, error: error);
   }
 }

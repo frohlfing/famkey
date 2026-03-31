@@ -1,4 +1,5 @@
 import 'package:privault/core/app_error.dart';
+import 'package:privault/features/main/sync/adopt_identity/adopt_identity_form_data.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum AdoptIdentityActionStatus {
@@ -15,11 +16,11 @@ class AdoptIdentityState {
   /// Wenn `false`: Ein anderes Gerät hat das Master-Passwort geändert.
   final bool isOnboarding;
 
-  /// Das aktuelle Master-Passwort.
-  final String password;
+  /// Die Formulardaten.
+  final AdoptIdentityFormData formData;
 
-  // Wird nicht benötigt, denn initial ist das Passwortfeld immer leer.
-  //final MasterPasswordFormData originalPassword;
+  // Wird nicht benötigt, denn initial sind die Passwortfelder immer leer.
+  //final AdoptIdentityFormData originalFormData;
 
   /// Der Status der letzten Aktion.
   final AdoptIdentityActionStatus status;
@@ -35,12 +36,14 @@ class AdoptIdentityState {
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   // todo wird vermutlich nicht benötigt
-  bool get isDirty => password.isNotEmpty;
+  bool get isDirty =>
+    formData.newPassword.isNotEmpty ||
+    formData.password.isNotEmpty;
 
   /// Konstruktor
   const AdoptIdentityState({
     this.isOnboarding = false,
-    this.password = '',
+    this.formData = const AdoptIdentityFormData(),
     this.status = AdoptIdentityActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -48,13 +51,13 @@ class AdoptIdentityState {
   /// Status aktualisieren (immutable)
   AdoptIdentityState copyWith({
     bool? isOnboarding,
-    String? password,
+    AdoptIdentityFormData? formData,
     AdoptIdentityActionStatus? status,
     AppError? error,
   }) {
     return AdoptIdentityState(
       isOnboarding: isOnboarding ?? this.isOnboarding,
-      password: password ?? this.password,
+      formData: formData ?? this.formData,
       status: status ?? this.status,
       error: error ?? this.error,
     );

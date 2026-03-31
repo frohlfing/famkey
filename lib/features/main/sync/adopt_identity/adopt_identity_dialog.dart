@@ -35,6 +35,7 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
   // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
+  final _newPasswordController = TextEditingController();
   final _passwordController = TextEditingController();
 
   // ------------------------------------------------------------------------
@@ -56,6 +57,7 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
   /// Gibt Ressourcen frei.
   @override
   void dispose() {
+    _newPasswordController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -84,8 +86,9 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
     // Listener, der die Controller nur bei Initialladung oder Generierung füllt
     ref.listen(adoptIdentityProvider, (previous, next) {
       if (previous == next) return;
-      final password = next.password;
-      if (_passwordController.text != password) _passwordController.text = password;
+      final formData = next.formData;
+      if (_newPasswordController.text != formData.newPassword) _newPasswordController.text = formData.newPassword;
+      if (_passwordController.text != formData.password) _passwordController.text = formData.password;
     });
 
     // Gezielte Watches für maximale Performance
@@ -93,9 +96,8 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
     final isOnboarding = ref.watch(adoptIdentityProvider.select((s) => s.isOnboarding));
 
     // Hinweistext
-    final text = isOnboarding
-        ? "Du verwendest diesen Tresor bereits auf einem anderen Gerät. Bitte gib dein Master-Passwort ein, um die Identität zu übernehmen. Die Passwörter beider Geräte müssen übereinstimmen." // UUIDs stimmen nicht
-        : "Du hast das Master-Passwort auf einem anderen Gerät geändert. Bitte gib es zur Synchronisation ein.";
+    final pretext = isOnboarding ? 'Du hast den Tresor bereits über ein Zweitgerät synchronisiert.' : 'Du hast das Master-Passwort auf einem anderen Gerät geändert.';
+    final text = '$pretext\nDas Master-Passwort auf dem anderen Gerät wird nun übernommen.';
 
     // Notifier holen
     final notifier = ref.read(adoptIdentityProvider.notifier);
@@ -113,6 +115,30 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
             Text(text),
             const SizedBox(height: 16),
 
+            // --- Neues Master-Passwort ---
+            Consumer(
+              builder: (ctx, ref, _) {
+                final errorText = ref.watch(adoptIdentityProvider.select((state) => state.error.field == 'newPassword' ? state.error.text : null));
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PasswordField(
+                      controller: _newPasswordController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.next,
+                      label: 'Master-Passwort auf dem anderen Gerät',
+                      prefixIcon: Icons.key_outlined,
+                      errorText: errorText,
+                      onChanged: isBusy ? null : notifier.setNewPassword,
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // --- Lokales  Master-Passwort ---
+            
             // --- Master-Passwort ---
             Consumer(
               builder: (ctx, ref, _) {
@@ -120,7 +146,7 @@ class _AdoptIdentityDialogState extends ConsumerState<AdoptIdentityDialog> {
                 return PasswordField(
                   controller: _passwordController,
                   textInputAction: TextInputAction.next,
-                  label: 'Master-Passwort',
+                  label: 'Lokales Master-Passwort',
                   prefixIcon: Icons.key_off_outlined,
                   errorText: errorText,
                   onChanged: isBusy ? null : notifier.setPassword,

@@ -122,7 +122,7 @@ class SyncNotifier extends Notifier<SyncState> {
       } else {
         // Der Name des Benutzers existiert auf dem Server.
 
-        // Fall ein anderes Gerät den Benutzer registriert hat und dieses Gerät noch nicht mit dem Server synchronisiert wurde, stimmt die UUID des Benutzers nicht.
+        // Falls ein anderes Gerät den Benutzer registriert hat und dieses Gerät noch nicht mit dem Server synchronisiert wurde, stimmt die UUID des Benutzers nicht.
         // In diesem Fall wird die UUID des Benutzers, das Salt und das RSA-Schlüsselpaar des anderen Gerätes übernommen.
         final isOnboarding = userResponse.userUuid != user.uuid;
 
@@ -144,11 +144,11 @@ class SyncNotifier extends Notifier<SyncState> {
             ),
           );
           return; // Sync-Prozess hier abbrechen; nach der Adoption wird die Synchronisation erneut gestartet
+        } else if (isKeyConflict && !isServerNewer) {
+          // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
+          Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
+          await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
         }
-        
-        // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
-        Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
-        await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
       }
 
       // 5. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.

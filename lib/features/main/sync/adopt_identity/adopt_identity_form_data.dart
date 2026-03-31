@@ -1,25 +1,25 @@
 /// Alle Daten im Dialog, die der Benutzer ändern kann.
-class VaultNameFormData {
+class AdoptIdentityFormData {
 
-  /// Der Tresorname.
-  final String vaultName;
+  /// Das neue Master-Passwort.
+  final String newPassword;
 
-  /// Das Master-Passwort.
+  /// Das aktuelle Master-Passwort.
   final String password;
 
   /// Konstruktor
-  const VaultNameFormData({
-    this.vaultName = '',
+  const AdoptIdentityFormData({
+    this.newPassword = '',
     this.password = '',
   });
 
   /// Daten aktualisieren (immutable)
-  VaultNameFormData copyWith({
-    String? vaultName,
+  AdoptIdentityFormData copyWith({
+    String? newPassword,
     String? password,
   }) {
-    return VaultNameFormData(
-      vaultName: vaultName ?? this.vaultName,
+    return AdoptIdentityFormData(
+      newPassword: newPassword ?? this.newPassword,
       password: password ?? this.password,
     );
   }
@@ -29,17 +29,17 @@ class VaultNameFormData {
   @override
   bool operator == (Object other) =>
     identical(this, other) ||
-      other is VaultNameFormData && (
+      other is AdoptIdentityFormData && (
         runtimeType == other.runtimeType &&
-        vaultName == other.vaultName &&
-        password == other.password
-      );
+          newPassword == other.newPassword &&
+          password == other.password
+        );
 
   /// Liefert den HashCode für das Objekt
   /// (erforderlich, wenn ein Operators überschrieben wird)
   @override
   int get hashCode =>
-    vaultName.hashCode ^
+    newPassword.hashCode ^
     password.hashCode;
 // @formatter:on
 }
