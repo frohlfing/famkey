@@ -29,9 +29,19 @@ class WebService {
   // --- Initialisierung / Lifecycle ---
   // ------------------------------------------------------------------------
 
-  /// Konstruktor
-  WebService(this._cryptoService, {required String baseUrl, required String apiToken}) : _dio = Dio(BaseOptions(baseUrl: baseUrl.endsWith('/') ? baseUrl : '$baseUrl/')) {
+  /// Konstruktor.
+  /// [dio] kann für Unit-Tests übergeben werden, um Header oder Mocks zu injizieren.
+  WebService(this._cryptoService, {
+    required String baseUrl,
+    required String apiToken,
+    Dio? dio,
+  }) : _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl.endsWith('/') ? baseUrl : '$baseUrl/')) {
     _apiToken = apiToken;
+
+    // Falls dio von außen kommt, stellen wir sicher, dass die BaseUrl passt
+    if (dio != null) {
+      _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    }
 
     // Default Headers (API Token & Debug Cookie)
     _dio.interceptors.add(

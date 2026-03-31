@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +17,8 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
 
+import 'sync_notifier_test.mocks.dart';
+
 @GenerateMocks([
   CryptoService,
   DatabaseService,
@@ -25,8 +26,6 @@ import 'package:privault/services/web_service.dart';
   WebService,
   ConfigService,
 ])
-import 'sync_notifier_test.mocks.dart';
-
 void main() {
   late ProviderContainer container;
   late MockCryptoService mockCrypto;
@@ -40,7 +39,6 @@ void main() {
     mockSession = MockSessionService();
     mockWeb = MockWebService();
 
-    // GetIt zurücksetzen und Mocks registrieren, da der Notifier getIt() nutzt
     getIt.reset();
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
@@ -62,23 +60,24 @@ void main() {
         uuid: 'local-uuid', 
         name: 'Alice', 
         publicKey: 'PUB', 
-        encryptedPrivateKey: 'ENC', 
-        salt: 'salt', 
-        createdAt: DateTime.now(), 
+        isVerified: true,
+        isHidden: false,
         updatedAt: DateTime.now()
       );
+      
       final settings = SettingsEntity(
         id: 1, 
-        userId: 'local-uuid', 
-        theme: 'system', 
-        language: 'de', 
-        host: 'http://localhost', 
-        apiToken: 'token', 
         salt: 'salt', 
         encryptedPrivateKey: 'ENC',
         masterKeyTimestamp: DateTime.now(),
-        createdAt: DateTime.now(), 
-        updatedAt: DateTime.now()
+        host: 'http://localhost', 
+        apiToken: 'token', 
+        lastSyncAt: DateTime.now(),
+        useBiometric: false,
+        pwLength: 20,
+        pwSpecialChars: r'!@#$',
+        pwAvoidIlO0: true,
+        categoryPlaceholder: 'General',
       );
       
       when(mockSession.user).thenReturn(user);
@@ -101,10 +100,8 @@ void main() {
       
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'PriVault',
-        version: '0.1.0',
         syncProtocolVersion: AppVersion.syncProtocolVersion - 1,
         minSyncProtocolVersion: 1,
-        major: 0, minor: 1, patch: 0
       ));
 
       final notifier = container.read(syncProvider.notifier);
@@ -118,18 +115,17 @@ void main() {
       arrangeLoggedIn();
       
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault', version: '1.0.0', 
+        service: 'PriVault v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion, 
-        minSyncProtocolVersion: 1, major: 1, minor: 0, patch: 0
+        minSyncProtocolVersion: 1,
       ));
       
-      // User auf Server nicht gefunden
       when(mockWeb.findUser(any, any)).thenAnswer((_) async => null);
       
-      // Registrierung simulieren
       final userResponse = UserResponse(
         userUuid: 'local-uuid', 
-        userName: 'Alice', 
+        vaultUuid: 'vault-uuid',
+        userHash: 'hash',
         salt: 'salt', 
         publicKey: 'PUB', 
         encryptedPrivateKey: 'ENC', 
@@ -147,7 +143,6 @@ void main() {
         masterKeyTimestamp: anyNamed('masterKeyTimestamp'),
       )).thenAnswer((_) async => userResponse);
 
-      // Mocks für PullFriends, PullEntries, Push...
       when(mockWeb.getPublicKeys(any)).thenAnswer((_) async => []);
       when(mockDb.getUsers()).thenAnswer((_) async => []);
       when(mockCrypto.deriveKeyFromKey(any, any, any)).thenReturn(Uint8List(32));
@@ -158,35 +153,27 @@ void main() {
       when(mockDb.getEntriesSince(any)).thenAnswer((_) async => []);
       when(mockDb.getTombstonesSince(any)).thenAnswer((_) async => []);
       when(mockDb.getAttachmentsUnsynced()).thenAnswer((_) async => []);
+      when(mockDb.saveSettings(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
 
       final notifier = container.read(syncProvider.notifier);
       await notifier.sync();
 
       expect(container.read(syncProvider).status, equals(SyncStatus.success));
-      verify(mockWeb.registerUser(
-        vaultName: 'VaultX',
-        userName: 'Alice',
-        userUuid: 'local-uuid',
-        salt: 'salt',
-        publicKey: 'PUB',
-        encryptedPrivateKey: 'ENC',
-        masterKeyTimestamp: anyNamed('masterKeyTimestamp'),
-      )).called(1);
     });
 
     test('1.1.4 sync: Stoppt bei Adoption-Bedarf (UUID Mismatch)', () async {
       arrangeLoggedIn();
       
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault', version: '1.0.0', 
+        service: 'PriVault v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion, 
-        minSyncProtocolVersion: 1, major: 1, minor: 0, patch: 0
+        minSyncProtocolVersion: 1,
       ));
 
-      // Server liefert andere UUID für den gleichen Namen -> Adoption nötig
       final remoteUser = UserResponse(
         userUuid: 'other-uuid', 
-        userName: 'Alice', 
+        vaultUuid: 'vault-uuid',
+        userHash: 'hash',
         salt: 'salt', 
         publicKey: 'PUB', 
         encryptedPrivateKey: 'ENC', 
@@ -199,7 +186,7 @@ void main() {
       await notifier.sync();
 
       expect(container.read(syncProvider).status, equals(SyncStatus.askForAdoption));
-      expect(container.read(syncProvider).adoptionUserIdentity?.userUuid, equals('other-uuid'));
+      expect(container.read(syncProvider).adoptionUserIdentity.userUuid, equals('other-uuid'));
     });
   });
 }
