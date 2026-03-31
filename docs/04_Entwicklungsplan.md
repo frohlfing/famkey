@@ -5,14 +5,13 @@
 ### 1.1 Meilenstein 1: Basisfunktion
 - ✅ Technologie-Stack definieren
 - ✅ Sicherheitskonzept erstellen
-- ✅ MAUI Projekt anlegen
+- ✅ Flutter-Projekt anlegen
 - ✅ CryptoService (Argon2, AES, RSA) implementieren
 - ✅ SQLite-Layer mit SQLCipher aufsetzen
 - ✅ UI mit Basisfunktionen erstellen (Login, Hauptseite, Detail, Settings)
-- ✅ Material-icons (https://fonts.google.com/icons)
 - ✅ Passwort-Generator
 - ✅ Passwort-Meter
-- ❌ Anzeige, wie alt das Passwort ist.
+- ✅ Passwortalter anzeigen
 - ✅ Favicon erstellen
 - ✅ Icons der Webseiten speichern und anzeigen
 - ✅ Dateianhänge (Bilder direkt anzeigen, sonst Büroklammer-Icon als Link)
@@ -41,36 +40,53 @@
 - ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - ✅ Ladeanzeige einbauen für Operationen, die länger dauern könnten (Bildschirm für Eingaben sperren)
-- ❌ Fehler loggen und unter Einstellungen ein Button zum Anzeigen/Löschen + Loglevel (Aus, Debug, Fehler)
-- ❌ Konsolenanwendung: Hex-Code des Master-Keys ausgeben
-- ❌ Dialog, um den Passwortgenerator aus der Detailansicht einstellen zu können (Einstellungen siehe Settings. Page)
+- ✅ Fehler in Datei loggen
+
+- ❌ App-Icon anpassen
+ 
+- ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
+- ❌ DB-Viewer im Entwickler-Menü hinzufügen
+
+- ❌ Unter Einstellungen ein Button zum Anzeigen/Löschen der Logdatei
+
 - ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
 - ❌ Selbstzerstörung (Daten löschen beim x. Fehlversuch)
+
 - ❌ Notfall-Reset
-- ❌ Auto-Fill
+
 - ❌ CSV-Import
 - ❌ CSV-Export
-- ❌ PDF-Generierung ("Notfall-Bogen" zum Ausdrucken, siehe https://copilot.microsoft.com/shares/W5xBgDcNnvejZCq5qXtid)
-- ❌ Sicheres Passwortfeld (direkt als byte array speichern), siehe https://copilot.microsoft.com/shares/gk2UA94MU96n6LiRoyyB1
+
+- ❌ Auto-Fill
+
 - ❌ Skripte zum Deployen, siehe https://copilot.microsoft.com/shares/hAWk4uv75JWVbYepVZiCg
-- ❌ Report über die Passwortstärke aller Einträge
+
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
+
+- ❌ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
+- ❌ Report über die Passwortstärke und -Alter aller Einträge
+ 
+- ❌ PDF-Generierung ("Notfall-Bogen" zum Ausdrucken, siehe https://copilot.microsoft.com/shares/W5xBgDcNnvejZCq5qXtid)
+
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
-- ❌ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/) 
+
+- ❌ Dialog, um den Passwortgenerator aus der Bearbeitungsseite einstellen zu können
+- ❌ Sicheres Passwortfeld (direkt als byte array speichern), siehe https://copilot.microsoft.com/shares/gk2UA94MU96n6LiRoyyB1
  
 ### 1.5 Meilenstein 5: Androide App
-- ❌ Emulator installieren
+- ✅ Emulator installieren
 - ❌ Layout anpassen
 - ❌ Unit-Tests
 - ❌ App Store-Bereitstellung
 
-### 1.6 Meilenstein 6: Blazor WebAssembly (Blazor WASM)
+### 1.6 Meilenstein 6: WebAssembly
 - ❌ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr). Siehe Copilot-Chat .NET MAUI Deployment für Windows & Android 
 
 ## 2. Todos / Feinschliff
-- erledigt :-)
+- todos erledigten
+- Doku von MAUI befreien
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
-- 🐞 Sync mit Freunden (Parameter fehlt)
-- 🐞 Beim Umschalten zw. Dark und Light wird nicht imm alles getauscht (erst nach Neustart) 
+- 🐞 Android: Systembutton funktionieren nicht
+- 🐞 Android: Biometrie funktioniert nicht 
