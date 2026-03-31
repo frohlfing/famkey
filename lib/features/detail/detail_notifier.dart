@@ -155,31 +155,24 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Generiert einen Passwort-Hinweis über das Alter des Passworts.
-  String _createPasswordHint(DateTime passwordTimestamp) {
+  String _createPasswordHint(DateTime? passwordTimestamp) {
+    if (passwordTimestamp == null) return '';
+
     final dateStr = DateFormat("dd.MM.yyyy").format(passwordTimestamp.toLocal());
-    return "Alter: ${_getPasswordAge(passwordTimestamp)} (geändert am $dateStr)";
-  }
 
-  /// Berechnet das Alter des Passworts.
-  String _getPasswordAge(DateTime passwordTimestamp) {
+    // Ein Jahr hat durchschnittlich 365.25 Tage. Ein Monat hat somit durchschnittlich 30.4375 Tage.
     final days = DateTime.now().difference(passwordTimestamp).inDays;
+    if (days == 0) return 'Heute geändert.';
+    if (days == 1) return 'Gestern geändert.';
+    if (days < 14) return 'Geändert am $dateStr (vor $days Tagen).'; // 2 bis 13 Tagen (weniger als 2 Wochen)
+    if (days < 60.875) return 'Geändert am $dateStr (vor ${(days / 7).round()} Wochen).'; // 2 bis 9 Wochen (weniger als 2 Monate)
+    if (days < 730.5) return 'Geändert am $dateStr (vor ${(days / 30.4375).round()} Monaten).'; // 2 bis 23 Monaten (weniger als 2 Jahren)
 
-    if (days == 0) return '0 Tage';
-    if (days == 1) return '1 Tag';
-
-    final weeks = (days / 7).round();
-    if (weeks < 2) return '$days Tage';
-
-    final months = (days / 30).round();
-    if (months < 2) return '$weeks Wochen';
-
-    final years = (days / 365).round();
-    if (years < 2) return '$months Monate';
-
-    final remainingMonths = ((days - years * 365) / 30).round();
-    if (remainingMonths == 0) return '$years Jahre';
-    if (remainingMonths == 1) return '$years Jahre und 1 Monat';
-    return '$years Jahre und $remainingMonths Monate';
+    final years = days ~/ 365.25; // abgerundet
+    final month = ((days - years * 365.25) / 30.4375).round(); // restliche Monate (gerundet)
+    if (month == 0) return 'Geändert am $dateStr (vor $years Jahren).';
+    if (month == 1) return 'Geändert am $dateStr (vor $years Jahren und 1 Monat).';
+    return 'Geändert am $dateStr (vor $years Jahren und $month Monaten).';
   }
 
   /// Kopiert den Text in die Zwischenablage.

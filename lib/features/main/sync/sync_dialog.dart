@@ -82,9 +82,6 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
     // Gezielte Watches für maximale Performance
     final status = ref.watch(syncProvider.select((s) => s.status));
 
-    // Notifier holen
-    final notifier = ref.read(syncProvider.notifier);
-
     return AlertDialog(
       title: const Text('Synchronisation'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern

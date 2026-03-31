@@ -32,7 +32,6 @@ class DetailPage extends ConsumerStatefulWidget {
 }
 
 class _DetailPageState extends ConsumerState<DetailPage> {
-
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
@@ -66,7 +65,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   /// Baut die zentrale Detailansicht eines Eintrags auf.
   @override
   Widget build(BuildContext context) {
-
     // Listener für Status-Änderungen
     ref.listen(detailProvider.select((s) => s.status), (previous, next) {
       switch (next) {
@@ -88,7 +86,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
         case DetailActionStatus.failure:
           final state = ref.read(detailProvider);
-          if (state.error.field == null) { // Nur allgemeine Fehler anzeigen
+          if (state.error.field == null) {
+            // Nur allgemeine Fehler anzeigen
             Snack.show(context, state.error.text);
           }
           break;
@@ -135,31 +134,33 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // Header
                 // ------------------------------------------------------------------------
 
-                Consumer(builder: (ctx, ref, _) {
-                  final favicon = ref.watch(detailProvider.select((s) => s.favicon));
-                  final title = ref.watch(detailProvider.select((s) => s.title));
-                  final category = ref.watch(detailProvider.select((s) => s.category));
-                  return Center(
-                    child: Column(
-                      children: [
-                        if (favicon.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Image.memory(base64Decode(favicon), width: 64, height: 64),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final favicon = ref.watch(detailProvider.select((s) => s.favicon));
+                    final title = ref.watch(detailProvider.select((s) => s.title));
+                    final category = ref.watch(detailProvider.select((s) => s.category));
+                    return Center(
+                      child: Column(
+                        children: [
+                          if (favicon.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Image.memory(base64Decode(favicon), width: 64, height: 64),
+                            ),
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          category,
-                          style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                          Text(
+                            category,
+                            style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 32),
 
                 // ------------------------------------------------------------------------
@@ -167,307 +168,268 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // ------------------------------------------------------------------------
 
                 // --- Benutzername ---
-                Consumer(builder: (ctx, ref, _) {
-                  final username = ref.watch(detailProvider.select((s) => s.username));
-                  //if (username.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Benutzername'),
-                        subtitle: Text(username),
-                        trailing: username.isNotEmpty ? IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () => _handleCopyToClipboard(username, 'Benutzername'),
-                          tooltip: 'Benutzername kopieren',
-                        ) : null,
-                      ),
-                      const Divider(),
-                    ],
-                  );
-                }),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final username = ref.watch(detailProvider.select((s) => s.username));
+                    //if (username.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: const Text('Benutzername'),
+                          subtitle: Text(username),
+                          trailing: username.isNotEmpty ? IconButton(
+                            icon: const Icon(Icons.copy),
+                            onPressed: () => _handleCopyToClipboard(username, 'Benutzername'),
+                            tooltip: 'Benutzername kopieren',
+                          ) : null,
+                        ),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // --- Passwort ---
-                Consumer(builder: (ctx, ref, _) {
-                  final password = ref.watch(detailProvider.select((s) => s.password));
-                  //if (password.isEmpty) return const SizedBox.shrink();
-                  final passwordStrength = ref.watch(detailProvider.select((s) => s.passwordStrength));
-                  return Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Passwort'),
-                        subtitle: Text(password.isNotEmpty && _obscurePassword ? '••••••••' : password),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: password.isNotEmpty ? [
-                            IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                              tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.copy),
-                              onPressed: () => _handleCopyToClipboard(password, 'Passwort'),
-                              tooltip: 'Passwort kopieren',
-                            ),
-                          ] : [],
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final password = ref.watch(detailProvider.select((s) => s.password));
+                    final passwordStrength = ref.watch(detailProvider.select((s) => s.passwordStrength));
+                    final passwordHint = ref.watch(detailProvider.select((s) => s.passwordHint));
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          title: const Text('Passwort'),
+                          subtitle: Text(password.isNotEmpty && _obscurePassword ? '••••••••' : password),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: password.isNotEmpty ? [
+                              IconButton(
+                                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                tooltip: _obscurePassword ? 'Passwort anzeigen' : 'Passwort verbergen',
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy),
+                                onPressed: () => _handleCopyToClipboard(password, 'Passwort'),
+                                tooltip: 'Passwort kopieren',
+                              ),
+                            ] : [],
+                          ),
                         ),
-                      ),
-                      if (password.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: PasswordStrengthBar(score: passwordStrength),
-                        ),
-                      const Divider(),
-                    ],
-                  );
-                }),
-
-                // --- Passwort-Hinweis ---
-                Consumer(builder: (ctx, ref, _) {
-                  final passwordHint = ref.watch(detailProvider.select((s) => s.passwordHint));
-                  if (passwordHint.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      passwordHint,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
-                }),
+                        if (password.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: PasswordStrengthBar(score: passwordStrength),
+                          ),
+                        if (password.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              passwordHint,
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // --- URL ---
-                Consumer(builder: (ctx, ref, _) {
-                  final url = ref.watch(detailProvider.select((s) => s.url));
-                  //if (url.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    children: [
-                      ListTile(
-                        title: const Text('URL'),
-                        subtitle: Text(url),
-                        trailing: url.isNotEmpty ? IconButton(
-                          icon: const Icon(Icons.open_in_new),
-                          onPressed: notifier.openUrl,
-                          tooltip: 'URL öffnen',
-                        ) : null,
-                      ),
-                      const Divider(),
-                    ],
-                  );
-                }),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final url = ref.watch(detailProvider.select((s) => s.url));
+                    //if (url.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: const Text('URL'),
+                          subtitle: Text(url),
+                          trailing: url.isNotEmpty ? IconButton(
+                            icon: const Icon(Icons.open_in_new),
+                            onPressed: notifier.openUrl,
+                            tooltip: 'URL öffnen',
+                          ) : null,
+                        ),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // --- Notizen ---
-                Consumer(builder: (ctx, ref, _) {
-                  final notes = ref.watch(detailProvider.select((s) => s.notes));
-                  if (notes.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Notizen'),
-                        subtitle: Text(notes),
-                      ),
-                      const Divider(),
-                    ],
-                  );
-                }),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final notes = ref.watch(detailProvider.select((s) => s.notes));
+                    if (notes.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: const Text('Notizen'),
+                          subtitle: Text(notes),
+                        ),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // ------------------------------------------------------------------------
                 // Anhänge
                 // ------------------------------------------------------------------------
-
-                Consumer(builder: (ctx, ref, _) {
-                  final canManageAttachments = ref.watch(detailProvider.select((s) => s.canManageAttachments));
-                  final attachments =ref.watch(detailProvider.select((s) => s.attachments));
-                  if (!canManageAttachments && attachments.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (canManageAttachments)
-                        _buildSectionHeaderWithAction(
-                          'Anhänge',
-                          Icons.add_circle_outline,
-                          'Datei anhängen',
-                          _handleAddAttachment,
-                        )
-                      else
-                        _buildSectionTitle('Anhänge'),
-                      const SizedBox(height: 4),
-                      if (attachments.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
-                          child: Text(
-                            'Keine Anhänge vorhanden.',
-                            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-                          ),
-                        )
-                      else
-                        ...attachments.map((attachment) {
-                          final iconType = getIconType(attachment.meta.filename, attachment.meta.mime);
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                  onTap: () => notifier.openAttachment(attachment.attachment, attachment.meta.filename),
-                                  child: attachment.meta.thumbnail != null && attachment.meta.thumbnail!.isNotEmpty
-                                      ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.memory(
-                                      base64Decode(attachment.meta.thumbnail!),
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                      : Icon(
-                                    getIconForType(iconType),
-                                    size: 48,
-                                    color: Colors.blueGrey,
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final canManageAttachments = ref.watch(detailProvider.select((s) => s.canManageAttachments));
+                    final attachments = ref.watch(detailProvider.select((s) => s.attachments));
+                    if (!canManageAttachments && attachments.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (canManageAttachments)
+                          _buildSectionHeaderWithAction(
+                            'Anhänge',
+                            Icons.add_circle_outline,
+                            'Datei anhängen',
+                            _handleAddAttachment,
+                          )
+                        else
+                          _buildSectionTitle('Anhänge'),
+                        const SizedBox(height: 4),
+                        if (attachments.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
+                            child: Text('Keine Anhänge vorhanden.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                          )
+                        else
+                          ...attachments.map((attachment) {
+                            final iconType = getIconType(attachment.meta.filename, attachment.meta.mime);
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () => notifier.openAttachment(attachment.attachment, attachment.meta.filename),
+                                    child: attachment.meta.thumbnail != null && attachment.meta.thumbnail!.isNotEmpty ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.memory(base64Decode(attachment.meta.thumbnail!), width: 48, height: 48, fit: BoxFit.cover),
+                                    ) : Icon(getIconForType(iconType), size: 48, color: Colors.blueGrey),
                                   ),
                                 ),
+                                title: Text(attachment.meta.filename),
+                                subtitle: Text(formatSize(attachment.meta.size)),
+                                trailing: canManageAttachments ? IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  tooltip: 'Anhang löschen',
+                                  onPressed: () => _handleDeleteAttachment(attachment.attachment),
+                                ) : null,
                               ),
-                              title: Text(attachment.meta.filename),
-                              subtitle: Text(formatSize(attachment.meta.size)),
-                              trailing: canManageAttachments
-                                  ? IconButton(
-                                icon: const Icon(Icons.delete),
-                                tooltip: 'Anhang löschen',
-                                onPressed: () => _handleDeleteAttachment(attachment.attachment),
-                              )
-                                  : null,
-                            ),
-                          );
-                        }),
-                      const Divider(),
-                    ],
-                  );
-                }),
+                            );
+                          }),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // ------------------------------------------------------------------------
                 // Geteilt mit
                 // ------------------------------------------------------------------------
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
+                    final sharedFriends = ref.watch(detailProvider.select((s) => s.sharedFriends));
+                    if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (canManageShares)
+                          _buildSectionHeaderWithAction(
+                            'Geteilt mit',
+                            Icons.person_add_alt_1_outlined,
+                            'Freigabe hinzufügen',
+                            _handleAddFriend,
+                          )
+                        else
+                          _buildSectionTitle('Geteilt mit'),
+                        const SizedBox(height: 4),
+                        if (sharedFriends.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
+                            child: Text('Dieser Eintrag ist noch nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                          )
+                        else
+                          ...sharedFriends.map((friend) {
+                            final isWritable = friend.accessLevel == 2;
+                            Widget leadingIcon = Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
+                                const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
+                                if (!friend.user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
+                              ],
+                            );
 
-                Consumer(builder: (ctx, ref, _) {
-                  final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
-                  final sharedFriends =ref.watch(detailProvider.select((s) => s.sharedFriends));
-                  if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (canManageShares)
-                        _buildSectionHeaderWithAction(
-                          'Geteilt mit',
-                          Icons.person_add_alt_1_outlined,
-                          'Freigabe hinzufügen',
-                          _handleAddFriend,
-                        )
-                      else
-                        _buildSectionTitle('Geteilt mit'),
-                      const SizedBox(height: 4),
-                      if (sharedFriends.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
-                          child: Text(
-                            'Dieser Eintrag ist noch nicht geteilt.',
-                            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-                          ),
-                        )
-                      else
-                        ...sharedFriends.map((friend) {
-                          final isWritable = friend.accessLevel == 2;
-                          Widget leadingIcon = Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
-                              if (!friend.user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
-                            ],
-                          );
-
-                          if (!friend.user.isVerified) {
-                            leadingIcon = MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: () async {
-                                  await Navigator.pushNamed(
-                                    ctx,
-                                    '/settings',
-                                    arguments: {'focus_user_uuid': friend.user.uuid},
-                                  );
-                                  if (mounted) notifier.load(widget.entryId);
-                                },
-                                child: Tooltip(
-                                  message: 'Person ist nicht verifiziert!',
-                                  child: leadingIcon,
+                            if (!friend.user.isVerified) {
+                              leadingIcon = MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    await Navigator.pushNamed(ctx, '/settings', arguments: {'focus_user_uuid': friend.user.uuid});
+                                    if (mounted) notifier.load(widget.entryId);
+                                  },
+                                  child: Tooltip(message: 'Person ist nicht verifiziert!', child: leadingIcon),
                                 ),
+                              );
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: leadingIcon,
+                                title: Text(friend.user.name),
+                                trailing: canManageShares ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Schreibrechte', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Transform.scale(
+                                      scale: 0.75,
+                                      child: Switch(
+                                        value: isWritable,
+                                        onChanged: (bool value) => notifier.updateAccessLevel(friend.user, value ? 2 : 1),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      tooltip: 'Zugriff entziehen',
+                                      onPressed: () => _handleDeleteFriend(friend.user),
+                                    ),
+                                  ],
+                                ) : (isWritable
+                                    ? const Text('Schreibrechte', style: TextStyle(color: Colors.grey))
+                                    : const Text('Nur Leserechte', style: TextStyle(color: Colors.grey))
+                                  ),
                               ),
                             );
-                          }
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: leadingIcon,
-                              title: Text(friend.user.name),
-                              trailing: canManageShares
-                                  ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Schreibrechte',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                                  ),
-                                  Transform.scale(
-                                    scale: 0.75,
-                                    child: Switch(
-                                      value: isWritable,
-                                      onChanged: (bool value) => notifier.updateAccessLevel(friend.user, value ? 2 : 1),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    tooltip: 'Zugriff entziehen',
-                                    onPressed: () => _handleDeleteFriend(friend.user),
-                                  ),
-                                ],
-                              )
-                                  : (isWritable
-                                  ? const Text(
-                                'Schreibrechte',
-                                style: TextStyle(color: Colors.grey),
-                              )
-                                  : const Text(
-                                'Nur Leserechte',
-                                style: TextStyle(color: Colors.grey),
-                              )),
-                            ),
-                          );
-                        }),
-                      const Divider(),
-                    ],
-                  );
-                }),
+                          }),
+                        const Divider(),
+                      ],
+                    );
+                  },
+                ),
 
                 // --- Audit-Hinweis ---
-                Consumer(builder: (ctx, ref, _) {
-                  final auditHint = ref.watch(detailProvider.select((s) => s.auditHint));
-                  if (auditHint.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      auditHint,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
-                }),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final auditHint = ref.watch(detailProvider.select((s) => s.auditHint));
+                    if (auditHint.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(auditHint, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+                    );
+                  },
+                ),
 
                 // --- Abstand zum unteren Rand ---
                 const SizedBox(height: 48),
@@ -524,7 +486,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   /// Öffnet die Bearbeitungsseite und aktualisiert die Daten bei Rückkehr, falls Änderungen vorgenommen wurden.
   Future<void> _handleEdit() async {
     final hasChanged = await Navigator.of(context).pushNamed('/edit', arguments: widget.entryId);
-    if (hasChanged == true) { // hat die Edit-Seite "true" zurückgegeben?
+    if (hasChanged == true) {
+      // hat die Edit-Seite "true" zurückgegeben?
       _hasChanged = true;
       if (mounted) {
         final notifier = ref.read(detailProvider.notifier);

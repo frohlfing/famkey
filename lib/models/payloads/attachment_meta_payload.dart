@@ -33,7 +33,7 @@ class AttachmentMetaPayload {
       mime: json['mime'] as String,
       size: json['size'] as int,
       thumbnail: json['thumbnail'] as String?,
-      timestamp: DateTime.tryParse(json['timestamp'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      timestamp: DateTime.tryParse(json['timestamp'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 

@@ -19,7 +19,7 @@ class SyncPullResponse {
     return SyncPullResponse(
       updates: (json['updates'] as List).map((e) => SyncEntryDto.fromJson(e as Map<String, dynamic>)).toList(),
       deletes: (json['deletes'] as List).map((e) => SyncDeleteDto.fromJson(e as Map<String, dynamic>)).toList(),
-      serverTime: DateTime.tryParse(json['server_time'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      serverTime: DateTime.tryParse(json['server_time'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 }
@@ -106,7 +106,7 @@ class SyncEntryDto {
       friends: (json['friends'] as List?)?.map((e) => FriendPermissionDto.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       creatorUuid: json['creator_uuid'] as String,
       updaterUuid: json['updater_uuid'] as String,
-      updatedAt: DateTime.tryParse(json['updated_at'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 
@@ -142,7 +142,7 @@ class SyncDeleteDto {
   factory SyncDeleteDto.fromJson(Map<String, dynamic> json) {
     return SyncDeleteDto(
       entryUuid: json['entry_uuid'] as String,
-      deletedAt: DateTime.tryParse(json['deleted_at'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      deletedAt: DateTime.tryParse(json['deleted_at'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 

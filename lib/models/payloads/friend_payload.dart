@@ -34,7 +34,7 @@ class FriendPayload {
       name: json['name'] as String,
       isVerified: json['isVerified'] as bool,
       isHidden: json['isHidden'] as bool,
-      updatedAt: DateTime.tryParse(json['updatedAt'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      updatedAt: DateTime.tryParse(json['updatedAt'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
     );
   }
 

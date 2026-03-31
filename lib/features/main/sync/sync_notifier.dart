@@ -195,34 +195,6 @@ class SyncNotifier extends Notifier<SyncState> {
     }
   }
 
-  // Registriert den Benutzer, wenn noch nicht geschehen.
-  Future<UserResponse> _registerUserIfNeeded() async {
-    final vaultName = _sessionService.vaultName;
-    var user = _sessionService.user!;
-    var settings = _sessionService.settings!;
-    if (settings.encryptedPrivateKey.isEmpty) throw Exception("Privater Schlüssel fehlt");
-    if (settings.salt.isEmpty) throw Exception("Salt fehlt");
-
-    // Benutzer suchen
-    var userResponse = await _webService.findUser(vaultName, user.name);
-
-    // Benutzer registrieren, wenn noch nicht vorhanden
-    if (userResponse == null) {
-      userResponse = await _webService.registerUser(
-        vaultName: vaultName,
-        userName: user.name,
-        userUuid: user.uuid,
-        salt: settings.salt,
-        publicKey: user.publicKey,
-        encryptedPrivateKey: settings.encryptedPrivateKey,
-        masterKeyTimestamp: settings.masterKeyTimestamp,
-      );
-      if (userResponse.userUuid != user.uuid) throw Exception("Die vom Server erhaltene UUID entspricht nicht dem lokalen Benutzer.");
-    }
-
-    return userResponse;
-  }
-
   /// Lädt die Freundesliste vom Server und verarbeitet Namensänderungen, Key-Wechsel und gelöschte Freunde.
   Future<void> _pullFriends(UserResponse userResponse) async {
     // 1. Clientseitig gespeicherte Benutzer holen

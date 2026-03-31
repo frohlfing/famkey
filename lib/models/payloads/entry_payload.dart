@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+
 /// Repräsentiert einen verschlüsselten Tresoreintrag.
 /// Dieses Objekt wird als JSON serialisiert und anschließend mittels AES-256-GCM verschlüsselt
 /// in der Spalte `encryptedData` der `EntryEntity` gespeichert.
@@ -15,7 +17,7 @@ class EntryPayload {
   final String password;
 
   /// Der Zeitstempel des Passworts (UTC).
-  final DateTime passwordTimestamp;
+  final DateTime? passwordTimestamp;
 
   /// Die zugehörige Web-Adresse.
   final String url;
@@ -45,7 +47,7 @@ class EntryPayload {
       title: json['title'] as String? ?? '',
       username: json['username'] as String? ?? '',
       password: json['password'] as String? ?? '',
-      passwordTimestamp: DateTime.tryParse(json['password_timestamp'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      passwordTimestamp: DateTime.tryParse(json['password_timestamp'] ?? '')?.toUtc(),
       url: json['url'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       favicon: json['favicon'] as String? ?? '',
@@ -59,7 +61,7 @@ class EntryPayload {
       'title': title,
       'username': username,
       'password': password,
-      'password_timestamp': passwordTimestamp.toIso8601String(),
+      'password_timestamp': passwordTimestamp?.toIso8601String(),
       'url': url,
       'notes': notes,
       'favicon': favicon,

@@ -190,11 +190,11 @@ class EditNotifier extends Notifier<EditState> {
       }
 
       // 5. Payload bauen und verschlüsseln (AES)
-      var passwordTimestamp = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true); // 1970‑01‑01 00:00:00 UTC
+      DateTime? passwordTimestamp;
       if (formData.password.isNotEmpty) {
         passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
       }
-
+      //passwordTimestamp = DateTime.parse('2018-10-01');
       final payload = EntryPayload(
         category: formData.category,
         title: formData.title,

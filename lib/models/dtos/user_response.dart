@@ -45,7 +45,7 @@ class UserResponse {
       salt: json['salt'] as String,
       publicKey: json['public_key'] as String,
       encryptedPrivateKey: json['encrypted_private_key'] as String,
-      masterKeyTimestamp: DateTime.tryParse(json['master_key_timestamp'])?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
+      masterKeyTimestamp: DateTime.tryParse(json['master_key_timestamp'] ?? '')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // Fallback: 1970‑01‑01 00:00:00 UTC
       encryptedFriends: json['encrypted_friends'] as String?,
     );
   }
