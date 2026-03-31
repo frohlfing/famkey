@@ -1,5 +1,3 @@
-import 'package:flutter/cupertino.dart';
-
 /// Repräsentiert einen verschlüsselten Tresoreintrag.
 /// Dieses Objekt wird als JSON serialisiert und anschließend mittels AES-256-GCM verschlüsselt
 /// in der Spalte `encryptedData` der `EntryEntity` gespeichert.
