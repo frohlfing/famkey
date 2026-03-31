@@ -85,6 +85,9 @@
 ## 2. Todos / Feinschliff
 - todos erledigten
 - Doku von MAUI befreien
+- Tresor umbenennen, ohne den Server zu tangieren (vault_uuid)
+- Benutzer umbenennen, ohne den Server zu tangieren (bei Freunde umbenennen?)
+- Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)

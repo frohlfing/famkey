@@ -97,7 +97,6 @@ class EditNotifier extends Notifier<EditState> {
         // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
         final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
         if (perm == null) throw Exception('Eintrag $id konnte nicht entschlüsselt werden.');
-
         _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
 
         // Payload mittels AES entschlüsseln
@@ -167,20 +166,17 @@ class EditNotifier extends Notifier<EditState> {
       notes: formData.notes.trim(),
     );
 
-    // 1. Ladeanzeige einblenden
+    // 2. Ladeanzeige einblenden
     final status = state.isEditMode ? EditActionStatus.updating : EditActionStatus.creating;
     state = state.copyWith(formData: formData, status: status, error: AppError.none());
 
     try {
 
-      // 2. Benutzereingabe validieren
+      // 3. Benutzereingabe validieren
       if (formData.title.isEmpty) {
         state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'title'));
         return;
       }
-
-      // 3. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
-      _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
 
       // 4. Favicon laden, falls URL sich geändert hat
       String favicon = _entry?.favicon ?? '';
@@ -189,7 +185,7 @@ class EditNotifier extends Notifier<EditState> {
         if (icon != null) favicon = icon;
       }
 
-      // 5. Payload bauen und verschlüsseln (AES)
+      // 5. Payload bauen
       DateTime? passwordTimestamp;
       if (formData.password.isNotEmpty) {
         passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
@@ -206,13 +202,15 @@ class EditNotifier extends Notifier<EditState> {
         favicon: favicon,
       );
 
+      // 6. Neuen AES-Key generieren und per RSA verschlüsseln, falls nicht vorhanden
+      _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
+      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
+
+      // 7. Payload per AES-Key verschlüsseln
       final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
       final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
 
-      // 6. Entry-Key für den Eigenbedarf verschlüsseln (RSA)
-      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
-
-      // 7. Eintrag in der DB speichern
+      // 8. Eintrag in der DB speichern
       final entity = EntryEntity(
         id: _entry?.id ?? 0,
         uuid: _entry?.uuid ?? const Uuid().v4(),
@@ -228,7 +226,7 @@ class EditNotifier extends Notifier<EditState> {
       );
       _entry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
-      // 8. State aktualisieren
+      // 9. State aktualisieren
       state = state.copyWith(
         entryId: _entry!.id,
         originalFormData: formData,
