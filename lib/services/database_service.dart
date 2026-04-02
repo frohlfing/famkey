@@ -3,7 +3,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
-import 'package:privault/models/payloads/import_payload.dart';
 import 'package:privault/services/config_service.dart';
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
@@ -436,7 +435,7 @@ class DatabaseService {
 
     // Falls vorhanden → Id übernehmen und Update
     companion = companion.copyWith(id: Value(existing.id));
-    await (_db!.update(_db!.entries)..where((e) => e.id.equals(existing.id))).write(companion);
+    await (_db!.update(_db!.entries)..where((u) => u.id.equals(existing.id))).write(companion);
     return entry.copyWith(id: existing.id);
   }
 
@@ -793,13 +792,29 @@ class DatabaseService {
 
   /// Importiert die Daten
   ///
-  /// Es wird nur hinzugefügt, nicht überschrieben. WenDie Einträge dürfen noch nicht existieren
+  /// Es wird nur hinzugefügt, nicht überschrieben. Die Einträge dürfen noch nicht existieren.
   /// Zurückgegeben wird die Anzahl der neuen Einträge.
-  Future<void> import(ImportPayload payload) async {
+  Future<void> import(List<({EntryEntity entry, PermissionEntity permission, List<AttachmentEntity> attachments})> items) async {
     _ensureDbInitialized();
-    final now = DateTime.now().toUtc();
-    _db!.transaction(() async {
-      // todo Implementierung hinzufügen
+    return _db!.transaction(() async {
+      for (final item in items) {
+        // Prüfen ob UUID bereits existiert
+        final existing = await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(item.entry.uuid))).getSingleOrNull();
+        if (existing != null) {
+           throw Exception("Konflikt: Eintrag mit UUID ${item.entry.uuid} existiert bereits.");
+        }
+
+        // 1. Eintrag speichern
+        final entryId = await _db!.into(_db!.entries).insert(item.entry);
+
+        // 2. Permission speichern (mit korrekter entryId)
+        await _db!.into(_db!.permissions).insert(item.permission.copyWith(entryId: entryId));
+
+        // 3. Anhänge speichern
+        for (final attachment in item.attachments) {
+          await _db!.into(_db!.attachments).insert(attachment.copyWith(entryId: entryId));
+        }
+      }
     });
   }
 

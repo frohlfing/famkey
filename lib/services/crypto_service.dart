@@ -32,6 +32,12 @@ class CryptoService {
 
   // --- AES ---
 
+  /// Generiert ein kryptografisch sicheres 32 Byte langen AES-Schlüssel.
+  Uint8List generateAesKey() {
+    final random = Random.secure();
+    return Uint8List.fromList(List<int>.generate(32, (_) => random.nextInt(256)));
+  }
+
   /// Leitet einen 32-Byte (256 Bit) AES-Schlüssel aus einem Passwort und Salt mittels Argon2id ab (PBKDF).
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
     final params = pc.Argon2Parameters(
@@ -162,7 +168,7 @@ class CryptoService {
   /// Generiert ein kryptografisch sicheres, 16 Byte langes Salt.
   Uint8List generateSalt() {
     final random = Random.secure();
-    return Uint8List.fromList(List<int>.generate(16, (i) => random.nextInt(256)));
+    return Uint8List.fromList(List<int>.generate(16, (_) => random.nextInt(256)));
   }
 
   /// Signiert Daten mit dem RSA Private Key.

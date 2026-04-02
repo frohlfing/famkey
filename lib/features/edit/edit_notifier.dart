@@ -203,7 +203,7 @@ class EditNotifier extends Notifier<EditState> {
       );
 
       // 6. Neuen AES-Key generieren und per RSA verschlüsseln, falls nicht vorhanden
-      _entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
+      _entryKey ??= _cryptoService.generateAesKey();
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
 
       // 7. Payload per AES-Key verschlüsseln

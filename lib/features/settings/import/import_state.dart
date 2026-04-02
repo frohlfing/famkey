@@ -1,5 +1,6 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/features/settings/import/import_form_data.dart';
+import 'package:privault/features/settings/import/import_statistics.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum ImportActionStatus {
@@ -18,8 +19,8 @@ class ImportState {
   /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final ImportFormData originalFormData;
 
-  /// Die Anzahl der Einträge, die hinzugefügt wurden.
-  final int addedCount;
+  /// Die Sync-Statistik nach erfolgreicher Durchführung.
+  final ImportStatistics? statistics;
 
   /// Der Status der letzten Aktion.
   final ImportActionStatus status;
@@ -41,7 +42,7 @@ class ImportState {
   const ImportState({
     this.formData = const ImportFormData(),
     this.originalFormData = const ImportFormData(),
-    this.addedCount = 0,
+    this.statistics = const ImportStatistics(),
     this.status = ImportActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -50,14 +51,14 @@ class ImportState {
   ImportState copyWith({
     ImportFormData? formData,
     ImportFormData? originalFormData,
-    int? addedCount,
+    ImportStatistics? statistics,
     ImportActionStatus? status,
     AppError? error,
   }) {
     return ImportState(
       formData: formData ?? this.formData,
       originalFormData: originalFormData ?? this.originalFormData,
-      addedCount: addedCount ?? this.addedCount,
+      statistics: statistics ?? this.statistics,
       status: status ?? this.status,
       error: error ?? this.error,
     );

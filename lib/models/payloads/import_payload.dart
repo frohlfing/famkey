@@ -40,6 +40,9 @@ class ImportEntry {
     String? mime,
   })> attachments;
 
+  /// Zeilenindex in der Importdatei
+  final int lineIndex;
+
   /// Konstruktor
   ImportEntry({
     required this.uuid,
@@ -53,6 +56,7 @@ class ImportEntry {
     required this.favicon,
     required this.updatedAt,
     required this.attachments,
+    required this.lineIndex,
   });
 }
 
