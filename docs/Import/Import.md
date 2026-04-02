@@ -1,37 +1,21 @@
-# Import
-
-## Der Import-Prozess
-
-- status="initial": Dateiauswahl → path wird zurückgegeben
-- status="parse": Parser (KeepassXMLParser(path) oder BitwardenJSONParser(path)) → importPayload wird zurückgegeben
-- status="import": Importer(importPayload)
-- status="failure": Abbruch bei Parser-Error, sonst Nachfrage, ob Abbruch oder Überspringen
-- status="success": Ergebnisbericht
-
-Der Benutzer kann in den Einstellungen (lib/features/settings/) einen Button "Import" drücken, der den modalen ImportDialog öffnet.  
-
-
-[settings_notifier.dart](../../lib/features/settings/settings_notifier.dart)
----
-
-## Import-Formate
+# Import-Formate
 
 Folgende Dateiformate werden für den Import unterstützt.
 
 ---
 
-### KeePass XML (2.x)
+## KeePass XML (2.x)
 
 - Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md
 - Beispieldatei: [KeePass XML (2.x) KI-generiert.xml](Beispieldateien/KeePass%20XML%20%282.x%29%20KI-generiert.xml)
 
-#### Voraussetzung
+### Voraussetzung
  
 - Die Datei ist mit UTF-8 (Unicode) kodiert.
 - Datums-/Zeitangaben sind im ISO 8601 format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
 - Die Zeichen `< > & " '` sind durch `&lt;` `&gt;` `&amp;` `&quot;` `&apos;` ersetzt.
 
-#### Mapping
+### Mapping
     
 - `url`
   Die UUID ist Base64-kodiert (z.B. `DzqV4eP8VE+rUTDqetpscA==`). Die Dekodierung ergibt 16-Bytes,  
@@ -87,18 +71,18 @@ Folgende Dateiformate werden für den Import unterstützt.
 
 ---
 
-### Bitwarden JSON
+## Bitwarden JSON
 
 - Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163
 - Beispieldatei: [Bitwarden JSON KI-generiert.json](Beispieldateien/Bitwarden%20JSON%20KI-generiert.json)
 
-#### Voraussetzung
+### Voraussetzung
 
 - Die Datei ist mit UTF-8 (Unicode) kodiert.
 - Datums-/Zeitangaben sind im ISO 8601 format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
 - Die JSON-Datei ist unverschlüsselt.
 
-#### Mapping
+### Mapping
 
 - `url`
   Die UUID ist eine global eindeutige 36 Zeichen lange Zeichenfolge (z.B. `3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12`) und kann direkt übernommen werden.
