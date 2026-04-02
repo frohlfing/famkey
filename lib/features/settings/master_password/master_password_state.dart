@@ -10,7 +10,7 @@ enum MasterPasswordActionStatus {
   failure, // Aktion mit Fehler beendet
 }
 
-class AdoptIdentityState {
+class MasterPasswordState {
 
   /// Die Formulardaten.
   final MasterPasswordFormData formData;
@@ -40,7 +40,7 @@ class AdoptIdentityState {
     formData.password.isNotEmpty;
 
   /// Konstruktor
-  const AdoptIdentityState({
+  const MasterPasswordState({
     this.formData = const MasterPasswordFormData(),
     this.passwordStrength = 0,
     this.status = MasterPasswordActionStatus.initial,
@@ -48,13 +48,13 @@ class AdoptIdentityState {
   });
 
   /// Status aktualisieren (immutable)
-  AdoptIdentityState copyWith({
+  MasterPasswordState copyWith({
     MasterPasswordFormData? formData,
     int? passwordStrength,
     MasterPasswordActionStatus? status,
     AppError? error,
   }) {
-    return AdoptIdentityState(
+    return MasterPasswordState(
       formData: formData ?? this.formData,
       passwordStrength: passwordStrength ?? this.passwordStrength,
       status: status ?? this.status,

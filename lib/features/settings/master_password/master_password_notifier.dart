@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
@@ -13,11 +12,11 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 
-final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, AdoptIdentityState>(() {
+final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, MasterPasswordState>(() {
   return MasterPasswordNotifier();
 });
 
-class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
+class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
 
   // ------------------------------------------------------------------------
   // --- Services ---
@@ -38,7 +37,7 @@ class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
   /// Die Verwendung von `Ref.watch` oder `Ref.listen` innerhalb dieser Methode ist unbedenklich.
   /// Ändert sich eine Abhängigkeit dieses Notifiers (bei Verwendung von `Ref.watch`), wird der Build-Prozess erneut ausgeführt. Der Notifier selbst wird jedoch nicht neu erstellt. Seine Instanz bleibt zwischen den Build-Ausführungen erhalten.
   @override
-  AdoptIdentityState build() {
+  MasterPasswordState build() {
     // Dienste aus getIt holen
     _biometricService = getIt<BiometricService>();
     _cryptoService = getIt<CryptoService>();
@@ -47,7 +46,7 @@ class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
     _sessionService = getIt<SessionService>();
 
     // Initialer State
-    return AdoptIdentityState();
+    return MasterPasswordState();
   }
 
   /// Lädt die Daten für die Anzeige.
@@ -55,7 +54,7 @@ class MasterPasswordNotifier extends Notifier<AdoptIdentityState> {
     if (state.isBusy) return;
 
     // UI-State zurücksetzen
-    state = const AdoptIdentityState();
+    state = const MasterPasswordState();
   }
 
   // ------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import 'package:privault/features/main/sync/sync_statistics.dart';
 enum SyncStatus {
   initial, // Ausgangszustand
   progress, // Aktion läuft
-  success, // Sync-Prozess war erfolgreich
+  success, // Sync-Prozess wurde erfolgreich abgeschlossen
   failure, // Aktion mit Fehler beendet
   askForAdoption, // Frage, ob die auf dem Server gespeicherte Identität adoptiert werden soll.
   askForRekeying, // Schlüssel des Freundes ist ungültig

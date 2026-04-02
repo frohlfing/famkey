@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
+import 'package:privault/models/payloads/import_payload.dart';
 import 'package:privault/services/config_service.dart';
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
@@ -788,6 +789,18 @@ class DatabaseService {
 
     await _db!.into(_db!.settings).insertOnConflictUpdate(companion);
     return settings;
+  }
+
+  /// Importiert die Daten
+  ///
+  /// Es wird nur hinzugefügt, nicht überschrieben. WenDie Einträge dürfen noch nicht existieren
+  /// Zurückgegeben wird die Anzahl der neuen Einträge.
+  Future<void> import(ImportPayload payload) async {
+    _ensureDbInitialized();
+    final now = DateTime.now().toUtc();
+    _db!.transaction(() async {
+      // todo Implementierung hinzufügen
+    });
   }
 
   // ------------------------------------------------------------------------
