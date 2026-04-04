@@ -10,6 +10,7 @@ import 'package:privault/services/crypto_service.dart';
 /// Dienst für die Kommunikation mit der priVault-API (Backend).
 /// Kümmert sich um Authentifizierung (API-Token) und Autorisierung (RSA-Signatur der Requests).
 class WebService {
+
   // ------------------------------------------------------------------------
   // --- Verwendete Dienste (Abhängigkeiten) ---
   // ------------------------------------------------------------------------

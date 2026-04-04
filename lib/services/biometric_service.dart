@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// Hardware-Sicherheitschip des Betriebssystems (Keychain bei iOS, Keystore bei Android)
 /// geschützt. Nur eine erfolgreiche biometrische Abfrage schaltet den Schlüssel frei.
 class BiometricService {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------

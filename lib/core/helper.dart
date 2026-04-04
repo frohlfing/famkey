@@ -1,5 +1,9 @@
 import 'dart:convert';
+import 'dart:math' as math;
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 
 /// Sammlung von Hilfsfunktionen für die UI.
 
@@ -95,6 +99,18 @@ IconData getIconForType(String type) {
   // @formatter:on
 }
 
+/// Lädt das Favicon einer Website über den Google-Dienst (Base64).
+Future<String?> downloadFavicon(String url) async {
+  try {
+    final Dio dio = Dio();
+    final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+    final faviconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=64';
+    final response = await dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
+    if (response.data != null) return base64.encode(response.data!);
+  } catch (_) {}
+  return null;
+}
+
 /// Hilfsfunktion zum Rendern des Webseiten-Icons (Favicon).
 ///
 /// Versucht das in der Datenbank hinterlegte Base64-Bild anzuzeigen.
@@ -130,4 +146,41 @@ String formatSize(int bytes) {
     size /= scale;
   }
   return "${size.toStringAsFixed(2)} ${orders[order]}";
+}
+
+/// Erzeugt eine Thumbnail (Base64)
+Future<String?> createThumbnail(Uint8List bytes) async {
+  // compute lagert eine Berechnung in einen separaten Worker-Thread aus.
+  // Die Worker-Funktion darf keine Instanz-Methode einer Klasse sein (static würde gehen),
+  // sonst wird versucht, die gesamte Instanz in den Thread zu kopieren, was schief geht.
+  return compute(_createThumbnailWorker, bytes);
+}
+
+/// Worker-Funktion zum Erzeugen einer Thumbnail (Base64).
+/// Die Funktion wird innerhalb eines Threads aufgerufen.
+String? _createThumbnailWorker(Uint8List bytes) {
+  try {
+    // 1. Image dekodieren
+    final image = img.decodeImage(bytes);
+    if (image == null || image.width <= 0 || image.height <= 0) return null;
+
+    const maxWidth = 128;
+    const maxHeight = 128;
+
+    // 2. Aspect-Fit berechnen (wie in MAUI Logik)
+    final scale = math.min(maxWidth / image.width, maxHeight / image.height);
+    final newW = math.max(1, (image.width * scale).round());
+    final newH = math.max(1, (image.height * scale).round());
+
+    // 3. Resize auf exakte Zielgröße (verhindert Trauerränder)
+    final thumbnail = img.copyResize(image, width: newW, height: newH, interpolation: img.Interpolation.linear);
+
+    // 4. Encode mit 80% Qualität
+    return base64Encode(img.encodeJpg(thumbnail, quality: 80));
+  } catch (e) {
+    // In statischen Methoden können wir kein logError() der Instanz rufen!
+    // Wir loggen hier nur auf die Konsole oder geben null zurück.
+    debugPrint('Thumbnail-Fehler: $e');
+    return null;
+  }
 }

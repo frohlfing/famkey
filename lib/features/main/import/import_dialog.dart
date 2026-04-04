@@ -1,9 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/import/import_form_data.dart';
-import 'package:privault/features/settings/import/import_notifier.dart';
-import 'package:privault/features/settings/import/import_state.dart';
+import 'package:privault/features/main/import/import_form_data.dart';
+import 'package:privault/features/main/import/import_notifier.dart';
+import 'package:privault/features/main/import/import_state.dart';
 
 /// Ein modaler Dialog zum Importieren von Daten aus anderen Passwort-Managern.
 class ImportDialog extends ConsumerStatefulWidget {
@@ -29,6 +29,13 @@ class ImportDialog extends ConsumerStatefulWidget {
 }
 
 class _ImportDialogState extends ConsumerState<ImportDialog> {
+
+  // ------------------------------------------------------------------------
+  // --- Interne Variablen ---
+  // ------------------------------------------------------------------------
+
+  /// Lokaler Guard, um mehrfaches Öffnen des Pickers zu verhindern
+  var _isPickingFile = false;
 
   // ------------------------------------------------------------------------
   // --- TextEditingController ---
@@ -65,15 +72,25 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
 
   /// Öffnet den File-Picker zur Auswahl der Importdatei.
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any, // Später evtl. einschränken je nach Format
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
+    if (_isPickingFile) return;
+    setState(() => _isPickingFile = true); // Mit setState wird erst die anonymen Funktion aufgerufen, danach wird das Widget als "dirty" markiert (wodurch im nächsten Frame die build-Methode neu rendert)
+    try {
+      // Datei auswählen
+      final state = ref.read(importProvider);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: state.formData.format.allowedExtensions,
+      );
+      if (!mounted || result == null || result.files.isEmpty || result.files.single.path == null) return;
       final path = result.files.single.path!;
+
+      // Datei an den TextController und an den Notifier übergeben
       _fileController.text = path;
-      ref.read(importProvider.notifier).setFile(path);
+      final notifier = ref.read(importProvider.notifier);
+      notifier.setFile(path);
+    }
+    finally {
+      if (mounted) setState(() => _isPickingFile = false);
     }
   }
 
@@ -141,7 +158,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ),
                 hint: const Text('Format wählen'),
                 items: const [
-                  DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)')),
+                  DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
                   DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
                 ],
                 onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
@@ -157,12 +174,15 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 readOnly: true,
                 onTap: isBusy ? null : _pickFile,
                 decoration: InputDecoration(
-                  hintText: 'Datei auswählen...',
+                  hintText: 'Datei auswählen',
                   errorText: state.error.field == 'file' ? state.error.text : null,
                   prefixIcon: const Icon(Icons.file_open_outlined),
-                  suffixIcon: IconButton(
+                  suffixIcon: _isPickingFile ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ) : IconButton(
                     icon: const Icon(Icons.search),
-                    onPressed: isBusy ? null : _pickFile,
+                    onPressed: isBusy ? null : _pickFile
                   ),
                   border: const OutlineInputBorder(),
                 ),
@@ -170,7 +190,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
             ],
 
             // --- Status-Anzeigen ---
-            if (status == ImportActionStatus.parse || status == ImportActionStatus.import) ...[
+            if (status == ImportActionStatus.progress) ...[
             //if (isBusy) ...[
               const Center(
                 child: Column(
@@ -196,7 +216,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Import erfolgreich abgeschlossen!\n\n${state.statistics}'),
+                          const Text('Import erfolgreich abgeschlossen!'),
+                          const SizedBox(height: 8),
+                          Text('✳️ Hinzugefügt: ${state.addedCount} Einträge'),
                         ],
                       ),
                     ),
@@ -229,48 +251,29 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
         ),
       ),
 
-      actions: _buildActions(context, state, notifier),
+      // --- Buttons ---
+      actions: [
+        if (state.status == ImportActionStatus.initial || state.status == ImportActionStatus.failure)
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+
+        if (state.status == ImportActionStatus.initial)
+          ElevatedButton(
+            autofocus: true,
+            onPressed: notifier.import,
+            child: const Text('Importieren'),
+          ),
+
+        if (state.status == ImportActionStatus.success)
+          ElevatedButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('OK'),
+          ),
+      ],
 
     );
-  }
-
-  /// Erstellt die Aktion-Buttons je nach Status.
-  List<Widget> _buildActions(BuildContext context, ImportState state, ImportNotifier notifier) {
-    if (state.isBusy) return [];
-
-    if (state.status == ImportActionStatus.success) {
-      return [
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Schließen'),
-        ),
-      ];
-    }
-
-    if (state.status == ImportActionStatus.failure) {
-      // todo Nachfrage "Überspringen" bei Konflikten (nicht Parser-Fehler)
-      // Für jetzt erst mal nur Schließen/Wiederholen
-      return [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Abbrechen'),
-        ),
-        ElevatedButton(
-          onPressed: notifier.import,
-          child: const Text('Wiederholen'),
-        ),
-      ];
-    }
-
-    return [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(false),
-        child: const Text('Abbrechen'),
-      ),
-      ElevatedButton(
-        onPressed: notifier.import,
-        child: const Text('Importieren'),
-      ),
-    ];
   }
 }

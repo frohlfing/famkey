@@ -12,6 +12,7 @@ const allPwSpecialChars = '!?§\$€%&#@()[]{}<>=_~-+*,;.:/|\\^´`\'"';
 
 /// Ein Hilfsdienst zur Generierung und Bewertung von Passwörtern.
 class PasswordService {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------

@@ -5,6 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
 
+/// Daten für `import()`
+typedef ImportBatch = List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})>;
+
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
   // ------------------------------------------------------------------------
@@ -794,25 +797,32 @@ class DatabaseService {
   ///
   /// Es wird nur hinzugefügt, nicht überschrieben. Die Einträge dürfen noch nicht existieren.
   /// Zurückgegeben wird die Anzahl der neuen Einträge.
-  Future<void> import(List<({EntryEntity entry, PermissionEntity permission, List<AttachmentEntity> attachments})> items) async {
+  Future<void> import(ImportBatch items) async {
     _ensureDbInitialized();
     return _db!.transaction(() async {
       for (final item in items) {
-        // Prüfen ob UUID bereits existiert
-        final existing = await (_db!.select(_db!.entries)..where((e) => e.uuid.equals(item.entry.uuid))).getSingleOrNull();
-        if (existing != null) {
-           throw Exception("Konflikt: Eintrag mit UUID ${item.entry.uuid} existiert bereits.");
-        }
-
         // 1. Eintrag speichern
         final entryId = await _db!.into(_db!.entries).insert(item.entry);
 
         // 2. Permission speichern (mit korrekter entryId)
-        await _db!.into(_db!.permissions).insert(item.permission.copyWith(entryId: entryId));
+        await _db!.into(_db!.permissions).insert(PermissionEntity(
+          id: 0,
+          entryId: entryId,
+          userId: 1,
+          encryptedKey: item.encryptedEntryKey,
+          accessLevel: 3, // Besitzer
+        ));
 
         // 3. Anhänge speichern
-        for (final attachment in item.attachments) {
-          await _db!.into(_db!.attachments).insert(attachment.copyWith(entryId: entryId));
+        for (final att in item.attachments) {
+          await _db!.into(_db!.attachments).insert(AttachmentEntity(
+            id: 0,
+            uuid: att.uuid,
+            entryId: entryId,
+            encryptedMeta: att.encryptedMeta,
+            encryptedContent: att.encryptedContent,
+            isSynced: false,
+          ));
         }
       }
     });

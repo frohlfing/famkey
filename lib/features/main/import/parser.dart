@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-class ImportEntry {
+class ParsedEntry {
 
   /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
   final String uuid;
@@ -17,7 +17,7 @@ class ImportEntry {
   /// Das Passwort des Eintrags.
   final String password;
 
-  /// Der Zeitstempel des Passworts (UTC).
+  /// Der Zeitstempel des Passworts (UTC, optional).
   final DateTime? passwordTimestamp;
 
   /// Die zugehörige Web-Adresse.
@@ -30,21 +30,16 @@ class ImportEntry {
   final String favicon;
 
   /// Zeitpunkt der letzten Änderung (UTC).
-  final DateTime updatedAt;
+  final DateTime? updatedAt;
 
   /// Dateianhänge
-  final List<({
-    Uint8List blob,
-    String filename,
-    DateTime? timestamp,
-    String? mime,
-  })> attachments;
+  final List<({Uint8List blob, String filename, String mime, DateTime? timestamp})> attachments;
 
-  /// Zeilenindex in der Importdatei
-  final int lineIndex;
+  /// Zeilennummer in der Importdatei (1-basiert)
+  final int? lineNumber;
 
   /// Konstruktor
-  ImportEntry({
+  ParsedEntry({
     required this.uuid,
     required this.category,
     required this.title,
@@ -56,8 +51,16 @@ class ImportEntry {
     required this.favicon,
     required this.updatedAt,
     required this.attachments,
-    required this.lineIndex,
+    required this.lineNumber,
   });
 }
 
-typedef ImportPayload = List<ImportEntry>;
+typedef ParsedPayload = List<ParsedEntry>;
+
+abstract class Parser {
+  /// Lädt die Daten aus der Datei. Im Fall eines Fehlers wird null zurückgegeben.
+  Future<ParsedPayload?> parse();
+
+  /// Gibt den Fehlertext zurück.
+  String? get errorText => null;
+}

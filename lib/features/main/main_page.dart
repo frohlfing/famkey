@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
+import 'package:privault/features/main/import/import_dialog.dart';
 import 'package:privault/features/main/sync/sync_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 
@@ -95,12 +96,14 @@ class _MainPageState extends ConsumerState<MainPage> {
             ),
             //title: Text(vaultName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
             centerTitle: true,
-
             leading: PopupMenuButton<String>(
               onSelected: isBusy ? null : (value) async {
                 switch (value) {
                   case 'sync':
                     _showSyncDialog();
+                    break;
+                  case 'import':
+                    _showImportDialog();
                     break;
                   case 'settings':
                     _showSettingsPage();
@@ -116,6 +119,13 @@ class _MainPageState extends ConsumerState<MainPage> {
                   child: ListTile(
                     leading: Icon(Icons.cloud_sync_outlined),
                     title: Text('Synchronisieren'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'import',
+                  child: ListTile(
+                    leading: Icon(Icons.file_download_outlined),
+                    title: Text('Importieren'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -291,6 +301,15 @@ class _MainPageState extends ConsumerState<MainPage> {
   /// Öffnet den Dialog zum Synchronisieren.
   Future<void> _showSyncDialog() async {
     final ok = await SyncDialog.show(context);
+    if (mounted && ok == true) {
+      final notifier = ref.read(mainProvider.notifier);
+      notifier.load();
+    }
+  }
+
+  /// Öffnet den Dialog zum Importieren einer Datei.
+  Future<void> _showImportDialog() async {
+    final ok = await ImportDialog.show(context);
     if (mounted && ok == true) {
       final notifier = ref.read(mainProvider.notifier);
       notifier.load();

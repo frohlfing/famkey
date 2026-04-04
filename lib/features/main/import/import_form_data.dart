@@ -11,6 +11,17 @@ enum ImportFileFormat {
   //protonJson Proton Pass JSON
 }
 
+/// Erweiterung für [ImportFileFormat], um jedem Code eine Dateierweiterung zuzuweisen.
+extension ImportFileFormatExtension on ImportFileFormat {
+  List<String> get allowedExtensions {
+    return switch (this) {
+      ImportFileFormat.keepassXml => ['xml'],
+      ImportFileFormat.bitwardenJson => ['json'],
+      _ => ['xml', 'json'], // Default-Fall (Catch-all) -> alle unterstützen Formate
+    };
+  }
+}
+
 /// Alle Daten im Dialog, die der Benutzer ändern kann.
 class ImportFormData {
 

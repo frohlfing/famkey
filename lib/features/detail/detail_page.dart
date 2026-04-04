@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
@@ -32,6 +33,7 @@ class DetailPage extends ConsumerStatefulWidget {
 }
 
 class _DetailPageState extends ConsumerState<DetailPage> {
+
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
@@ -41,6 +43,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
   /// Gibt an, ob der Eintrag durch die Bearbeitungsseite geändert wurde.
   var _hasChanged = false;
+
+  /// Lokaler Guard, um mehrfaches Öffnen des Pickers zu verhindern
+  var _isPickingFile = false;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -289,9 +294,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         if (canManageAttachments)
                           _buildSectionHeaderWithAction(
                             'Anhänge',
-                            Icons.add_circle_outline,
+                            _isPickingFile ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_circle_outline),
                             'Datei anhängen',
-                            _handleAddAttachment,
+                            isBusy || _isPickingFile ? null : _handleAddAttachment,
                           )
                         else
                           _buildSectionTitle('Anhänge'),
@@ -347,7 +352,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         if (canManageShares)
                           _buildSectionHeaderWithAction(
                             'Geteilt mit',
-                            Icons.person_add_alt_1_outlined,
+                            const Icon(Icons.person_add_alt_1_outlined),
                             'Freigabe hinzufügen',
                             _handleAddFriend,
                           )
@@ -466,14 +471,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   /// Erstellt eine Sektion-Überschrift, die zusätzlich eine Aktion (Icon-Button)
   /// auf der rechten Seite enthält – beispielsweise zum Hinzufügen von Anhängen
   /// oder neuen Freigaben.
-  Widget _buildSectionHeaderWithAction(String title, IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildSectionHeaderWithAction(String title, Widget icon, String tooltip, VoidCallback? onPressed) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildSectionTitle(title),
         Padding(
           padding: EdgeInsets.only(top: 0, bottom: 0, left: 0, right: 24),
-          child: IconButton(icon: Icon(icon), tooltip: tooltip, onPressed: onPressed),
+          child: IconButton(icon: icon, tooltip: tooltip, onPressed: onPressed),
         ),
       ],
     );
@@ -504,10 +509,23 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     Snack.show(context, '$label in die Zwischenablage kopiert', success: true);
   }
 
-  /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
+  /// Fügt einen Dateianhang hinzu.
   Future<void> _handleAddAttachment() async {
-    final notifier = ref.read(detailProvider.notifier);
-    notifier.addAttachment();
+    if (_isPickingFile) return;
+    setState(() => _isPickingFile = true); // Mit setState wird erst die anonymen Funktion aufgerufen, danach wird das Widget als "dirty" markiert (wodurch im nächsten Frame die build-Methode neu rendert)
+    try {
+      // Datei auswählen
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+
+      // Datei an den Notifier übergeben
+      final notifier = ref.read(detailProvider.notifier);
+      notifier.addAttachment(file);
+    }
+    finally {
+      if (mounted) setState(() => _isPickingFile = false);
+    }
   }
 
   /// Fragt nach Bestätigung und löscht dann den Anhang.

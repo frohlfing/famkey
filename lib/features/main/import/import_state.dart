@@ -1,12 +1,10 @@
 import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/import/import_form_data.dart';
-import 'package:privault/features/settings/import/import_statistics.dart';
+import 'package:privault/features/main/import/import_form_data.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum ImportActionStatus {
   initial, // Der Ausgangszustand (der Benutzer wählt eine Datei aus)
-  parse, // Datei wird geparst
-  import, // Einträge werden importiert
+  progress, // Aktion läuft
   success, // Importprozess wurde erfolgreich abgeschlossen
   failure, // Aktion mit Fehler beendet
 }
@@ -19,8 +17,8 @@ class ImportState {
   /// Die ursprünglichen Formulardaten (für den Dirty-Check).
   final ImportFormData originalFormData;
 
-  /// Die Sync-Statistik nach erfolgreicher Durchführung.
-  final ImportStatistics? statistics;
+  /// Die Anzahl der Einträge, die hinzugefügt wurden.
+  final int addedCount;
 
   /// Der Status der letzten Aktion.
   final ImportActionStatus status;
@@ -32,8 +30,7 @@ class ImportState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
-    status == ImportActionStatus.parse ||
-    status == ImportActionStatus.import;
+    status == ImportActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => formData != originalFormData;
@@ -42,7 +39,7 @@ class ImportState {
   const ImportState({
     this.formData = const ImportFormData(),
     this.originalFormData = const ImportFormData(),
-    this.statistics = const ImportStatistics(),
+    this.addedCount = 0,
     this.status = ImportActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -51,14 +48,14 @@ class ImportState {
   ImportState copyWith({
     ImportFormData? formData,
     ImportFormData? originalFormData,
-    ImportStatistics? statistics,
+    int? addedCount,
     ImportActionStatus? status,
     AppError? error,
   }) {
     return ImportState(
       formData: formData ?? this.formData,
       originalFormData: originalFormData ?? this.originalFormData,
-      statistics: statistics ?? this.statistics,
+      addedCount: addedCount ?? this.addedCount,
       status: status ?? this.status,
       error: error ?? this.error,
     );

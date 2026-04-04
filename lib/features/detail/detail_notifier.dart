@@ -1,13 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image/image.dart' as img;
 import 'package:open_filex/open_filex.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/helper.dart';
@@ -212,36 +209,27 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
-  Future<void> addAttachment() async {
+  Future<void> addAttachment(PlatformFile file) async {
     if (state.isBusy) return;
 
-    // Status auf progress setzen
+    // 1. Status auf progress setzen
     state = state.copyWith(status: DetailActionStatus.progress, error: AppError.none());
 
     try {
       if (_entry == null) throw Exception('Kein Eintrag zum Anhängen einer Datei geladen.');
       if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
 
-      // Datei auswählen
-      final result = await FilePicker.platform.pickFiles(withData: true);
-      if (result == null || result.files.isEmpty) {
-        state = state.copyWith(status: DetailActionStatus.initial);
-        return;
-      }
-      final file = result.files.first;
+      // 2. Datei auslesen
       final bytes = file.bytes!;
       final mimeType = getMimeType(file.name);
 
-      // Thumbnail erzeugen (wenn es ein Bild ist)
+      // 3. Thumbnail erzeugen (wenn es ein Bild ist)
       String? thumbnailBase64;
       if (mimeType.startsWith('image/')) {
-        // compute lagert eine Berechnung in einen separaten Worker-Thread aus.
-        // Die Worker-Funktion darf keine Instanz-Methode sein, sonst wird versucht,
-        // das gesamte DetailViewModel in den Thread zu kopieren, was schief geht.
-        thumbnailBase64 = await compute(_createThumbnail, bytes);
+        thumbnailBase64 = await createThumbnail(bytes);
       }
 
-      // 1. Metadaten-Payload vorbereiten
+      // 4. Metadaten-Payload vorbereiten
       final metaPayload = AttachmentMetaPayload(
         filename: file.name,
         mime: mimeType,
@@ -250,11 +238,11 @@ class DetailNotifier extends Notifier<DetailState> {
         timestamp: DateTime.now().toUtc(),
       );
 
-      // 2. Verschlüsseln (AES)
+      // 5. Verschlüsseln (AES)
       final encryptedMeta = await _cryptoService.encrypt(Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), _entryKey!);
       final encryptedContent = await _cryptoService.encrypt(bytes, _entryKey!);
 
-      // 3. Entity speichern
+      // 6. Entity speichern
       await _databaseService.saveAttachment(AttachmentEntity(
         id: 0,
         uuid: const Uuid().v4(),
@@ -264,11 +252,11 @@ class DetailNotifier extends Notifier<DetailState> {
         isSynced: false,
       ));
 
-      // 4. Zeitstempel des Eintrags aktualisieren
+      // 7. Zeitstempel des Eintrags aktualisieren
       _entry = _entry!.copyWith(updatedAt: DateTime.now().toUtc());
       await _databaseService.saveEntry(_entry!);
 
-      // 5. State aktualisieren
+      // 8. State aktualisieren
       final attachments = await _loadAttachmentsWithMetas(_entry!.id);
       state = state.copyWith(
         attachments: attachments,
@@ -345,34 +333,34 @@ class DetailNotifier extends Notifier<DetailState> {
     }
   }
 
-  /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
-  /// Die Funktion muss static sein, das sie innerhalb eines Worker-Threads aufgerufen wird.
-  static String? _createThumbnail(Uint8List bytes) {
-    try {
-      // 1. Image dekodieren
-      final image = img.decodeImage(bytes);
-      if (image == null || image.width <= 0 || image.height <= 0) return null;
-
-      const maxWidth = 128;
-      const maxHeight = 128;
-
-      // 2. Aspect-Fit berechnen (wie in MAUI Logik)
-      final scale = math.min(maxWidth / image.width, maxHeight / image.height);
-      final newW = math.max(1, (image.width * scale).round());
-      final newH = math.max(1, (image.height * scale).round());
-
-      // 3. Resize auf exakte Zielgröße (verhindert Trauerränder)
-      final thumbnail = img.copyResize(image, width: newW, height: newH, interpolation: img.Interpolation.linear);
-
-      // 4. Encode mit 80% Qualität
-      return base64Encode(img.encodeJpg(thumbnail, quality: 80));
-    } catch (e) {
-      // In statischen Methoden können wir kein logError() der Instanz rufen!
-      // Wir loggen hier nur auf die Konsole oder geben null zurück.
-      debugPrint('Thumbnail-Fehler: $e');
-      return null;
-    }
-  }
+  // /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
+  // /// Die Funktion muss static sein, das sie innerhalb eines Worker-Threads aufgerufen wird.
+  // static String? _createThumbnail(Uint8List bytes) {
+  //   try {
+  //     // 1. Image dekodieren
+  //     final image = img.decodeImage(bytes);
+  //     if (image == null || image.width <= 0 || image.height <= 0) return null;
+  //
+  //     const maxWidth = 128;
+  //     const maxHeight = 128;
+  //
+  //     // 2. Aspect-Fit berechnen (wie in MAUI Logik)
+  //     final scale = math.min(maxWidth / image.width, maxHeight / image.height);
+  //     final newW = math.max(1, (image.width * scale).round());
+  //     final newH = math.max(1, (image.height * scale).round());
+  //
+  //     // 3. Resize auf exakte Zielgröße (verhindert Trauerränder)
+  //     final thumbnail = img.copyResize(image, width: newW, height: newH, interpolation: img.Interpolation.linear);
+  //
+  //     // 4. Encode mit 80% Qualität
+  //     return base64Encode(img.encodeJpg(thumbnail, quality: 80));
+  //   } catch (e) {
+  //     // In statischen Methoden können wir kein logError() der Instanz rufen!
+  //     // Wir loggen hier nur auf die Konsole oder geben null zurück.
+  //     debugPrint('Thumbnail-Fehler: $e');
+  //     return null;
+  //   }
+  // }
 
   // ------------------------------------------------------------------------
   // --- Geteilt mit ---

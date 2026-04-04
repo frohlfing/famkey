@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/helper.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
@@ -179,9 +180,9 @@ class EditNotifier extends Notifier<EditState> {
       }
 
       // 4. Favicon laden, falls URL sich geändert hat
-      String favicon = _entry?.favicon ?? '';
+      var favicon = _entry?.favicon ?? '';
       if (formData.url.isNotEmpty && formData.url != state.originalFormData.url) {
-        final icon = await _downloadFavicon(formData.url);
+        final icon = await downloadFavicon(formData.url);
         if (icon != null) favicon = icon;
       }
 
@@ -239,16 +240,16 @@ class EditNotifier extends Notifier<EditState> {
     }
   }
 
-  /// Lädt das Favicon einer Website über den Google-Dienst.
-  Future<String?> _downloadFavicon(String url) async {
-    try {
-      final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
-      final faviconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=64';
-      final response = await _dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
-      if (response.data != null) return base64.encode(response.data!);
-    } catch (_) {}
-    return null;
-  }
+  // /// Lädt das Favicon einer Website über den Google-Dienst.
+  // Future<String?> _downloadFavicon(String url) async {
+  //   try {
+  //     final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+  //     final faviconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=64';
+  //     final response = await _dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
+  //     if (response.data != null) return base64.encode(response.data!);
+  //   } catch (_) {}
+  //   return null;
+  // }
 
   // ------------------------------------------------------------------------
   // --- Löschen ---

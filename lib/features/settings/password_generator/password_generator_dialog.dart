@@ -27,6 +27,7 @@ class PasswordGeneratorDialog extends ConsumerStatefulWidget {
 }
 
 class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialog> {
+
   // ------------------------------------------------------------------------
   // --- TextEditingController ---
   // ------------------------------------------------------------------------

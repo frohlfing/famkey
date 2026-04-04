@@ -86,7 +86,7 @@ class Logger {
   Future<void> warn(String message, {Map<String, dynamic>? context}) => _write(LogLevel.warn, message, context);
 
   /// Loggt einen Fehler.
-  Future<void> error(String message, {Map<String, dynamic>? context, StackTrace? stack}) => _write(LogLevel.error, message, context);
+  Future<void> error(String message, {Map<String, dynamic>? context}) => _write(LogLevel.error, message, context);
 
   /// Loggt einen unbehandelten/unerwarteten Fehler.
   Future<void> fatal(String message, {Map<String, dynamic>? context, StackTrace? stack}) => _write(LogLevel.fatal, message, context, stack: stack);

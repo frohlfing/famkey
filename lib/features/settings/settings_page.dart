@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
-import 'package:privault/features/settings/import/import_dialog.dart';
 import 'package:privault/features/settings/master_password/master_password_dialog.dart';
 import 'package:privault/features/settings/new_friend/new_friend_dialog.dart';
 import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
@@ -162,21 +161,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: Icons.shield_outlined,
                   onPressed: _showVaultNameDialog,
                   tooltip: 'Tresor umbenennen',
-                ),
-
-                const Divider(height: 32),
-
-                // ------------------------------------------------------------------------
-                // --- Import ---
-                // ------------------------------------------------------------------------
-
-                _buildSectionTitle('Datenimport'),
-                const SizedBox(height: 16),
-
-                ElevatedButton.icon(
-                  onPressed: isBusy ? null : _showImportDialog,
-                  icon: const Icon(Icons.file_download_outlined),
-                  label: const Text('Importieren'),
                 ),
 
                 const Divider(height: 32),
@@ -668,14 +652,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Zeigt den Dialog zum Importieren von Daten.
-  Future<void> _showImportDialog() async {
-    final ok = await ImportDialog.show(context);
-    if (ok == true) {
-      _hasChanged = true;
-      // In der Regel müssen wir hier nichts neu laden, da der Import
-      // direkt in die Datenbank schreibt und die Listen-Screens
-      // (z.B. HomePage) durch Stream-Provider automatisch aktualisiert werden.
-    }
-  }
+  // /// Fragt nach Bestätigung und startet denn den Exportprozess.
+  // Future<void> _showExportDialog() async {
+  //   final confirmed = await ConfirmDialog.show(
+  //     context,
+  //     title: 'Export bestätigen',
+  //     text: 'Der Tresor wird in eine unverschlüsselte Datei exportiert. Fortfahren?',
+  //     ok: 'Ja, fortfahren',
+  //   );
+  //   if (!mounted || confirmed != true) return;
+  //
+  //   final ok = await ExportDialog.show(context);
+  //   if (ok == true) {
+  //     _hasChanged = true;
+  //     // Neu laden ist hier nicht nötig
+  //   }
+  // }
 }

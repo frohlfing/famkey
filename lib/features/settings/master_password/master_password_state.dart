@@ -5,7 +5,6 @@ import 'package:privault/features/settings/master_password/master_password_form_
 enum MasterPasswordActionStatus {
   initial, // Der Ausgangszustand
   progress, // Aktion läuft
-  loaded, // Einstellungen wurden erfolgreich geladen
   saved, // Änderungen wurden erfolgreich gespeichert
   failure, // Aktion mit Fehler beendet
 }

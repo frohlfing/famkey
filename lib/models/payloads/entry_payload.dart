@@ -14,7 +14,7 @@ class EntryPayload {
   /// Das Passwort des Eintrags.
   final String password;
 
-  /// Der Zeitstempel des Passworts (UTC).
+  /// Der Zeitstempel des Passworts (UTC, optional).
   final DateTime? passwordTimestamp;
 
   /// Die zugehörige Web-Adresse.
@@ -45,7 +45,7 @@ class EntryPayload {
       title: json['title'] as String? ?? '',
       username: json['username'] as String? ?? '',
       password: json['password'] as String? ?? '',
-      passwordTimestamp: DateTime.tryParse(json['password_timestamp'] ?? '')?.toUtc(),
+      passwordTimestamp: DateTime.tryParse(json['password_timestamp'] ?? '')?.toUtc(), //?? DateTime.now().toUtc()
       url: json['url'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       favicon: json['favicon'] as String? ?? '',
