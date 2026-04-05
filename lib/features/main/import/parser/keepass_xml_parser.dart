@@ -7,18 +7,20 @@ import 'package:xml/xml.dart';
 
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
 ///
-/// Diese Klasse implementiert die [Parser]-Schnittstelle und ist dafür verantwortlich,
-/// eine KeePass XML-Datei einzulesen und in eine Liste von [ParsedEntry]-Objekten
-/// umzuwandeln, die dann in die Anwendung importiert werden können.
+/// Diese Klasse implementiert die [Parser]-Schnittstelle und ist dafür verantwortlich, eine
+/// KeePass-XML-Datei einzulesen und in eine Liste von [ParsedEntry]-Objekten umzuwandeln
 class KeepassXmlParser implements Parser {
+  /// Pfad zur Datei
   final String path;
-  String? _errorText;
+
+  /// Map von UUIDs zu ihrer Zeilennummer
+  Map<String, int> _uuidLineMap = {};
+
+  /// Binaries der Dateianhänge
+  Map<String, Uint8List> _binaries = {};
 
   /// Konstruktor
   KeepassXmlParser(this.path);
-
-  @override
-  String? get errorText => _errorText;
 
   @override
   Future<ParsedPayload?> parse() async {
@@ -28,13 +30,14 @@ class KeepassXmlParser implements Parser {
       try {
         fileContent = await File(path).readAsString();
       } on FileSystemException catch (e) {
+        throw ParserError('Die Datei konnte nicht geöffnet werden.', path: path, originalError: e);
         _errorText = 'Die Datei konnte nicht geöffnet werden.';
         Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
         return null;
       }
 
       // Einmaliger Scan der Datei, um eine Map der UUID-Zeilennummern zu erstellen.
-      final uuidLineMap = await _createUuidLineMap(fileContent);
+      _uuidLineMap = await _createUuidLineMap(fileContent);
 
       XmlDocument xml;
       try {
@@ -46,7 +49,7 @@ class KeepassXmlParser implements Parser {
       }
 
       // Dateianhänge aus `<Meta><Binaries>`-Block dekodieren
-      final binaries = <String, Uint8List>{};
+      _binaries = <String, Uint8List>{};
       final binariesElement = xml.rootElement.findElements('Meta').firstOrNull?.findElements('Binaries').firstOrNull;
       if (binariesElement != null) {
         for (final bin in binariesElement.findElements('Binary')) {
@@ -71,10 +74,11 @@ class KeepassXmlParser implements Parser {
               return null;
             }
           }
-          binaries[id] = blob;
+          _binaries[id] = blob;
         }
       }
 
+      // Root-Gruppe finden
       final rootGroup = xml.rootElement.findElements('Root').firstOrNull?.findElements('Group').firstOrNull;
       if (rootGroup == null) {
         _errorText = '<Root><Group>`-Element fehlt.';
@@ -84,7 +88,7 @@ class KeepassXmlParser implements Parser {
 
       // Gruppendaten rekursiv parsen
       // Die Root-Gruppe (die Gruppe direkt unter Root) hat den Namen des Tresors. Die Kategorie lassen wir daher leer.
-      return _parseGroups(rootGroup, '', binaries, uuidLineMap);
+      return _parseGroups(rootGroup, '');
 
     } catch (e, st) {
       _errorText = 'Ein unerwarteter Fehler ist aufgetreten. Die Datei ist möglicherweise beschädigt.';
@@ -95,12 +99,12 @@ class KeepassXmlParser implements Parser {
 
   /// Verarbeitet rekursiv Gruppen und deren Einträge.
   /// Im Fall eines Fehlers wird null zurückgegeben.
-  Future<List<ParsedEntry>?> _parseGroups(XmlElement group, String category, Map<String, Uint8List> binaries, Map<String, int> uuidLineMap) async {
+  Future<List<ParsedEntry>?> _parseGroups(XmlElement group, String category) async {
     final result = <ParsedEntry>[];
 
     // Einträge in der aktuellen Gruppe verarbeiten
     for (final entry in group.findElements('Entry')) {
-      final parsedEntry = await _parseEntry(entry, category, binaries, uuidLineMap);
+      final parsedEntry = await _parseEntry(entry, category);
       if (parsedEntry == null) return null;
       result.add(parsedEntry);
     }
@@ -109,7 +113,7 @@ class KeepassXmlParser implements Parser {
     for (final subGroup in group.findElements('Group')) {
       var subGroupName = subGroup.findElements('Name').firstOrNull?.innerText ?? '';
       final nestedCategory = category.isNotEmpty ? '$category/$subGroupName' : subGroupName;
-      final parsedEntries = await _parseGroups(subGroup, nestedCategory, binaries, uuidLineMap);
+      final parsedEntries = await _parseGroups(subGroup, nestedCategory);
       if (parsedEntries == null) return null;
       result.addAll(parsedEntries);
     }
@@ -118,91 +122,78 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Parst ein einzelnes `<Entry>`-Element in ein [ParsedEntry]-Objekt.
-  Future<ParsedEntry?> _parseEntry(XmlElement entry, String category, Map<String, Uint8List> binaries, Map<String, int> uuidLineMap) async {
-    // UUID ermitteln (muss angegeben sein)
+  Future<ParsedEntry?> _parseEntry(XmlElement entry, String category) async {
+    // UUID ermitteln
+    String? uuid;
     final base64Uuid = entry.findElements('UUID').firstOrNull?.innerText ?? '';
-    final lineNumber = uuidLineMap[base64Uuid];
+    final lineNumber = _uuidLineMap[base64Uuid];
+    if (base64Uuid.isNotEmpty) {
+        Uint8List bytes;
+        try {
+          bytes = base64.decode(base64Uuid);
+        } on FormatException catch (e) {
+          _errorText = 'UUID "$base64Uuid" konnte nicht dekodiert werden${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
+          Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
+          return null;
+        }
+        if (bytes.length != 16) {
+          _errorText = 'UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
+          Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
+          return null;
+        }
+        final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        uuid = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+    }
 
-    if (base64Uuid.isEmpty) {
-      _errorText = 'UUID fehlt${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-      Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-      return null;
-    }
-    Uint8List bytes;
-    try {
-      bytes = base64.decode(base64Uuid);
-    } on FormatException catch (e) {
-      _errorText = 'UUID "$base64Uuid" konnte nicht dekodiert werden${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-      Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-      return null;
-    }
-    if (bytes.length != 16) {
-      _errorText = 'UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-      Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-      return null;
-    }
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    final uuid = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-
-    // `<String>`-Elemente extrahieren
+    // `<String>`-Elemente einlesen
     final strings = _parseStringElements(entry);
 
-    // Titel prüfen (muss angegeben sein)
-    final title = strings['Title'] ?? '';
-    if (title.isEmpty) {
-      _errorText = 'Titel für Eintrag "$base64Uuid" fehlt${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-      Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-      return null;
-    }
-
-    // Zeitstempel der letzten Änderung des Eintrags ermitteln (wenn nicht angegeben, wird die aktuelle Zeit verwendet)
+    // Zeitpunkt der letzten Änderung ermitteln
     final times = entry.findElements('Times').firstOrNull;
     final lastModStr = times?.findElements('LastModificationTime').firstOrNull?.innerText ?? times?.findElements('CreationTime').firstOrNull?.innerText;
     final updatedAt = DateTime.tryParse(lastModStr ?? '')?.toUtc();
 
-    // Zeitstempel der letzten Passwortänderung aus der Historie ermitteln (optional)
+    // Zeitstempel der letzten Passwortänderung aus der Historie ermitteln
+    // Die Historie ist chronologisch, wir suchen den letzten Eintrag mit einem Passwort.
     DateTime? passwordTimestamp;
     final history = entry.findElements('History').firstOrNull;
     if (history != null) {
-      // Die Historie ist chronologisch, wir suchen den letzten Eintrag mit einem Passwort.
       for (final hist in history.findElements('Entry').toList().reversed) {
         if (_parseStringElements(hist).containsKey('Password')) {
-          final lastModTimeStr = hist.findElements('Times').firstOrNull?.findElements('LastModificationTime').firstOrNull?.innerText;
-          passwordTimestamp = DateTime.tryParse(lastModTimeStr ?? '')?.toUtc();
+          final timeStr = hist.findElements('Times').firstOrNull?.findElements('LastModificationTime').firstOrNull?.innerText;
+          passwordTimestamp = DateTime.tryParse(timeStr ?? '')?.toUtc();
           if (passwordTimestamp != null) break;
         }
       }
     }
-    //passwordTimestamp ??= updatedAt; // Fallback auf `updatedAt`
 
     // Anhänge des Eintrags extrahieren
-    final attachments = <({Uint8List blob, String filename, String mime, DateTime? timestamp})>[];
+    final attachments = <ParsedAttachment>[];
     for (final bin in entry.findElements('Binary')) {
       final fileName = bin.findElements('Key').firstOrNull?.innerText;
       final ref = bin.findElements('Value').firstOrNull?.getAttribute('Ref');
       if (fileName == null || ref == null) continue;
-      final data = binaries[ref];
-      if (data == null) {
+      final binary = _binaries[ref];
+      if (binary == null) {
         final refLineNumber = await _findLineNumberOfText(path, '<Value Ref="$ref"');
         _errorText = 'Anhang "$fileName" verweist auf eine nicht existierende Binär-Referenz "$ref"${refLineNumber != null ? ' (Zeile $refLineNumber)' : ''}.';
         Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
         return null;
       }
-      attachments.add((blob: data, filename: fileName, mime: '', timestamp: null));
+      attachments.add(ParsedAttachment(binary: binary, filename: fileName));
     }
 
     return ParsedEntry(
       uuid: uuid,
-      category: category,
-      title: title,
-      username: strings['UserName'] ?? '',
-      password: strings['Password'] ?? '',
+      category: category.isEmpty ? null : category,
+      title: strings['Title'],
+      username: strings['UserName'],
+      password: strings['Password'],
       passwordTimestamp: passwordTimestamp,
-      url: strings['URL'] ?? '',
-      notes: strings['Notes'] ?? '',
-      favicon: '',
+      url: strings['URL'],
+      notes: strings['Notes'],
       updatedAt: updatedAt,
-      attachments: attachments,
+      attachments: attachments.isEmpty ? null : attachments,
       lineNumber: lineNumber,
     );
   }
@@ -216,13 +207,11 @@ class KeepassXmlParser implements Parser {
     };
   }
 
-  /// OPTIMIERUNG: Erstellt eine Map von UUIDs zu ihrer Zeilennummer,
-  /// indem die Datei einmalig am Anfang durchlaufen wird.
+  /// Erstellt eine Map von UUIDs zu ihrer Zeilennummer, indem die Datei einmalig am Anfang durchlaufen wird.
   Future<Map<String, int>> _createUuidLineMap(String fileContent) async {
     final map = <String, int>{};
     final lines = const LineSplitter().convert(fileContent);
     final uuidRegex = RegExp(r'<UUID>(.*?)<\/UUID>');
-
     for (int i = 0; i < lines.length; i++) {
       final match = uuidRegex.firstMatch(lines[i]);
       if (match != null && match.groupCount > 0) {

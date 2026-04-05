@@ -5,7 +5,7 @@ class AttachmentMetaPayload {
   /// Der ursprüngliche Dateiname (z. B. "Urlaubsfoto.jpg").
   final String filename;
 
-  /// Der Internet Media Type der Datei (z. B. "image/jpeg").
+  /// Der Internet Media-Type der Datei (z. B. "image/jpeg").
   final String mime;
 
   /// Die Größe der unverschlüsselten Datei in Bytes.

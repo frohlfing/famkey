@@ -25,26 +25,26 @@ extension ImportFileFormatExtension on ImportFileFormat {
 /// Alle Daten im Dialog, die der Benutzer ändern kann.
 class ImportFormData {
 
-  /// Das neue Master-Passwort.
+  /// Das Format der Importdatei.
   final ImportFileFormat format;
 
-  /// Das aktuelle Master-Passwort.
-  final String file;
+  /// Der Pfad zur Datei.
+  final String path;
 
   /// Konstruktor
   const ImportFormData({
     this.format = ImportFileFormat.none,
-    this.file = '',
+    this.path = '',
   });
 
   /// Daten aktualisieren (immutable)
   ImportFormData copyWith({
     ImportFileFormat? format,
-    String? file,
+    String? path,
   }) {
     return ImportFormData(
       format: format ?? this.format,
-      file: file ?? this.file,
+      path: path ?? this.path,
     );
   }
 
@@ -52,18 +52,18 @@ class ImportFormData {
   /// Operator `==` für das Objekt anpassen
   @override
   bool operator == (Object other) =>
-      identical(this, other) ||
-          other is ImportFormData && (
-              runtimeType == other.runtimeType &&
-                  format == other.format &&
-                  file == other.file
-          );
+    identical(this, other) ||
+    other is ImportFormData && (
+      runtimeType == other.runtimeType &&
+      format == other.format &&
+      path == other.path
+    );
 
   /// Liefert den HashCode für das Objekt
   /// (erforderlich, wenn ein Operators überschrieben wird)
   @override
   int get hashCode =>
-      format.hashCode ^
-      file.hashCode;
-// @formatter:on
+    format.hashCode ^
+    path.hashCode;
+  // @formatter:on
 }

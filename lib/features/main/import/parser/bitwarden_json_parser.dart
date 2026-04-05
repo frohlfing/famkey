@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:privault/features/main/import/parser.dart';
 
@@ -59,14 +58,13 @@ class BitwardenJsonParser implements Parser {
 
     return ParsedEntry(
       uuid: item['id'],
-      category: folders[item['folderId']] ?? '',
-      title: item['name'] ?? '',
-      username: login?['username'] ?? '',
-      password: login?['password'] ?? '',
+      category: folders[item['folderId']],
+      title: item['name'],
+      username: login?['username'],
+      password: login?['password'],
       passwordTimestamp: _parsePasswordTimestamp(item),
-      url: (login?['uris'] as List?)?.firstOrNull?['uri'] ?? '',
-      notes: item['notes'] ?? '',
-      favicon: '',
+      url: (login?['uris'] as List?)?.firstOrNull?['uri'],
+      notes: item['notes'],
       updatedAt: updatedAt,
       attachments: await _parseAttachments(item, updatedAt),
       lineNumber: index,
@@ -90,17 +88,16 @@ class BitwardenJsonParser implements Parser {
   /// Parst die Metadaten der Anhänge und lädt die Binärdaten aus dem Dateisystem.
   ///
   /// Erwartet die Anhänge gemäß Spezifikation im selben Verzeichnis wie die JSON-Datei.
-  Future<List<({Uint8List blob, String filename, String mime, DateTime? timestamp})>> _parseAttachments(
+  Future<List<ParsedAttachment>> _parseAttachments(
     Map<String, dynamic> item,
     DateTime entryTimestamp,
   ) async {
-    // KORREKTUR: Der Rückgabetyp wurde angepasst, um `mime` zu enthalten.
     final attachmentsMeta = item['attachments'] as List?;
     if (attachmentsMeta == null || attachmentsMeta.isEmpty) {
       return [];
     }
 
-    final result = <({Uint8List blob, String filename, String mime, DateTime? timestamp})>[];
+    final result = <ParsedAttachment>[];
     final baseDir = p.dirname(path); // Der Ordner, in dem die JSON-Datei liegt.
 
     for (final attachment in attachmentsMeta) {
@@ -114,13 +111,8 @@ class BitwardenJsonParser implements Parser {
         throw FileSystemException("Dateianhang nicht gefunden", attachmentFile.path);
       }
 
-      final data = await attachmentFile.readAsBytes();
-      result.add((
-        blob: data,
-        filename: fileName,
-        mime: '',
-        timestamp: null,
-      ));
+      final binary = await attachmentFile.readAsBytes();
+      result.add(ParsedAttachment(binary: binary, filename: fileName));
     }
     return result;
   }

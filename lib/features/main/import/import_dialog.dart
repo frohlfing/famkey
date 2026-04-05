@@ -41,7 +41,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
-  final _fileController = TextEditingController();
+  final _pathController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -62,7 +62,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   /// Gibt Ressourcen frei.
   @override
   void dispose() {
-    _fileController.dispose();
+    _pathController.dispose();
     super.dispose();
   }
 
@@ -85,9 +85,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       final path = result.files.single.path!;
 
       // Datei an den TextController und an den Notifier übergeben
-      _fileController.text = path;
+      _pathController.text = path;
       final notifier = ref.read(importProvider.notifier);
-      notifier.setFile(path);
+      notifier.setPath(path);
     }
     finally {
       if (mounted) setState(() => _isPickingFile = false);
@@ -120,7 +120,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     ref.listen(importProvider, (previous, next) {
       if (previous == next) return;
       final formData = next.formData;
-      if (_fileController.text != formData.file) _fileController.text = formData.file;
+      if (_pathController.text != formData.path) _pathController.text = formData.path;
     });
 
     // Gezielte Watches für maximale Performance
@@ -170,12 +170,12 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
               const Text('Importdatei', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextField(
-                controller: _fileController,
+                controller: _pathController,
                 readOnly: true,
                 onTap: isBusy ? null : _pickFile,
                 decoration: InputDecoration(
                   hintText: 'Datei auswählen',
-                  errorText: state.error.field == 'file' ? state.error.text : null,
+                  errorText: state.error.field == 'path' ? state.error.text : null,
                   prefixIcon: const Icon(Icons.file_open_outlined),
                   suffixIcon: _isPickingFile ? const Padding(
                     padding: EdgeInsets.all(12),

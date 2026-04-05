@@ -88,23 +88,16 @@ class ImportNotifier extends Notifier<ImportState> {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'format'));
         return;
       }
-      if (formData.file.isEmpty) {
-        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'file'));
+      if (formData.path.isEmpty) {
+        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'path'));
         return;
       }
 
       // 3. Datei parsen
-      Parser parser;
-      switch (formData.format) {
-        case ImportFileFormat.keepassXml:
-          parser = KeepassXmlParser(formData.file);
-          break;
-        case ImportFileFormat.bitwardenJson:
-          parser = BitwardenJsonParser(formData.file);
-          break;
-        default:
-          state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, field: 'format'));
-          return;
+      final parser = _parserFactory(formData.format, formData.path);
+      if (parser == null) {
+        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, field: 'format'));
+        return;
       }
       final parsedPayload = await parser.parse();
       if (parsedPayload == null) {
@@ -120,92 +113,120 @@ class ImportNotifier extends Notifier<ImportState> {
       final List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})> batch = [];
       for (final parsedEntry in parsedPayload) {
 
-        // 4. Daten validieren
-        // Prüfen, ob Titel gesetzt ist
-        if (parsedEntry.title.isEmpty) {
-          state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Titel des Eintrags fehlt${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}.'));
-          return;
-        }
-        // Prüfen, ob die UUID des Eintrag bereits existiert
-        if (parsedEntry.uuid.isNotEmpty) {
-          final existing = await _databaseService.getEntryByUuid(parsedEntry.uuid);
+        // 4. Daten validieren & bereinigen
+
+        // Wenn die UUID nicht angegeben ist, neu generieren. Andernfalls prüfen, ob sie bereits im Tresor existiert.
+        var uuid = parsedEntry.uuid?.trim() ?? '';
+        if (uuid.isEmpty) {
+          uuid = const Uuid().v4();
+        } else {
+          final existing = await _databaseService.getEntryByUuid(uuid);
           if (existing != null) {
             state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.vaultAlreadyExists, text: "UUID des Eintrags existiert bereits${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}."));
             return;
           }
         }
 
-        // 5. Favicon laden, falls URL sich geändert hat
-        String favicon = parsedEntry.favicon;
-        if (favicon.isEmpty && parsedEntry.url.isNotEmpty) {
-          final icon = await downloadFavicon(parsedEntry.url);
-          if (icon != null) favicon = icon;
+        // Kategorie trimmen
+        final category = parsedEntry.category?.trim() ?? '';
+
+        // Titel muss angegeben sein
+        final title = parsedEntry.title?.trim() ?? '';
+        if (title.isEmpty) {
+          state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Titel des Eintrags fehlt${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}.'));
+          return;
         }
 
-        // 6. Payload für den verschlüsselten Eintrag bauen
+        // Bis auf Passwort alles trimmen
+        final username = parsedEntry.username?.trim() ?? '';
+        final password = parsedEntry.password ?? '';
+        final url = parsedEntry.url?.trim() ?? '';
+        final notes = parsedEntry.notes?.trim() ?? '';
+
+        // Favicon herunterladen, falls nicht angegeben
+        var favicon = parsedEntry.favicon?.trim() ?? '';
+        if (favicon.isEmpty && url.isNotEmpty) {
+          favicon = await downloadFavicon(url) ?? '';
+        }
+
+        // Zeitpunkt der letzten Änderung auf Jetzt setzen, wenn nicht angegeben
+        final updatedAt = parsedEntry.updatedAt ?? DateTime.now().toUtc();
+
+        // Payload für den verschlüsselten Eintrag bauen
         final payload = EntryPayload(
-          category: parsedEntry.category,
-          title: parsedEntry.title,
-          username: parsedEntry.username,
-          password: parsedEntry.password,
-          passwordTimestamp: parsedEntry.passwordTimestamp,
-          url: parsedEntry.url,
-          notes: parsedEntry.notes,
+          category: category,
+          title: title,
+          username: username,
+          password: password,
+          passwordTimestamp: parsedEntry.passwordTimestamp, // optional
+          url: url,
+          notes: notes,
           favicon: favicon,
         );
 
-        // 7. AES-Key generieren und per RSA verschlüsseln
+        // AES-Key generieren und per RSA verschlüsseln
         final entryKey = _cryptoService.generateAesKey();
         final encryptedEntryKey = await _cryptoService.encryptRsa(entryKey, user.publicKey);
 
-        // 8. Payload per AES-Key verschlüsseln
+        // Payload per AES-Key verschlüsseln
         final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
         final encryptedData = await _cryptoService.encrypt(payloadBytes, entryKey);
 
-        // 9. Entität für den Eintrag bauen
+        // Entität für den Eintrag bauen
         final entry = EntryEntity(
           id: 0,
-          uuid: parsedEntry.uuid.isEmpty ? const Uuid().v4() : parsedEntry.uuid,
-          category: parsedEntry.category,
-          title: parsedEntry.title,
-          url: parsedEntry.url,
-          notes: parsedEntry.notes,
+          uuid: uuid,
+          category: category,
+          title: title,
+          url: url,
+          notes: notes,
           favicon: favicon,
           encryptedData: encryptedData,
           creatorId: user.id,
           updaterId: user.id,
-          updatedAt: parsedEntry.updatedAt ?? DateTime.now().toUtc(),
+          updatedAt: updatedAt,
         );
 
         // Dateianhänge durchlaufen...
-        final List<({String uuid, String encryptedMeta, String encryptedContent})> attachments = [];
-        for (final attachment in parsedEntry.attachments) {
-          final mimeType = attachment.mime.isNotEmpty ? attachment.mime : getMimeType(attachment.filename);
+        final attachments = <({String uuid, String encryptedMeta, String encryptedContent})>[];
+        if (parsedEntry.attachments != null) {
+          for (final attachment in parsedEntry.attachments!) {
+            final filename = attachment.filename?.trim() ?? '';
 
-          // 10. Thumbnail erzeugen (wenn es ein Bild ist)
-          String? thumbnailBase64;
-          if (mimeType.startsWith('image/')) {
-            thumbnailBase64 = await createThumbnail(attachment.blob);
+            // Mime-Typ ermitteln (falls nicht angegeben)
+            var mime = attachment.mime?.trim() ?? '';
+            if (mime.isEmpty) {
+              mime = getMimeType(filename);
+            }
+
+            // Zeitstempel der Datei (UTC) auf Jetzt setzen, wenn nicht angegeben.
+            final timestamp = attachment.timestamp ?? DateTime.now().toUtc();
+
+            // Thumbnail erzeugen (wenn es ein Bild ist)
+            String? thumbnailBase64;
+            if (mime.startsWith('image/')) {
+              thumbnailBase64 = await createThumbnail(attachment.binary);
+            }
+
+            // Metadaten der Datei zusammenstellen
+            final metaPayload = AttachmentMetaPayload(
+              filename: filename,
+              mime: mime,
+              size: attachment.binary.length,
+              thumbnail: thumbnailBase64,
+              timestamp: timestamp,
+            );
+
+            // Metadaten und Dateiinhalt verschlüsseln (AES)
+            final encryptedMeta = await _cryptoService.encrypt(Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), entryKey);
+            final encryptedContent = await _cryptoService.encrypt(attachment.binary, entryKey);
+
+            attachments.add((
+              uuid: const Uuid().v4(),
+              encryptedMeta: encryptedMeta,
+              encryptedContent: encryptedContent,
+            ));
           }
-
-          // 11. Metadaten der Datei zusammenstellen
-          final metaPayload = AttachmentMetaPayload(
-            filename: attachment.filename,
-            mime: mimeType,
-            size: attachment.blob.length,
-            thumbnail: thumbnailBase64,
-            timestamp: attachment.timestamp ?? DateTime.now().toUtc(),
-          );
-
-          // 12. Metadaten und Dateiinhalt verschlüsseln (AES)
-          final encryptedMeta = await _cryptoService.encrypt(Uint8List.fromList(utf8.encode(json.encode(metaPayload.toJson()))), entryKey);
-          final encryptedContent = await _cryptoService.encrypt(attachment.blob, entryKey);
-
-          attachments.add((
-            uuid: const Uuid().v4(),
-            encryptedMeta: encryptedMeta,
-            encryptedContent: encryptedContent,
-          ));
         }
 
         // 13. Alles zusammen in eine Batch hinzufügen
@@ -232,21 +253,30 @@ class ImportNotifier extends Notifier<ImportState> {
     }
   }
 
+  /// Erzeugt Abhängig vom State ein Parser-Objekt.
+  static Parser? _parserFactory(ImportFileFormat format, String path) {
+    return switch (format) {
+      ImportFileFormat.keepassXml => KeepassXmlParser(path),
+      ImportFileFormat.bitwardenJson => BitwardenJsonParser(path),
+      _ => null, // Default-Fall (Catch-all) -> alle unterstützen Formate
+    };
+  }
+
   // ------------------------------------------------------------------------
   // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
-  /// Setter für neues Passwort
+  /// Setter für Format der Datei
   void setFormat(ImportFileFormat value) {
     final error = state.error.field == 'format' ? AppError.none() : null;
     final formData = state.formData.copyWith(format: value);
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 
-  /// Setter für bisheriges Passwort
-  void setFile(String value) {
-    final error = state.error.field == 'file' ? AppError.none() : null;
-    var formData = state.formData.copyWith(file: value);
+  /// Setter für Pfad zur Datei
+  void setPath(String value) {
+    final error = state.error.field == 'path' ? AppError.none() : null;
+    var formData = state.formData.copyWith(path: value);
 
     // Automatische Formaterkennung, wenn noch keins gewählt wurde
     if (formData.format == ImportFileFormat.none) {
