@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:privault/core/logger.dart';
 import 'package:privault/features/main/import/parser.dart';
 
 /// Ein Parser für Bitwarden JSON Exportdateien.
@@ -15,50 +14,42 @@ class BitwardenJsonParser implements Parser {
   BitwardenJsonParser(this.path);
 
   @override
-  Future<ParsedPayload?> parse() async {
+  Future<ParsedPayload> parse() async {
+    // Datei öffnen und Inhalt lesen
+    String fileContent;
     try {
-      // Datei öffnen und Inhalt lesen
-      String fileContent;
-      try {
-        fileContent = await File(path).readAsString();
-      } on FileSystemException catch (e) {
-        throw ParserError('Die Datei konnte nicht geöffnet werden.', path: path, originalError: e);
-      }
-
-      Map<String, dynamic> json;
-      try {
-        json = jsonDecode(fileContent) as Map<String, dynamic>;
-      } on FormatException catch (e) {
-        Logger().error('Parser-Fehler: Die JSON-Struktur der Datei ist fehlerhaft.', context: {'path': path, 'error': e});
-        return null;
-      }
-
-      // Ordner (Kategorien) in eine Map laden
-      final foldersMap = _parseFolders(json);
-
-      // Items verarbeiten
-      final items = json['items'] as List<dynamic>?;
-      if (items == null) {
-        Logger().error('Parser-Fehler: Das Feld "items" fehlt.', context: {'path': path});
-        return null;
-      }
-
-      final result = <ParsedEntry>[];
-      for (int index = 0; index < items.length; index++) {
-        final item = items[index];
-        if (item is! Map<String, dynamic>) continue;
-
-        final parsedEntry = _parseItem(item, foldersMap, index + 1);
-        if (parsedEntry == null) return null;
-        result.add(parsedEntry);
-      }
-
-      return result;
-
-    } catch (e, st) {
-      Logger().fatal('Parser-Fehler: Ein unerwarteter Fehler ist aufgetreten. Die Datei ist möglicherweise beschädigt.', context: {'path': path, 'error': e}, stack: st);
-      return null;
+      fileContent = await File(path).readAsString();
+    } on FileSystemException catch (e) {
+      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: path, originalErrorMessage: e.message);
     }
+
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(fileContent) as Map<String, dynamic>;
+    } on FormatException catch (e) {
+      throw ParserError('Parser-Fehler: Die JSON-Struktur der Datei ist fehlerhaft.', path: path, originalErrorMessage: e.message);
+    }
+
+    // Ordner (Kategorien) in eine Map laden
+    final foldersMap = _parseFolders(json);
+
+    // Items verarbeiten
+    final items = json['items'] as List<dynamic>?;
+    if (items == null) {
+      throw ParserError('Parser-Fehler: Das Feld "items" fehlt.', path: path);
+    }
+
+    final result = <ParsedEntry>[];
+    for (int index = 0; index < items.length; index++) {
+      final item = items[index];
+      if (item is! Map<String, dynamic>) continue;
+
+      final parsedEntry = _parseItem(item, foldersMap, index + 1);
+      if (parsedEntry == null) continue;
+      result.add(parsedEntry);
+    }
+
+    return result;
   }
 
   /// Parst die Ordner (Kategorien) aus dem Root-Element in eine Map.
@@ -117,14 +108,14 @@ class BitwardenJsonParser implements Parser {
     String? password;
     String? url;
 
-    // Daten basierend auf dem Eintragstyp auslesen
+    // Daten basierend auf dem Eintrags-Typ auslesen
     if (itemType == 1) {
       // Anmeldung
       final login = item['login'] as Map<String, dynamic>?;
       if (login != null) {
         username = login['username'] as String?;
         password = login['password'] as String?;
-        
+
         // Die erste URI als URL übernehmen
         final uris = login['uris'] as List<dynamic>?;
         if (uris != null && uris.isNotEmpty) {
