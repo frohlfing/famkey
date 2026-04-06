@@ -801,28 +801,42 @@ class DatabaseService {
     _ensureDbInitialized();
     return _db!.transaction(() async {
       for (final item in items) {
+
         // 1. Eintrag speichern
-        final entryId = await _db!.into(_db!.entries).insert(item.entry);
+        final entry = item.entry;
+        final companion = EntriesCompanion(
+          uuid: Value(entry.uuid),
+          category: Value(entry.category),
+          title: Value(entry.title),
+          url: Value(entry.url),
+          notes: Value(entry.notes),
+          favicon: Value(entry.favicon),
+          encryptedData: Value(entry.encryptedData),
+          creatorId: Value(entry.creatorId),
+          updaterId: Value(entry.updaterId),
+          updatedAt: Value(entry.updatedAt),
+        );
+        final entryId = await _db!.into(_db!.entries).insert(companion);
 
         // 2. Permission speichern (mit korrekter entryId)
-        await _db!.into(_db!.permissions).insert(PermissionEntity(
-          id: 0,
-          entryId: entryId,
-          userId: 1,
-          encryptedKey: item.encryptedEntryKey,
-          accessLevel: 3, // Besitzer
-        ));
+        final permCompanion = PermissionsCompanion(
+          entryId: Value(entryId),
+          userId: Value(1),
+          encryptedKey: Value(item.encryptedEntryKey),
+          accessLevel: Value(3), // Besitzer
+        );
+        await _db!.into(_db!.permissions).insert(permCompanion);
 
         // 3. Anhänge speichern
         for (final att in item.attachments) {
-          await _db!.into(_db!.attachments).insert(AttachmentEntity(
-            id: 0,
-            uuid: att.uuid,
-            entryId: entryId,
-            encryptedMeta: att.encryptedMeta,
-            encryptedContent: att.encryptedContent,
-            isSynced: false,
-          ));
+          final attCompanion = AttachmentsCompanion(
+            uuid: Value(att.uuid),
+            entryId: Value(entryId),
+            encryptedMeta: Value(att.encryptedMeta),
+            encryptedContent: Value(att.encryptedContent),
+            isSynced: Value(false),
+          );
+          await _db!.into(_db!.attachments).insert(attCompanion);
         }
       }
     });

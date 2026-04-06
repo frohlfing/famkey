@@ -179,14 +179,17 @@ class EditNotifier extends Notifier<EditState> {
         return;
       }
 
-      // 4. Favicon laden, falls URL sich geändert hat
+      // 3. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
+      //_entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
+
+      // 4. Favicon herunterladen, falls URL sich geändert hat
       var favicon = _entry?.favicon ?? '';
       if (formData.url.isNotEmpty && formData.url != state.originalFormData.url) {
         final icon = await downloadFavicon(formData.url);
         if (icon != null) favicon = icon;
       }
 
-      // 5. Payload bauen
+      // 5. Payload für den verschlüsselten Eintrag bauen
       DateTime? passwordTimestamp;
       if (formData.password.isNotEmpty) {
         passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
@@ -203,7 +206,7 @@ class EditNotifier extends Notifier<EditState> {
         favicon: favicon,
       );
 
-      // 6. Neuen AES-Key generieren und per RSA verschlüsseln, falls nicht vorhanden
+      // 6. Neuen AES-Key generieren und per RSA verschlüsseln, falls _entryKey == null
       _entryKey ??= _cryptoService.generateAesKey();
       final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
 

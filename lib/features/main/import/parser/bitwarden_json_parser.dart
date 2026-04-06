@@ -5,50 +5,40 @@ import 'package:privault/features/main/import/parser.dart';
 
 /// Ein Parser für unverschlüsselte Bitwarden JSON-Exportdateien.
 ///
-/// Diese Klasse implementiert die [Parser]-Schnittstelle. Sie liest eine
-/// Bitwarden JSON-Datei, löst Ordnerreferenzen auf und lädt zugehörige
-/// Anhänge aus dem Dateisystem.
+/// Diese Klasse implementiert die [Parser]-Schnittstelle. Sie liest eine Bitwarden JSON-Datei,
+/// löst Ordnerreferenzen auf und lädt zugehörige Anhänge aus dem Dateisystem.
 class BitwardenJsonParser implements Parser {
   final String path;
-  String? _errorText;
 
   BitwardenJsonParser(this.path);
 
   @override
-  String? get errorText => _errorText;
+  Future<ParsedPayload> parse() async {
+    final jsonString = await File(path).readAsString();
+    final json = jsonDecode(jsonString);
 
-  @override
-  Future<ParsedPayload?> parse() async {
-    try {
-      final jsonString = await File(path).readAsString();
-      final json = jsonDecode(jsonString);
-
-      // Ordner für schnelle Zuordnung in einer Map speichern (ID -> Name)
-      final folders = <String, String>{};
-      if (json['folders'] is List) {
-        for (final folder in json['folders']) {
-          if (folder['id'] != null && folder['name'] != null) {
-            folders[folder['id']] = folder['name'];
-          }
+    // Ordner für schnelle Zuordnung in einer Map speichern (ID -> Name)
+    final folders = <String, String>{};
+    if (json['folders'] is List) {
+      for (final folder in json['folders']) {
+        if (folder['id'] != null && folder['name'] != null) {
+          folders[folder['id']] = folder['name'];
         }
       }
-
-      final items = json['items'] as List;
-
-      // Da das Laden von Anhängen asynchron ist, verwenden wir Future.wait
-      final parsedEntries = await Future.wait(
-        items.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          return _parseItem(item, folders, index);
-        })
-      );
-
-      return parsedEntries.toList();
-    } catch (e, s) {
-      _errorText = "Fehler beim Parsen der Bitwarden JSON-Datei oder ihrer Anhänge: $e\n$s";
-      return null;
     }
+
+    final items = json['items'] as List;
+
+    // Da das Laden von Anhängen asynchron ist, verwenden wir Future.wait
+    final parsedEntries = await Future.wait(
+      items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return _parseItem(item, folders, index);
+      })
+    );
+
+    return parsedEntries.toList();
   }
 
   /// Parst ein einzelnes JSON-Item-Objekt in ein [ParsedEntry]-Objekt.
@@ -112,7 +102,7 @@ class BitwardenJsonParser implements Parser {
       }
 
       final binary = await attachmentFile.readAsBytes();
-      result.add(ParsedAttachment(binary: binary, filename: fileName));
+      result.add(ParsedAttachment(binary, filename: fileName));
     }
     return result;
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/main/import/import_form_data.dart';
 import 'package:privault/features/main/import/import_notifier.dart';
 import 'package:privault/features/main/import/import_state.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Importieren von Daten aus anderen Passwort-Managern.
 class ImportDialog extends ConsumerStatefulWidget {
@@ -64,34 +65,6 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   void dispose() {
     _pathController.dispose();
     super.dispose();
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Handler ---
-  // ------------------------------------------------------------------------
-
-  /// Öffnet den File-Picker zur Auswahl der Importdatei.
-  Future<void> _pickFile() async {
-    if (_isPickingFile) return;
-    setState(() => _isPickingFile = true); // Mit setState wird erst die anonymen Funktion aufgerufen, danach wird das Widget als "dirty" markiert (wodurch im nächsten Frame die build-Methode neu rendert)
-    try {
-      // Datei auswählen
-      final state = ref.read(importProvider);
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: state.formData.format.allowedExtensions,
-      );
-      if (!mounted || result == null || result.files.isEmpty || result.files.single.path == null) return;
-      final path = result.files.single.path!;
-
-      // Datei an den TextController und an den Notifier übergeben
-      _pathController.text = path;
-      final notifier = ref.read(importProvider.notifier);
-      notifier.setPath(path);
-    }
-    finally {
-      if (mounted) setState(() => _isPickingFile = false);
-    }
   }
 
   // ------------------------------------------------------------------------
@@ -190,15 +163,40 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
             ],
 
             // --- Status-Anzeigen ---
-            if (status == ImportActionStatus.progress) ...[
-            //if (isBusy) ...[
+            if (status == ImportActionStatus.progress && state.totalCount == 0) ...[
               const Center(
                 child: Column(
                   children: [
                     SizedBox(height: 24),
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Import wird verarbeitet...'),
+                    Text('Importdatei wird eingelesen...'),
+                  ],
+                ),
+              ),
+            ],
+
+            if (status == ImportActionStatus.progress && state.totalCount > 0) ...[
+              Center(
+                child: Column(
+                  children: [
+                    SizedBox(height: 24),
+
+                    // Fortschrittsanzeige
+                    LinearProgressIndicator(value: state.currentCount / state.totalCount),
+                    SizedBox(height: 16),
+                    Text(
+                      "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+
+                    // Abbrechen-Button
+                    ElevatedButton.icon(
+                      onPressed: isBusy || state.isAborting ? null : _handleCancelImport,
+                      icon: const Icon(Icons.stop),
+                      label: const Text('Abbrechen'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100),
+                    ),
                   ],
                 ),
               ),
@@ -216,9 +214,11 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Import erfolgreich abgeschlossen!'),
+                          const Text('Import abgeschlossen!'),
                           const SizedBox(height: 8),
                           Text('✳️ Hinzugefügt: ${state.addedCount} Einträge'),
+                          if (state.skippedCount > 0)
+                            Text('⚠️ Übersprungen: ${state.skippedCount} Duplikate'),
                         ],
                       ),
                     ),
@@ -275,5 +275,49 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       ],
 
     );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Handler ---
+  // ------------------------------------------------------------------------
+
+  /// Öffnet den File-Picker zur Auswahl der Importdatei.
+  Future<void> _pickFile() async {
+    if (_isPickingFile) return;
+    setState(() => _isPickingFile = true); // Mit setState wird erst die anonymen Funktion aufgerufen, danach wird das Widget als "dirty" markiert (wodurch im nächsten Frame die build-Methode neu rendert)
+    try {
+      // Datei auswählen
+      final state = ref.read(importProvider);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: state.formData.format.allowedExtensions,
+      );
+      if (!mounted || result == null || result.files.isEmpty || result.files.single.path == null) return;
+      final path = result.files.single.path!;
+
+      // Datei an den TextController und an den Notifier übergeben
+      _pathController.text = path;
+      final notifier = ref.read(importProvider.notifier);
+      notifier.setPath(path);
+    }
+    finally {
+      if (mounted) setState(() => _isPickingFile = false);
+    }
+  }
+
+  /// Bricht nach einer Nachfrage den Import ab.
+  Future<void> _handleCancelImport() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Import abbrechen',
+      text: 'Möchtest du den Import wirklich abbrechen?',
+      cancel: 'Nein, fortfahren',
+      ok: 'Ja, abbrechen',
+      autofocus: false,
+    );
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(importProvider.notifier);
+      notifier.cancelImport();
+    }
   }
 }

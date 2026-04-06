@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:privault/core/logger.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:privault/features/main/import/parser.dart';
 import 'package:xml/xml.dart';
 
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
 ///
 /// Diese Klasse implementiert die [Parser]-Schnittstelle und ist dafür verantwortlich, eine
-/// KeePass-XML-Datei einzulesen und in eine Liste von [ParsedEntry]-Objekten umzuwandeln
+/// KeePass-XML-Datei einzulesen und in eine Liste von [ParsedEntry]-Objekten umzuwandeln.
 class KeepassXmlParser implements Parser {
   /// Pfad zur Datei
   final String path;
@@ -23,89 +23,70 @@ class KeepassXmlParser implements Parser {
   KeepassXmlParser(this.path);
 
   @override
-  Future<ParsedPayload?> parse() async {
+  Future<ParsedPayload> parse() async {
+    // Datei öffnen und Inhalt lesen
+    String fileContent;
     try {
-      // Datei öffnen und Inhalt lesen
-      String fileContent;
-      try {
-        fileContent = await File(path).readAsString();
-      } on FileSystemException catch (e) {
-        throw ParserError('Die Datei konnte nicht geöffnet werden.', path: path, originalError: e);
-        _errorText = 'Die Datei konnte nicht geöffnet werden.';
-        Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-        return null;
-      }
+      fileContent = await File(path).readAsString();
+    } on FileSystemException catch (e) {
+      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: path, originalErrorMessage: e.message);
+    }
 
-      // Einmaliger Scan der Datei, um eine Map der UUID-Zeilennummern zu erstellen.
-      _uuidLineMap = await _createUuidLineMap(fileContent);
+    // Einmaliger Scan der Datei, um eine Map der UUID-Zeilennummern zu erstellen.
+    _uuidLineMap = await _createUuidLineMap(fileContent);
 
-      XmlDocument xml;
-      try {
-        xml = XmlDocument.parse(fileContent);
-      } on XmlException catch (e) {
-        _errorText = 'Die XML-Struktur der Datei ist fehlerhaft.';
-        Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-        return null;
-      }
+    XmlDocument xml;
+    try {
+      xml = XmlDocument.parse(fileContent);
+    } on XmlException catch (e) {
+      throw ParserError('Die XML-Struktur der Datei ist fehlerhaft.', path: path, originalErrorMessage: e.message);
+    }
 
-      // Dateianhänge aus `<Meta><Binaries>`-Block dekodieren
-      _binaries = <String, Uint8List>{};
-      final binariesElement = xml.rootElement.findElements('Meta').firstOrNull?.findElements('Binaries').firstOrNull;
-      if (binariesElement != null) {
-        for (final bin in binariesElement.findElements('Binary')) {
-          final id = bin.getAttribute('ID');
-          if (id == null) continue;
-          Uint8List blob;
+    // Dateianhänge aus `<Meta><Binaries>`-Block dekodieren
+    _binaries = <String, Uint8List>{};
+    final binariesElement = xml.rootElement.findElements('Meta').firstOrNull?.findElements('Binaries').firstOrNull;
+    if (binariesElement != null) {
+      for (final bin in binariesElement.findElements('Binary')) {
+        final id = bin.getAttribute('ID');
+        if (id == null) continue;
+        Uint8List blob;
+        try {
+          blob = base64.decode(bin.innerText.trim());
+        } on FormatException catch (e) {
+          final lineNumber = await _findLineNumberOfText(path, '<Binary ID="$id"');
+          throw ParserError('Anhang ID=$id konnte nicht dekodiert werden.', path: path, lineNumber: lineNumber, originalErrorMessage: e.message);
+        }
+        if (bin.getAttribute('Compressed') == 'True') {
           try {
-            blob = base64.decode(bin.innerText.trim());
+            blob = Uint8List.fromList(gzip.decode(blob));
           } on FormatException catch (e) {
             final lineNumber = await _findLineNumberOfText(path, '<Binary ID="$id"');
-            _errorText = 'Anhang ID=$id konnte nicht dekodiert werden${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.' ;
-            Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-            return null;
+            throw ParserError('Anhang ID=$id konnte nicht dekomprimiert werden.', path: path, lineNumber: lineNumber, originalErrorMessage: e.message);
           }
-          if (bin.getAttribute('Compressed') == 'True') {
-            try {
-              blob = Uint8List.fromList(gzip.decode(blob));
-            } on FormatException catch (e) {
-              final lineNumber = await _findLineNumberOfText(path, '<Binary ID="$id"');
-              _errorText = 'Anhang ID=$id konnte nicht dekomprimiert werden${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-              Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-              return null;
-            }
-          }
-          _binaries[id] = blob;
         }
+        _binaries[id] = blob;
       }
-
-      // Root-Gruppe finden
-      final rootGroup = xml.rootElement.findElements('Root').firstOrNull?.findElements('Group').firstOrNull;
-      if (rootGroup == null) {
-        _errorText = '<Root><Group>`-Element fehlt.';
-        Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-        return null;
-      }
-
-      // Gruppendaten rekursiv parsen
-      // Die Root-Gruppe (die Gruppe direkt unter Root) hat den Namen des Tresors. Die Kategorie lassen wir daher leer.
-      return _parseGroups(rootGroup, '');
-
-    } catch (e, st) {
-      _errorText = 'Ein unerwarteter Fehler ist aufgetreten. Die Datei ist möglicherweise beschädigt.';
-      Logger().fatal('Parser-Fehler: $_errorText', context: {'path': path, 'error': e}, stack: st);
-      return null;
     }
+
+    // Root-Gruppe finden
+    final rootGroup = xml.rootElement.findElements('Root').firstOrNull?.findElements('Group').firstOrNull;
+    if (rootGroup == null) {
+      throw ParserError('<Root><Group>`-Element fehlt.', path: path);
+    }
+
+    // Gruppendaten rekursiv parsen
+    // Die Root-Gruppe (die Gruppe direkt unter Root) hat den Namen des Tresors. Die Kategorie lassen wir daher leer.
+    return _parseGroups(rootGroup, '');
   }
 
   /// Verarbeitet rekursiv Gruppen und deren Einträge.
   /// Im Fall eines Fehlers wird null zurückgegeben.
-  Future<List<ParsedEntry>?> _parseGroups(XmlElement group, String category) async {
+  Future<List<ParsedEntry>> _parseGroups(XmlElement group, String category) async {
     final result = <ParsedEntry>[];
 
     // Einträge in der aktuellen Gruppe verarbeiten
     for (final entry in group.findElements('Entry')) {
       final parsedEntry = await _parseEntry(entry, category);
-      if (parsedEntry == null) return null;
       result.add(parsedEntry);
     }
 
@@ -114,7 +95,6 @@ class KeepassXmlParser implements Parser {
       var subGroupName = subGroup.findElements('Name').firstOrNull?.innerText ?? '';
       final nestedCategory = category.isNotEmpty ? '$category/$subGroupName' : subGroupName;
       final parsedEntries = await _parseGroups(subGroup, nestedCategory);
-      if (parsedEntries == null) return null;
       result.addAll(parsedEntries);
     }
 
@@ -122,7 +102,8 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Parst ein einzelnes `<Entry>`-Element in ein [ParsedEntry]-Objekt.
-  Future<ParsedEntry?> _parseEntry(XmlElement entry, String category) async {
+  Future<ParsedEntry> _parseEntry(XmlElement entry, String category) async {
+
     // UUID ermitteln
     String? uuid;
     final base64Uuid = entry.findElements('UUID').firstOrNull?.innerText ?? '';
@@ -132,14 +113,10 @@ class KeepassXmlParser implements Parser {
         try {
           bytes = base64.decode(base64Uuid);
         } on FormatException catch (e) {
-          _errorText = 'UUID "$base64Uuid" konnte nicht dekodiert werden${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-          Logger().error('Parser-Fehler: $_errorText', context: {'path': path, 'error': e});
-          return null;
+          throw ParserError('UUID "$base64Uuid" konnte nicht dekodiert werden.', path: path, lineNumber: lineNumber, originalErrorMessage: e.message);
         }
         if (bytes.length != 16) {
-          _errorText = 'UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet${lineNumber != null ? ' (Zeile $lineNumber)' : ''}.';
-          Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-          return null;
+          throw ParserError('UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet.', path: path, lineNumber: lineNumber);
         }
         final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
         uuid = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
@@ -176,11 +153,9 @@ class KeepassXmlParser implements Parser {
       final binary = _binaries[ref];
       if (binary == null) {
         final refLineNumber = await _findLineNumberOfText(path, '<Value Ref="$ref"');
-        _errorText = 'Anhang "$fileName" verweist auf eine nicht existierende Binär-Referenz "$ref"${refLineNumber != null ? ' (Zeile $refLineNumber)' : ''}.';
-        Logger().error('Parser-Fehler: $_errorText', context: {'path': path});
-        return null;
+        throw ParserError('Anhang "$fileName" verweist auf eine nicht existierende Binär-Referenz "$ref".', path: path, lineNumber: refLineNumber);
       }
-      attachments.add(ParsedAttachment(binary: binary, filename: fileName));
+      attachments.add(ParsedAttachment(binary, filename: fileName));
     }
 
     return ParsedEntry(

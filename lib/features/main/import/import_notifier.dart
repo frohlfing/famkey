@@ -75,13 +75,22 @@ class ImportNotifier extends Notifier<ImportState> {
 
     final formData = state.formData;
 
+    int added = 0;
+    int skipped = 0;
+
     // 1. UI-State aktualisieren
     state = state.copyWith(
       formData: formData,
+      totalCount: 0,
+      addedCount: added,
+      skippedCount: skipped,
+      isAborting: false,
       status: ImportActionStatus.progress, error: AppError.none(),
     );
 
     try {
+      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+      final user = _sessionService.user!;
 
       // 2. Benutzereingabe validieren
       if (formData.format == ImportFileFormat.none) {
@@ -94,22 +103,26 @@ class ImportNotifier extends Notifier<ImportState> {
       }
 
       // 3. Datei parsen
+      ParsedPayload parsedPayload;
       final parser = _parserFactory(formData.format, formData.path);
       if (parser == null) {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, field: 'format'));
         return;
       }
-      final parsedPayload = await parser.parse();
-      if (parsedPayload == null) {
-        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.unknown, text: parser.errorText));
+      try {
+        parsedPayload = await parser.parse();
+      }
+      on ParserError catch(e) {
+        final text = '${e.message}${e.lineNumber != null ? ' (Zeile ${e.lineNumber})' : ''}';
+        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, text: text));
+        Logger().error('ParserError: ${e.message}', context: {'path': e.path, 'line': e.lineNumber, 'error': e.originalErrorMessage});
         return;
       }
 
-      // Daten für den Import aufbereiten...
+      // Gesamtanzahl für die Fortschrittsanzeige im State setzen
+      state = state.copyWith(totalCount: parsedPayload.length);
 
-      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
-      final user = _sessionService.user!;
-
+      // Geparsten Einträge durchlaufen...
       final List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})> batch = [];
       for (final parsedEntry in parsedPayload) {
 
@@ -122,8 +135,11 @@ class ImportNotifier extends Notifier<ImportState> {
         } else {
           final existing = await _databaseService.getEntryByUuid(uuid);
           if (existing != null) {
-            state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.vaultAlreadyExists, text: "UUID des Eintrags existiert bereits${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}."));
-            return;
+            skipped++;
+            state = state.copyWith(skippedCount: skipped);
+            continue; // Springe zum nächsten Eintrag in der Schleife
+            //state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.vaultAlreadyExists, text: "UUID des Eintrags existiert bereits${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}."));
+            //return;
           }
         }
 
@@ -229,12 +245,22 @@ class ImportNotifier extends Notifier<ImportState> {
           }
         }
 
+        // Prüfung: Wurde abgebrochen?
+        if (state.isAborting) {
+          state = state.copyWith(status: ImportActionStatus.initial, isAborting: false);
+          return;
+        }
+
         // 13. Alles zusammen in eine Batch hinzufügen
         batch.add((
           entry: entry,
           encryptedEntryKey: encryptedEntryKey,
           attachments: attachments
         ));
+
+        // Fortschritt aktualisieren
+        added++;
+        state = state.copyWith(addedCount: added);
       }
 
       // 14. Batch in Datenbank schreiben
@@ -243,7 +269,6 @@ class ImportNotifier extends Notifier<ImportState> {
       // 15. State aktualisieren
       state = state.copyWith(
         formData: const ImportFormData(),
-        addedCount: batch.length,
         status: ImportActionStatus.success,
       );
 
@@ -262,19 +287,26 @@ class ImportNotifier extends Notifier<ImportState> {
     };
   }
 
+  /// Benutzer möchte den Import abbrechen
+  void cancelImport() {
+    state = state.copyWith(isAborting: true);
+  }
+
   // ------------------------------------------------------------------------
   // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
   /// Setter für Format der Datei
   void setFormat(ImportFileFormat value) {
+    if (value == state.formData.format) return;
     final error = state.error.field == 'format' ? AppError.none() : null;
-    final formData = state.formData.copyWith(format: value);
+    final formData = state.formData.copyWith(format: value, path: '');
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 
   /// Setter für Pfad zur Datei
   void setPath(String value) {
+    if (value == state.formData.path) return;
     final error = state.error.field == 'path' ? AppError.none() : null;
     var formData = state.formData.copyWith(path: value);
 
@@ -290,4 +322,5 @@ class ImportNotifier extends Notifier<ImportState> {
 
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
+
 }

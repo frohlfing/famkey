@@ -12,22 +12,18 @@ class ParserError implements Exception {
   /// Die Zeilennummer in der Datei, falls ermittelbar.
   final int? lineNumber;
 
-  /// Die ursprüngliche Exception, die den Fehler ausgelöst hat (fürs Logging).
-  final Object? originalError;
+  /// Die ursprüngliche Fehlermeldung, die den Fehler ausgelöst hat (fürs Logging).
+  final String? originalErrorMessage;
 
   // /// Der Stack Trace der ursprünglichen Exception (fürs Logging).
   // final StackTrace? stackTrace;
 
   /// Konstruktor
-  ParserError(this.message, {
-    this.path,
-    this.lineNumber,
-    this.originalError,
-  });
+  ParserError(this.message, {this.path, this.lineNumber, this.originalErrorMessage});
 
   @override
   String toString() {
-    return 'ParserError: $message${lineNumber != null ? ' (Line: $lineNumber)' : ''}';
+    return 'ParserError: $message${lineNumber != null ? ' (Zeile $lineNumber)' : ''}';
   }
 }
 
@@ -48,12 +44,7 @@ class ParsedAttachment {
   final DateTime? timestamp;
 
   /// Konstruktor
-  ParsedAttachment({
-    required this.binary,
-    this.filename,
-    this.mime,
-    this.timestamp,
-  });
+  ParsedAttachment(this.binary, {this.filename, this.mime, this.timestamp});
 }
 
 /// Container für einen geparsten Eintrag.
@@ -122,5 +113,5 @@ abstract class Parser {
   ///
   /// Gibt im Erfolgsfall eine [ParsedPayload] zurück.
   /// Im Fehlerfall wird ein [ParserError] geworfen.
-  Future<ParsedPayload?> parse();
+  Future<ParsedPayload> parse();
 }
