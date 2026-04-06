@@ -44,8 +44,8 @@
 
 
 - ❌ Konzept für Suchen und filtern optimieren:
-- In Tabelle `settings` Feld `meta_key` hinzufügen (AES-Schlüssel für Meta-Angaben eines Eintrags - Vorteil: viel schneller als für jeden einzelnen EIntrag RSA anwenden zu müssen (ist notwendig für SHaren)
-- In Tabelle `entries` Feld `meta` hinzufügen. Hier wird ein `entry_meta_payload` gespeichert. Beinhaltet category, title, url und notes. Wird in der Session abgelegt
+- In Tabelle `settings` Feld `encyptedMetaKey` hinzufügen (AES-Schlüssel für Meta-Angaben eines Eintrags - Vorteil: viel schneller als für jeden einzelnen EIntrag RSA anwenden zu müssen (ist notwendig für SHaren)
+- In Tabelle `entries` Feld `meta` hinzufügen. Hier wird ein `entryMetaPayload` gespeichert. Beinhaltet category, title, url und notes. Wird in der Session abgelegt
 - In Tabelle `entries` Felder category, title, url und notes löschen
 - Evtl notes in meta zum suchindex umwandeln (kleinbuchstaben, doppelte Leerzeichen und doppelte wörter raus)
 
