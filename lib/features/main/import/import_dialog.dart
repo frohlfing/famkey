@@ -189,13 +189,13 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    SizedBox(height: 16),
 
                     // Abbrechen-Button
                     ElevatedButton.icon(
-                      onPressed: isBusy || state.isAborting ? null : _handleCancelImport,
+                      onPressed: state.isAborting ? null : _handleCancelImport,
                       icon: const Icon(Icons.stop),
                       label: const Text('Abbrechen'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100),
                     ),
                   ],
                 ),

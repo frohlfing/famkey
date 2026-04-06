@@ -42,6 +42,13 @@
 - ✅ Ladeanzeige einbauen für Operationen, die länger dauern könnten (Bildschirm für Eingaben sperren)
 - ✅ Fehler in Datei loggen
 
+
+- ❌ Konzept für Suchen und filtern optimieren:
+- In Tabelle `settings` Feld `meta_key` hinzufügen (AES-Schlüssel für Meta-Angaben eines Eintrags - Vorteil: viel schneller als für jeden einzelnen EIntrag RSA anwenden zu müssen (ist notwendig für SHaren)
+- In Tabelle `entries` Feld `meta` hinzufügen. Hier wird ein `entry_meta_payload` gespeichert. Beinhaltet category, title, url und notes. Wird in der Session abgelegt
+- In Tabelle `entries` Felder category, title, url und notes löschen
+- Evtl notes in meta zum suchindex umwandeln (kleinbuchstaben, doppelte Leerzeichen und doppelte wörter raus)
+
 - ❌ App-Icon anpassen
  
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
@@ -54,7 +61,11 @@
 
 - ❌ Notfall-Reset
 
-- ❌ CSV-Import
+- ✅ Keepass-XML-Import
+- ❌ Bitwarden-JSON-Import
+- ❌ 1Password-Import
+- ❌ Generic-CSV-Import
+
 - ❌ CSV-Export
 
 - ❌ Auto-Fill
@@ -88,6 +99,7 @@
 - Tresor umbenennen, ohne den Server zu tangieren (vault_uuid)
 - Benutzer umbenennen, ohne den Server zu tangieren (bei Freunde umbenennen?)
 - Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
+- Detailansicht, Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
