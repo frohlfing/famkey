@@ -18,7 +18,7 @@ class NewFriendDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => NewFriendDialog(),
+      builder: (_) => const NewFriendDialog(),
     );
   }
 

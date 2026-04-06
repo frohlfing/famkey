@@ -128,8 +128,8 @@ class ImportNotifier extends Notifier<ImportState> {
 
         // 4. Daten validieren & bereinigen
 
-        // Wenn die UUID nicht angegeben ist, neu generieren. Andernfalls prüfen, ob sie bereits im Tresor existiert.
-        var uuid = parsedEntry.uuid?.trim() ?? '';
+        // Wenn die UUID nicht angegeben ist, eine generieren. Andernfalls prüfen, ob sie bereits im Tresor existiert.
+        var uuid = parsedEntry.uuid;
         if (uuid.isEmpty) {
           uuid = const Uuid().v4();
         } else {
@@ -138,29 +138,18 @@ class ImportNotifier extends Notifier<ImportState> {
             skipped++;
             state = state.copyWith(skippedCount: skipped);
             continue; // Springe zum nächsten Eintrag in der Schleife
-            //state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.vaultAlreadyExists, text: "UUID des Eintrags existiert bereits${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}."));
-            //return;
           }
         }
 
-        // Kategorie trimmen
-        final category = parsedEntry.category?.trim() ?? '';
-
-        // Titel muss angegeben sein
-        final title = parsedEntry.title?.trim() ?? '';
+        // Titel muss angegeben werden (so wie bei der manuellen Eingabe).
+        var title = parsedEntry.title?.trim() ?? '';
         if (title.isEmpty) {
-          state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Titel des Eintrags fehlt${parsedEntry.lineNumber != null ? ' (Zeile $parsedEntry.lineNumber)' : ''}.'));
-          return;
+          title = 'Ohne Titel';
         }
 
-        // Bis auf Passwort alles trimmen
-        final username = parsedEntry.username?.trim() ?? '';
-        final password = parsedEntry.password ?? '';
-        final url = parsedEntry.url?.trim() ?? '';
-        final notes = parsedEntry.notes?.trim() ?? '';
-
         // Favicon herunterladen, falls nicht angegeben
-        var favicon = parsedEntry.favicon?.trim() ?? '';
+        var favicon = parsedEntry.favicon ?? '';
+        final url = parsedEntry.url ?? '';
         if (favicon.isEmpty && url.isNotEmpty) {
           favicon = await downloadFavicon(url) ?? '';
         }
@@ -170,13 +159,13 @@ class ImportNotifier extends Notifier<ImportState> {
 
         // Payload für den verschlüsselten Eintrag bauen
         final payload = EntryPayload(
-          category: category,
+          category: parsedEntry.category ?? '',
           title: title,
-          username: username,
-          password: password,
+          username: parsedEntry.username ?? '',
+          password: parsedEntry.password ?? '',
           passwordTimestamp: parsedEntry.passwordTimestamp, // optional
           url: url,
-          notes: notes,
+          notes: parsedEntry.notes ?? '',
           favicon: favicon,
         );
 
@@ -192,10 +181,10 @@ class ImportNotifier extends Notifier<ImportState> {
         final entry = EntryEntity(
           id: 0,
           uuid: uuid,
-          category: category,
+          category: parsedEntry.category ?? '',
           title: title,
           url: url,
-          notes: notes,
+          notes: parsedEntry.notes ?? '',
           favicon: favicon,
           encryptedData: encryptedData,
           creatorId: user.id,
@@ -207,10 +196,10 @@ class ImportNotifier extends Notifier<ImportState> {
         final attachments = <({String uuid, String encryptedMeta, String encryptedContent})>[];
         if (parsedEntry.attachments != null) {
           for (final attachment in parsedEntry.attachments!) {
-            final filename = attachment.filename?.trim() ?? '';
+            final filename = attachment.filename ?? '';
 
             // Mime-Typ ermitteln (falls nicht angegeben)
-            var mime = attachment.mime?.trim() ?? '';
+            var mime = attachment.mime ?? '';
             if (mime.isEmpty) {
               mime = getMimeType(filename);
             }

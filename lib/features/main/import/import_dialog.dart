@@ -21,7 +21,7 @@ class ImportDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => const ImportDialog(),
+      builder: (_) => const ImportDialog(),
     );
   }
 
@@ -110,144 +110,147 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // scrollen funktioniert auch, wenn Inhalte anfangs passen
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            if (status == ImportActionStatus.initial || status == ImportActionStatus.failure) ...[
-              const Text('Wähle das Format und die Datei aus, die du importieren möchtest.'),
-              const SizedBox(height: 24),
+              if (status == ImportActionStatus.initial || status == ImportActionStatus.failure) ...[
+                const Text('Wähle das Format und die Datei aus, die du importieren möchtest.'),
+                const SizedBox(height: 24),
 
-              // --- Format-Auswahl ---
-              const Text('Dateiformat', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<ImportFileFormat>(
-                initialValue: state.formData.format == ImportFileFormat.none ? null : state.formData.format,
-                decoration: InputDecoration(
-                  errorText: state.error.field == 'format' ? state.error.text : null,
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                hint: const Text('Format wählen'),
-                items: const [
-                  DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
-                  DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
-                ],
-                onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
-              ),
-
-              const SizedBox(height: 16),
-
-              // --- Dateiauswahl ---
-              const Text('Importdatei', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _pathController,
-                readOnly: true,
-                onTap: isBusy ? null : _pickFile,
-                decoration: InputDecoration(
-                  hintText: 'Datei auswählen',
-                  errorText: state.error.field == 'path' ? state.error.text : null,
-                  prefixIcon: const Icon(Icons.file_open_outlined),
-                  suffixIcon: _isPickingFile ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  ) : IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: isBusy ? null : _pickFile
+                // --- Format-Auswahl ---
+                const Text('Dateiformat', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<ImportFileFormat>(
+                  initialValue: state.formData.format == ImportFileFormat.none ? null : state.formData.format,
+                  decoration: InputDecoration(
+                    errorText: state.error.field == 'format' ? state.error.text : null,
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-
-            // --- Status-Anzeigen ---
-            if (status == ImportActionStatus.progress && state.totalCount == 0) ...[
-              const Center(
-                child: Column(
-                  children: [
-                    SizedBox(height: 24),
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Importdatei wird eingelesen...'),
+                  hint: const Text('Format wählen'),
+                  items: const [
+                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
+                    DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
                   ],
+                  onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
                 ),
-              ),
-            ],
 
-            if (status == ImportActionStatus.progress && state.totalCount > 0) ...[
-              Center(
-                child: Column(
-                  children: [
-                    SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-                    // Fortschrittsanzeige
-                    LinearProgressIndicator(value: state.currentCount / state.totalCount),
-                    SizedBox(height: 16),
-                    Text(
-                      "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
-                      style: Theme.of(context).textTheme.bodySmall,
+                // --- Dateiauswahl ---
+                const Text('Importdatei', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _pathController,
+                  readOnly: true,
+                  onTap: isBusy ? null : _pickFile,
+                  decoration: InputDecoration(
+                    hintText: 'Datei auswählen',
+                    errorText: state.error.field == 'path' ? state.error.text : null,
+                    prefixIcon: const Icon(Icons.file_open_outlined),
+                    suffixIcon: _isPickingFile ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    ) : IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: isBusy ? null : _pickFile
                     ),
-                    SizedBox(height: 16),
-
-                    // Abbrechen-Button
-                    ElevatedButton.icon(
-                      onPressed: state.isAborting ? null : _handleCancelImport,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Abbrechen'),
-                    ),
-                  ],
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-              ),
-            ],
+              ],
 
-            if (status == ImportActionStatus.success) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Import abgeschlossen!'),
-                          const SizedBox(height: 8),
-                          Text('✳️ Hinzugefügt: ${state.addedCount} Einträge'),
-                          if (state.skippedCount > 0)
-                            Text('⚠️ Übersprungen: ${state.skippedCount} Duplikate'),
-                        ],
+              // --- Status-Anzeigen ---
+              if (status == ImportActionStatus.progress && state.totalCount == 0) ...[
+                const Center(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 24),
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Importdatei wird eingelesen...'),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (status == ImportActionStatus.progress && state.totalCount > 0) ...[
+                Center(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 24),
+
+                      // Fortschrittsanzeige
+                      LinearProgressIndicator(value: state.currentCount / state.totalCount),
+                      SizedBox(height: 16),
+                      Text(
+                        "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                      SizedBox(height: 16),
 
-            if (status == ImportActionStatus.failure) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
-                  children: [
-                    Icon(Icons.error, color: Theme.of(context).colorScheme.error),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        state.error.text,
-                        softWrap: true,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      // Abbrechen-Button
+                      ElevatedButton.icon(
+                        onPressed: state.isAborting ? null : _handleCancelImport,
+                        icon: const Icon(Icons.stop),
+                        label: const Text('Abbrechen'),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
 
-          ],
+              if (status == ImportActionStatus.success) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Import abgeschlossen!'),
+                            const SizedBox(height: 8),
+                            Text('✳️ Hinzugefügt: ${state.addedCount} Einträge'),
+                            if (state.skippedCount > 0)
+                              Text('⚠️ Übersprungen: ${state.skippedCount} Duplikate'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (status == ImportActionStatus.failure) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                    children: [
+                      Icon(Icons.error, color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.error.text,
+                          softWrap: true,
+                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+            ],
+          ),
         ),
       ),
 

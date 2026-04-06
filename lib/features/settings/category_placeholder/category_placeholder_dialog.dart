@@ -19,7 +19,7 @@ class CategoryPlaceholderDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => CategoryPlaceholderDialog(),
+      builder: (_) => const CategoryPlaceholderDialog(),
     );
   }
 

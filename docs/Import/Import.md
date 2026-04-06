@@ -19,9 +19,9 @@ Folgende Dateiformate werden für den Import unterstützt.
     
 - `url`
   Die UUID ist Base64-kodiert (z.B. `DzqV4eP8VE+rUTDqetpscA==`). Die Dekodierung ergibt 16-Bytes,  
-  eine 32 Zeichen lange global eindeutige Hex-Zeichenfolge (im Beispiel `0f3a95e1e3fc544fab5130ea7ada6c70`), mit Bindestrichen im Format (8‑4‑4‑4‑12)
-  ergibt das dann unser 36 Zeichen langes UUID-Format (`0f3a95e1-e3fc-544f-ab51-30ea7ada6c70`)
-
+  eine 32 Zeichen lange global eindeutige Hex-Zeichenfolge (im Beispiel `0f3a95e1e3fc544fab5130ea7ada6c70`), 
+  mit Bindestrichen (8‑4‑4‑4‑12) ergibt das dann das UUID-v4-Format (`0f3a95e1-e3fc-544f-ab51-30ea7ada6c70`)
+  
 - `category`:
   Die Kategorie wird von `Group.Name` übernommen.
   
@@ -85,7 +85,7 @@ Folgende Dateiformate werden für den Import unterstützt.
 ### Mapping
 
 - `url`
-  Die UUID ist eine global eindeutige 36 Zeichen lange Zeichenfolge (z.B. `3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12`) und kann direkt übernommen werden.
+  Die UUID ist eine global eindeutige 36 Zeichen lange Zeichenfolge (Universally Unique Identifier v4, z.B. `3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12`) und kann direkt übernommen werden.
 
 - `category`:
   - Bitwarden speichert Ordner so:
@@ -160,9 +160,18 @@ Folgende Dateiformate werden für den Import unterstützt.
     - `size` ergibt sich aus blob.length.
     - `thumbnail`: wird generiert (so, als wenn manuell ein neuer Eintrag angelegt wird)
     - `timestamp`: `item.revisionDate` des Eintrags (Bitwarden speichert KEINEN Timestamp für Dateianhänge).
-  - Die Binärdaten sind NICHT eingebettet. Der Parser erwartet die Dateien im selben Ordner, in der die JSON-Datei liegt.
+  - Die Binärdaten sind NICHT eingebettet. Die Dateianhänge werden im Unterordner "attachments" erwartet. Das `url`-Attribute wird ignoriert.
+
+---
+
+## 1Password 1PUX
+
+- Spezifikation: https://support.1password.com/1pux-format/
+- Beispieldatei: [1Password 1PUX Offizielles Beispiel.1pux](Beispieldateien/1Password%201PUX%20Offizielles%20Beispiel.1pux)
 
 ---
 
 Weitere Formate könnten später hinzukommen. Dann könnte dieses Repo nützlich sein:
 https://github.com/roddhjav/pass-import/tree/master
+
+todo!

@@ -20,7 +20,7 @@ class SyncServerDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => SyncServerDialog(),
+      builder: (_) => const SyncServerDialog(),
     );
   }
 
@@ -101,78 +101,81 @@ class _SyncServerDialogState extends ConsumerState<SyncServerDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // scrollen funktioniert auch, wenn Inhalte anfangs passen
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            // --- Host ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final errorText = ref.watch(syncServerProvider.select((state) => state.error.field == 'host' ? state.error.text : null));
-                return TextField(
-                  controller: _hostController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Serveradresse',
-                    prefixIcon: const Icon(Icons.cloud_outlined),
+              // --- Host ---
+              Consumer(
+                builder: (ctx, ref, _) {
+                  final errorText = ref.watch(syncServerProvider.select((state) => state.error.field == 'host' ? state.error.text : null));
+                  return TextField(
+                    controller: _hostController,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: 'Serveradresse',
+                      prefixIcon: const Icon(Icons.cloud_outlined),
+                      errorText: errorText,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: isBusy ? null : notifier.setHost,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // --- API-Token ---
+              Consumer(
+                builder: (ctx, ref, _) {
+                  final errorText = ref.watch(syncServerProvider.select((state) => state.error.field == 'apiToken' ? state.error.text : null));
+                  return PasswordField(
+                    controller: _apiTokenController,
+                    textInputAction: TextInputAction.next,
+                    label: 'API-Token',
+                    prefixIcon: Icons.vpn_key_outlined,
                     errorText: errorText,
-                    border: const OutlineInputBorder(),
+                    onChanged: isBusy ? null : notifier.setApiToken,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // --- Button für Verbindungtest ---
+              ElevatedButton.icon(
+                onPressed: notifier.testConnection,
+                icon: const Icon(Icons.swap_calls_outlined),
+                label: const Text('Verbindung testen'),
+              ),
+
+              // --- Erfolgsmeldung für Verbindungstest oder allgemeine Fehlermeldung ---
+              Consumer(builder: (context, ref, _) {
+                final testSuccessful = ref.watch(syncServerProvider.select((s) => s.status == SyncServerActionStatus.testSuccessful));
+                final error = ref.watch(syncServerProvider.select((s) => s.error));
+                if (!testSuccessful && (error.text.isEmpty || error.field != null)) return const SizedBox.shrink();
+                final text = testSuccessful ? 'Verbindung erfolgreich' : error.text;
+                final icon = testSuccessful ? Icons.check_circle : Icons.error;
+                final color = testSuccessful ? Colors.green : Theme.of(context).colorScheme.error;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                    children: [
+                      Icon(icon, color: color),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(text, softWrap: true, style: TextStyle(color: color))),
+                    ],
                   ),
-                  onChanged: isBusy ? null : notifier.setHost,
                 );
-              },
-            ),
+              }),
 
-            const SizedBox(height: 16),
-
-            // --- API-Token ---
-            Consumer(
-              builder: (ctx, ref, _) {
-                final errorText = ref.watch(syncServerProvider.select((state) => state.error.field == 'apiToken' ? state.error.text : null));
-                return PasswordField(
-                  controller: _apiTokenController,
-                  textInputAction: TextInputAction.next,
-                  label: 'API-Token',
-                  prefixIcon: Icons.vpn_key_outlined,
-                  errorText: errorText,
-                  onChanged: isBusy ? null : notifier.setApiToken,
-                );
-              },
-            ),
-
-            const SizedBox(height: 12),
-
-            // --- Button für Verbindungtest ---
-            ElevatedButton.icon(
-              onPressed: notifier.testConnection,
-              icon: const Icon(Icons.swap_calls_outlined),
-              label: const Text('Verbindung testen'),
-            ),
-
-            // --- Erfolgsmeldung für Verbindungstest oder allgemeine Fehlermeldung ---
-            Consumer(builder: (context, ref, _) {
-              final testSuccessful = ref.watch(syncServerProvider.select((s) => s.status == SyncServerActionStatus.testSuccessful));
-              final error = ref.watch(syncServerProvider.select((s) => s.error));
-              if (!testSuccessful && (error.text.isEmpty || error.field != null)) return const SizedBox.shrink();
-              final text = testSuccessful ? 'Verbindung erfolgreich' : error.text;
-              final icon = testSuccessful ? Icons.check_circle : Icons.error;
-              final color = testSuccessful ? Colors.green : Theme.of(context).colorScheme.error;
-              return Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
-                  children: [
-                    Icon(icon, color: color),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(text, softWrap: true, style: TextStyle(color: color))),
-                  ],
-                ),
-              );
-            }),
-
-          ],
+            ],
+          ),
         ),
       ),
 

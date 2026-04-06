@@ -28,7 +28,7 @@ class ParserError implements Exception {
 }
 
 /// Container für einen geparsten Dateianhang.
-/// Die Binärdaten der Datei muss gegeben sein, alles andere ist optional.
+/// Die Binärdaten sind obligatorisch. Alle anderen Angaben sind optional.
 class ParsedAttachment {
 
   /// Binärdaten
@@ -48,11 +48,13 @@ class ParsedAttachment {
 }
 
 /// Container für einen geparsten Eintrag.
-/// Alle Angaben sind optional.
+/// UUID ist obligatorisch. Alle anderen Angaben sind optional.
 class ParsedEntry {
 
-  /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
-  final String? uuid;
+  /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier, v4 wird nicht vorausgesetzt).
+  /// Format: 8-4-4-4-12, z.B. "3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12"
+  /// Wenn leer, wird beim Importieren eine neue UUID generiert.
+  final String uuid;
 
   /// Die Kategorie des Eintrags.
   final String? category;
@@ -88,8 +90,7 @@ class ParsedEntry {
   final int? lineNumber;
 
   /// Konstruktor
-  ParsedEntry({
-    this.uuid,
+  ParsedEntry(this.uuid, {
     this.category,
     this.title,
     this.username,
@@ -106,7 +107,10 @@ class ParsedEntry {
 
 typedef ParsedPayload = List<ParsedEntry>;
 
-/// Der Parser überführt die Daten der Importdatei in eine einheitliche strukturierte Form.
+/// Ein Parser für für Exportdaten.
+///
+/// Die Klasse überführt die Daten in in eine Liste von [ParsedEntry]-Objekten.
+/// Im Fehlerfall wirft sie einen [ParserError].
 abstract class Parser {
 
   /// Lädt die Daten aus der Datei.
