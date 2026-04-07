@@ -10,7 +10,7 @@ import 'package:xml/xml.dart';
 /// Sie überführt die Datei in eine Liste von [ParsedEntry]-Objekten.
 /// Im Fehlerfall wirft sie einen [ParserError].
 class KeepassXmlParser implements Parser {
-  /// Pfad zur Datei
+  /// Pfad zur XML-Datei
   final String _path;
 
   /// Zeilennummern der base64-kodierten UUIDs

@@ -1,13 +1,13 @@
 /// Ein Enum für den Status von Aktionen
 enum ImportFileFormat {
   none, // Keine Datei
-  keepassXml, // KeePass XML (2.x)
   bitwardenJson, // Bitwarden JSON
+  keepassXml, // KeePass XML (2.x)
+  onePassword1Pux, // 1Password 1PUX (8.x)
 
   // In Planung (späterer Ausbau):
   //genericCsv, // nicht spezifische CSV-Datei
   //msecureCsv // mSecure 6 CSV
-  //1passwordPux 1Password PUX
   //protonJson Proton Pass JSON
 }
 
@@ -15,9 +15,10 @@ enum ImportFileFormat {
 extension ImportFileFormatExtension on ImportFileFormat {
   List<String> get allowedExtensions {
     return switch (this) {
-      ImportFileFormat.keepassXml => ['xml'],
       ImportFileFormat.bitwardenJson => ['json'],
-      _ => ['xml', 'json'], // Default-Fall (Catch-all) -> alle unterstützen Formate
+      ImportFileFormat.keepassXml => ['xml'],
+      ImportFileFormat.onePassword1Pux => ['1pux'],
+      _ => ['json', 'xml', '1pux'], // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
 }

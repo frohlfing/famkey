@@ -11,6 +11,7 @@ import 'package:privault/features/main/import/parser.dart';
 import 'package:privault/features/main/import/import_state.dart';
 import 'package:privault/features/main/import/parser/bitwarden_json_parser.dart';
 import 'package:privault/features/main/import/parser/keepass_xml_parser.dart';
+import 'package:privault/features/main/import/parser/onepassword_1pux_parser.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -270,8 +271,9 @@ class ImportNotifier extends Notifier<ImportState> {
   /// Erzeugt Abhängig vom State ein Parser-Objekt.
   static Parser? _parserFactory(ImportFileFormat format, String path) {
     return switch (format) {
-      ImportFileFormat.keepassXml => KeepassXmlParser(path),
       ImportFileFormat.bitwardenJson => BitwardenJsonParser(path),
+      ImportFileFormat.keepassXml => KeepassXmlParser(path),
+      ImportFileFormat.onePassword1Pux => OnePassword1PuxParser(path),
       _ => null, // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
@@ -302,10 +304,12 @@ class ImportNotifier extends Notifier<ImportState> {
     // Automatische Formaterkennung, wenn noch keins gewählt wurde
     if (formData.format == ImportFileFormat.none) {
       final extension = value.split('.').last.toLowerCase();
-      if (extension == 'xml') {
-        formData = formData.copyWith(format: ImportFileFormat.keepassXml);
-      } else if (extension == 'json') {
+      if (extension == 'json') {
         formData = formData.copyWith(format: ImportFileFormat.bitwardenJson);
+      } else if (extension == 'xml') {
+        formData = formData.copyWith(format: ImportFileFormat.keepassXml);
+      } else if (extension == '1pux') {
+        formData = formData.copyWith(format: ImportFileFormat.onePassword1Pux);
       }
     }
 

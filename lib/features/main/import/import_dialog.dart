@@ -133,8 +133,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                   ),
                   hint: const Text('Format wählen'),
                   items: const [
-                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
                     DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
+                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
+                    DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX'), ),
                   ],
                   onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
                 ),

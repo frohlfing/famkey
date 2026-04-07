@@ -4,6 +4,99 @@ Folgende Dateiformate werden für den Import unterstützt.
 
 ---
 
+## Bitwarden JSON
+
+- Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163
+- Beispieldatei: [Bitwarden JSON KI-generiert.json](Beispieldateien/Bitwarden%20JSON%20KI-generiert.json)
+
+### Voraussetzung
+
+- Die Datei ist mit UTF-8 (Unicode) kodiert.
+- Datums-/Zeitangaben sind im ISO 8601-Format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
+- Die JSON-Datei ist unverschlüsselt.
+
+### Mapping
+
+- `url`
+  Die UUID ist eine global eindeutige 36 Zeichen lange Zeichenfolge (Universally Unique Identifier v4, z.B. `3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12`) und kann direkt übernommen werden.
+
+- `category`:
+    - Bitwarden speichert Ordner so:
+      ```json
+      "folders": [
+        { "id": "a1b2c3d4", "name": "Arbeit" }
+      ]
+      ```
+    - Ein Item verweist darauf:
+      ```json
+      {
+        "folderId": "a1b2c3d4",
+        "name": "GitHub"
+      }
+      ```
+
+- `title`, `username`, `password`, `url` `notes`:
+  Diese Werte stehen in den jeweiligen Feldern eines Items (alle optional):
+  ```json
+  {
+    "name": "GitHub",
+    "login": {
+      "username": "frank.dev",
+      "password": "SuperPass123!",
+      "uris": [
+        { "uri": "https://github.com" }
+      ]
+    },
+    "notes": "Zwei-Faktor aktiv."
+  }
+  ```
+
+- `passwordTimestamp`:
+  Bitwarden hat eine Passwort‑Historie:
+  ```json
+  "passwordHistory": [
+    {
+      "lastUsedDate": "2025-06-01T00:00:00.000Z",
+      "password": "OldPass123"
+    }
+  ]
+  ````
+  Es wird der Zeitpunkt der letzten Passwortänderung übernommen.
+  Fallback: `item.revisionDate`
+
+- `favicon`:
+  Bitwarden speichert keine Favicons.
+  Das Favicon wird von der URL heruntergeladen (so, als wenn manuell ein neuer Eintrag angelegt wird).
+
+- `creatorId` und `updaterId`:
+  Hier wird de aktuelle angemeldete User genommen (so, als wenn manuell ein neuer Eintrag angelegt wird).
+
+- `updatedAt`:
+    - Zeitpunkt der letzten Änderung ist `item.revisionDate`
+    - Fallback: `DateTime.now().toUtc()`
+
+- Attachments:
+    - Die Meta-Daten werden pro Eintrag angegeben:
+      ```json
+      "attachments": [
+        {
+          "id": "att1",
+          "fileName": "vertrag.pdf",
+          "size": 53211,
+          "url": "https://api.bitwarden.com/attachments/att1"
+        }
+      ]
+      ```
+        - `uuid`: Wird neu generiert.
+        - `filename`: aus `fileName`
+        - `mime` wird aus der Dateiendung ermittelt.
+        - `size` ergibt sich aus blob.length.
+        - `thumbnail`: wird generiert (so, als wenn manuell ein neuer Eintrag angelegt wird)
+        - `timestamp`: `item.revisionDate` des Eintrags (Bitwarden speichert KEINEN Timestamp für Dateianhänge).
+    - Die Binärdaten sind NICHT eingebettet. Die Dateianhänge werden im Unterordner "attachments" erwartet. Das `url`-Attribute wird ignoriert.
+
+---
+
 ## KeePass XML (2.x)
 
 - Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md
@@ -12,7 +105,7 @@ Folgende Dateiformate werden für den Import unterstützt.
 ### Voraussetzung
  
 - Die Datei ist mit UTF-8 (Unicode) kodiert.
-- Datums-/Zeitangaben sind im ISO 8601 format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
+- Datums-/Zeitangaben sind im ISO 8601-Format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
 - Die Zeichen `< > & " '` sind durch `&lt;` `&gt;` `&amp;` `&quot;` `&apos;` ersetzt.
 
 ### Mapping
@@ -25,7 +118,7 @@ Folgende Dateiformate werden für den Import unterstützt.
 - `category`:
   Die Kategorie wird von `Group.Name` übernommen.
   
-- `title`, `username`, `password`, `url` `notes`
+- `title`, `username`, `password`, `url` `notes`:
   Diese Werte stehen in den  `<String>`‑Elementen eines Eintrags, die jeweils einen `<Key>` und einen `<Value>` enthalten. 
   Beispiel:
     ```xml
@@ -71,107 +164,74 @@ Folgende Dateiformate werden für den Import unterstützt.
 
 ---
 
-## Bitwarden JSON
-
-- Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163
-- Beispieldatei: [Bitwarden JSON KI-generiert.json](Beispieldateien/Bitwarden%20JSON%20KI-generiert.json)
-
-### Voraussetzung
-
-- Die Datei ist mit UTF-8 (Unicode) kodiert.
-- Datums-/Zeitangaben sind im ISO 8601 format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
-- Die JSON-Datei ist unverschlüsselt.
-
-### Mapping
-
-- `url`
-  Die UUID ist eine global eindeutige 36 Zeichen lange Zeichenfolge (Universally Unique Identifier v4, z.B. `3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12`) und kann direkt übernommen werden.
-
-- `category`:
-  - Bitwarden speichert Ordner so:
-    ```dart
-    "folders": [
-      { "id": "a1b2c3d4", "name": "Arbeit" }
-    ]
-    ```
-  - Ein Item verweist darauf:
-    ```dart
-    {
-      "folderId": "a1b2c3d4",
-      "name": "GitHub"
-    }
-    ```
-
-- `title`, `username`, `password`, `url` `notes`
-  Diese Werte stehen in den jeweiligen Feldern eines Items (alle optional):
-  ```json
-  {
-    "name": "GitHub",
-    "login": {
-      "username": "frank.dev",
-      "password": "SuperPass123!",
-      "uris": [
-        { "uri": "https://github.com" }
-      ]
-    },
-    "notes": "Zwei-Faktor aktiv."
-  }
-  ```
-
-- `passwordTimestamp`:
-  Bitwarden hat eine Passwort‑Historie:
-  ```dart
-  "passwordHistory": [
-    {
-      "lastUsedDate": "2025-06-01T00:00:00.000Z",
-      "password": "OldPass123"
-    }
-  ]
-  ````
-  Es wird der Zeitpunkt der letzten Passwortänderung übernommen. 
-  Fallback: `item.revisionDate`
-
-- `favicon`:
-  Bitwarden speichert keine Favicons.
-  Das Favicon wird von der URL heruntergeladen (so, als wenn manuell ein neuer Eintrag angelegt wird).
-
-- `creatorId` und `updaterId`:
-  Hier wird de aktuelle angemeldete User genommen (so, als wenn manuell ein neuer Eintrag angelegt wird).
-
-- `updatedAt`:
-  - Zeitpunkt der letzten Änderung ist `item.revisionDate` 
-  - Fallback: `DateTime.now().toUtc()`
-
-- Attachments:
-  - Die Meta-Daten werden pro Eintrag angegeben:
-    ```json
-    "attachments": [
-      {
-        "id": "att1",
-        "fileName": "vertrag.pdf",
-        "size": 53211,
-        "url": "https://api.bitwarden.com/attachments/att1"
-      }
-    ]
-    ```
-    - `uuid`: Wird neu generiert.
-    - `filename`: aus `fileName`
-    - `mime` wird aus der Dateiendung ermittelt.
-    - `size` ergibt sich aus blob.length.
-    - `thumbnail`: wird generiert (so, als wenn manuell ein neuer Eintrag angelegt wird)
-    - `timestamp`: `item.revisionDate` des Eintrags (Bitwarden speichert KEINEN Timestamp für Dateianhänge).
-  - Die Binärdaten sind NICHT eingebettet. Die Dateianhänge werden im Unterordner "attachments" erwartet. Das `url`-Attribute wird ignoriert.
-
----
-
-## 1Password 1PUX
+## 1Password 1PUX (8.x)
 
 - Spezifikation: https://support.1password.com/1pux-format/
 - Beispieldatei: [1Password 1PUX Offizielles Beispiel.1pux](Beispieldateien/1Password%201PUX%20Offizielles%20Beispiel.1pux)
+
+Absolut. Das ist der nächste logische Schritt. Ich werde zuerst Ihre `Import.md`-Dokumentation erweitern, um das 1PUX-Format aufzunehmen, und dann den `OnePassword1PuxParser` gemäss der Spezifikation und Ihrer etablierten, robusten Architektur bauen.
+
+### Voraussetzung
+
+- Die `.1pux`-Datei ist ein Standard-ZIP-Archiv.
+- Das Archiv ist unverschlüsselt.
+- Die Hauptdatendatei `export.data` im Archiv ist mit UTF-8 kodiert und JSON-basiert.
+- Datums-/Zeitangaben sind im ISO 8601-Format [@!RFC3339] angegeben.
+
+### Mapping
+
+- `uuid`
+  Die UUID ist eine global eindeutige 26 Zeichen lange Zeichenfolge (z.B. `a5wucxN2oG24S3tZ2gE5mMUA5A`) und wird aus `item.uuid` übernommen.
+
+- `category`:
+  Die Kategorie wird aus dem Namen des Tresors (`vault.name`) übernommen, in dem sich der Eintrag befindet.
+
+- `title`:
+  Wird aus dem Feld `item.title` übernommen.
+
+- `username`, `password`, `notes`:
+  Diese Werte befinden sich im `fields`-Array eines Items. Sie werden über ihren Zweck (`purpose`) identifiziert.
+  ```json
+  "fields": [
+    { "id": "username", "purpose": "USERNAME", "value": "frank.dev" },
+    { "id": "password", "purpose": "PASSWORD", "value": "SuperPass123!" },
+    { "id": "notes",    "purpose": "NOTES",    "value": "Zwei-Faktor aktiv." }
+  ]
+  ```
+
+- `url`:
+  Die URL wird aus dem `urls`-Array eines Items übernommen. Es wird die erste URL aus der Liste verwendet.
+  ```json
+  "urls": [
+    { "url": "https://github.com", "primary": true }
+  ]
+  ```
+
+- `passwordTimestamp`:
+  1Password speichert keine separate Passworthistorie im Export.
+
+- `favicon`:
+  1Password speichert keine Favicons im Export.
+
+- `updatedAt`:
+  Zeitpunkt der letzten Änderung ist `item.updatedAt` (ein Unix-Zeitstempel, z.B. `1585333569`; Fallback: `item.createdAt`)
+
+- Attachments:
+    - Die Metadaten der Anhänge befinden sich im `files`-Array eines Items:
+      ```json
+      "files": [
+        {
+          "id": "axeeN2oG24S3tZ2gE5m....",
+          "name": "vertrag.pdf",
+          "size": 53211,
+          "path": "files/axeeN2oG24S3tZ2gE5m...._vertrag.pdf"
+        }
+      ]
+      ```
+    - Die Binärdaten sind NICHT in der JSON-Datei eingebettet. Der Parser erwartet die Dateien im Unterordner `files` innerhalb des 1PUX-Archivs. 
+      Der `path` aus den Metadaten verweist auf die entsprechende Datei.
 
 ---
 
 Weitere Formate könnten später hinzukommen. Dann könnte dieses Repo nützlich sein:
 https://github.com/roddhjav/pass-import/tree/master
-
-todo!

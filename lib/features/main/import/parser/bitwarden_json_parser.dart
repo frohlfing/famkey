@@ -12,7 +12,7 @@ import 'package:uuid/uuid.dart';
 ///
 /// Die Dateianhänge werden im Unterordner "attachments" erwartet.
 class BitwardenJsonParser implements Parser {
-  /// Pfad zur Datei
+  /// Pfad zur JSON-Datei
   final String _path;
 
   /// Zeilennummern der Item-IDs
