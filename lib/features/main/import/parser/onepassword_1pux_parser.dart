@@ -45,7 +45,7 @@ class OnePassword1PuxParser implements Parser {
     }
     final fileContent = utf8.decode(exportDataFile.content as List<int>);
 
-    // 3. Zeilennummern für alle Items vorab ermitteln (Ihre Anforderung)
+    // Zeilennummern für alle Items vorab ermitteln (Ihre Anforderung)
     _itemIdLineMap = await _createItemIdLineMap(fileContent);
 
     // JSON parsen
@@ -55,6 +55,35 @@ class OnePassword1PuxParser implements Parser {
     } on FormatException catch (e) {
       throw ParserError('Die JSON-Struktur der Datei "export.data" ist fehlerhaft.', path: _path, originalErrorMessage: e.message);
     }
+
+    /*
+    // Struktur der JSON-Datei:
+
+    "accounts": [
+    {
+      "attrs": {
+        "uuid": "P7I3CBYVCRHFXA442AQNZYMWTM",
+        ...
+      },
+      "vaults": [
+        {
+          "attrs": {
+            "uuid": "34ym7oul5mmtdbyzfjgxs6zqwa",
+            "name": "Persönlich",
+            ...
+          },
+          "items": [...]
+        }
+      ]
+    }
+    */
+
+    //  Alle Accounts durchlaufen
+    //  pro Account: uuid lesen, alle Vaults durchlaufen
+    //  pro Vault: uuid und name lesen, alle Items durchlaufen
+    //  pro Item: _parseItem aufrufen
+
+    // todo dieser Code passt nicht zur JSON-Struktur!
 
     // UUID des 1Password-Accounts extrahieren (diese ist nur innerhalb von 1password.com eindeutig!)
     final accountUuid = json['account']?['uuid'] as String?;
@@ -98,6 +127,26 @@ class OnePassword1PuxParser implements Parser {
     }
     final Map<String, dynamic> item = itemData;
 
+    /*
+     "items": [
+       {
+          "uuid": "otukqhy4bud2mpe7fflippxj6a",
+          "createdAt": 1775516074,
+          "updatedAt": 1775516075,
+          "state": "active",
+          "details": {
+             "loginFields": [ ... ],
+             "notesPlain": "Das ist eine Notiz.\nEine zweite Zeile.",
+             "sections": [ ... ],
+             "passwordHistory": [ ... ]
+             "documentAttributes": [ ... ]
+          },
+          "overview": {...}
+          ...
+        }
+      ]
+     */
+
     // UUID des Eintrags extrahieren (diese ist nur innerhalb eines 1Password-Tresors eindeutig)
     final onePassUuid = item['uuid'] as String?;
     final lineNumber = _itemIdLineMap[onePassUuid];
@@ -105,16 +154,59 @@ class OnePassword1PuxParser implements Parser {
       throw ParserError('Einem Eintrag fehlt die "uuid".', path: 'export.data', lineNumber: lineNumber);
     }
 
-    final title = item['title'] as String?;
-    if (title == null || title.isEmpty) {
-      throw ParserError('Titel für Eintrag "$onePassUuid" fehlt.', path: 'export.data', lineNumber: lineNumber);
-    }
-
     // Die deterministische UUID (v5) wird aus der Kombination von accountUuid, vaultUuid und itemUuid erzeugt.
     // Ein einfacher Separator wie ':' stellt sicher, dass es keine Überschneidungen gibt.
     final globallyUniqueName = '1password.com:$accountUuid:$vaultUuid:$onePassUuid';
     final uuid = const Uuid().v5(Namespace.url.value, globallyUniqueName);
 
+    // Zeitstempel
+    final updatedAtStr = item['updatedAt'] as String? ?? item['createdAt'] as String?;
+    final updatedAt = DateTime.tryParse(updatedAtStr ?? '')?.toUtc();
+
+    // Kategorie
+    // todo Wenn state == "archived", dann category = vaultName + " (archived), sonst category = vaultName
+
+    // todo notesPlain und die Tags aus overview in das Notizfeld übernehmen: "Tags: foo, bar\n"
+
+    /*
+    "overview": {
+      "title": "Rotkäpchen",
+      "url": "netflix.de",
+      "tags": [
+        "foo",
+        "bar"
+      ],
+      ...
+    }
+    */
+
+    // Titel
+    final title = item['title'] as String?; // todo korrigieren (Titel ist unter overview )
+    if (title == null || title.isEmpty) {
+      throw ParserError('Titel für Eintrag "$onePassUuid" fehlt.', path: 'export.data', lineNumber: lineNumber);
+    }
+
+    /*
+    "details": {
+      "loginFields": [
+        {
+          "designation": "username"
+          "name": "username",
+          "value": "eey11234@laoia.com",
+          ...
+        },
+        {
+          "designation": "password"
+          "name": "password",
+          "value": "3tmXEUvTKcuDmiUYHfjB",
+          ...
+        }
+      ],
+    }
+    */
+
+    // todo Username und Passwort aus loginFields extrahieren (designation == username oder password)
+    // todo diese Implementierung ist komplett falsch!
     // Felder wie Benutzername, Passwort und Notizen extrahieren
     String? username;
     String? password;
@@ -136,9 +228,56 @@ class OnePassword1PuxParser implements Parser {
       }
     }
 
-    // Zeitstempel
-    final updatedAtStr = item['updatedAt'] as String?;
-    final updatedAt = DateTime.tryParse(updatedAtStr ?? '')?.toUtc();
+    // todo Informationen aus Section extrahieren un in das Notizfeld eintragen: "<title>: <value>\n",
+    // todo hier im Beispiel: Vorname: Franz\nGeburtsdatum:25.03.2005 (und ein Anhang Toilette.pdf)
+    // todo Wenn value=null, dann nicht eintragen
+    // todo Wenn key = "date" -> Datum umwandeln
+    /*
+    "details": {
+      "sections": [
+        {
+          "title": "Identifikation",
+          "name": "name",
+          "fields": [
+            {
+              "title": "Vorname",
+              "value": {
+                "string": "Franz"
+              },
+              ...
+            },
+            {
+              "title": "Geburtsdatum",
+              "value": {
+                "date": 1775563260
+              },
+              ...
+            },
+            {
+              "title": "Datum",
+              "value": {
+                "date": null
+              },
+               ...
+            },
+              "title": "",
+              "value": {
+                "file": {
+                  "fileName": "Toilette.pdf",
+                  "documentId": "klzphzepec27e65nhqbik5to3m",
+                  "decryptedSize": 50914
+                }
+              },
+     */
+
+    // TODO passwordTimestamp aus passwordHistory extrahieren
+    /*
+    "passwordHistory": [{
+      "value": "12345password",
+      "time": 1458322355
+    }],
+     */
+
 
     // Anhänge verarbeiten
     final attachments = _parseAttachments(item, archive);
@@ -149,7 +288,7 @@ class OnePassword1PuxParser implements Parser {
       title: title,
       username: username,
       password: password,
-      //passwordTimestamp: null, // 1Password hat keine separate Historie im Export
+      //passwordTimestamp: null, // todo
       url: (item['urls'] as List?)?.firstOrNull?['url'] as String?,
       notes: notes,
       updatedAt: updatedAt,
@@ -157,6 +296,20 @@ class OnePassword1PuxParser implements Parser {
       lineNumber: lineNumber,
     );
   }
+
+  // todo _parseAttachments anpassen:
+  // todo Dateianhänge werden aus sections (s.o) oder aus documentAttributes geholt:
+  // todo Die Dateien liegen im Zip unter files/<documentId>__<fileName>
+
+  /*
+  "details": {
+    "documentAttributes": {
+      "fileName": "Kaffeemaschine.pdf",
+      "documentId": "fnw6i2bjtj3agh5cl6cifnzdkq",
+      ...
+    }
+  },
+  */
 
   /// Verarbeitet die Anhänge für einen einzelnen Eintrag, indem sie aus dem ZIP-Archiv gelesen werden.
   List<ParsedAttachment> _parseAttachments(Map<String, dynamic> item, Archive archive) {
@@ -184,7 +337,7 @@ class OnePassword1PuxParser implements Parser {
     return attachments;
   }
 
-  /// 3. Erstellt eine Map von Item-UUIDs zu ihrer Zeilennummer (Ihre Anforderung)
+  /// Erstellt eine Map von Item-UUIDs zu ihrer Zeilennummer (Ihre Anforderung)
   Future<Map<String, int>> _createItemIdLineMap(String fileContent) async {
     final map = <String, int>{};
     final lines = const LineSplitter().convert(fileContent);
