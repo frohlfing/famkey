@@ -55,6 +55,8 @@
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 
 - ❌ Unter Einstellungen ein Button zum Anzeigen/Löschen der Logdatei
+- ❌ Logdatei automatisch klein halten (Löschstrategie?) 
+- ❌ Bei AppError.unknown auf Logfile hinweisen (beim Import, in der Snackbar, ...).
 
 - ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
 - ❌ Selbstzerstörung (Daten löschen beim x. Fehlversuch)

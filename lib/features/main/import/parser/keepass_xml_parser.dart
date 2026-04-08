@@ -7,11 +7,10 @@ import 'package:xml/xml.dart';
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
 ///
 /// Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md
-///
 /// - Die Datei ist mit UTF-8 (Unicode) kodiert.
-/// - Die UUID ist Base64-kodiert (z.B. `DzqV4eP8VE+rUTqV4eP8VA==`). Die Dekodierung ergibt 16-Bytes,
-///   eine 32 Zeichen lange global eindeutige Hex-Zeichenfolge (im Beispiel `0f3a95e1e3fc544fab5130ea7ada6c70`),
-///   mit Bindestrichen (8‑4‑4‑4‑12) ergibt das dann das UUID-v4-Format (`0f3a95e1-e3fc-544f-ab51-30ea7ada6c70`)
+/// - Die UUID ist Base64-kodiert (z.B. `DzqV4eP8VE+rUTqV4eP8VA==`).
+///   Die Dekodierung ergibt 16-Bytes, eine 32 Zeichen lange global eindeutige Hex-Zeichenfolge (im Beispiel `0f3a95e1e3fc544fab5130ea7ada6c70`).
+///   Mit Bindestrichen (8‑4‑4‑4‑12) ergibt das dann das Ziel-Format (`0f3a95e1-e3fc-544f-ab51-30ea7ada6c70`).
 /// - Datums-/Zeitangaben sind im ISO 8601-Format angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
 /// - Die Zeichen `< > & " '` sind durch `&lt;` `&gt;` `&amp;` `&quot;` `&apos;` ersetzt.
 /// - Die Binärdaten der Dateianhänge sind in der XML-Datei eingebettet.

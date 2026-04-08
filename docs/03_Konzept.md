@@ -195,19 +195,33 @@ Der Auto-Fill-Prozess läuft isoliert vom Haupt-UI ab und erfordert native Schni
 2. Die App liefert nach Freigabe die passenden Daten an die Extension.
 3. **Fallback (Auto-Type):** Falls keine Extension möglich ist, simuliert die App Tastaturanschläge (`User -> TAB -> PW -> ENTER`).
 
-### 2.13 Backup & Export
-- **CSV-Import/Export:** Massenimport bestehender Daten oder unverschlüsselter Export (mit Warnhinweis) zur Datenportabilität.
-- **PDF-Notfallbogen:** Generierung eines Dokuments mit dem verschlüsselten Private-Key und dem Master-Passwort (als Platzhalter zum Ausfüllen) zum physischen Ausdruck.
-
-### 2.14 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
+### 2.13 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - **Ziel:** Login ohne Tippen, aber kryptografisch sicher.
 - **Aktivierung:** App bittet den System-Keystore, den `Master-Key` (der im RAM liegt) mit einem hardware-gebundenen
   Schlüssel zu verschlüsseln (Wrap). Das Ergebnis (`Biometric-Blob`) wird lokal gespeichert.
 - **Login:** App lädt `Biometric-Blob` und bittet Keystore um Entschlüsselung. Keystore fordert Fingerabdruck an. Bei
   Erfolg wird der `Master-Key` in den RAM zurückgegeben.
 
-### 2.15 Selbstzerstörung
+### 2.14 Selbstzerstörung
 Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikalisch vom Gerät.
+
+### 2.15 Import
+
+### 2.15 Backup, Import & Export
+- **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
+   - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
+   - KeePass XML (2.x) (Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md)
+   - 1Password 1PUX (Spezifikation: https://support.1password.com/1pux-format/)
+   - Nicht spezifische CSV-Datei (wie bei KeePassXC)
+   - Evtl., bietet KeePassXC an: Proton Pass JSON
+   - Evtl., bietet 1Password an: Dashlane, LastPass, RoboForm
+   - Wird NICHT unterstützt, weil Anhänge nicht enthalten sind: mSecure 6 CSV 
+- **Export/Backup:** Unverschlüsselter Export (mit Warnhinweis) zur Datenportabilität oder verschlüsselter Export als Backup 
+   - Format: Standard Zip-Archiv 
+     - Datendatei: export.json (ähnlich wie Bitwarden, Binärdaten sind aber nicht eingebettet); oder CSV (Excel-Kompatibel, Vorteil: leicht einsehbar/editierbar)
+     - Dateianhänge unter files (Vorteil: man kann sie direkt öffnen) 
+- **HTML-/ oder PDF-Ausdruck:** Generierung eines Dokuments mit dem verschlüsselten Private-Key und dem Master-Passwort 
+   (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
 
 ## 3. Versionierung
 Die Versionsnummer wird gemäß dem **Semantic Versioning-Schema** [SemVer](https://semver.org/) im Format `MAJOR.MINOR.PATCH` vergeben:

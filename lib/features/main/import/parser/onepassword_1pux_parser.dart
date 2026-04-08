@@ -8,13 +8,13 @@ import 'package:uuid/uuid.dart';
 /// Ein Parser für 1Password 1PUX Exportdateien.
 ///
 /// Spezifikation: https://support.1password.com/1pux-format/
-///
 /// - Die `.1pux`-Datei ist ein Standard-ZIP-Archiv.
 /// - Das Archiv ist unverschlüsselt.
 /// - Die Hauptdatendatei `export.data` im Archiv ist mit UTF-8 kodiert und JSON-basiert.
 /// - Die UUID eines Eintrags ist keine Standard-UUID, sondern nur innerhalb eines 1Password-Tresors eindeutig.
 /// - Datums-/Zeitangaben sind UNIX-Zeitstempel.
-/// - Der Ordner "files" im Archiv enthält die Dateianhänge. Der Name jeder Datei beginnt mit ihrer Dokument-ID
+/// - Der Ordner "files" im Archiv enthält die Dateianhänge. Der Name jeder Datei beginnt mit ihrer Dokument-ID.
+///
 class OnePassword1PuxParser implements Parser {
   /// Pfad zur .1pux-Datei
   final String _path;

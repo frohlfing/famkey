@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:privault/features/main/import/parser.dart';
-import 'package:uuid/uuid.dart';
 
 /// Ein Parser für unverschlüsselte Bitwarden JSON-Exportdateien.
 ///
-/// Diese Klasse implementiert die [Parser]-Schnittstelle.
-/// Sie überführt die Datei in eine Liste von [ParsedEntry]-Objekten.
-/// Im Fehlerfall wirft sie einen [ParserError].
+/// Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163
+/// - Die Datei ist mit UTF-8 (Unicode) kodiert.
+/// - UUID sind Standard-UUIDs (Format: 8-4-4-4-12, z.B. "3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12").
+/// - Datums-/Zeitangaben sind im ISO 8601-Format [@!RFC3339] angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
+/// - Die JSON-Datei ist unverschlüsselt.
+/// - Die Dateianhänge sind im Unterordner "files" abgelegt.
 ///
-/// Die Dateianhänge werden im Unterordner "files" erwartet.
 class BitwardenJsonParser implements Parser {
   /// Pfad zur JSON-Datei
   final String _path;
@@ -24,6 +25,18 @@ class BitwardenJsonParser implements Parser {
   /// Konstruktor
   BitwardenJsonParser(this._path);
 
+  /// Lädt die Daten aus der Datei.
+  ///
+  /// Gibt im Erfolgsfall eine [ParsedPayload] zurück.
+  /// Im Fehlerfall wird ein [ParserError] geworfen.
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// {
+  ///   "folders": [ ... ],
+  ///   "items": [ ... ]
+  /// }
+  /// ```
   @override
   Future<ParsedPayload> parse() async {
     // Datei öffnen und Inhalt lesen
@@ -73,6 +86,17 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Lädt die Ordnernamen aus dem Root-Element in eine Map.
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// "folders": [
+  ///   {
+  ///     "id": "08bd40c7-5430-07ad-06e4-fce31618f6ec",
+  ///     "name": "Account"
+  ///   },
+  ///   ...
+  /// ]
+  /// ```
   Map<String, String> _parseFolders(Map<String, dynamic> json) {
     final map = <String, String>{};
     if (json['folders'] is List) {
@@ -86,17 +110,42 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Parst ein einzelnes JSON-Item in ein [ParsedEntry]-Objekt.
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// {
+  ///   "id": "5d6f7937-90dc-d0b9-905d-cda65905da65",
+  ///   "login": {
+  ///     "username": "hans",
+  ///     "password": "geheim",
+  ///     "uris": [],
+  ///     "totp": null
+  ///     "fido2Credentials": [],
+  ///   },
+  ///   "passwordHistory": [ ... ],
+  ///   "folderId": "d41d8cd9-8f00-b204-e980-0998ecf8427e",
+  ///   "revisionDate": "2025-08-25T02:01:43.000Z",
+  ///   "creationDate": "2025-08-25T02:01:43.000Z",
+  ///   "attachments": [ ... ],
+  ///   "notes": "Meine Notiz.",
+  ///   ...
+  /// }
+  /// ```
   Future<ParsedEntry> _parseItem(dynamic itemData) async {
     if (itemData is! Map<String, dynamic>) {
       throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _path);
     }
-    final Map<String, dynamic> item = itemData;
+    final Map<String, dynamic> item = itemData; // todo item as Map<String, dynamic>? übergeben
 
     // UUID und ihre Zeilennummer ermitteln
     final (uuid, lineNumber) = _parseUuid(item);
 
     // Login für Benutzername und Passwort nehmen
     final login = item['login'] as Map<String, dynamic>?;
+    // todo login.totp und login.fido2Credentials als Notiz übernehmen?
+
+    // Zeitstempel der letzten Passwortänderung ermitteln
+    final passwordTimestamp = _parsePasswordTimestamp(item);
 
     // Ordner für die Kategorie nehmen
     final folderId = item['folderId'] as String?;
@@ -104,9 +153,6 @@ class BitwardenJsonParser implements Parser {
 
     // Zeitstempel der letzten Änderung ermitteln
     final updatedAt = _parseUpdatedAt(item);
-
-    // Zeitstempel der letzten Passwortänderung ermitteln
-    final passwordTimestamp = _parsePasswordTimestamp(item);
 
     // Anhänge des Eintrags verarbeiten
     final attachments = await _parseAttachments(item);
@@ -127,6 +173,13 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Ermittelt die UUID des Eintrags und gibt sie zusammen mit ihrer Zeilennummer zurück.
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// {
+  ///   "id": "5d6f7937-90dc-d0b9-05da-cda65905da65",
+  ///   ...
+  /// }
   (String uuid, int? lineNumber) _parseUuid(Map<String, dynamic> item) {
     final id = item['id'] as String?;
     final lineNumber = _itemIdLineMap[id];
@@ -159,25 +212,57 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Ermittelt den Zeitpunkt der letzten Änderung
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// {
+  ///   "revisionDate": "2025-08-25T02:01:43.000Z",
+  ///   "creationDate": "2025-08-25T02:01:43.000Z",
+  ///   ...
+  /// }
+  /// ```
   DateTime? _parseUpdatedAt(Map<String, dynamic> item) {
-    final revisionDateStr = item['revisionDate'] as String?;
+    final revisionDateStr = item['revisionDate'] as String? ?? item['creationDate'] as String?;
     return DateTime.tryParse(revisionDateStr ?? '')?.toUtc();
   }
 
   /// Ermittelt den Zeitstempel der letzten Passwortänderung für einen Eintrag.
-  DateTime? _parsePasswordTimestamp(Map<String, dynamic> item) {
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// "passwordHistory": [
+  ///   {
+  ///     "lastUsedDate": "2025-06-01T00:00:00.000Z",
+  ///     "password": "OldPass123"
+  ///   },
+  ///   ...
+  /// ]
+  /// ```
+  DateTime? _parsePasswordTimestamp(Map<String, dynamic> item) { // todo item['passwordHistory'] as List? übergeben
     DateTime? passwordTimestamp;
     final passwordHistory = item['passwordHistory'] as List?;
     if (passwordHistory != null && passwordHistory.isNotEmpty) {
       final lastChangeDate = passwordHistory.first['lastUsedDate'] as String?;
+      // todo Prüfen, ob das Passwort ein anderes ist als das aktuelle
       passwordTimestamp = DateTime.tryParse(lastChangeDate ?? '')?.toUtc();
     }
     return passwordTimestamp;
   }
 
   /// Parst die Anhänge für einen einzelnen Eintrag.
-  /// Die Dateianhänge werden im Unterordner "files" erwartet.
-  Future<List<ParsedAttachment>?> _parseAttachments(Map<String, dynamic> item) async {
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// "attachments": [
+  ///   {
+  ///     "fileName": "vertrag.pdf",
+  ///     ...
+  ///   },
+  ///   ...
+  /// ]
+  /// ```
+  /// Die Dateianhänge sind im Unterordner "files" abgelegt.
+  Future<List<ParsedAttachment>?> _parseAttachments(Map<String, dynamic> item) async { // todo item['attachments'] as List? übergeben
     final attachments = <ParsedAttachment>[];
     final attachmentsMeta = item['attachments'] as List?;
     if (attachmentsMeta == null) return attachments;
