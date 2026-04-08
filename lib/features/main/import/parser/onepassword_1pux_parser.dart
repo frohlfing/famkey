@@ -14,7 +14,7 @@ import 'package:uuid/uuid.dart';
 /// - Die Hauptdatendatei `export.data` im Archiv ist mit UTF-8 kodiert und JSON-basiert.
 /// - Die UUID eines Eintrags ist keine Standard-UUID, sondern nur innerhalb eines 1Password-Tresors eindeutig.
 /// - Datums-/Zeitangaben sind UNIX-Zeitstempel.
-///
+/// - Der Ordner "files" im Archiv enthält die Dateianhänge. Der Name jeder Datei beginnt mit ihrer Dokument-ID
 class OnePassword1PuxParser implements Parser {
   /// Pfad zur .1pux-Datei
   final String _path;
@@ -369,7 +369,7 @@ class OnePassword1PuxParser implements Parser {
   /// Gender, Menu, Month Year, One Time Password, Phone, Reference, String, URL.
   (String? notes, List<ParsedAttachment> attachments) _parseSections(List? sections, Archive archive, int? lineNumber) {
     if (sections == null || sections.isEmpty) {
-      return (null, const []);
+      return (null, []);
     }
     final buffer = StringBuffer();
     final attachments = <ParsedAttachment>[];
@@ -391,7 +391,7 @@ class OnePassword1PuxParser implements Parser {
         if (field is! Map<String, dynamic>) continue;
         final fieldTitle = field['title'] as String? ?? '';
         final value = field['value'] as Map<String, dynamic>?;
-        if (fieldTitle.isEmpty || value == null) continue;
+        if (value == null) continue;
 
         // Dateianhang extrahieren
         if (value.containsKey('file')) {
@@ -408,7 +408,7 @@ class OnePassword1PuxParser implements Parser {
         // Datum extrahieren
         else if (value.containsKey('date')) {
           final dt = _parseUnix(value['date']);
-          if (dt != null) {
+          if (fieldTitle.isNotEmpty && dt != null) {
             buffer.writeln('$fieldTitle: ${dt.toIso8601String()}');
           }
         }
@@ -418,9 +418,9 @@ class OnePassword1PuxParser implements Parser {
           // Wir nehmen den ersten Wert, der kein null ist
           final dynamic v = value.values.firstWhere((val) => val != null, orElse: () => null);
           if (v != null) {
-            final textValue = v.toString().trim();
-            if (textValue.isNotEmpty) {
-              buffer.writeln('$fieldTitle: $textValue');
+            final text = v.toString().trim();
+            if (fieldTitle.isNotEmpty && text.isNotEmpty) {
+              buffer.writeln('$fieldTitle: $text');
             }
           }
         }
@@ -436,14 +436,12 @@ class OnePassword1PuxParser implements Parser {
 
   /// Lädt die Datei aus dem Archiv und erstellt daraus ein [ParsedAttachment]-Objekt.
   ///
-  /// Die Datei liegt im Archiv unter `files`.
-  /// Der Dateiname ist `<documentId>__<fileName>`.
+  /// Die Datei liegt im Archiv im Ordner "files".
+  /// Der Name jeder Datei beginnt mit ihrer Dokument-ID (z.B. 34ym7oul534ym7oul534ym7oul__Kaffeemaschine.pdf).
   ParsedAttachment _buildAttachment(String documentId, String? fileName, Archive archive, int? lineNumber) {
-    // Dateien aus dem ZIP laden
-    final zipPath = 'files/${documentId}___$fileName';
-    final archiveFile = archive.findFile(zipPath);
+    final archiveFile = archive.files.where((f) => f.name.startsWith('files/$documentId')).firstOrNull;
     if (archiveFile == null) {
-      throw ParserError('Die 1pux-Datei ist fehlerhaft. Dateianhang "$zipPath" ist nicht eingebettet.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die 1pux-Datei ist fehlerhaft. Dateianhang mit ID "$documentId" ist nicht eingebettet.', path: _path, lineNumber: lineNumber);
     }
     final binary = archiveFile.content as Uint8List;
     return ParsedAttachment(binary, filename: fileName);

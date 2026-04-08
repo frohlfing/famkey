@@ -93,7 +93,7 @@ Folgende Dateiformate werden für den Import unterstützt.
         - `size` ergibt sich aus blob.length.
         - `thumbnail`: wird generiert (so, als wenn manuell ein neuer Eintrag angelegt wird)
         - `timestamp`: `item.revisionDate` des Eintrags (Bitwarden speichert KEINEN Timestamp für Dateianhänge).
-    - Die Binärdaten sind NICHT eingebettet. Die Dateianhänge werden im Unterordner "attachments" erwartet. Das `url`-Attribute wird ignoriert.
+    - Die Binärdaten sind NICHT eingebettet. Die Dateianhänge werden im Unterordner "files" erwartet. Das `url`-Attribute wird ignoriert.
 
 ---
 

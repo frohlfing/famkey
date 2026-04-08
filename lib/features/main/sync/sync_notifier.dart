@@ -291,26 +291,21 @@ class SyncNotifier extends Notifier<SyncState> {
     // 1. Neue und geänderte Einträge vom Server herunterladen
     final pullResponse = await _webService.pullSync(userUuid, _sessionService.settings!.lastSyncAt);
 
-    // 2. Gelöschte Einträge entfernen
+    // 2. Gelöschte Einträge lokal entfernen
     for (var tombstoneDto in pullResponse.deletes) {
       final entry = await _databaseService.getEntryByUuid(tombstoneDto.entryUuid);
       if (entry != null) {
-        await _databaseService.saveTombstone(TombstoneEntity(
-          id: 0,
-          entryUuid: tombstoneDto.entryUuid,
-          deletedAt: tombstoneDto.deletedAt,
-        ));
-        await _databaseService.deleteEntry(entry.id);
+        await _databaseService.deleteEntry(entry.id, deletedAt: tombstoneDto.deletedAt);
         deleted++;
       }
     }
 
-    // 3. Fremde Einträge löschen, bei denen mir das Recht entzogen wurde (AccessLevel == 0)
+    // 3. Fremde Einträge lokal löschen, bei denen mir das Recht entzogen wurde (AccessLevel == 0)
     for (var entryDto in pullResponse.updates.where((u) => u.accessLevel == 0)) {
       final entry = await _databaseService.getEntryByUuid(entryDto.entryUuid);
       if (entry != null) {
         // Hier kein lokaler Tombstone, da der Eintrag im Tresor auf dem Gerät des Freundes ja noch existiert (nur für mich unsichtbar).
-        await _databaseService.deleteEntry(entry.id);
+        await _databaseService.deleteEntryAndForget(entry.id);
         deleted++;
       }
     }

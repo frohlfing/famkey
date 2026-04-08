@@ -10,7 +10,7 @@ import 'package:uuid/uuid.dart';
 /// Sie überführt die Datei in eine Liste von [ParsedEntry]-Objekten.
 /// Im Fehlerfall wirft sie einen [ParserError].
 ///
-/// Die Dateianhänge werden im Unterordner "attachments" erwartet.
+/// Die Dateianhänge werden im Unterordner "files" erwartet.
 class BitwardenJsonParser implements Parser {
   /// Pfad zur JSON-Datei
   final String _path;
@@ -127,7 +127,6 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Ermittelt die UUID des Eintrags und gibt sie zusammen mit ihrer Zeilennummer zurück.
-  /// Es wird eine gültige UUID erwartet (Format: 8-4-4-4-12, z.B. "3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12").
   (String uuid, int? lineNumber) _parseUuid(Map<String, dynamic> item) {
     final id = item['id'] as String?;
     final lineNumber = _itemIdLineMap[id];
@@ -135,16 +134,28 @@ class BitwardenJsonParser implements Parser {
       throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Ein Eintrag hat keine ID.', path: _path, lineNumber: lineNumber);
     }
 
+    /// Es wird eine gültige UUID erwartet (Format: 8-4-4-4-12, z.B. "3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12").
     // UUID-Prüfung
-    // 1. Struktur und Bindestriche: Sie prüft, ob der String exakt dem kanonischen Format entspricht. Das bedeutet: 8-4-4-4-12 Zeichen, getrennt durch Bindestriche an den Stellen 9, 14, 19 und 24. Wenn ein Bindestrich fehlt oder an der falschen Stelle sitzt, gibt die Methode false zurück.
-    // 2. Zeichen: Sie stellt sicher, dass nur gültige Hexadezimal-Zeichen (0-9, a-f, A-F) verwendet werden.
-    // 3. Länge: Der String muss exakt 36 Zeichen lang sein.
-    // v4 wird nicht vorausgesetzt (im dritten Block eine 4 an erster Stelle)
-    if (!Uuid.isValidUUID(fromString: id)) {
+    // - Länge (36 Zeichen).
+    // - Nur Hex-Zeichen (0-9, a-f) enthalten.
+    // - Position der Bindestriche (9, 14, 19, 24).
+    // - Aber: Versions- und Varianten-Bits werden ignoriert
+    if (!_isValidFUuid(id)) {
       throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Die ID "$id" ist keine gültige UUID.', path: _path, lineNumber: lineNumber);
     }
 
     return (id, lineNumber);
+  }
+
+  /// Prüft, ob ide UUID gültig ist
+  /// - Länge (36 Zeichen).
+  /// - Nur Hex-Zeichen (0-9, a-f) enthalten.
+  /// - Position der Bindestriche (9, 14, 19, 24).
+  /// - Aber: Versions- und Varianten-Bits werden ignoriert
+  bool _isValidFUuid(String uuid) {
+    // Prüft nur: 8 Hex - 4 Hex - 4 Hex - 4 Hex - 12 Hex
+    final regex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+    return regex.hasMatch(uuid);
   }
 
   /// Ermittelt den Zeitpunkt der letzten Änderung
@@ -165,13 +176,13 @@ class BitwardenJsonParser implements Parser {
   }
 
   /// Parst die Anhänge für einen einzelnen Eintrag.
-  /// Die Dateianhänge werden im Unterordner "attachments" erwartet.
+  /// Die Dateianhänge werden im Unterordner "files" erwartet.
   Future<List<ParsedAttachment>?> _parseAttachments(Map<String, dynamic> item) async {
     final attachments = <ParsedAttachment>[];
     final attachmentsMeta = item['attachments'] as List?;
     if (attachmentsMeta == null) return attachments;
 
-    final baseDir = p.join(p.dirname(_path), 'attachments');
+    final baseDir = p.join(p.dirname(_path), 'files');
 
     for (final attachmentData in attachmentsMeta) {
       if (attachmentData is! Map<String, dynamic>) continue;
@@ -184,7 +195,7 @@ class BitwardenJsonParser implements Parser {
         final file = File(attachmentPath);
         if (!await file.exists()) {
           final lineNumber = await _findLineNumberOfText(_path, '"fileName": "$fileName"');
-          throw ParserError('Anhang "$fileName" nicht gefunden. Datei im Unterordner "attachments" erwartet.', path: _path, lineNumber: lineNumber);
+          throw ParserError('Anhang "$fileName" nicht gefunden. Datei im Unterordner "files" erwartet.', path: _path, lineNumber: lineNumber);
         }
         final binaryData = await file.readAsBytes();
         attachments.add(ParsedAttachment(binaryData, filename: fileName));

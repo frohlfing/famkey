@@ -219,9 +219,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                           children: [
                             const Text('Import abgeschlossen!'),
                             const SizedBox(height: 8),
-                            Text('✳️ Hinzugefügt: ${state.addedCount} Einträge'),
+                            Text('✳️ Hinzugefügt: ${state.addedCount} ${state.addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
                             if (state.skippedCount > 0)
-                              Text('⚠️ Übersprungen: ${state.skippedCount} Duplikate'),
+                              Text('⚠️ Übersprungen: ${state.skippedCount} ${state.skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
                           ],
                         ),
                       ),

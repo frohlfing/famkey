@@ -312,7 +312,8 @@ class DatabaseService {
     _ensureDbInitialized();
 
     final now = DateTime.now().toUtc();
-    await _db!.transaction(() async {
+    //await _db!.transaction(() async {
+    _db!.transaction(() async { // todo await hier weggelassen
       // 1. Alle Permissions des Users entwerten.
       await _db!.customStatement(
         """
@@ -349,7 +350,8 @@ class DatabaseService {
   Future<void> deleteUser(int userId) async {
     _ensureDbInitialized();
 
-    await _db!.transaction(() async {
+    //await _db!.transaction(() async {
+    _db!.transaction(() async { // todo await hier weggelassen
       // 1. Lösche alle Permissions, die der Benutzer selbst hat
       await (_db!.delete(_db!.permissions)..where((p) => p.userId.equals(userId))).go();
 
@@ -432,8 +434,13 @@ class DatabaseService {
 
     // Falls nicht vorhanden → Insert
     if (existing == null) {
-      final newId = await _db!.into(_db!.entries).insert(companion);
-      return entry.copyWith(id: newId);
+      return _db!.transaction(() async {
+        // Tombstone löschen, falls dieser existiert (Wiederauferstehung)
+        await (_db!.delete(_db!.tombstones)..where((t) => t.entryUuid.equals(entry.uuid))).go();
+        // Eintrag einfügen
+        final newId = await _db!.into(_db!.entries).insert(companion);
+        return entry.copyWith(id: newId);
+      });
     }
 
     // Falls vorhanden → Id übernehmen und Update
@@ -448,6 +455,7 @@ class DatabaseService {
     _ensureDbInitialized();
 
     return _db!.transaction(() async {
+
       // 1. Eintrag speichern (wie saveEntry)
 
       var companion = EntriesCompanion(
@@ -468,10 +476,14 @@ class DatabaseService {
 
       // Insert bzw. Update
       if (existing == null) {
+        // Tombstone löschen, falls dieser existiert (Wiederauferstehung)
+        await (_db!.delete(_db!.tombstones)..where((t) => t.entryUuid.equals(entry.uuid))).go();
+        // Eintrag einfügen
         final newId = await _db!.into(_db!.entries).insert(companion);
         entry = entry.copyWith(id: newId);
       }
       else {
+        // Eintrag aktualisieren
         companion = companion.copyWith(id: Value(existing.id));
         await (_db!.update(_db!.entries)..where((e) => e.id.equals(existing.id))).write(companion);
         entry = entry.copyWith(id: existing.id);
@@ -502,11 +514,12 @@ class DatabaseService {
     });
   }
 
-  /// Löscht einen Eintrag mit allen zugehörigen Berechtigungen und Anhängen.
-  Future<void> deleteEntry(int entryId) async {
+  /// Löscht einen Eintrag mit allen zugehörigen Berechtigungen und Anhängen, ohne ein Grabstein zu setzen.
+  Future<void> deleteEntryAndForget(int entryId) async {
     _ensureDbInitialized();
 
-    await _db!.transaction(() async {
+    //await _db!.transaction(() async {
+    _db!.transaction(() async { // todo await hier weggelassen
       // 1. Alle Berechtigungen für diesen Eintrag löschen
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(entryId))).go();
 
@@ -515,6 +528,37 @@ class DatabaseService {
 
       // 3. Den Eintrag selbst physisch löschen
       await (_db!.delete(_db!.entries)..where((e) => e.id.equals(entryId))).go();
+    });
+  }
+
+  /// Löscht einen Eintrag mit allen zugehörigen Berechtigungen und Anhängen und setzt ein Grabstein.
+  Future<void> deleteEntry(int entryId, {DateTime? deletedAt}) async {
+    _ensureDbInitialized();
+    final entry = await (_db!.select(_db!.entries)..where((e) => e.id.equals(entryId))).getSingleOrNull();
+    if (entry == null) return;
+    final entryUuid = entry.uuid;
+
+    _db!.transaction(() async { // todo await hier weggelassen
+      // 1. Alle Berechtigungen für diesen Eintrag löschen
+
+      await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(entryId))).go();
+
+      // 2. Alle Anhänge (Metadaten und physische Blobs) dieses Eintrags löschen
+      await (_db!.delete(_db!.attachments)..where((a) => a.entryId.equals(entryId))).go();
+
+      // 3. Den Eintrag selbst physisch löschen
+      await (_db!.delete(_db!.entries)..where((e) => e.id.equals(entryId))).go();
+
+      // 4. Grabstein setzen (wie saveTombstone)
+      var companion = TombstonesCompanion(entryUuid: Value(entryUuid), deletedAt: Value(deletedAt ?? DateTime.now().toUtc()));
+      final existing = await (_db!.select(_db!.tombstones)..where((t) => t.entryUuid.equals(entryUuid))).getSingleOrNull();
+      if (existing == null) {
+        await _db!.into(_db!.tombstones).insert(companion);
+      }
+      else {
+        companion = companion.copyWith(id: Value(existing.id));
+        await (_db!.update(_db!.tombstones)..where((t) => t.id.equals(existing.id))).write(companion);
+      }
     });
   }
 
@@ -611,7 +655,7 @@ class DatabaseService {
   /// Aktualisiert eine Liste von Berechtigungen.
   Future<void> updatePermissions(List<PermissionEntity> permissions) async {
     _ensureDbInitialized();
-    await _db!.transaction(() async {
+    _db!.transaction(() async {
       for (final p in permissions) {
         final companion = PermissionsCompanion(
             encryptedKey: Value(p.encryptedKey),
@@ -625,7 +669,7 @@ class DatabaseService {
   /// Löscht eine Berechtigung.
   Future<void> deletePermission(int permissionId) async {
     _ensureDbInitialized();
-    await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go();
+    await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go(); // todo kann hier das await weg?
   }
 
   /// Leert alle Entry-Keys eines Benutzers.
@@ -638,7 +682,8 @@ class DatabaseService {
 
     final now = DateTime.now().toUtc();
 
-    await _db!.transaction(() async {
+    //await _db!.transaction(() async {
+    _db!.transaction(() async { // todo await hier weggelassen
       // 1. Alle Entry-Keys des Users in einem Rutsch entfernen.
       // Wir prüfen manuell, ob Zeilen betroffen waren (in Drift über custom Update oder Select)
       final affectedRows = await _db!.customUpdate(
@@ -654,7 +699,8 @@ class DatabaseService {
       if (affectedRows == 0) return;
 
       // 2. Zeitstempel der betroffenen Einträge aktualisieren.
-      await _db!.customStatement(
+      //await _db!.customStatement(
+      await _db!.customStatement( // todo await hier weggelassen
         """
         UPDATE entries 
         SET updated_at = ? 
@@ -675,29 +721,35 @@ class DatabaseService {
     return (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
   }
 
-  /// Speichert einen Löschmarker, um die Entfernung eines Eintrags synchronisieren zu können.
-  Future<TombstoneEntity> saveTombstone(TombstoneEntity tombstone) async {
-    _ensureDbInitialized();
+  // /// Speichert einen Löschmarker, um die Entfernung eines Eintrags synchronisieren zu können.
+  // Future<TombstoneEntity> saveTombstone(TombstoneEntity tombstone) async {
+  //   _ensureDbInitialized();
+  //
+  //   var companion = TombstonesCompanion(
+  //       entryUuid: Value(tombstone.entryUuid),
+  //       deletedAt: Value(tombstone.deletedAt),
+  //   );
+  //
+  //   // Existierenden Datensatz suchen (id ODER entryUuid)
+  //   final existing = await (_db!.select(_db!.tombstones)..where((t) => t.id.equals(tombstone.id) | t.entryUuid.equals(tombstone.entryUuid))).getSingleOrNull();
+  //
+  //   // Falls nicht vorhanden → Insert
+  //   if (existing == null) {
+  //     final newId = await _db!.into(_db!.tombstones).insert(companion);
+  //     return tombstone.copyWith(id: newId);
+  //   }
+  //
+  //   // Falls vorhanden → Id übernehmen und Update
+  //   companion = companion.copyWith(id: Value(existing.id));
+  //   await (_db!.update(_db!.tombstones)..where((t) => t.id.equals(existing.id))).write(companion);
+  //   return tombstone.copyWith(id: existing.id);
+  // }
 
-    var companion = TombstonesCompanion(
-        entryUuid: Value(tombstone.entryUuid),
-        deletedAt: Value(tombstone.deletedAt),
-    );
-
-    // Existierenden Datensatz suchen (id ODER entryUuid)
-    final existing = await (_db!.select(_db!.tombstones)..where((t) => t.id.equals(tombstone.id) | t.entryUuid.equals(tombstone.entryUuid))).getSingleOrNull();
-
-    // Falls nicht vorhanden → Insert
-    if (existing == null) {
-      final newId = await _db!.into(_db!.tombstones).insert(companion);
-      return tombstone.copyWith(id: newId);
-    }
-
-    // Falls vorhanden → Id übernehmen und Update
-    companion = companion.copyWith(id: Value(existing.id));
-    await (_db!.update(_db!.tombstones)..where((t) => t.id.equals(existing.id))).write(companion);
-    return tombstone.copyWith(id: existing.id);
-  }
+  // /// Löscht einen Löschmarker.
+  // Future<void> deleteTombstone(int tombstoneId) async {
+  //   _ensureDbInitialized();
+  //   await (_db!.delete(_db!.tombstones)..where((t) => t.id.equals(tombstoneId))).go();
+  // }
 
   // ------------------------------------------------------------------------
   // --- Methoden bzgl. Attachment ---
@@ -757,7 +809,7 @@ class DatabaseService {
   /// Löscht einen Anhang anhand seiner internen ID.
   Future<void> deleteAttachment(int attachmentId) async {
     _ensureDbInitialized();
-    await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(attachmentId))).go();
+    await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(attachmentId))).go(); // todo kann hier das await weg?
   }
 
   // ------------------------------------------------------------------------
