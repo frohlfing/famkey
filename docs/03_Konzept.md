@@ -87,8 +87,20 @@ Dateianhänge werden mit dem Entry-Key verschlüsselt und separat hochgeladen. B
 - Weicht die Systemzeit des Geräts mehr als 5 Minuten von der Serverzeit (UTC) ab, verweigert der Server aufgrund der RSA-Signaturprüfung (`X-Timestamp`-Header) die Synchronisation.
 - Das Backend dient als "dummer" Speicher für verschlüsselte Blobs. Es validiert keine Dateninhalte, sondern nur Berechtigungen.
 - Der Sync erfolgt in zwei Schritten:
-    1. **Pull:** App holt die Einträge vom Server, die sich seit der letzten Synchronisation geändert haben.
-    2. **Push:** App lädt lokale Änderungen hoch.
+    1. Server-Version prüfen: 
+        - Wenn AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion: App ist veraltet
+        - Wenn AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion: Server ist veraltet
+    2. Benutzer prüfen: 
+        - Benutzer registrieren, wenn sein Name nicht auf dem Server im angegebenen Tresor existiert. 
+        - Ansonsten sicherstellen, dass die UUID und die Schlüssel des Benutzers passen. 
+          Wenn nicht: Adoptionsprozess starten (s. 2.5).
+    3. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
+        - Falls ein Freund einen neuen Fingerprint hat, werden seine Entry-Keys gelöscht und das Vertrauen entzogen.
+        - Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
+    4. **Pull:** Einträge vom Server herunterladen, die sich seit der letzten Synchronisation geändert haben.
+    5. **Push:** Veränderte Einträge hochladen.
+    6. Aktualisierte Freundesliste an den Server hochladen
+    7. Zeitpunkt der Synchronisation (UTC, Serverzeit) lokal speichern.
 - Sicherheitskonzept:
     - **Globaler API-Token:** Jede Anfrage muss im Header per `Bearer` ein API-Token mitsenden. Ohne Token antwortet der Server mit 401. Dies verhindert das Scannen des Servers durch Bots. (`Bearer` ist sehr verbreitet, z.B. bei OAuth2, JWT, Sanctum, Passport.)
     - **Rate Limiting:** Um Denial-of-Service oder Speicher-Flooding zu verhindern, limitiert der Server die Anzahl neuer/geänderter Einträge (`entries`) pro Stunde (konfigurierbar, Default: 200).
@@ -96,7 +108,7 @@ Dateianhänge werden mit dem Entry-Key verschlüsselt und separat hochgeladen. B
     - **Identifikation:** Ein Tresor wird durch seinen **Namen** (z.B. "Familie", "Firma") identifiziert.
     - **Isolation:** Ein Sync-Vorgang ruft immer nur Daten für eine spezifische `vault_id` ab.
 
-### 2.5 Adoption (Onboarding mit Zweitgerät)
+### 2.5 Adoption (Onboarding mit Zweitgerät oder Master-Key auf dem Server ist aktueller)
 1. Nutzer gibt Tresor-Namen und Benutzernamen ein.
 2. **Check:** App fragt Server: "Gibt es User 'Frank' in Tresor 'Familie'?"
 3. **Antwort Ja:** Server liefert `User-UUID`, `Salt` und `EncryptedPrivateKey`.

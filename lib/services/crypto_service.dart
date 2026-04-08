@@ -146,8 +146,8 @@ class CryptoService {
   /// Leitet mittels HKDF-SHA256 einen neuen symmetrischen Schlüssel ab.
   ///
   /// Wir nutzen HKDF-SHA256, um aus einem inputKey (z.B. RSA Private-Key) einen symmetrischen Key abzuleiten.
-  /// Das Ergebnis ist ein pseudozufälliger 32-Byte (256 Bit) Schlüssel.
-  /// `salt` ist optional, aber empfohlen. `info` ist Kontext (z.B. "friends-list-encryption").
+  /// Das Ergebnis ist ein pseudozufälliger 32-Byte (256 Bit) Schlüssel (deterministisch).
+  /// `salt` ist optional, aber empfohlen. `info` beschreibt den Zweck (z.B. "friends-list-encryption", beeinflusst auch das Ergebnis).
   Uint8List deriveKeyFromKey(Uint8List keyMaterial, Uint8List? salt, String info) {
     final hkdf = pc.HKDFKeyDerivator(pc.SHA256Digest());
     final params = pc.HkdfParameters(keyMaterial, 32, salt, Uint8List.fromList(utf8.encode(info)));

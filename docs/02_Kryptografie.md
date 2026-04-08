@@ -39,14 +39,14 @@ SHA ist eine Hashfunktion.
   - Schnell
 - Einsatz: Prüfsummen, Fingerprints, Signatur
 
-### 1.3.2 HKDF‑SHA256
-HKDF‑SHA256 ist eine Key‑Derivation‑Function, die SHA‑256 als Baustein nutzt.
+### 1.3.2 HKDF-SHA256
+HKDF-SHA256 ist eine Key‑Derivation‑Function, die SHA‑256 als Baustein nutzt.
 - Eigenschaften:
   - Deterministisch: Gleicher Input → gleicher Output.
   - Einwegfunktion: Rückrechnen praktisch unmöglich.
   - Konfigurierbare Länge: Wir wählen 32 Byte.
   - Kollisionsresistent: Zwei gleiche Hashes extrem unwahrscheinlich.
-  - Kontexttrennung über das info‑Feld
+  - Kontexttrennung über das Info‑Feld
   - Schnell
   - Eine Variante ist HKDF‑SHA512, aber HKDF‑SHA256 ist Standard und völlig ausreichend (Sicherheitsunterschied praktisch irrelevant).
 - Einsatz: Generierung von AES-Schlüssel aus bereits hochentropische (kryptografisch starke) Inputs (z.B. RSA‑Keys)

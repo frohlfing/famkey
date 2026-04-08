@@ -75,7 +75,7 @@ class SyncNotifier extends Notifier<SyncState> {
       final user = _sessionService.user!;
       if (_sessionService.privateKey == null) throw Exception("Der privater Schlüssel ist nicht entpackt.");
 
-      // 1. WebService konfigurieren
+      // WebService konfigurieren
       if (settings.host.isEmpty || settings.apiToken.isEmpty) {
         state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.valueRequired, text: 'Der Sync-Server ist noch nicht eingerichtet.'));
         return;
@@ -83,7 +83,7 @@ class SyncNotifier extends Notifier<SyncState> {
       _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
       _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
 
-      // 2. Server-Version prüfen
+      // 1. Server-Version prüfen
       final serverVersion = await _webService.getServerVersion();
       if (!serverVersion.service.contains("PriVault")) {
         state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.noSyncService));
@@ -98,10 +98,10 @@ class SyncNotifier extends Notifier<SyncState> {
         return;
       }
 
-      // 3. Benutzer über den Namen im angegebenen Tresor suchen.
+      // 2. Benutzer prüfen
+      // Benutzer registrieren, wenn sein Name nicht auf dem Server im angegebenen Tresor existiert.
+      // Ansonsten sicherstellen, dass die UUID und die Schlüssel des Benutzers passen.
       var userResponse = await _webService.findUser(_sessionService.vaultName, user.name);
-
-      // 4. Wenn der Benutzer nicht gefunden wurde, registrieren. Ansonsten sicherstellen, dass die UUID und die Schlüssel des Benutzers passen.
       if (userResponse == null) {
         // Benutzer existiert noch nicht
 
@@ -151,11 +151,11 @@ class SyncNotifier extends Notifier<SyncState> {
         }
       }
 
-      // 5. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
+      // 3. Freundesliste vom Server herunterladen und lokale Liste aktualisieren.
       // Falls ein Freund einen neuen Fingerprint hat, werden seine Entry-Keys gelöscht und das Vertrauen entzogen.
       await _pullFriends(userResponse);
 
-      // 6. Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
+      // Sync abbrechen, wenn die Umschlüsselung eines Entry-Keys noch aussteht.
       final needsRekeying = await _databaseService.hasPermissionsWithoutKey();
       if (needsRekeying) {
         final text = "Der Fingerprint eines Freundes hat sich geändert.\n"
@@ -164,20 +164,20 @@ class SyncNotifier extends Notifier<SyncState> {
         return;
       }
 
-      // 7. Einträge vom Server herunterladen
+      // 4. Einträge vom Server herunterladen
       final serverTime = await _pullEntries(userResponse.userUuid);
 
-      // 8. Veränderte Einträge hochladen
+      // 5. Veränderte Einträge hochladen
       await _pushEntries(userResponse.userUuid);
 
-      // 9. Aktualisierte Freundesliste an den Server hochladen
+      // 6. Aktualisierte Freundesliste an den Server hochladen
       await _pushFriends();
 
-      // 10. Zeitstempel setzen
+      // 7. Zeitstempel setzen
       final updatedSettings = settings.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
 
-      // 11. UI-State aktualisieren
+      // UI-State aktualisieren
       state = state.copyWith(status: SyncStatus.success);
 
     } on DioException catch (de) { // Exception des HTTP-Clients
@@ -429,7 +429,7 @@ class SyncNotifier extends Notifier<SyncState> {
     return pullResponse.serverTime;
   }
 
-  /// Updatet die Einträge auf dem Server.
+  /// Aktualisiert die Einträge auf dem Server.
   Future<void> _pushEntries(String userUuid) async {
     // Veränderungen seit dem letzten Push ermitteln
     final lastSyncAt = _sessionService.settings!.lastSyncAt;
