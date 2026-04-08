@@ -110,7 +110,6 @@ typedef ParsedPayload = List<ParsedEntry>;
 /// Ein Parser für für Exportdaten.
 ///
 /// Die Klasse überführt die Daten in in eine Liste von [ParsedEntry]-Objekten.
-/// Im Fehlerfall wirft sie einen [ParserError].
 abstract class Parser {
 
   /// Lädt die Daten aus der Datei.

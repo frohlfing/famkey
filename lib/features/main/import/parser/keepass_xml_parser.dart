@@ -6,9 +6,16 @@ import 'package:xml/xml.dart';
 
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
 ///
-/// Diese Klasse implementiert die [Parser]-Schnittstelle.
-/// Sie überführt die Datei in eine Liste von [ParsedEntry]-Objekten.
-/// Im Fehlerfall wirft sie einen [ParserError].
+/// Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md
+///
+/// - Die Datei ist mit UTF-8 (Unicode) kodiert.
+/// - Die UUID ist Base64-kodiert (z.B. `DzqV4eP8VE+rUTqV4eP8VA==`). Die Dekodierung ergibt 16-Bytes,
+///   eine 32 Zeichen lange global eindeutige Hex-Zeichenfolge (im Beispiel `0f3a95e1e3fc544fab5130ea7ada6c70`),
+///   mit Bindestrichen (8‑4‑4‑4‑12) ergibt das dann das UUID-v4-Format (`0f3a95e1-e3fc-544f-ab51-30ea7ada6c70`)
+/// - Datums-/Zeitangaben sind im ISO 8601-Format angegeben (`YYYY-MM-DDTHH:mm:ss` bzw `YYYY-MM-DDTHH:mm:ssZ`).
+/// - Die Zeichen `< > & " '` sind durch `&lt;` `&gt;` `&amp;` `&quot;` `&apos;` ersetzt.
+/// - Die Binärdaten der Dateianhänge sind in der XML-Datei eingebettet.
+///
 class KeepassXmlParser implements Parser {
   /// Pfad zur XML-Datei
   final String _path;
@@ -22,6 +29,22 @@ class KeepassXmlParser implements Parser {
   /// Konstruktor
   KeepassXmlParser(this._path);
 
+  /// Lädt die Daten aus der Datei.
+  ///
+  /// Gibt im Erfolgsfall eine [ParsedPayload] zurück.
+  /// Im Fehlerfall wird ein [ParserError] geworfen.
+  ///
+  /// Struktur der XML-Datei:
+  /// ```xml
+  /// <KeePassFile>
+  ///   <Meta/>
+  ///   <Root>
+  ///     <Group/>
+  ///     <DeletedObjects>
+  ///   </Root>
+  ///   </Meta>
+  /// </KeePassFile>
+  /// ```
   @override
   Future<ParsedPayload> parse() async {
     // Datei öffnen und Inhalt lesen
@@ -49,7 +72,7 @@ class KeepassXmlParser implements Parser {
     // Gruppendaten rekursiv parsen
     final rootGroup = xml.rootElement.findElements('Root').firstOrNull?.findElements('Group').firstOrNull;
     if (rootGroup == null) {
-      throw ParserError('Das Element `<Root><Group>` fehlt.', path: _path);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. `<Root><Group>` fehlt.', path: _path);
     }
     return _parseGroups(rootGroup, ''); // Die Root-Gruppe (die Gruppe direkt unter Root) hat den Namen des Tresors. Die Kategorie lassen wir daher leer.
   }
@@ -58,7 +81,7 @@ class KeepassXmlParser implements Parser {
   Future<Map<String, int>> _createUuidLineMap(String fileContent) async {
     final map = <String, int>{};
     final lines = const LineSplitter().convert(fileContent);
-    final uuidRegex = RegExp(r'<UUID>(.*?)<\/UUID>');
+    final uuidRegex = RegExp(r'<UUID>(.*?)</UUID>');
     for (int i = 0; i < lines.length; i++) {
       final match = uuidRegex.firstMatch(lines[i]);
       if (match != null && match.groupCount > 0) {
@@ -69,7 +92,19 @@ class KeepassXmlParser implements Parser {
     return map;
   }
 
-  /// Dekodiert Dateianhänge aus `<Meta><Binaries>`-Block speichert sie in eine Map
+  /// Dekodiert Dateianhänge aus `<Meta><Binaries>`-Block und speichert sie in eine Map.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Meta>
+  ///   <Binaries>
+  ///     <Binary ID="0" Compressed="False">VIHBkZiBmaBhIHBkZiBmaWxlLg==</Binary>
+  ///     <Binary ID="1" Compressed="True">U2VyIGVyIGVyIGZpZyBmaWxlLg==</Binary>
+  ///     ...
+  ///   </Binaries>
+  ///   ...
+  /// </Meta>
+  /// ```
   Future<Map<String, Uint8List>> _parseBinaries(XmlDocument xml) async {
     final map = <String, Uint8List>{};
     final binariesElement = xml.rootElement.findElements('Meta').firstOrNull?.findElements('Binaries').firstOrNull;
@@ -82,14 +117,14 @@ class KeepassXmlParser implements Parser {
           blob = base64.decode(bin.innerText.trim());
         } on FormatException catch (e) {
           final lineNumber = await _findLineNumberOfText(_path, '<Binary ID="$id"');
-          throw ParserError('Anhang ID=$id konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+          throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
         }
         if (bin.getAttribute('Compressed') == 'True') {
           try {
             blob = Uint8List.fromList(gzip.decode(blob));
           } on FormatException catch (e) {
             final lineNumber = await _findLineNumberOfText(_path, '<Binary ID="$id"');
-            throw ParserError('Anhang ID=$id konnte nicht dekomprimiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+            throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekomprimiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
           }
         }
         map[id] = blob;
@@ -116,6 +151,17 @@ class KeepassXmlParser implements Parser {
 
   /// Verarbeitet rekursiv Gruppen und deren Einträge.
   /// Im Fall eines Fehlers wird null zurückgegeben.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Group>
+  ///   <Name>Arbeit</Name>
+  ///   <Entry/>
+  ///   <Entry/>
+  ///   ...
+  /// </Group>
+  /// ```
+  /// Die Kategorie wird von `Group.Name` übernommen.
   Future<List<ParsedEntry>> _parseGroups(XmlElement group, String category) async {
     final result = <ParsedEntry>[];
 
@@ -137,9 +183,40 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Parst ein einzelnes `<Entry>`-Element in ein [ParsedEntry]-Objekt.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Entry>
+  ///   <UUID>ESIzRFVmd4iZAKq7zN3u/w==</UUID>
+  ///   <String>
+  ///     <Key>Title</Key>
+  ///     <Value>Amazon</Value>
+  ///   </String>
+  ///   <String>
+  ///     <Key>UserName</Key>
+  ///     <Value>frank@example.com</Value>
+  ///   </String>
+  ///   <String>
+  ///     <Key>Password</Key>
+  ///     <Value>MeinAmazonPasswort!</Value>
+  ///   </String>
+  ///   <String>
+  ///     <Key>URL</Key>
+  ///     <Value>https://amazon.de</Value>
+  ///   </String>
+  ///   <String>
+  ///     <Key>Notes</Key>
+  ///     <Value>Prime seit 2016.</Value>
+  ///   </String>
+  ///   <Times/>
+  ///   <Binary/>
+  ///   <History/>
+  ///   ...
+  /// </Entry>
+  /// ```
   Future<ParsedEntry> _parseEntry(XmlElement entry, String category) async {
     // UUID und ihre Zeilennummer ermitteln
-    var (uuid, lineNumber) = _parseUuid(entry);
+    final (uuid, lineNumber) = _parseUuid(entry);
 
     // `<String>`-Elemente einlesen
     final strings = _parseStringElements(entry);
@@ -181,11 +258,11 @@ class KeepassXmlParser implements Parser {
     try {
       bytes = base64.decode(base64Uuid);
     } on FormatException catch (e) {
-      throw ParserError('UUID "$base64Uuid" konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
     }
 
     if (bytes.length != 16) {
-      throw ParserError('UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet.', path: _path, lineNumber: lineNumber);
     }
 
     final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
@@ -195,6 +272,17 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Extrahiert alle `<String>`-Elemente eines Eintrags in eine Map.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Entry>
+  ///   <String>
+  ///     <Key>Title</Key>
+  ///     <Value>Amazon</Value>
+  ///   </String>
+  ///   ...
+  /// </Entry>
+  /// ```
   Map<String, String> _parseStringElements(XmlElement parent) {
     return {
       for (final s in parent.findElements('String'))
@@ -204,6 +292,17 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Ermittelt den Zeitpunkt der letzten Änderung
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Entry>
+  ///   <Times>
+  ///     <LastModificationTime>2024-11-02T12:00:00Z</LastModificationTime>
+  ///     <CreationTime>2016-05-01T10:00:00Z</CreationTime>
+  ///   </Times>
+  ///   ...
+  /// </Entry>
+  /// ```
   DateTime? _parseUpdatedAt(XmlElement entry) {
     final times = entry.findElements('Times').firstOrNull;
     final lastModStr = times?.findElements('LastModificationTime').firstOrNull?.innerText ?? times?.findElements('CreationTime').firstOrNull?.innerText;
@@ -211,14 +310,38 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Ermittelt den Zeitstempel der letzten Passwortänderung für einen Eintrag.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Entry>
+  ///   <History>
+  ///     <Entry>
+  ///       <String>
+  ///         <Key>Password</Key>
+  ///         <Value>geheim</Value>
+  ///       </String>
+  ///       <String>
+  ///         ...
+  ///       </String>
+  ///       <Times>
+  ///         <LastModificationTime>2023-11-01T06:30:00Z</LastModificationTime>
+  ///       </Times>
+  ///       ...
+  ///     </Entry>
+  ///   </History>
+  ///   ...
+  /// </Entry>
+  ///
+  /// Die Historie ist chronologisch sortiert.
+  /// ```
   DateTime? _parsePasswordTimestamp(XmlElement entry) {
-    // Zeitstempel der letzten Passwortänderung aus der Historie ermitteln
-    // Die Historie ist chronologisch, wir suchen den letzten Eintrag mit einem Passwort.
+    // Wir suchen den letzten Eintrag in der Historie mit einer Passwortänderung.
     DateTime? passwordTimestamp;
     final history = entry.findElements('History').firstOrNull;
     if (history != null) {
       for (final hist in history.findElements('Entry').toList().reversed) {
         if (_parseStringElements(hist).containsKey('Password')) {
+          // todo Prüfen, ob das Passwort ein anderes ist als das aktuelle!
           final timeStr = hist.findElements('Times').firstOrNull?.findElements('LastModificationTime').firstOrNull?.innerText;
           passwordTimestamp = DateTime.tryParse(timeStr ?? '')?.toUtc();
           if (passwordTimestamp != null) break;
@@ -229,6 +352,20 @@ class KeepassXmlParser implements Parser {
   }
 
   /// Parst die Anhänge für einen einzelnen Eintrag.
+  ///
+  /// Struktur der XML-Datei (nur die relevanten Teile):
+  /// ```xml
+  /// <Entry>
+  ///   <Binary>
+  ///     <Key>github_backup_codes.pdf</Key>
+  ///     <Value Ref="0" />
+  ///   </Binary>
+  ///   <Binary>
+  ///     ...
+  ///   </Binary>
+  ///   ...
+  /// </Entry>
+  /// ```
   Future<List<ParsedAttachment>?> _parseAttachments(XmlElement entry) async {
     final attachments = <ParsedAttachment>[];
     for (final bin in entry.findElements('Binary')) {
@@ -238,7 +375,7 @@ class KeepassXmlParser implements Parser {
       final binary = _binaries[ref];
       if (binary == null) {
         final lineNumber = await _findLineNumberOfText(_path, '<Value Ref="$ref"');
-        throw ParserError('Anhang "$fileName" verweist auf eine nicht existierende Binär-Referenz "$ref".', path: _path, lineNumber: lineNumber);
+        throw ParserError('Die KeePass-Datei ist fehlerhaft. Binär-Referenz "$ref" fehlt.', path: _path, lineNumber: lineNumber);
       }
       attachments.add(ParsedAttachment(binary, filename: fileName));
     }

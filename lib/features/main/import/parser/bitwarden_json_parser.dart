@@ -51,7 +51,7 @@ class BitwardenJsonParser implements Parser {
     // Alle "items" aus der JSON-Datei verarbeiten
     final items = json['items'] as List?;
     if (items == null) {
-      throw ParserError('Das Array `items` fehlt.', path: _path);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` fehlt.', path: _path);
     }
     return await Future.wait(items.map((item) => _parseItem(item))); // Future.wait, da das Laden von Anhängen asynchron ist
   }
@@ -88,12 +88,12 @@ class BitwardenJsonParser implements Parser {
   /// Parst ein einzelnes JSON-Item in ein [ParsedEntry]-Objekt.
   Future<ParsedEntry> _parseItem(dynamic itemData) async {
     if (itemData is! Map<String, dynamic>) {
-      throw ParserError('Ein Objekt im Array `items` ist ungültig.', path: _path);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _path);
     }
     final Map<String, dynamic> item = itemData;
 
     // UUID und ihre Zeilennummer ermitteln
-    var (uuid, lineNumber) = _parseUuid(item);
+    final (uuid, lineNumber) = _parseUuid(item);
 
     // Login für Benutzername und Passwort nehmen
     final login = item['login'] as Map<String, dynamic>?;
@@ -132,7 +132,7 @@ class BitwardenJsonParser implements Parser {
     final id = item['id'] as String?;
     final lineNumber = _itemIdLineMap[id];
     if (id == null || id.isEmpty) { // ID ist obligatorisch
-      throw ParserError('Das Item-Attribut "id" fehlt', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Ein Eintrag hat keine ID.', path: _path, lineNumber: lineNumber);
     }
 
     // UUID-Prüfung
@@ -141,7 +141,7 @@ class BitwardenJsonParser implements Parser {
     // 3. Länge: Der String muss exakt 36 Zeichen lang sein.
     // v4 wird nicht vorausgesetzt (im dritten Block eine 4 an erster Stelle)
     if (!Uuid.isValidUUID(fromString: id)) {
-      throw ParserError('Die ID "$id" ist keine gültige UUID.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Die ID "$id" ist keine gültige UUID.', path: _path, lineNumber: lineNumber);
     }
 
     return (id, lineNumber);

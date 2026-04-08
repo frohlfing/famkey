@@ -169,8 +169,6 @@ Folgende Dateiformate werden für den Import unterstützt.
 - Spezifikation: https://support.1password.com/1pux-format/
 - Beispieldatei: [1Password 1PUX Offizielles Beispiel.1pux](Beispieldateien/1Password%201PUX%20Offizielles%20Beispiel.1pux)
 
-Absolut. Das ist der nächste logische Schritt. Ich werde zuerst Ihre `Import.md`-Dokumentation erweitern, um das 1PUX-Format aufzunehmen, und dann den `OnePassword1PuxParser` gemäss der Spezifikation und Ihrer etablierten, robusten Architektur bauen.
-
 ### Voraussetzung
 
 - Die `.1pux`-Datei ist ein Standard-ZIP-Archiv.
