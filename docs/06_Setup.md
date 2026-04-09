@@ -7,21 +7,24 @@ Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 ## 1. Technologie-Stack
 
 ### 1.1 Entwicklungsumgebung
-- **Framework:** .NET MAUI (C#)
-- **Pattern:** MVVM (Model-View-ViewModel), Dependency Injection (DI)
-- **IDE:** JetBrains Rider ab 2025 (und PHPStorm ab 2025 für das Backend)
-- **SDK:** .NET 8.0 LTS (Upgrade auf .NET 10 geplant)
+
+- **Framework:** Flutter (dart) mit Riverpod, drift für Datenbank
+- **IDE:** Android Studio ab 2025 (und PHPStorm ab 2025 für das Backend)
 - **Datenbank (Lokal):** SQLite 3
 - **DB-Verschlüsselung:** SQLCipher
+- **SDK:** Flutter SDK (beinhaltet das Dart SDK), die jeweils neueste stabile Version wird empfohlen.
 - **Android-Entwicklung:**
-   - **JDK:** OpenJDK 17
-   - **Android SDK:** API Level 34 (Android 14.0) erforderlich
-   - **Emulator:** Pixel 5 (API 34) wird als Standard-Testgerät empfohlen
-- **Testumgebung:** xUnit
+  - JDK: OpenJDK 17 (wird von Flutter für Android-Builds benötigt).
+  - Android SDK: API-Level 34 (Android 14.0) als compileSdkVersion und targetSdkVersion.
+  - Emulator: Pixel 5 (API 34) wird als Standard-Testgerät empfohlen.
+- **Testumgebung:** Das integrierte Dart/Flutter Test-Framework:
+  - Unit-Tests: package:test
+  - Widget-Tests: package:flutter_test
 - **Lokaler Test-Server**:** Laragon mit Xdebug, PHP 8.4 oder aktueller
 - **VCS:** Git, Repository auf GitHub
 
 ### 1.2 Server (Backend)
+
 - **Host:** Hetzner Webspace
 - **Sprache:** PHP 8.4 oder aktueller
 - **Datenbank:** MySQL 8.4.3 / MariaDB (Table Type: InnoDB)
@@ -30,89 +33,71 @@ Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 - **SSL:** Let's Encrypt Zertifikats
 
 ### 1.3 Kryptografie
+
 - Hashing: Argon2id
 - Symmetrisch: AES-256-GCM (`System.Security.Cryptography`)
 - Asymmetrisch: RSA-4096 (`System.Security.Cryptography`)
 
 ---
 
-## 2. Setup für .NET MAUI (C#) unter Windows
+## 2. Setup für Flutter (dart) unter Windows
 
-### 2.1 .NET 8.0 SDK installieren
+### 2.1 Flutter SDK installieren
 
-Falls noch nicht geschehen, lade das aktuelle **.NET 8.0 SDK (LTS)** herunter und installiere es.
+Falls noch nicht geschehen, installiere das Flutter SDK. Es beinhaltet auch das notwendige Dart SDK.
+1. Lade das aktuelle Flutter SDK (Stable Channel) von der offiziellen Webseite herunter
+2. Entpacke die ZIP-Datei in einen permanenten Ordner, z.B. `C:\flutter`.
+3. Füge das bin-Verzeichnis des Flutter SDK zu deinem Path in den Windows-Umgebungsvariablen hinzu (z.B. `C:\flutter\bin`).
 
-* Quelle: [Microsoft .NET Download](https://dotnet.microsoft.com/download/dotnet/8.0)
+### 2.2 Flutter-Installation prüfen
 
-### 2.2 Workloads installieren
-
-Rider nutzt die im Hintergrund installierten Workloads. Diese müssen wir einmalig manuell über die Kommandozeile (CMD
-oder PowerShell als Administrator) nachziehen.
-
-1. Öffne **PowerShell** (als Administrator).
-2. Führe folgenden Befehl aus, um MAUI komplett zu installieren:
-   ```powershell
-   dotnet workload install maui
-   ```
-   *Das installiert die nötigen Pakete für Windows, Android und iOS.*
-
-Nachdem `dotnet workload install maui` durchgelaufen ist, starte Rider neu.
+Flutter bietet ein Kommandozeilen-Tool, um deine Entwicklungsumgebung zu überprüfen.
+1. Öffne eine neue PowerShell oder CMD.
+2. Führe folgenden Befehl aus, um zu sehen, ob alle Komponenten korrekt eingerichtet sind:
+  ```shell
+  flutter doctor
+  ```
+`flutter doctor` zeigt dir an, ob Android Studio, das Android SDK oder andere benötigte Tools fehlen oder konfiguriert werden müssen.
 
 ### 2.3 Windows Developer Mode aktivieren
 
 Damit du die App auf deinem eigenen Windows-PC testen/ausführen kannst, musst du Windows in den Entwicklermodus
 schalten.
-
 1. Windows-Einstellungen öffnen -> **System** -> **Für Entwickler**.
 2. Schalter **"Entwicklermodus"** auf **Ein**.
 
-### 2.4 Solution in Jetbrains Rider erstellen
+### 2.4 Projekt in Android Studio öffnen
 
-1. **New Solution**:
-2. Wähle links **.NET / .NET MAUI**.
-3. Wähle die Einstellungen:
-    - **Solution name:** PriVault
-    - **Project name:** PriVault
-    - **Solution directory:** C:\Users\frank\Source\Rider
-    - **Put solution and project in same directory:** **Nein**
-    - **Target Framework:** .NET 8.0
-    - **Language:** C#
-    - **Target platform:** MAUI
-    - **Type:** App
-4. Klicke **Create**.
+1. Starte Android Studio.
+2. Wähle "Open an Existing Project".
+3. Navigiere zum Root-Verzeichnis deines Projekts (z.B. `C:/Users/frank/Source/AndroidStudio/privault`) und öffne es.
+4. Android Studio erkennt das Flutter-Projekt und fragt eventuell, ob du die Dart- und Flutter-Plugins installieren möchtest. Bestätige dies.
 
-### 2.5 Verwendete NuGet-Pakete (die Bibliotheken)
-- `CommunityToolkit.Maui` 9.1.1: UI-Funktionen und die Erweiterung für `MauiProgram.cs`)
-- `CommunityToolkit.Mvvm` 8.4.0: Logik für ViewModels
-- `sqlite-net-sqlcipher` 1.9.172: Datenbank inkl. Verschlüsselung
-- `Konscious.Security.Cryptography.Argon2` 1.3.1: Für das sichere Hashen des Master-Passworts
-- `Plugin.Fingerprint` 2.1.5: Für den Zugriff auf FaceID und Fingerabdruck
+### 2.5 Verwendete Abhängigkeiten (die Dart/Flutter-Pakete)
 
-```powershell
-dotnet add package CommunityToolkit.Maui --version 9.1.1
-dotnet add package CommunityToolkit.Mvvm
-dotnet add package sqlite-net-sqlcipher
-dotnet add package Konscious.Security.Cryptography.Argon2
-dotnet add package Plugin.Fingerprint
+Alle Abhängigkeiten werden in der Datei pubspec.yaml im Projektstamm verwaltet.
+- `flutter_riverpod`: State-Management
+- `sqflite_sqlcipher`: Datenbank inkl. Verschlüsselung
+- `argon2_ffi`: Für das sichere Hashen des Master-Passworts
+- `local_auth`: Für den Zugriff auf FaceID und Fingerabdruck
+
+Du fügst sie über die Kommandozeile hinzu:
+```shell
+flutter pub add flutter_riverpod
+flutter pub add sqflite_sqlcipher
+flutter pub add argon2_ffi
+flutter pub add local_auth
 ```
+Anschließend wird automatisch ein `flutter pub get` ausgeführt, um die Pakete herunterzuladen.
 
-### 2.6 Material Icons / FontAwesome
-1. TTF-Datei herunterladen und nach Resources/Fonts/ kopieren
-   - Material Symbol Icons (Outlined, Regular):
-      - https://fonts.google.com/icons?icon.set=Material+Icons&icon.style=Outlined
-   - FontAwesome:
-      - https://fonts.google.com/icons
-      - https://fontawesome.com/search?ic=free-collection
-2. In MauiProgram.cs eintragen
-
-### 2.7 SQLCipher-DLL für Windows
+### 2.6 SQLCipher-DLL für Windows
 
 SQLCipher (basiert auf SQLite 3.51.2) wird benötigt, um unter Windows die SQLite-DB verschlüsseln zu können.
 
 - Download: https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.2.7 (`sqlite3mc-2.2.7-sqlite-3.51.2-win64.zip`)
 - `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\privault\` kopieren
 
-### 2.8 Datenbank-Tool für Android Studio
+### 2.7 Datenbank-Tool für Android Studio
 
 Database Navigator 3.7.2.0 von Oracle 
 https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduction-oracle-database-navigator.html
@@ -152,24 +137,19 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
 
 ## 3. Setup für Android-Apps unter Windows
 
-### 3.1 Java und Android SDK installieren
-
-Damit Rider Android-Apps bauen kann, brauchst du Java und das Android SDK. Rider hilft dir dabei meistens, aber manuell
-ist es sauberer.
+Flutter nutzt das native Android SDK. Die Einrichtung ist daher fast identisch.
 
 ### 3.1 Java (JDK) installieren
 
-MAUI benötigt **OpenJDK 11** oder neuer (Empfohlen: Microsoft OpenJDK 17).
-Rider prüft das normalerweise beim Start. Falls es fehlt: Lade das [Microsoft Build of OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download) herunter.
+Flutter benötigt **OpenJDK 11** oder neuer. Android Studio bringt in der Regel eine passende Version mit. 
+Falls nicht, kannst du sie hier herunterladen: [Microsoft Build of OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download).
 [Direkter Download-Link](https://aka.ms/download-jdk/microsoft-jdk-17.0.18-windows-x64.msi)
 
 ### 3.2 Android SDK installieren
 
-1. Öffne Rider
-2. Gehe zu `File` -> `Settings` -> `Languages & Frameworks` -> `Android SDK`.
-3. Wenn dort steht "Android SDK is missing", klicke auf **Edit** und lass Rider es in einen Standardordner (z.B.
-   `C:\Users\DeinName\AppData\Local\Android\Sdk`) installieren.
-4. Wähle im Reiter **SDK Platforms** mindestens **Android 14.0 (API 34)** aus.
+1. Öffne Android Studio.
+2. Gehe zu `Tools` -> `SDK Manager`.
+3. Wähle im Reiter **SDK Platforms** mindestens **Android 14.0 (API 34)** aus.
 5. Wähle im Reiter **SDK Tools** folgende Haken:
     * `Android SDK Build-Tools`
     * `Android SDK Platform-Tools`
@@ -189,16 +169,14 @@ So aktivierst du Hyper‑V:
   
 ### 3.4 Android-Emulator einrichten
 
-Rider selbst verwaltet den Emulator nicht. Das macht der Android Studio Device Manager, der mit dem Android SDK installiert wird.
-Beim ersten Build für Android als Zielsystem installiert Rider den Emulator automatisch.
-
-- **Emulatoren starten/stoppen:** Rechte Toolbar → Device Manager
-  - Erstelle ein neues Device (z.B. Pixel 5, API 34). 
-- **Logcat (Logfiles):** Linke Toolbar -> Logcat
+1. In Android Studio: Gehe zu `Tools` -> `Device Manager`.
+2. Erstelle ein neues virtuelles Gerät (z.B. "Pixel 5, API 34").
+3. Du kannst den Emulator direkt aus dem Device Manager oder über die Toolbar in Android Studio starten.
+4. **Logcat (Logfiles):** Öffne den Logcat-Tab am unteren Rand von Android Studio.
 
 ### 3.5 Troubleshooting
 
-Rider nutzt das Tool ADB (Android Debug Bridge), um deine MAUI‑App auf den Emulator zu deployen.
+Android Studio und Flutter nutzen das Tool ADB (Android Debug Bridge), um deine‑App auf den Emulator zu deployen.
 
 Es liegt hier: `C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe`
 Das CLI-Tool kann dies:
@@ -259,14 +237,6 @@ Das CLI-Tool kann dies:
 6) In Rider: "Samsung Galaxy S25" als Target Device auswählen
    Run → Edit Configurations → Target Device
 
-### 3.7 Bekannte Bugs
-
-- Bug in Rider: "Failed to upload application APK file to device"
-  https://youtrack.jetbrains.com/issue/RIDER-132740/Failed-to-upload-application-APK-file-to-device
-
-The issue is fixed and will be available in Rider 2025.3.3.
-Early adopters can try the 2025.3 Nightly starting tomorrow (10.02.2026).
-
 ---
 
 ## 4. Setup für das Backend (PHP) unter Windows
@@ -326,166 +296,126 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
 
 ---
 
-## 5. Testumgebung hinzufügen
-
-### 5.1 Vorbereitung: Plattformunabhängigen Code in eine Class Library auslagern:
-1. Class Library `Privault.Core` anlegen:
-   1. Rechtsklick auf die Solution 'Privault' -> Add -> New Project.
-   2. Wähle Class Library (Bibliothek).
-   3. Name: `Privault.Core`.
-   4. Framework: .NET 8.0.
-2. `Privault.Core`/`Class1.cs` löschen
-3. Rechtsklick auf `Privault` -> Add -> Reference -> Haken bei `Privault.Core` setzen.
-4. Alles, was keine UI ist (also keine XAML-Dateien oder plattformspezifischen Code benötigt), von `Privault` nach `Privault.Core` verschieben.
-   - Models/
-   - Services/ (bis auf ConfigService.cs und GuardService.cs)
-5. In `MauiProgram.cs` diese `using`-Statements hinzufügen:
-   - `using Privault.Core.Services;`
-   - `using Privault.Core.Services.Contracts;`
-6. NuGet-Pakete installieren/deinstallieren 
-   - In `Privault.Core` installieren:
-      - `CommunityToolkit.Mvvm` 8.4.0
-      - `sqlite-net-sqlcipher` 1.9.172
-      - `Konscious.Security.Cryptography.Argon2` 1.3.1
-      - `Plugin.Fingerprint` 2.1.5
-      - `Microsoft.Extensions.Http` 10.0.2
-      - `zxcvbn-core` 7.0.92 (misst die Passwortstärke basierend auf Wörterbüchern und Muster)
-   - In `Privault` deinstallieren:
-      - `Konscious.Security.Cryptography.Argon2`    
-         Es verbleiben:
-          - `CommunityToolkit.Maui` 9.1.1
-          - `CommunityToolkit.Mvvm` 8.4.0
-          - `Plugin.Fingerprint` 2.1.5
-          - `sqlite-net-sqlcipher` 1.9.172
- 
-**Wichtig:** Das Projekt `Privault.Core` darf keine Referenzen auf `Microsoft.Maui` oder `CommunityToolkit.Maui` enthalten.
-
-### 5.2 Projekt für die Tests anlegen
-1. Neues Projekt `Privault.Tests` erstellen:
-    1. Rechtsklick auf die Solution 'Privault' im Explorer.
-    2. Add -> New Project.
-    3. Wähle Unit-Test Project (Typ: xUnit), Target Framework: net8.0
-    4. Name: `Privault.Tests`.
-2. `Privault.Tests` / `UnitTest1.cs` löschen:
-3. Rechtsklick auf `Privault.Tests` -> Add -> Reference -> Haken bei `Privault.Core` setzen.
-4. NuGet-Pakete installieren:
-    - `Moq` 4.20.72: Mocking-Framework für .NET
-
----
-
 ## 6. Troubleshooting
-- Fehlermeldung: "additional components need to be installed"
-  - Der .NET-Installer hat zwar die Basis (.NET SDK) installiert, aber nicht die spezifischen Pakete für Android und Windows UI (die sogenannten **Workloads**).
-  - **Lösung: **
-    ```powershell
-    dotnet workload restore
-    ```
-
-- Fehlermeldung: "Warnung beim Build: Versions- oder verteilungsspezifische Laufzeitbezeichner gefunden: alpine-arm, alpine-arm64, alpine-x64. Betroffene Bibliotheken: SQLitePCLRaw.lib.e_sqlcipher."
-  - **Lösung:**
-    Paket für `Privault.Core` isntalliert:
-    ```powershell
-    dotnet add package SQLitePCLRaw.bundle_e_sqlcipher --version 2.1.11
-    ```
 
 - Fehlermeldung "Warnung beim Build: Dependency sqlite-net-sqlcipher 1.9.172 is vulnerable"
   - Das Paket ist verwundbar. Die gemeldete Schwachstelle ist CVE‑2022‑46908, ein Problem in SQLite 3.39.2. Behoben in SQLite 3.41.2.
-  - Betrifft nur das SQLite‑Kommandozeilenprogramm. Anwendungen, die SQLCipher als Library nutzen (wie MAUI‑Apps), sind nicht betroffen.
+  - Betrifft nur das SQLite‑Kommandozeilenprogramm. Anwendungen, die SQLCipher als Library nutzen (wie Flutter‑Apps), sind nicht betroffen.
   - **Lösung:**
     Betrifft nicht die App -> Warnung ignorieren (rechte Maustaste -> Ignore).
 
-- Nach Update von RIDER 2025.3 auf 2026: Build für Android geht, aber Deploing nicht.
-  Fehlermeldung: "Die Ressourcendatei "C:\Users\frank\Source\Rider\Privault\Privault\obj\project.assets.json" weist kein Ziel für "net8.0-android34.0" auf."
-  - **Lösung: **
-    ```powershell
-    dotnet workload repair
-    dotnet workload install maui
-    dotnet workload install android
-    dotnet workload restore
-    ```
- 
 ---
 
 ## 7. Ordnerstruktur
 <pre>
-/Privault/ (Solution)
-  ├── bin/                          # Shell-Scripte
-  ├── docs/                         # Projektdokumentation (Markdown)
-  ├── host/                         # Backend (PHP)
-  │    ├── coverage/                # Automatisch generierte Code-Coverage-Daten
-  │    │    ├── clover.xml          # Clover-Report (XML) für IDE 
-  │    │    └── data.json           # Coverage-Rohdaten
-  │    ├── docs/                    # Serverdokumentation
-  │    ├── logs/                    # Log-Protokolle
-  │    ├── migrations/              # SQL-Skripte für Schema-Updates
-  │    ├── public/                  # Web-Root (Ziel der Subdomain)
-  │    │    ├── api/                # Webservice (.htaccess-Routing)
-  │    │    │    ├── .htaccess      # Apache Rewrite-Regeln (Request an index.php weiterleiten)
-  │    │    │    └── index.php      # Front-Controller
-  │    │    ├── dev/                # Geschützter Bereich (Debug-/Admin-Skripte)
-  │    │    │    ├── .htaccess      # Apache Zugriffsschutz
-  │    │    │    ├── .htpasswd      # Apache Passwortdatei
-  │    │    │    └── index.php      # Adminseite
-  │    │    ├── .htaccess           # Apache Sicherheitsregeln
-  │    │    └── index.html          # Startseite
-  │    ├── src/                     # PHP-Quellcode (PSR-4-ähnlich)
-  │    │    ├── Controller/         # Controller-Klassen
-  │    │    ├── Core/               # Framework-Kern
-  │    │    └── Middleware/         # Request/Response-Middleware
-  │    ├── routes.php               # Zentrale Routenregistrierung
-  │    ├── secrets.example.php      # Beispiel-Konfiguration (dient als Vorlage für config.php)
-  │    ├── config.php               # Lokale Konfiguration mit Zugangsdaten/Secrets (nicht im Git-Repository)
-  │    └── sqlca.pem                # CA-Zertifikat für TLS zur DB (z.B. Hetzner), s. https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql/
-  ├── Privault/                     # .NET MAUI App (C#)
-  │    ├── Helpers/                 # UI-spezifische Hilfsklassen
-  │    ├── Platforms/               # OS-spezifischer Code (Biometrie, Keystore)
-  │    ├── Resources/               # Assets (Bilder, Fonts, Styles)
-  │    │    └── Styles/             # Layout der Seiten 
-  │    │         ├── Themes/        # Farben
-  │    │         └── Styles.xaml    # Baupläne
-  │    ├── Services                 # Plattformabhängige Business-Logik (z.B. ConfigService.cs)
-  │    ├── Views/                   # XAML-Oberflächen
-  │    ├── App.xaml                 # App-Root: globale Resources/Styles und Einstiegspunkt der MAUI-App
-  │    ├── AppShell.xaml            # Shell-Navigation: Routen, Flyout/Tab-Struktur und Navigations-Container
-  │    ├── MauiProgram.cs           # DI-Setup & App-Konfiguration: Services registrieren, Fonts/Toolkit, Plattform-Hooks
-  │    └── Privault.csproj          # Projektdatei der MAUI-App: TargetFrameworks, Ressourcen, NuGet-Pakete, Build-Settings
-  ├── Privault.Core/                # Class Library für die Kernlogik (Wichtig: UI‑frei und plattformunabhängig)
-  │    ├── Models/                  # Datenstrukturen  
-  │    │    ├── Dtos/               # Data Transfer Objecte für die Kommunikation mit der Web-API
-  │    │    ├── Entities/           # SQLite-Tabellen
-  │    │    ├── Payloads/           # Verschlüsselte Daten-Container
-  │    │    └── Results/            # Interne Service-Rückgabewerte
-  │    ├── Services/                # Business-Logik (plattformfrei)
-  │    │    └── Contracts/          # Interfaces (auch die der plattformabhängigen Services)
-  │    ├── ViewModels/              # UI-Logik (plattformfrei)
-  │    ├── AppVersion.cs            # Stellt Versionsinformationen der Anwendung bereit.
-  │    └── Privault.Core.csproj     # Projektdatei der Core-Library: Abhängigkeiten, Build-Settings (muss MAUI-frei bleiben)
-  ├── Privault.Tests/               # Unit-Tests und Integrations-Tests
-  │    ├── Services                 # Tests für Services
-  │    ├── ViewModels               # Tests für ViewModels
-  │    ├── AppVersionTestscs        # Test für AppVersion
-  │    └── Privault.Tests.csproj    # Testprojektdatei: xUnit/Moq/Test SDK, Referenzen auf Privault.Core
-  ├── Privault.Web                  # Blazor WebAssembly (Blazor WASM)
-  │    ├── Pages                    # Webseiten
-  │    ├── Components               # Komponenten
-  │    └── Services                 # UI-Logik
-  ├── .gitignore                    # Vom Git-Repository auszuschließende Dateien
-  ├── global.json                   # Pinnt die verwendete .NET SDK-Version für reproduzierbare Builds (CI/Dev-Setup)
-  ├── LICENSE                       # Lizenzhinweis   
-  ├── Privault.sln                  # Solution-Datei
-  └── README.md                     # Landingpage für das Git-Repository   
+privault/                                      # Projekt-Root (Monorepo)
+ ├── apps/                                     # Enthält alle eigenständigen Flutter-Apps (Feature‑First)
+ │    ├── privault/                            # Die eigentliche PriVault-App (Android/iOS/Windows/Web)
+ │    │    ├── android/                        # Android-spezifische Dateien (Gradle, Manifest, Ressourcen)
+ │    │    ├── lib/                            # App-spezifischer Flutter-Code
+ │    │    │    ├── features/                  # Feature-Module (Screens + ViewModels + Widgets)
+ │    │    │    │    ├── main/                 # Hauptseite 
+ │    │    │    │    │    ├── main_screen.dart
+ │    │    │    │    │    ├── main_viewmodel.dart
+ │    │    │    │    │    └── widgets/
+ │    │    │    │    ├── login/                # Loginseite
+ │    │    │    │    ├── detail/               # Detailansicht
+ │    │    │    │    ├── edit/                 # Editierseite
+ │    │    │    │    └── settings/             # Setupseite
+ │    │    │    ├── app.dart                   # App-Setup (Theme, Routing, Provider-Setup)
+ │    │    │    └── main.dart                  # Einstiegspunkt der App
+ │    │    ├── test/                           # Widget- und Unit-Tests der App
+ │    │    ├── web/                            # Web-spezifische Dateien
+ │    │    ├── windows/                        # Windows-spezifische Runner + CMake
+ │    │    ├── pubspec.yaml                    # Dependencies der priVault-App
+ │    │    └── .metadata                       # Flutter-Projekt-Metadaten
+ │    │                                        
+ │    └── admin/                               # Admin-App für Windows (in Planung)
+ │         ├── lib/                            # Admin-spezifischer Flutter-Code
+ │         │    ├── features/                  # Eigene Screens + ViewModels
+ │         │    └── main.dart                  # Einstiegspunkt der Admin-App
+ │         ├── windows/                        # Windows-spezifischer Runner
+ │         ├── pubspec.yaml                    # Dependencies der Admin-App
+ │         └── test/                            
+ │                                             
+ ├── docs/                                     # Projektdokumentation (Markdown)
+ │
+ ├── host/                                     # Backend (PHP)
+ │    ├── coverage/                            # Automatisch generierte Code-Coverage-Daten
+ │    │    ├── clover.xml                      # Clover-Report (XML) für IDE 
+ │    │    └── data.json                       # Coverage-Rohdaten
+ │    ├── docs/                                # Serverdokumentation
+ │    ├── logs/                                # Log-Protokolle
+ │    ├── migrations/                          # SQL-Skripte für Schema-Updates
+ │    ├── public/                              # Web-Root (Ziel der Subdomain)
+ │    │    ├── api/                            # Webservice (.htaccess-Routing)
+ │    │    │    ├── .htaccess                  # Apache Rewrite-Regeln (Request an index.php weiterleiten)
+ │    │    │    └── index.php                  # Front-Controller
+ │    │    ├── dev/                            # Geschützter Bereich (Debug-/Admin-Skripte)
+ │    │    │    ├── .htaccess                  # Apache Zugriffsschutz
+ │    │    │    ├── .htpasswd                  # Apache Passwortdatei
+ │    │    │    └── index.php                  # Adminseite
+ │    │    ├── .htaccess                       # Apache Sicherheitsregeln
+ │    │    └── index.html                      # Startseite
+ │    ├── src/                                 # PHP-Quellcode (PSR-4-ähnlich)
+ │    │    ├── Controller/                     # Controller-Klassen
+ │    │    ├── Core/                           # Framework-Kern
+ │    │    └── Middleware/                     # Request/Response-Middleware
+ │    ├── routes.php                           # Zentrale Routenregistrierung
+ │    ├── secrets.example.php                  # Beispiel-Konfiguration (dient als Vorlage für config.php)
+ │    ├── config.php                           # Lokale Konfiguration mit Zugangsdaten/Secrets (nicht im Git-Repository)
+ │    └── sqlca.pem                            # CA-Zertifikat für TLS zur DB (z.B. Hetzner), s. https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql/
+ │
+ ├── native/                                   # Native Bibliotheken (z.B. SQLite3MC)
+ │    └── sqlcipher/                           # SQLCipher (SQLite mit Verschlüsselungsfunktion)
+ │         └── windows/
+ │              ├── sqlite3mc_x64.dll          # SQLite3 Multiple Ciphers 2.2.7 (basiert auf SQLite 3.51.2) 
+ │              └── sqlite-jdbc-3.51.2.0.jar   # SQLCipher‑fähiger JDBC‑Treiber (für Database Navigator)
+ │
+ ├── packages/                                 # Wiederverwendbare, plattformunabhängigen Flutter-/Dart-Pakete (Layer‑First)
+ │    ├── core/                                # Basis-Funktionalität (UI-unabhängig)
+ │    │    ├── lib/
+ │    │    │    ├── app_version.dart           # Versionierung
+ │    │    │    ├── base_view_model.dart       # Abstrakte ViewModel-Basis
+ │    │    │    ├── service_locator.dart       # DI/Service-Locator
+ │    │    │    └── core.dart                  # Barrel-File (optional)
+ │    │    └── pubspec.yaml
+ │    │
+ │    ├── domain/                              # Datenmodelle (Entities, DTOs, Payloads, Exceptions)
+ │    │    ├── lib/
+ │    │    │    └── models/
+ │    │    │         ├── dtos/
+ │    │    │         ├── entities/
+ │    │    │         ├── exceptions/
+ │    │    │         └── payloads/
+ │    │    └── pubspec.yaml
+ │    │
+ │    └── data/                                # Datenzugriff, DB, Repositories, Services
+ │         ├── lib/
+ │         │    ├── database/                  # SQLite3MC-Integration, DB-Adapter
+ │         │    ├── services/                  # DB-Service, Sync-Service, Session-Service
+ │         │    └── data.dart                  # Barrel-File (optional)
+ │         └── pubspec.yaml
+ │
+ ├─ .analysis_options.yaml                     # Zentrale Linting-/Analyzer-Regeln für alle Apps/Packages
+ ├─ .gitignore                                 # Vom Git-Repository auszuschließende Dateien
+ ├─ .analysis_options.yaml                     # Konfiguration für den Analysator
+ ├─ LICENSE                                    # Lizenzhinweis   
+ ├─ pubspec.yaml                               # Paketinformation
+ └─ README.md                                  # Landingpage für das Git-Repository
 </pre>
 
 ---
 
 ## 8. Konfiguration / Preferences
 
-Die Speicherorte hängen vom Betriebssystem ab, da .NET MAUI die nativen Mechanismen nutzt.
+Die Speicherorte hängen vom Betriebssystem ab, da Flutter die nativen Mechanismen nutzt.
 
 ### 8.1 Unter Windows (Entwicklungsumgebung)
-- Basisverzeichnis: `%AppData%\Local\Packages\[Package_GUID]`
-   - `%AppData%`: C:\Users\DEIN_NAME\AppData\
-   - `[Package_GUID]`: Suche in `%LOCALAPPDATA%\Packages` nach "privault" (beginnt meist mit dem Package-Namen, z.B. `com.companyname.privault_...` )
+- Basisverzeichnis: `%AppData%\Roaming\[Package]\privault`
+ C:\Users\frank\AppData\Roaming\de.frohlfing.privault\privault\vaults
+   - `%AppData%`: Z.B. `C:\Users\frank\AppData`
+   - `[Package]`: Z.B. `de.frohlfing.privault`
 - SQLite-Datei: `.\LocalState\Trresorname.db3`
 - Konfiguration: `.\Settings\settings.dat`
 
@@ -524,7 +454,6 @@ Die Konfiguration wird in `config.php` gespeichert. Diese Datei darf nicht ins V
 - **`permissions`**: Enthält die verschlüsselten `Entry-Keys`. Speichert, welcher Benutzer auf welchen Eintrag zugreifen kann.
 - **`tombstones`**: Protokolliert gelöschte Einträge, damit Clients diese beim Pull-Sync entfernen können.
 - **`attachments`**: Speichert die verschlüsselten Dateianhänge.
-- **`version`**: Repräsentiert die Schema-Version der lokalen SQLite-Datenbank (Singleton-Speicher).
 
 ### 9.2 Tabellen auf dem Server (MySQL)
 - **`vaults`**: Enthält die Tresornamen.
@@ -533,110 +462,6 @@ Die Konfiguration wird in `config.php` gespeichert. Diese Datei darf nicht ins V
 - **`permissions`**: Enthält die verschlüsselten `Entry-Keys`. Speichert, welcher Benutzer auf welchen Eintrag zugreifen kann.
 - **`tombstones`**: Protokolliert gelöschte Einträge, damit Clients diese beim Pull-Sync entfernen können.
 - **`attachments`**: Speichert die verschlüsselten Dateianhänge.
-- **`version`**: Repräsentiert die API-Version. Wird erhöht, wenn ein Endpunkt oder das Datenbankschema geändert wird (Singleton-Speicher).
+- **`version`**: Repräsentiert die Schema-Version.
 
 ---
-
-## 10 Biometrie-Unterstützung
-
-### 10.1 Android:
-1. Initialisierung in `Platforms/Android/MainActivity.cs`:
-    ```csharp
-    // ...
-    using Plugin.Fingerprint;
-    // ...
-    public class MainActivity : MauiAppCompatActivity
-    {
-        protected override void OnCreate(Bundle? savedInstanceState)
-        {
-            base.OnCreate(savedInstanceState);
-            // Dem Fingerprint-Plugin sagen, dass diese Activity für Dialoge genutzt werden soll
-            CrossFingerprint.SetCurrentActivityResolver(() => this);
-        }
-    }
-    ```
-2. Berechtigung in `Platforms/Android/AndroidManifest.xml` innerhalb des `<manifest>`-Tags setzen:
-    ```xml
-    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
-    ```
-
-### 10.2 iOS
-1. `Platforms/iOS/Info.plist` (und falls vorhanden `Platforms/MacCatalyst/Info.plist`) diesen Key hinzufügen:
-
-```xml
-<key>NSFaceIDUsageDescription</key>
-<string>PriVault benötigt FaceID, um deinen Tresor sicher zu entschlüsseln.</string>
-```
-### 10.3 Windows
-Keine Einrichtung notwendig.
-
----
-
-## 11. Autofill-Service einrichten
-
-Was ist mit iOS und Windows?
-
-1. **iOS:** Du brauchst **keinen Code** unter `Platforms/iOS`. iOS macht das über "AutoFill" von Haus aus. Du musst lediglich in deiner `Info.plist` das Entitlement `com.apple.developer.associated-domains` aktivieren und dort deine Server-Domain eintragen (`webcredentials:dein-server.de`). iOS gleicht dann die Domain der Website im Safari mit den URLs in deinem Tresor ab.
-2. **Windows:** Windows hat kein systemweites Autofill für Drittanbieter-Apps. Dort wird PriVault als normale App genutzt, und der Benutzer nutzt "Copy & Paste". Die Integration erfolgt dort eher über Browser-Erweiterungen (Edge/Chrome Store), was jedoch ein komplett anderes Projekt (JavaScript/HTML) wäre.
-3. **Android:** Android hat einen eigenen Autofill-Service. Folgende Dateien habe ich hinzugefügt bzw. erweitert:
-- `Platforms/Android/PrivaultAutofillService.cs` (neu) - Dieser Dienst fungiert als Brücke zwischen dem Android-System und deiner `Privault.Core`-Logik.
-- `Platforms/Android/AndroidManifest.xml` (erweitert)
-- `Platforms/Android/Resources/xml/autofill_service_config.xml` (neu)
-
-**TODOS:**
-- Der Autofill-Service darf aus Sicherheitsgründen oft keine komplexe UI anzeigen. 
-- Wenn der Tresor gesperrt ist, musst du eine `IntentSender`-Operation zurückgeben, die deine App kurz im Vordergrund öffnet ("Biometrie-Check"), und dann das Passwort zurück an die ursprüngliche App liefert.
-- Unter Einstellungen -> System -> Sprachen & Eingabe -> Autofill-Dienst (Pfad variiert je nach Android-Version) kann "PriVault" als Autofill-Dienst ausgewählt werden.
-- Die `ParseStructure`-Logik (das Finden der Felder) muss vertieft werden.
-
---- 
-
-## 12. Upgrade von .NET 8 auf .NET 10
-
-**Hinweise zu den .NET-Versionen:**
-
-* .NET 8.0:
-    * LTS (Long-Term Support) bis November 2026.
-    * Extrem stabil und alle NuGet-Pakete, die wir brauchen, laufen garantiert darauf.
-* .NET 9.0:
-    * STS (Standard-Term Support), Support nur bis Mai 2025 – kein Langzeit-Support!
-* .NET 10.0:
-    * Noch sehr frisch (Release November 2025).
-    * Wird wieder ein LTS-Release sein, also langfristig unterstützt bis 2028.
-    * Es könnte sein, dass manche Drittanbieter-Bibliotheken noch Updates brauchen.
-    * Allerdings: Tooling (MAUI, Rider, SDKs, Emulatoren) ist oft noch nicht komplett stabil oder angepasst.
-
-1. `global.json` anpassen:
-
-   Da diese Datei aktuell dein Projekt auf Version 8 "festnagelt", musst du sie öffnen und die Version ändern.
-
-    * **Alt:** `"version": "8.0.xxx"`
-    * **Neu:** `"version": "10.0.100"` (oder welche 10er-Version du dann installiert hast).
-
-   *Alternativ:* Du kannst die Datei einfach löschen, dann nimmt Rider automatisch die neueste installierte Version (was
-   dann .NET 10 sein sollte).
-
-2. Projektdatei (`.csproj`) ändern:
-
-   Öffne die Datei `Privault.csproj` (du kannst in Rider einfach auf das Projekt doppelklicken oder Rechtsklick -> Edit).
-
-   Suche nach dem Tag `<TargetFrameworks>`.
-   Du musst dort einfach alle `net8.0` durch `net10.0` ersetzen:
-   ```xml
-   <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
-   <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0
-   </TargetFrameworks>
-   ```
-
-3. NuGet Pakete aktualisieren:
-    * Das aktualisiert das Toolkit auf Version 13.x+ (die .NET 10 braucht)
-      `dotnet add package CommunityToolkit.Maui`
-    * Die anderen auch gleich mitziehen (optional, aber empfohlen)
-      `dotnet add package CommunityToolkit.Mvvm`
-      `dotnet add package sqlite-net-sqlcipher`
-
-4. Aufräumen (Clean & Rebuild)
-    * Lösche manuell die Ordner `bin` und `obj` in deinem Projektverzeichnis.
-    * Starte Rider neu.
-    * Führe **Rebuild Solution** aus.

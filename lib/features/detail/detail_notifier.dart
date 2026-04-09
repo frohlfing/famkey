@@ -333,7 +333,7 @@ class DetailNotifier extends Notifier<DetailState> {
     }
   }
 
-  // /// Erzeugt ein Vorschaubild ohne Ränder (Aspect-Fit MAUI Parität)
+  // /// Erzeugt ein Vorschaubild ohne Ränder
   // /// Die Funktion muss static sein, das sie innerhalb eines Worker-Threads aufgerufen wird.
   // static String? _createThumbnail(Uint8List bytes) {
   //   try {
@@ -344,7 +344,7 @@ class DetailNotifier extends Notifier<DetailState> {
   //     const maxWidth = 128;
   //     const maxHeight = 128;
   //
-  //     // 2. Aspect-Fit berechnen (wie in MAUI Logik)
+  //     // 2. Aspect-Fit berechnen
   //     final scale = math.min(maxWidth / image.width, maxHeight / image.height);
   //     final newW = math.max(1, (image.width * scale).round());
   //     final newH = math.max(1, (image.height * scale).round());

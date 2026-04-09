@@ -3,8 +3,8 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i4;
-import 'dart:typed_data' as _i5;
+import 'dart:async' as _i5;
+import 'dart:typed_data' as _i4;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i6;
@@ -45,21 +45,15 @@ class _FakePermissionEntity_2 extends _i1.SmartFake
     : super(parent, parentInvocation);
 }
 
-class _FakeTombstoneEntity_3 extends _i1.SmartFake
-    implements _i2.TombstoneEntity {
-  _FakeTombstoneEntity_3(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeAttachmentEntity_4 extends _i1.SmartFake
+class _FakeAttachmentEntity_3 extends _i1.SmartFake
     implements _i2.AttachmentEntity {
-  _FakeAttachmentEntity_4(Object parent, Invocation parentInvocation)
+  _FakeAttachmentEntity_3(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeSettingsEntity_5 extends _i1.SmartFake
+class _FakeSettingsEntity_4 extends _i1.SmartFake
     implements _i2.SettingsEntity {
-  _FakeSettingsEntity_5(Object parent, Invocation parentInvocation)
+  _FakeSettingsEntity_4(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -72,66 +66,74 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
   }
 
   @override
-  _i4.Future<_i5.Uint8List> deriveKey(String? password, _i5.Uint8List? salt) =>
+  _i4.Uint8List generateAesKey() =>
       (super.noSuchMethod(
-            Invocation.method(#deriveKey, [password, salt]),
-            returnValue: _i4.Future<_i5.Uint8List>.value(_i5.Uint8List(0)),
+            Invocation.method(#generateAesKey, []),
+            returnValue: _i4.Uint8List(0),
           )
-          as _i4.Future<_i5.Uint8List>);
+          as _i4.Uint8List);
 
   @override
-  _i4.Future<String> encrypt(_i5.Uint8List? data, _i5.Uint8List? key) =>
+  _i5.Future<_i4.Uint8List> deriveKey(String? password, _i4.Uint8List? salt) =>
+      (super.noSuchMethod(
+            Invocation.method(#deriveKey, [password, salt]),
+            returnValue: _i5.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
+          )
+          as _i5.Future<_i4.Uint8List>);
+
+  @override
+  _i5.Future<String> encrypt(_i4.Uint8List? data, _i4.Uint8List? key) =>
       (super.noSuchMethod(
             Invocation.method(#encrypt, [data, key]),
-            returnValue: _i4.Future<String>.value(
+            returnValue: _i5.Future<String>.value(
               _i6.dummyValue<String>(
                 this,
                 Invocation.method(#encrypt, [data, key]),
               ),
             ),
           )
-          as _i4.Future<String>);
+          as _i5.Future<String>);
 
   @override
-  _i4.Future<_i5.Uint8List> decrypt(
+  _i5.Future<_i4.Uint8List> decrypt(
     String? encryptedDataBase64,
-    _i5.Uint8List? key,
+    _i4.Uint8List? key,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decrypt, [encryptedDataBase64, key]),
-            returnValue: _i4.Future<_i5.Uint8List>.value(_i5.Uint8List(0)),
+            returnValue: _i5.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
           )
-          as _i4.Future<_i5.Uint8List>);
+          as _i5.Future<_i4.Uint8List>);
 
   @override
-  _i4.Future<(String, _i5.Uint8List)> generateRsaKeyPair() =>
+  _i5.Future<(String, _i4.Uint8List)> generateRsaKeyPair() =>
       (super.noSuchMethod(
             Invocation.method(#generateRsaKeyPair, []),
-            returnValue: _i4.Future<(String, _i5.Uint8List)>.value((
+            returnValue: _i5.Future<(String, _i4.Uint8List)>.value((
               _i6.dummyValue<String>(
                 this,
                 Invocation.method(#generateRsaKeyPair, []),
               ),
-              _i5.Uint8List(0),
+              _i4.Uint8List(0),
             )),
           )
-          as _i4.Future<(String, _i5.Uint8List)>);
+          as _i5.Future<(String, _i4.Uint8List)>);
 
   @override
-  _i4.Future<String> encryptRsa(_i5.Uint8List? data, String? publicKeyPem) =>
+  _i5.Future<String> encryptRsa(_i4.Uint8List? data, String? publicKeyPem) =>
       (super.noSuchMethod(
             Invocation.method(#encryptRsa, [data, publicKeyPem]),
-            returnValue: _i4.Future<String>.value(
+            returnValue: _i5.Future<String>.value(
               _i6.dummyValue<String>(
                 this,
                 Invocation.method(#encryptRsa, [data, publicKeyPem]),
               ),
             ),
           )
-          as _i4.Future<String>);
+          as _i5.Future<String>);
 
   @override
-  _i4.Future<_i5.Uint8List> decryptRsa(
+  _i5.Future<_i4.Uint8List> decryptRsa(
     String? encryptedDataBase64,
     String? privateKeyPem,
   ) =>
@@ -140,9 +142,9 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
               encryptedDataBase64,
               privateKeyPem,
             ]),
-            returnValue: _i4.Future<_i5.Uint8List>.value(_i5.Uint8List(0)),
+            returnValue: _i5.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
           )
-          as _i4.Future<_i5.Uint8List>);
+          as _i5.Future<_i4.Uint8List>);
 
   @override
   String fingerprint(String? publicKey) =>
@@ -156,16 +158,16 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
           as String);
 
   @override
-  _i5.Uint8List deriveKeyFromKey(
-    _i5.Uint8List? keyMaterial,
-    _i5.Uint8List? salt,
+  _i4.Uint8List deriveKeyFromKey(
+    _i4.Uint8List? keyMaterial,
+    _i4.Uint8List? salt,
     String? info,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
-            returnValue: _i5.Uint8List(0),
+            returnValue: _i4.Uint8List(0),
           )
-          as _i5.Uint8List);
+          as _i4.Uint8List);
 
   @override
   String computeHash(String? input) =>
@@ -179,31 +181,31 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
           as String);
 
   @override
-  _i5.Uint8List generateSalt() =>
+  _i4.Uint8List generateSalt() =>
       (super.noSuchMethod(
             Invocation.method(#generateSalt, []),
-            returnValue: _i5.Uint8List(0),
+            returnValue: _i4.Uint8List(0),
           )
-          as _i5.Uint8List);
+          as _i4.Uint8List);
 
   @override
-  _i4.Future<String> signData(
-    _i5.Uint8List? data,
-    _i5.Uint8List? privateKeyBytes,
+  _i5.Future<String> signData(
+    _i4.Uint8List? data,
+    _i4.Uint8List? privateKeyBytes,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signData, [data, privateKeyBytes]),
-            returnValue: _i4.Future<String>.value(
+            returnValue: _i5.Future<String>.value(
               _i6.dummyValue<String>(
                 this,
                 Invocation.method(#signData, [data, privateKeyBytes]),
               ),
             ),
           )
-          as _i4.Future<String>);
+          as _i5.Future<String>);
 
   @override
-  void wipeKey(_i5.Uint8List? key) => super.noSuchMethod(
+  void wipeKey(_i4.Uint8List? key) => super.noSuchMethod(
     Invocation.method(#wipeKey, [key]),
     returnValueForMissingStub: null,
   );
@@ -223,39 +225,39 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
           as bool);
 
   @override
-  _i4.Future<void> initialize(String? vaultName, _i5.Uint8List? masterKey) =>
+  _i5.Future<void> initialize(String? vaultName, _i4.Uint8List? masterKey) =>
       (super.noSuchMethod(
             Invocation.method(#initialize, [vaultName, masterKey]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> close() =>
+  _i5.Future<void> close() =>
       (super.noSuchMethod(
             Invocation.method(#close, []),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<_i5.Uint8List?> getSalt(String? vaultName) =>
+  _i5.Future<_i4.Uint8List?> getSalt(String? vaultName) =>
       (super.noSuchMethod(
             Invocation.method(#getSalt, [vaultName]),
-            returnValue: _i4.Future<_i5.Uint8List?>.value(),
+            returnValue: _i5.Future<_i4.Uint8List?>.value(),
           )
-          as _i4.Future<_i5.Uint8List?>);
+          as _i5.Future<_i4.Uint8List?>);
 
   @override
-  _i4.Future<void> saveSalt(String? vaultName, _i5.Uint8List? saltBytes) =>
+  _i5.Future<void> saveSalt(String? vaultName, _i4.Uint8List? saltBytes) =>
       (super.noSuchMethod(
             Invocation.method(#saveSalt, [vaultName, saltBytes]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
   String getDatabasePath(String? vaultName) =>
@@ -269,226 +271,226 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
           as String);
 
   @override
-  _i4.Future<bool> databaseExists(String? vaultName) =>
+  _i5.Future<bool> databaseExists(String? vaultName) =>
       (super.noSuchMethod(
             Invocation.method(#databaseExists, [vaultName]),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
 
   @override
-  _i4.Future<List<String>> getExistingVaults() =>
+  _i5.Future<List<String>> getExistingVaults() =>
       (super.noSuchMethod(
             Invocation.method(#getExistingVaults, []),
-            returnValue: _i4.Future<List<String>>.value(<String>[]),
+            returnValue: _i5.Future<List<String>>.value(<String>[]),
           )
-          as _i4.Future<List<String>>);
+          as _i5.Future<List<String>>);
 
   @override
-  _i4.Future<void> rekey(_i5.Uint8List? newMasterKey) =>
+  _i5.Future<void> rekey(_i4.Uint8List? newMasterKey) =>
       (super.noSuchMethod(
             Invocation.method(#rekey, [newMasterKey]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> createBackup() =>
+  _i5.Future<void> createBackup() =>
       (super.noSuchMethod(
             Invocation.method(#createBackup, []),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> removeBackup() =>
+  _i5.Future<void> removeBackup() =>
       (super.noSuchMethod(
             Invocation.method(#removeBackup, []),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> restoreBackup() =>
+  _i5.Future<void> restoreBackup() =>
       (super.noSuchMethod(
             Invocation.method(#restoreBackup, []),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> renameDatabaseAndSaltFile(
+  _i5.Future<void> renameDatabaseAndSaltFile(
     String? oldName,
     String? newName,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#renameDatabaseAndSaltFile, [oldName, newName]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> deleteCurrentDatabaseAndSaltFile() =>
+  _i5.Future<void> deleteCurrentDatabaseAndSaltFile() =>
       (super.noSuchMethod(
             Invocation.method(#deleteCurrentDatabaseAndSaltFile, []),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<List<_i2.UserEntity>> getUsers() =>
+  _i5.Future<List<_i2.UserEntity>> getUsers() =>
       (super.noSuchMethod(
             Invocation.method(#getUsers, []),
-            returnValue: _i4.Future<List<_i2.UserEntity>>.value(
+            returnValue: _i5.Future<List<_i2.UserEntity>>.value(
               <_i2.UserEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.UserEntity>>);
+          as _i5.Future<List<_i2.UserEntity>>);
 
   @override
-  _i4.Future<List<_i2.UserEntity>> getNotHiddenFriends() =>
+  _i5.Future<List<_i2.UserEntity>> getNotHiddenFriends() =>
       (super.noSuchMethod(
             Invocation.method(#getNotHiddenFriends, []),
-            returnValue: _i4.Future<List<_i2.UserEntity>>.value(
+            returnValue: _i5.Future<List<_i2.UserEntity>>.value(
               <_i2.UserEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.UserEntity>>);
+          as _i5.Future<List<_i2.UserEntity>>);
 
   @override
-  _i4.Future<List<({int accessLevel, _i2.UserEntity user})>>
+  _i5.Future<List<({int accessLevel, _i2.UserEntity user})>>
   getNotHiddenFriendsWithAccessLevel(int? entryId) =>
       (super.noSuchMethod(
             Invocation.method(#getNotHiddenFriendsWithAccessLevel, [entryId]),
             returnValue:
-                _i4.Future<
+                _i5.Future<
                   List<({int accessLevel, _i2.UserEntity user})>
                 >.value(<({int accessLevel, _i2.UserEntity user})>[]),
           )
-          as _i4.Future<List<({int accessLevel, _i2.UserEntity user})>>);
+          as _i5.Future<List<({int accessLevel, _i2.UserEntity user})>>);
 
   @override
-  _i4.Future<_i2.UserEntity?> getUser(int? userId) =>
+  _i5.Future<_i2.UserEntity?> getUser(int? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getUser, [userId]),
-            returnValue: _i4.Future<_i2.UserEntity?>.value(),
+            returnValue: _i5.Future<_i2.UserEntity?>.value(),
           )
-          as _i4.Future<_i2.UserEntity?>);
+          as _i5.Future<_i2.UserEntity?>);
 
   @override
-  _i4.Future<_i2.UserEntity?> getUserByUuid(String? userUuid) =>
+  _i5.Future<_i2.UserEntity?> getUserByUuid(String? userUuid) =>
       (super.noSuchMethod(
             Invocation.method(#getUserByUuid, [userUuid]),
-            returnValue: _i4.Future<_i2.UserEntity?>.value(),
+            returnValue: _i5.Future<_i2.UserEntity?>.value(),
           )
-          as _i4.Future<_i2.UserEntity?>);
+          as _i5.Future<_i2.UserEntity?>);
 
   @override
-  _i4.Future<_i2.UserEntity?> getUserByName(String? userName) =>
+  _i5.Future<_i2.UserEntity?> getUserByName(String? userName) =>
       (super.noSuchMethod(
             Invocation.method(#getUserByName, [userName]),
-            returnValue: _i4.Future<_i2.UserEntity?>.value(),
+            returnValue: _i5.Future<_i2.UserEntity?>.value(),
           )
-          as _i4.Future<_i2.UserEntity?>);
+          as _i5.Future<_i2.UserEntity?>);
 
   @override
-  _i4.Future<bool> hasUnverifiedUser() =>
+  _i5.Future<bool> hasUnverifiedUser() =>
       (super.noSuchMethod(
             Invocation.method(#hasUnverifiedUser, []),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
 
   @override
-  _i4.Future<_i2.UserEntity> saveUser(_i2.UserEntity? user) =>
+  _i5.Future<_i2.UserEntity> saveUser(_i2.UserEntity? user) =>
       (super.noSuchMethod(
             Invocation.method(#saveUser, [user]),
-            returnValue: _i4.Future<_i2.UserEntity>.value(
+            returnValue: _i5.Future<_i2.UserEntity>.value(
               _FakeUserEntity_0(this, Invocation.method(#saveUser, [user])),
             ),
           )
-          as _i4.Future<_i2.UserEntity>);
+          as _i5.Future<_i2.UserEntity>);
 
   @override
-  _i4.Future<void> hideUser(int? userId) =>
+  _i5.Future<void> hideUser(int? userId) =>
       (super.noSuchMethod(
             Invocation.method(#hideUser, [userId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> deleteUser(int? userId) =>
+  _i5.Future<void> deleteUser(int? userId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteUser, [userId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<List<_i2.EntryEntity>> getEntries() =>
+  _i5.Future<List<_i2.EntryEntity>> getEntries() =>
       (super.noSuchMethod(
             Invocation.method(#getEntries, []),
-            returnValue: _i4.Future<List<_i2.EntryEntity>>.value(
+            returnValue: _i5.Future<List<_i2.EntryEntity>>.value(
               <_i2.EntryEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.EntryEntity>>);
+          as _i5.Future<List<_i2.EntryEntity>>);
 
   @override
-  _i4.Future<List<_i2.EntryEntity>> getEntriesSince(DateTime? since) =>
+  _i5.Future<List<_i2.EntryEntity>> getEntriesSince(DateTime? since) =>
       (super.noSuchMethod(
             Invocation.method(#getEntriesSince, [since]),
-            returnValue: _i4.Future<List<_i2.EntryEntity>>.value(
+            returnValue: _i5.Future<List<_i2.EntryEntity>>.value(
               <_i2.EntryEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.EntryEntity>>);
+          as _i5.Future<List<_i2.EntryEntity>>);
 
   @override
-  _i4.Future<List<String>> getCategories() =>
+  _i5.Future<List<String>> getCategories() =>
       (super.noSuchMethod(
             Invocation.method(#getCategories, []),
-            returnValue: _i4.Future<List<String>>.value(<String>[]),
+            returnValue: _i5.Future<List<String>>.value(<String>[]),
           )
-          as _i4.Future<List<String>>);
+          as _i5.Future<List<String>>);
 
   @override
-  _i4.Future<_i2.EntryEntity?> getEntry(int? entryId) =>
+  _i5.Future<_i2.EntryEntity?> getEntry(int? entryId) =>
       (super.noSuchMethod(
             Invocation.method(#getEntry, [entryId]),
-            returnValue: _i4.Future<_i2.EntryEntity?>.value(),
+            returnValue: _i5.Future<_i2.EntryEntity?>.value(),
           )
-          as _i4.Future<_i2.EntryEntity?>);
+          as _i5.Future<_i2.EntryEntity?>);
 
   @override
-  _i4.Future<_i2.EntryEntity?> getEntryByUuid(String? entryUuid) =>
+  _i5.Future<_i2.EntryEntity?> getEntryByUuid(String? entryUuid) =>
       (super.noSuchMethod(
             Invocation.method(#getEntryByUuid, [entryUuid]),
-            returnValue: _i4.Future<_i2.EntryEntity?>.value(),
+            returnValue: _i5.Future<_i2.EntryEntity?>.value(),
           )
-          as _i4.Future<_i2.EntryEntity?>);
+          as _i5.Future<_i2.EntryEntity?>);
 
   @override
-  _i4.Future<_i2.EntryEntity> saveEntry(_i2.EntryEntity? entry) =>
+  _i5.Future<_i2.EntryEntity> saveEntry(_i2.EntryEntity? entry) =>
       (super.noSuchMethod(
             Invocation.method(#saveEntry, [entry]),
-            returnValue: _i4.Future<_i2.EntryEntity>.value(
+            returnValue: _i5.Future<_i2.EntryEntity>.value(
               _FakeEntryEntity_1(this, Invocation.method(#saveEntry, [entry])),
             ),
           )
-          as _i4.Future<_i2.EntryEntity>);
+          as _i5.Future<_i2.EntryEntity>);
 
   @override
-  _i4.Future<_i2.EntryEntity> saveEntryWithPermissions(
+  _i5.Future<_i2.EntryEntity> saveEntryWithPermissions(
     _i2.EntryEntity? entry,
     int? userId,
     String? encryptedKey, {
@@ -500,7 +502,7 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
               [entry, userId, encryptedKey],
               {#accessLevel: accessLevel},
             ),
-            returnValue: _i4.Future<_i2.EntryEntity>.value(
+            returnValue: _i5.Future<_i2.EntryEntity>.value(
               _FakeEntryEntity_1(
                 this,
                 Invocation.method(
@@ -511,87 +513,96 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
               ),
             ),
           )
-          as _i4.Future<_i2.EntryEntity>);
+          as _i5.Future<_i2.EntryEntity>);
 
   @override
-  _i4.Future<void> deleteEntry(int? entryId) =>
+  _i5.Future<void> deleteEntryAndForget(int? entryId) =>
       (super.noSuchMethod(
-            Invocation.method(#deleteEntry, [entryId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            Invocation.method(#deleteEntryAndForget, [entryId]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<List<_i2.PermissionEntity>> getPermissions() =>
+  _i5.Future<void> deleteEntry(int? entryId, {DateTime? deletedAt}) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteEntry, [entryId], {#deletedAt: deletedAt}),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
+
+  @override
+  _i5.Future<List<_i2.PermissionEntity>> getPermissions() =>
       (super.noSuchMethod(
             Invocation.method(#getPermissions, []),
-            returnValue: _i4.Future<List<_i2.PermissionEntity>>.value(
+            returnValue: _i5.Future<List<_i2.PermissionEntity>>.value(
               <_i2.PermissionEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.PermissionEntity>>);
+          as _i5.Future<List<_i2.PermissionEntity>>);
 
   @override
-  _i4.Future<List<_i2.PermissionEntity>> getPermissionsByEntryId(
+  _i5.Future<List<_i2.PermissionEntity>> getPermissionsByEntryId(
     int? entryId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getPermissionsByEntryId, [entryId]),
-            returnValue: _i4.Future<List<_i2.PermissionEntity>>.value(
+            returnValue: _i5.Future<List<_i2.PermissionEntity>>.value(
               <_i2.PermissionEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.PermissionEntity>>);
+          as _i5.Future<List<_i2.PermissionEntity>>);
 
   @override
-  _i4.Future<List<_i2.PermissionEntity>> getPermissionsByUserId(int? userId) =>
+  _i5.Future<List<_i2.PermissionEntity>> getPermissionsByUserId(int? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getPermissionsByUserId, [userId]),
-            returnValue: _i4.Future<List<_i2.PermissionEntity>>.value(
+            returnValue: _i5.Future<List<_i2.PermissionEntity>>.value(
               <_i2.PermissionEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.PermissionEntity>>);
+          as _i5.Future<List<_i2.PermissionEntity>>);
 
   @override
-  _i4.Future<List<_i2.PermissionEntity>> getPermissionsWithoutKeyByUserId(
+  _i5.Future<List<_i2.PermissionEntity>> getPermissionsWithoutKeyByUserId(
     int? userId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getPermissionsWithoutKeyByUserId, [userId]),
-            returnValue: _i4.Future<List<_i2.PermissionEntity>>.value(
+            returnValue: _i5.Future<List<_i2.PermissionEntity>>.value(
               <_i2.PermissionEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.PermissionEntity>>);
+          as _i5.Future<List<_i2.PermissionEntity>>);
 
   @override
-  _i4.Future<bool> hasPermissionsWithoutKey() =>
+  _i5.Future<bool> hasPermissionsWithoutKey() =>
       (super.noSuchMethod(
             Invocation.method(#hasPermissionsWithoutKey, []),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
 
   @override
-  _i4.Future<List<int>> getUserIdsWithEmptyEntryKeys() =>
+  _i5.Future<List<int>> getUserIdsWithEmptyEntryKeys() =>
       (super.noSuchMethod(
             Invocation.method(#getUserIdsWithEmptyEntryKeys, []),
-            returnValue: _i4.Future<List<int>>.value(<int>[]),
+            returnValue: _i5.Future<List<int>>.value(<int>[]),
           )
-          as _i4.Future<List<int>>);
+          as _i5.Future<List<int>>);
 
   @override
-  _i4.Future<_i2.PermissionEntity?> getPermission(int? permissionId) =>
+  _i5.Future<_i2.PermissionEntity?> getPermission(int? permissionId) =>
       (super.noSuchMethod(
             Invocation.method(#getPermission, [permissionId]),
-            returnValue: _i4.Future<_i2.PermissionEntity?>.value(),
+            returnValue: _i5.Future<_i2.PermissionEntity?>.value(),
           )
-          as _i4.Future<_i2.PermissionEntity?>);
+          as _i5.Future<_i2.PermissionEntity?>);
 
   @override
-  _i4.Future<_i2.PermissionEntity?> getPermissionByEntryIdAndUserId(
+  _i5.Future<_i2.PermissionEntity?> getPermissionByEntryIdAndUserId(
     int? entryId,
     int? userId,
   ) =>
@@ -600,161 +611,165 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
               entryId,
               userId,
             ]),
-            returnValue: _i4.Future<_i2.PermissionEntity?>.value(),
+            returnValue: _i5.Future<_i2.PermissionEntity?>.value(),
           )
-          as _i4.Future<_i2.PermissionEntity?>);
+          as _i5.Future<_i2.PermissionEntity?>);
 
   @override
-  _i4.Future<_i2.PermissionEntity> savePermission(
+  _i5.Future<_i2.PermissionEntity> savePermission(
     _i2.PermissionEntity? permission,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#savePermission, [permission]),
-            returnValue: _i4.Future<_i2.PermissionEntity>.value(
+            returnValue: _i5.Future<_i2.PermissionEntity>.value(
               _FakePermissionEntity_2(
                 this,
                 Invocation.method(#savePermission, [permission]),
               ),
             ),
           )
-          as _i4.Future<_i2.PermissionEntity>);
+          as _i5.Future<_i2.PermissionEntity>);
 
   @override
-  _i4.Future<void> updatePermissions(List<_i2.PermissionEntity>? permissions) =>
+  _i5.Future<void> updatePermissions(List<_i2.PermissionEntity>? permissions) =>
       (super.noSuchMethod(
             Invocation.method(#updatePermissions, [permissions]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> deletePermission(int? permissionId) =>
+  _i5.Future<void> deletePermission(int? permissionId) =>
       (super.noSuchMethod(
             Invocation.method(#deletePermission, [permissionId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<void> removeEntryKeysForUser(int? userId) =>
+  _i5.Future<void> removeEntryKeysForUser(int? userId) =>
       (super.noSuchMethod(
             Invocation.method(#removeEntryKeysForUser, [userId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<List<_i2.TombstoneEntity>> getTombstonesSince(DateTime? since) =>
+  _i5.Future<List<_i2.TombstoneEntity>> getTombstonesSince(DateTime? since) =>
       (super.noSuchMethod(
             Invocation.method(#getTombstonesSince, [since]),
-            returnValue: _i4.Future<List<_i2.TombstoneEntity>>.value(
+            returnValue: _i5.Future<List<_i2.TombstoneEntity>>.value(
               <_i2.TombstoneEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.TombstoneEntity>>);
+          as _i5.Future<List<_i2.TombstoneEntity>>);
 
   @override
-  _i4.Future<_i2.TombstoneEntity> saveTombstone(
-    _i2.TombstoneEntity? tombstone,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#saveTombstone, [tombstone]),
-            returnValue: _i4.Future<_i2.TombstoneEntity>.value(
-              _FakeTombstoneEntity_3(
-                this,
-                Invocation.method(#saveTombstone, [tombstone]),
-              ),
-            ),
-          )
-          as _i4.Future<_i2.TombstoneEntity>);
-
-  @override
-  _i4.Future<List<_i2.AttachmentEntity>> getAttachmentsByEntryId(
+  _i5.Future<List<_i2.AttachmentEntity>> getAttachmentsByEntryId(
     int? entryId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getAttachmentsByEntryId, [entryId]),
-            returnValue: _i4.Future<List<_i2.AttachmentEntity>>.value(
+            returnValue: _i5.Future<List<_i2.AttachmentEntity>>.value(
               <_i2.AttachmentEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.AttachmentEntity>>);
+          as _i5.Future<List<_i2.AttachmentEntity>>);
 
   @override
-  _i4.Future<List<_i2.AttachmentEntity>> getAttachmentsUnsynced() =>
+  _i5.Future<List<_i2.AttachmentEntity>> getAttachmentsUnsynced() =>
       (super.noSuchMethod(
             Invocation.method(#getAttachmentsUnsynced, []),
-            returnValue: _i4.Future<List<_i2.AttachmentEntity>>.value(
+            returnValue: _i5.Future<List<_i2.AttachmentEntity>>.value(
               <_i2.AttachmentEntity>[],
             ),
           )
-          as _i4.Future<List<_i2.AttachmentEntity>>);
+          as _i5.Future<List<_i2.AttachmentEntity>>);
 
   @override
-  _i4.Future<_i2.AttachmentEntity?> getAttachment(int? attachmentId) =>
+  _i5.Future<_i2.AttachmentEntity?> getAttachment(int? attachmentId) =>
       (super.noSuchMethod(
             Invocation.method(#getAttachment, [attachmentId]),
-            returnValue: _i4.Future<_i2.AttachmentEntity?>.value(),
+            returnValue: _i5.Future<_i2.AttachmentEntity?>.value(),
           )
-          as _i4.Future<_i2.AttachmentEntity?>);
+          as _i5.Future<_i2.AttachmentEntity?>);
 
   @override
-  _i4.Future<_i2.AttachmentEntity?> getAttachmentByUuid(
+  _i5.Future<_i2.AttachmentEntity?> getAttachmentByUuid(
     String? attachmentUuid,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getAttachmentByUuid, [attachmentUuid]),
-            returnValue: _i4.Future<_i2.AttachmentEntity?>.value(),
+            returnValue: _i5.Future<_i2.AttachmentEntity?>.value(),
           )
-          as _i4.Future<_i2.AttachmentEntity?>);
+          as _i5.Future<_i2.AttachmentEntity?>);
 
   @override
-  _i4.Future<_i2.AttachmentEntity> saveAttachment(
+  _i5.Future<_i2.AttachmentEntity> saveAttachment(
     _i2.AttachmentEntity? attachment,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#saveAttachment, [attachment]),
-            returnValue: _i4.Future<_i2.AttachmentEntity>.value(
-              _FakeAttachmentEntity_4(
+            returnValue: _i5.Future<_i2.AttachmentEntity>.value(
+              _FakeAttachmentEntity_3(
                 this,
                 Invocation.method(#saveAttachment, [attachment]),
               ),
             ),
           )
-          as _i4.Future<_i2.AttachmentEntity>);
+          as _i5.Future<_i2.AttachmentEntity>);
 
   @override
-  _i4.Future<void> deleteAttachment(int? attachmentId) =>
+  _i5.Future<void> deleteAttachment(int? attachmentId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteAttachment, [attachmentId]),
-            returnValue: _i4.Future<void>.value(),
-            returnValueForMissingStub: _i4.Future<void>.value(),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
           )
-          as _i4.Future<void>);
+          as _i5.Future<void>);
 
   @override
-  _i4.Future<_i2.SettingsEntity?> getSettings() =>
+  _i5.Future<_i2.SettingsEntity?> getSettings() =>
       (super.noSuchMethod(
             Invocation.method(#getSettings, []),
-            returnValue: _i4.Future<_i2.SettingsEntity?>.value(),
+            returnValue: _i5.Future<_i2.SettingsEntity?>.value(),
           )
-          as _i4.Future<_i2.SettingsEntity?>);
+          as _i5.Future<_i2.SettingsEntity?>);
 
   @override
-  _i4.Future<_i2.SettingsEntity> saveSettings(_i2.SettingsEntity? settings) =>
+  _i5.Future<_i2.SettingsEntity> saveSettings(_i2.SettingsEntity? settings) =>
       (super.noSuchMethod(
             Invocation.method(#saveSettings, [settings]),
-            returnValue: _i4.Future<_i2.SettingsEntity>.value(
-              _FakeSettingsEntity_5(
+            returnValue: _i5.Future<_i2.SettingsEntity>.value(
+              _FakeSettingsEntity_4(
                 this,
                 Invocation.method(#saveSettings, [settings]),
               ),
             ),
           )
-          as _i4.Future<_i2.SettingsEntity>);
+          as _i5.Future<_i2.SettingsEntity>);
+
+  @override
+  _i5.Future<void> import(
+    List<
+      ({
+        List<({String encryptedContent, String encryptedMeta, String uuid})>
+        attachments,
+        String encryptedEntryKey,
+        _i2.EntryEntity entry,
+      })
+    >?
+    items,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#import, [items]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 }
 
 /// A class which mocks [PasswordService].
@@ -822,7 +837,7 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
   @override
   void setSession({
     required _i2.UserEntity? user,
-    required _i5.Uint8List? privateKey,
+    required _i4.Uint8List? privateKey,
     required String? vaultName,
     required _i2.SettingsEntity? settings,
   }) => super.noSuchMethod(
@@ -848,7 +863,7 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
   );
 
   @override
-  void setPrivateKey(_i5.Uint8List? value) => super.noSuchMethod(
+  void setPrivateKey(_i4.Uint8List? value) => super.noSuchMethod(
     Invocation.method(#setPrivateKey, [value]),
     returnValueForMissingStub: null,
   );

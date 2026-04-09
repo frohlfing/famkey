@@ -127,7 +127,6 @@ class SyncEntryDto {
 }
 
 /// Transportobjekt für einen gelöschten Eintrag (Tombstone).
-/// Entspricht `TombstoneDto.cs` aus MAUI.
 class SyncDeleteDto {
   /// Die globale UUID des gelöschten Eintrags.
   final String entryUuid;

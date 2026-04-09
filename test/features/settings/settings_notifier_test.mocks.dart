@@ -49,21 +49,15 @@ class _FakePermissionEntity_2 extends _i1.SmartFake
     : super(parent, parentInvocation);
 }
 
-class _FakeTombstoneEntity_3 extends _i1.SmartFake
-    implements _i2.TombstoneEntity {
-  _FakeTombstoneEntity_3(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeAttachmentEntity_4 extends _i1.SmartFake
+class _FakeAttachmentEntity_3 extends _i1.SmartFake
     implements _i2.AttachmentEntity {
-  _FakeAttachmentEntity_4(Object parent, Invocation parentInvocation)
+  _FakeAttachmentEntity_3(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeSettingsEntity_5 extends _i1.SmartFake
+class _FakeSettingsEntity_4 extends _i1.SmartFake
     implements _i2.SettingsEntity {
-  _FakeSettingsEntity_5(Object parent, Invocation parentInvocation)
+  _FakeSettingsEntity_4(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -262,6 +256,14 @@ class MockCryptoService extends _i1.Mock implements _i11.CryptoService {
   MockCryptoService() {
     _i1.throwOnMissingStub(this);
   }
+
+  @override
+  _i6.Uint8List generateAesKey() =>
+      (super.noSuchMethod(
+            Invocation.method(#generateAesKey, []),
+            returnValue: _i6.Uint8List(0),
+          )
+          as _i6.Uint8List);
 
   @override
   _i4.Future<_i6.Uint8List> deriveKey(String? password, _i6.Uint8List? salt) =>
@@ -706,9 +708,18 @@ class MockDatabaseService extends _i1.Mock implements _i12.DatabaseService {
           as _i4.Future<_i2.EntryEntity>);
 
   @override
-  _i4.Future<void> deleteEntry(int? entryId) =>
+  _i4.Future<void> deleteEntryAndForget(int? entryId) =>
       (super.noSuchMethod(
-            Invocation.method(#deleteEntry, [entryId]),
+            Invocation.method(#deleteEntryAndForget, [entryId]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> deleteEntry(int? entryId, {DateTime? deletedAt}) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteEntry, [entryId], {#deletedAt: deletedAt}),
             returnValue: _i4.Future<void>.value(),
             returnValueForMissingStub: _i4.Future<void>.value(),
           )
@@ -849,21 +860,6 @@ class MockDatabaseService extends _i1.Mock implements _i12.DatabaseService {
           as _i4.Future<List<_i2.TombstoneEntity>>);
 
   @override
-  _i4.Future<_i2.TombstoneEntity> saveTombstone(
-    _i2.TombstoneEntity? tombstone,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#saveTombstone, [tombstone]),
-            returnValue: _i4.Future<_i2.TombstoneEntity>.value(
-              _FakeTombstoneEntity_3(
-                this,
-                Invocation.method(#saveTombstone, [tombstone]),
-              ),
-            ),
-          )
-          as _i4.Future<_i2.TombstoneEntity>);
-
-  @override
   _i4.Future<List<_i2.AttachmentEntity>> getAttachmentsByEntryId(
     int? entryId,
   ) =>
@@ -910,7 +906,7 @@ class MockDatabaseService extends _i1.Mock implements _i12.DatabaseService {
       (super.noSuchMethod(
             Invocation.method(#saveAttachment, [attachment]),
             returnValue: _i4.Future<_i2.AttachmentEntity>.value(
-              _FakeAttachmentEntity_4(
+              _FakeAttachmentEntity_3(
                 this,
                 Invocation.method(#saveAttachment, [attachment]),
               ),
@@ -940,13 +936,32 @@ class MockDatabaseService extends _i1.Mock implements _i12.DatabaseService {
       (super.noSuchMethod(
             Invocation.method(#saveSettings, [settings]),
             returnValue: _i4.Future<_i2.SettingsEntity>.value(
-              _FakeSettingsEntity_5(
+              _FakeSettingsEntity_4(
                 this,
                 Invocation.method(#saveSettings, [settings]),
               ),
             ),
           )
           as _i4.Future<_i2.SettingsEntity>);
+
+  @override
+  _i4.Future<void> import(
+    List<
+      ({
+        List<({String encryptedContent, String encryptedMeta, String uuid})>
+        attachments,
+        String encryptedEntryKey,
+        _i2.EntryEntity entry,
+      })
+    >?
+    items,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#import, [items]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
 }
 
 /// A class which mocks [SessionService].

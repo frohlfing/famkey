@@ -3,8 +3,8 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i3;
-import 'dart:typed_data' as _i4;
+import 'dart:async' as _i4;
+import 'dart:typed_data' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i5;
@@ -34,66 +34,74 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
   }
 
   @override
-  _i3.Future<_i4.Uint8List> deriveKey(String? password, _i4.Uint8List? salt) =>
+  _i3.Uint8List generateAesKey() =>
       (super.noSuchMethod(
-            Invocation.method(#deriveKey, [password, salt]),
-            returnValue: _i3.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
+            Invocation.method(#generateAesKey, []),
+            returnValue: _i3.Uint8List(0),
           )
-          as _i3.Future<_i4.Uint8List>);
+          as _i3.Uint8List);
 
   @override
-  _i3.Future<String> encrypt(_i4.Uint8List? data, _i4.Uint8List? key) =>
+  _i4.Future<_i3.Uint8List> deriveKey(String? password, _i3.Uint8List? salt) =>
+      (super.noSuchMethod(
+            Invocation.method(#deriveKey, [password, salt]),
+            returnValue: _i4.Future<_i3.Uint8List>.value(_i3.Uint8List(0)),
+          )
+          as _i4.Future<_i3.Uint8List>);
+
+  @override
+  _i4.Future<String> encrypt(_i3.Uint8List? data, _i3.Uint8List? key) =>
       (super.noSuchMethod(
             Invocation.method(#encrypt, [data, key]),
-            returnValue: _i3.Future<String>.value(
+            returnValue: _i4.Future<String>.value(
               _i5.dummyValue<String>(
                 this,
                 Invocation.method(#encrypt, [data, key]),
               ),
             ),
           )
-          as _i3.Future<String>);
+          as _i4.Future<String>);
 
   @override
-  _i3.Future<_i4.Uint8List> decrypt(
+  _i4.Future<_i3.Uint8List> decrypt(
     String? encryptedDataBase64,
-    _i4.Uint8List? key,
+    _i3.Uint8List? key,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decrypt, [encryptedDataBase64, key]),
-            returnValue: _i3.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
+            returnValue: _i4.Future<_i3.Uint8List>.value(_i3.Uint8List(0)),
           )
-          as _i3.Future<_i4.Uint8List>);
+          as _i4.Future<_i3.Uint8List>);
 
   @override
-  _i3.Future<(String, _i4.Uint8List)> generateRsaKeyPair() =>
+  _i4.Future<(String, _i3.Uint8List)> generateRsaKeyPair() =>
       (super.noSuchMethod(
             Invocation.method(#generateRsaKeyPair, []),
-            returnValue: _i3.Future<(String, _i4.Uint8List)>.value((
+            returnValue: _i4.Future<(String, _i3.Uint8List)>.value((
               _i5.dummyValue<String>(
                 this,
                 Invocation.method(#generateRsaKeyPair, []),
               ),
-              _i4.Uint8List(0),
+              _i3.Uint8List(0),
             )),
           )
-          as _i3.Future<(String, _i4.Uint8List)>);
+          as _i4.Future<(String, _i3.Uint8List)>);
 
   @override
-  _i3.Future<String> encryptRsa(_i4.Uint8List? data, String? publicKeyPem) =>
+  _i4.Future<String> encryptRsa(_i3.Uint8List? data, String? publicKeyPem) =>
       (super.noSuchMethod(
             Invocation.method(#encryptRsa, [data, publicKeyPem]),
-            returnValue: _i3.Future<String>.value(
+            returnValue: _i4.Future<String>.value(
               _i5.dummyValue<String>(
                 this,
                 Invocation.method(#encryptRsa, [data, publicKeyPem]),
               ),
             ),
           )
-          as _i3.Future<String>);
+          as _i4.Future<String>);
 
   @override
-  _i3.Future<_i4.Uint8List> decryptRsa(
+  _i4.Future<_i3.Uint8List> decryptRsa(
     String? encryptedDataBase64,
     String? privateKeyPem,
   ) =>
@@ -102,9 +110,9 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
               encryptedDataBase64,
               privateKeyPem,
             ]),
-            returnValue: _i3.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
+            returnValue: _i4.Future<_i3.Uint8List>.value(_i3.Uint8List(0)),
           )
-          as _i3.Future<_i4.Uint8List>);
+          as _i4.Future<_i3.Uint8List>);
 
   @override
   String fingerprint(String? publicKey) =>
@@ -118,16 +126,16 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
           as String);
 
   @override
-  _i4.Uint8List deriveKeyFromKey(
-    _i4.Uint8List? keyMaterial,
-    _i4.Uint8List? salt,
+  _i3.Uint8List deriveKeyFromKey(
+    _i3.Uint8List? keyMaterial,
+    _i3.Uint8List? salt,
     String? info,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
-            returnValue: _i4.Uint8List(0),
+            returnValue: _i3.Uint8List(0),
           )
-          as _i4.Uint8List);
+          as _i3.Uint8List);
 
   @override
   String computeHash(String? input) =>
@@ -141,31 +149,31 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
           as String);
 
   @override
-  _i4.Uint8List generateSalt() =>
+  _i3.Uint8List generateSalt() =>
       (super.noSuchMethod(
             Invocation.method(#generateSalt, []),
-            returnValue: _i4.Uint8List(0),
+            returnValue: _i3.Uint8List(0),
           )
-          as _i4.Uint8List);
+          as _i3.Uint8List);
 
   @override
-  _i3.Future<String> signData(
-    _i4.Uint8List? data,
-    _i4.Uint8List? privateKeyBytes,
+  _i4.Future<String> signData(
+    _i3.Uint8List? data,
+    _i3.Uint8List? privateKeyBytes,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signData, [data, privateKeyBytes]),
-            returnValue: _i3.Future<String>.value(
+            returnValue: _i4.Future<String>.value(
               _i5.dummyValue<String>(
                 this,
                 Invocation.method(#signData, [data, privateKeyBytes]),
               ),
             ),
           )
-          as _i3.Future<String>);
+          as _i4.Future<String>);
 
   @override
-  void wipeKey(_i4.Uint8List? key) => super.noSuchMethod(
+  void wipeKey(_i3.Uint8List? key) => super.noSuchMethod(
     Invocation.method(#wipeKey, [key]),
     returnValueForMissingStub: null,
   );

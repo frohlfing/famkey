@@ -167,7 +167,7 @@ String? _createThumbnailWorker(Uint8List bytes) {
     const maxWidth = 128;
     const maxHeight = 128;
 
-    // 2. Aspect-Fit berechnen (wie in MAUI Logik)
+    // 2. Aspect-Fit berechnen
     final scale = math.min(maxWidth / image.width, maxHeight / image.height);
     final newW = math.max(1, (image.width * scale).round());
     final newH = math.max(1, (image.height * scale).round());

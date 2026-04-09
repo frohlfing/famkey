@@ -93,11 +93,11 @@
 - ❌ App Store-Bereitstellung
 
 ### 1.6 Meilenstein 6: WebAssembly
-- ❌ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr). Siehe Copilot-Chat .NET MAUI Deployment für Windows & Android 
+- ❌ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr). 
+  Siehe Copilot-Chat .NET MAUI Deployment für Windows & Android 
 
 ## 2. Todos / Feinschliff
 - todos erledigten
-- Doku von MAUI befreien
 - Tresor umbenennen, ohne den Server zu tangieren (vault_uuid)
 - Benutzer umbenennen, ohne den Server zu tangieren (bei Freunde umbenennen?)
 - Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen

@@ -78,7 +78,7 @@ Voraussetzung: Anna hat sich gerade erfolgreich mit ihrem Passwort eingeloggt. D
 2. **Verschlüsselung des Master-Keys:** Die App übergibt den `Master-Key` (aus dem RAM) an den Keystore.
     - Kommando: *"Verschlüssele diese Daten mit dem `Bio-Hardware-Key`."*
     - Der Keystore macht das intern und gibt einen verschlüsselten Datenblob zurück (nennen wir ihn `Biometric-Blob`).
-3. **Speichern:** Die App speichert diesen `Biometric-Blob` im persistenten Speicher des Handys (z.B. `SecureStorage` in MAUI oder in der SQL-DB).
+3. **Speichern:** Die App speichert diesen `Biometric-Blob` im persistenten Speicher des Handys.
 4. **Aufräumen:** Der `Master-Key` wird aus dem RAM gelöscht (Zeroing).
 
 ### 2.3 Unlock (Login) 

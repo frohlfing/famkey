@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'detail_notifier_test.mocks.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
@@ -14,7 +15,6 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 
-import 'detail_notifier_test.mocks.dart';
 
 @GenerateMocks([CryptoService, DatabaseService, PasswordService, SessionService])
 void main() {

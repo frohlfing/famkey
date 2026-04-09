@@ -236,20 +236,34 @@ Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikal
    (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
 
 ## 3. Versionierung
-Die Versionsnummer wird gemäß dem **Semantic Versioning-Schema** [SemVer](https://semver.org/) im Format `MAJOR.MINOR.PATCH` vergeben:
-- **MAJOR:** Wird nach einem Redesign oder bei einem Migrations-Bruch erhöht.
-- **MINOR:** Wird nach Änderung der Funktionalität erhöht. Wird auf 0 zurückgesetzt, wenn MAJOR erhöht wird.
-- **PATCH:** Wird nach einer Fehlerbehebung (Bugfix) erhöht. Wird auf 0 zurückgesetzt, wenn MAJOR oder MINOR erhöht wird.
 
-**Diese Versionsnummern werden verwendet:**
-- Die **App-Version** steht zusammen mit der **minimal erforderlichen Server-Minor-Version** in `Privault.Core.csproj`.
-- Die **Version des Tresors** (SQLite-DB) steht in der Tabelle `version`.
-    - Ist MAYOR.MINOR älter als die App-Version (PATCH egal), wird der Tresor auf die App-Version migriert (inkl. PATCH).
-    - Ist MAYOR.MINOR aktueller, kann der Tresor von der App nicht verwaltet werden.
-- Die **API-Version** des Servers steht zusammen mit der **minimal erforderlichen App-Minor-Version** in `config.php`.
-    - MAJOR sollte mit der App übereinstimmen. MINOR und PATCH können abweichen.
-- Die **Version der Server-Datenbank** steht in der Tabelle `version`.
-    - MAYOR und MINOR sollten mit der API übereinstimmen. PATCH kann abweichen.
+### App-Version
+Wird in  `pubspec.yaml` gespeichert.
+- Format `MAJOR.MINOR.PATCH` gemaß dem **Semantic Versioning-Schema** [SemVer](https://semver.org/):
+   - MAJOR: Wird mit einem Redesign oder bei einem Migrations-Bruch erhöht.
+   - MINOR: Wird mit einer Funktionsänderung erhöht und mit einer neuen Hauptversion auf 0 zurückgesetzt.
+   - PATCH: Wird mit einer Fehlerbehebung (Bugfix) erhöht und mit einer neuen Nebenversion auf 0 zurückgesetzt.
+- Buildnummer: Wird (theoretisch) mit jedem Build erhöht. Sie wird niemals zurückgesetzt. Dies ist auch der `versionCode` für den Google-Store. 
+
+Angezeigte App-Version inkl. Buildnummer (aber ohne Patch-Nummer): z.B. "1.0+42")
+ 
+### Datenbank-Schema-Version
+- DB-Schema des Servers: Wird auf dem Server in der Tabelle `verions` gespeichert (ein Integer).
+- DB-Schema des Tresors: Flutter nutzt zur Speicherung der Datenbank-Schema-Version den Standard-Mechanismus von SQLite: 
+   Jede SQLite-Datenbankdatei hat einen Header-Bereich, in dem Metadaten gespeichert werden. 
+   Eines dieser Felder ist die `user_version`, eine 32-Bit-Ganzzahl, die für genau diesen Zweck vorgesehen ist: die Version des Anwendungsschemas zu speichern.
+
+Sollte die App eine ältere DB-Schema-Version öffnen, wird die DB automatisch aktualisiert.
+Sollte die App eine neuere Datenbank öffnen, wird ein Hinweis mit der Bitte um Upgrade der App angezeigt und die DB sofort wieder geschlossen.
+
+### Sync‑Protokollversion
+- Sync‑Protokollversion des Servers: Wird auf dem Server in `config.php` gespeichert.
+- Kleinste vom Server unterstützte Protokollversion: Wird auf dem Server in `config.php` gespeichert.
+- Sync‑Protokollversion der App: Wird im Code gespeichert. 
+ 
+Vor der Synchronisation wird die Protokollversion der App mit der Protokollversion des Servers verglichen:
+   - Wenn client.syncProtocolVersion < server.minSupportedSyncProtocol → App zu alt
+   - Wenn client.syncProtocolVersion > server.currentSyncProtocol → Server zu alt
 
 ## 4. Host-URLs
 - https://privault.frank-rohling.de/api (für MAJOR = 1)
