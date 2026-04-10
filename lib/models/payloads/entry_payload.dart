@@ -1,6 +1,11 @@
 /// Repräsentiert einen verschlüsselten Tresoreintrag.
-/// Dieses Objekt wird als JSON serialisiert und anschließend mittels AES-256-GCM verschlüsselt
+///
+/// Dieses Objekt wird als JSON serialisiert und mittels AES-256-GCM verschlüsselt
 /// in der Spalte `encryptedData` der `EntryEntity` gespeichert.
+///
+/// Der AES-Schlüssel wird für jeden Eintrag neu generiert und mittels RSA-Schlüssels
+/// des Benutzers bzw. Freundes verpackt.
+/// Vorteil gegenüber `IndexPayload`: Kann mit Freunden geteilt werden.
 class EntryPayload {
   /// Die Kategorie des Eintrags.
   final String category;
