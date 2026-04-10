@@ -14,6 +14,7 @@ import 'package:privault/features/main/import/parser/keepass_xml_parser.dart';
 import 'package:privault/features/main/import/parser/onepassword_1pux_parser.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
+import 'package:privault/models/payloads/index_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
@@ -158,7 +159,11 @@ class ImportNotifier extends Notifier<ImportState> {
         // Zeitpunkt der letzten Änderung auf Jetzt setzen, wenn nicht angegeben
         final updatedAt = parsedEntry.updatedAt ?? DateTime.now().toUtc();
 
-        // Payload für den verschlüsselten Eintrag bauen
+        // Neuen AES-Key speziell für diesen Eintrag generieren und per RSA verschlüsseln
+        final entryKey = _cryptoService.generateAesKey();
+        final encryptedEntryKey = await _cryptoService.encryptRsa(entryKey, user.publicKey);
+
+        // encryptedData bauen und mit dem entryKey verschlüsseln
         final payload = EntryPayload(
           category: parsedEntry.category ?? '',
           title: title,
@@ -169,25 +174,26 @@ class ImportNotifier extends Notifier<ImportState> {
           notes: parsedEntry.notes ?? '',
           favicon: favicon,
         );
-
-        // AES-Key generieren und per RSA verschlüsseln
-        final entryKey = _cryptoService.generateAesKey();
-        final encryptedEntryKey = await _cryptoService.encryptRsa(entryKey, user.publicKey);
-
-        // Payload per AES-Key verschlüsseln
         final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
         final encryptedData = await _cryptoService.encrypt(payloadBytes, entryKey);
 
-        // Entität für den Eintrag bauen
-        final entry = EntryEntity(
-          id: 0,
-          uuid: uuid,
+        // encryptedIndex bauen und mit dem indexKey verschlüsseln
+        final indexPayload = IndexPayload(
           category: parsedEntry.category ?? '',
           title: title,
           url: url,
           notes: parsedEntry.notes ?? '',
           favicon: favicon,
+        );
+        final indexBytes = Uint8List.fromList(utf8.encode(json.encode(indexPayload.toJson())));
+        final encryptedIndex = await _cryptoService.encrypt(indexBytes, _sessionService.indexKey!);
+
+        // Eintrag in der DB speichern
+        final entry = EntryEntity(
+          id: 0,
+          uuid: uuid,
           encryptedData: encryptedData,
+          encryptedIndex: encryptedIndex,
           creatorId: user.id,
           updaterId: user.id,
           updatedAt: updatedAt,

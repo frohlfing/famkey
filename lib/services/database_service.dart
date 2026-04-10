@@ -389,17 +389,6 @@ class DatabaseService {
     return (_db!.select(_db!.entries)..where((e) => e.updatedAt.isBiggerThanValue(since))).get();
   }
 
-  /// Liefert die Liste der bereits gespeicherten Kategorien.
-  Future<List<String>> getCategories() {
-    _ensureDbInitialized();
-    final query = _db!.selectOnly(_db!.entries, distinct: true)
-      ..addColumns([_db!.entries.category]) // Nur die Spalte 'category' selektieren
-      ..where(_db!.entries.category.isNotValue('')) // Filtert leere Strings aus
-      ..orderBy([OrderingTerm.asc(_db!.entries.category)]); // Datenbank sortiert
-
-    return query.map((row) => row.read(_db!.entries.category)!).get();
-  }
-
   /// Lädt einen Eintrag anhand seiner internen ID.
   Future<EntryEntity?> getEntry(int entryId) {
     _ensureDbInitialized();
@@ -418,12 +407,8 @@ class DatabaseService {
 
     var companion = EntriesCompanion(
       uuid: Value(entry.uuid),
-      category: Value(entry.category),
-      title: Value(entry.title),
-      url: Value(entry.url),
-      notes: Value(entry.notes),
-      favicon: Value(entry.favicon),
       encryptedData: Value(entry.encryptedData),
+      encryptedIndex: Value(entry.encryptedIndex),
       creatorId: Value(entry.creatorId),
       updaterId: Value(entry.updaterId),
       updatedAt: Value(entry.updatedAt),
@@ -460,12 +445,8 @@ class DatabaseService {
 
       var companion = EntriesCompanion(
         uuid: Value(entry.uuid),
-        category: Value(entry.category),
-        title: Value(entry.title),
-        url: Value(entry.url),
-        notes: Value(entry.notes),
-        favicon: Value(entry.favicon),
         encryptedData: Value(entry.encryptedData),
+        encryptedIndex: Value(entry.encryptedIndex),
         creatorId: Value(entry.creatorId),
         updaterId: Value(entry.updaterId),
         updatedAt: Value(entry.updatedAt),
@@ -858,12 +839,8 @@ class DatabaseService {
         final entry = item.entry;
         final companion = EntriesCompanion(
           uuid: Value(entry.uuid),
-          category: Value(entry.category),
-          title: Value(entry.title),
-          url: Value(entry.url),
-          notes: Value(entry.notes),
-          favicon: Value(entry.favicon),
           encryptedData: Value(entry.encryptedData),
+          encryptedIndex: Value(entry.encryptedIndex),
           creatorId: Value(entry.creatorId),
           updaterId: Value(entry.updaterId),
           updatedAt: Value(entry.updatedAt),

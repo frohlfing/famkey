@@ -110,7 +110,7 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
           pwAvoidIlO0: formData.pwAvoidIlO0,
         );
         _settings = await _databaseService.saveSettings(updatedSettings);
-        _sessionService.setSettings(_settings);
+        _sessionService.setSettings(_settings!);
       }
 
       // 4. UI-State aktualisieren

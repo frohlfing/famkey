@@ -17,6 +17,7 @@ class SessionService {
 
   UserEntity? _user;
   Uint8List? _privateKey;
+  Uint8List? _indexKey;
   String _vaultName = '';
   SettingsEntity? _settings;
 
@@ -31,6 +32,7 @@ class SessionService {
   void setSession({required UserEntity user, required Uint8List privateKey, required String vaultName, required SettingsEntity settings}) {
     _user = user;
     _privateKey = privateKey;
+    _indexKey = _cryptoService.deriveKeyFromKey(privateKey, null, 'entry-index-encryption');
     _vaultName = vaultName;
     _settings = settings;
   }
@@ -46,6 +48,11 @@ class SessionService {
       _cryptoService.wipeKey(_privateKey);
       _privateKey = null;
     }
+
+    if (_indexKey != null) {
+      _cryptoService.wipeKey(_indexKey);
+      _indexKey = null;
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -58,6 +65,9 @@ class SessionService {
   /// Der entschlüsselte RSA Private-Key des Benutzers (als Byte-Array).
   Uint8List? get privateKey => _privateKey;
 
+  /// Der abgeleitete AES-Schlüssel für die lokale Verschlüsselung des encryptedIndex.
+  Uint8List? get indexKey => _indexKey;
+
   /// Der Name des geöffneten Tresors (Mandantenkennung).
   String get vaultName => _vaultName;
 
@@ -69,13 +79,14 @@ class SessionService {
   // ------------------------------------------------------------------------
 
   /// Setter für den aktuellen Benutzer.
-  void setUser(UserEntity? value) {
+  void setUser(UserEntity value) {
     _user = value;
   }
 
   /// Setter für den RSA Private-Key des Benutzers.
-  void setPrivateKey(Uint8List? value) {
+  void setPrivateKey(Uint8List value) {
     _privateKey = value;
+    _indexKey = _cryptoService.deriveKeyFromKey(value, null, 'entry-index-encryption');
   }
 
   /// Setter für den Namen des geöffneten Tresors.
@@ -84,7 +95,7 @@ class SessionService {
   }
 
   /// Setter für die Konfigurationseinstellungen.
-  void setSettings(SettingsEntity? value) {
+  void setSettings(SettingsEntity value) {
     _settings = value;
   }
 }

@@ -118,7 +118,7 @@ class DetailNotifier extends Notifier<DetailState> {
         passwordHint: passwordHint,
         url: payload.url,
         notes: payload.notes,
-        favicon: _entry!.favicon,
+        favicon: payload.favicon,
         auditHint: auditHint,
         attachments: attachments,
         friends: friends,

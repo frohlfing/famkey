@@ -59,17 +59,14 @@ void main() {
   group('DetailNotifier Tests', () {
     test('1.1.1 load: Entschlüsselt Daten und lädt Metadaten korrekt', () async {
       final entry = EntryEntity(
-          id: 10,
-          uuid: 'e1',
-          category: 'C',
-          title: 'T',
-          url: 'u',
-          notes: '',
-          favicon: 'fav',
-          creatorId: 1,
-          updaterId: 1,
-          updatedAt: DateTime.now(),
-          encryptedData: 'ENC_DATA');
+        id: 10,
+        uuid: 'e1',
+        creatorId: 1,
+        updaterId: 1,
+        updatedAt: DateTime.now(),
+        encryptedData: 'ENC_DATA',
+        encryptedIndex: '',
+      );
       final myPerm = PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'ENC_KEY', accessLevel: 3);
       final entryKey = Uint8List(32);
       final privateKey = Uint8List(32);
@@ -85,13 +82,14 @@ void main() {
       when(mockCrypto.decrypt('ENC_DATA', entryKey)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(payloadJson)));
       when(mockPw.estimateStrength('pw')).thenReturn(4);
       when(mockDb.getUser(1)).thenAnswer((_) async => UserEntity(
-          id: 1,
-          uuid: 'u',
-          name: 'Alice',
-          publicKey: 'p',
-          isVerified: true,
-          isHidden: false,
-          updatedAt: DateTime.now()));
+        id: 1,
+        uuid: 'u',
+        name: 'Alice',
+        publicKey: 'p',
+        isVerified: true,
+        isHidden: false,
+        updatedAt: DateTime.now()),
+      );
       when(mockDb.getAttachmentsByEntryId(10)).thenAnswer((_) async => []);
       when(mockDb.getNotHiddenFriendsWithAccessLevel(10)).thenAnswer((_) async => []);
 
@@ -109,25 +107,23 @@ void main() {
     test('2.1.1 shareWith: Verschlüsselt Entry-Key für einen Freund neu', () async {
       // Voraussetzung: Eintrag muss geladen sein
       final entry = EntryEntity(
-          id: 10,
-          uuid: 'e1',
-          category: 'C',
-          title: 'T',
-          url: 'u',
-          notes: '',
-          favicon: 'fav',
-          creatorId: 1,
-          updaterId: 1,
-          updatedAt: DateTime.now(),
-          encryptedData: 'D');
+        id: 10,
+        uuid: 'e1',
+        creatorId: 1,
+        updaterId: 1,
+        updatedAt: DateTime.now(),
+        encryptedData: 'D',
+        encryptedIndex: '',
+    );
       final friend = UserEntity(
-          id: 2,
-          uuid: 'f1',
-          name: 'Bob',
-          publicKey: 'FRIEND_PUB',
-          isVerified: true,
-          isHidden: false,
-          updatedAt: DateTime.now());
+        id: 2,
+        uuid: 'f1',
+        name: 'Bob',
+        publicKey: 'FRIEND_PUB',
+        isVerified: true,
+        isHidden: false,
+        updatedAt: DateTime.now(),
+      );
 
       final entryKey = Uint8List(32);
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
@@ -141,13 +137,14 @@ void main() {
       when(mockDb.getAttachmentsByEntryId(any)).thenAnswer((_) async => []);
       when(mockDb.getNotHiddenFriendsWithAccessLevel(any)).thenAnswer((_) async => []);
       when(mockDb.getUser(any)).thenAnswer((_) async => UserEntity(
-          id: 1,
-          uuid: 'u',
-          name: 'A',
-          publicKey: 'p',
-          isVerified: true,
-          isHidden: false,
-          updatedAt: DateTime.now()));
+        id: 1,
+        uuid: 'u',
+        name: 'A',
+        publicKey: 'p',
+        isVerified: true,
+        isHidden: false,
+        updatedAt: DateTime.now()),
+      );
 
       final notifier = container.read(detailProvider.notifier);
       await notifier.load(10);
@@ -173,17 +170,14 @@ void main() {
 
       // Mocks für load() ...
       when(mockDb.getEntry(10)).thenAnswer((_) async => EntryEntity(
-          id: 10,
-          uuid: 'e1',
-          category: 'C',
-          title: 'T',
-          url: 'u',
-          notes: '',
-          favicon: '',
-          creatorId: 1,
-          updaterId: 1,
-          updatedAt: DateTime.now(),
-          encryptedData: 'D'));
+        id: 10,
+        uuid: 'e1',
+        creatorId: 1,
+        updaterId: 1,
+        updatedAt: DateTime.now(),
+        encryptedData: 'D',
+        encryptedIndex: '',
+      ));
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1))
           .thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
       when(mockSession.privateKey).thenReturn(Uint8List(32));

@@ -176,7 +176,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _settings = await _databaseService.saveSettings(updatedSettings);
 
       // 5. Session aktualisieren
-      _sessionService.setSettings(_settings);
+      _sessionService.setSettings(_settings!);
 
       // 6. State aktualisieren
       state = state.copyWith(

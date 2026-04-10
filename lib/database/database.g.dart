@@ -495,61 +495,23 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _categoryMeta = const VerificationMeta(
-    'category',
-  );
-  @override
-  late final GeneratedColumn<String> category = GeneratedColumn<String>(
-    'category',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _titleMeta = const VerificationMeta('title');
-  @override
-  late final GeneratedColumn<String> title = GeneratedColumn<String>(
-    'title',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _urlMeta = const VerificationMeta('url');
-  @override
-  late final GeneratedColumn<String> url = GeneratedColumn<String>(
-    'url',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
-  @override
-  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
-    'notes',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _faviconMeta = const VerificationMeta(
-    'favicon',
-  );
-  @override
-  late final GeneratedColumn<String> favicon = GeneratedColumn<String>(
-    'favicon',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
   static const VerificationMeta _encryptedDataMeta = const VerificationMeta(
     'encryptedData',
   );
   @override
   late final GeneratedColumn<String> encryptedData = GeneratedColumn<String>(
     'encrypted_data',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _encryptedIndexMeta = const VerificationMeta(
+    'encryptedIndex',
+  );
+  @override
+  late final GeneratedColumn<String> encryptedIndex = GeneratedColumn<String>(
+    'encrypted_index',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -592,12 +554,8 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
   List<GeneratedColumn> get $columns => [
     id,
     uuid,
-    category,
-    title,
-    url,
-    notes,
-    favicon,
     encryptedData,
+    encryptedIndex,
     creatorId,
     updaterId,
     updatedAt,
@@ -625,46 +583,6 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
     } else if (isInserting) {
       context.missing(_uuidMeta);
     }
-    if (data.containsKey('category')) {
-      context.handle(
-        _categoryMeta,
-        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_categoryMeta);
-    }
-    if (data.containsKey('title')) {
-      context.handle(
-        _titleMeta,
-        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_titleMeta);
-    }
-    if (data.containsKey('url')) {
-      context.handle(
-        _urlMeta,
-        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_urlMeta);
-    }
-    if (data.containsKey('notes')) {
-      context.handle(
-        _notesMeta,
-        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_notesMeta);
-    }
-    if (data.containsKey('favicon')) {
-      context.handle(
-        _faviconMeta,
-        favicon.isAcceptableOrUnknown(data['favicon']!, _faviconMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_faviconMeta);
-    }
     if (data.containsKey('encrypted_data')) {
       context.handle(
         _encryptedDataMeta,
@@ -675,6 +593,17 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
       );
     } else if (isInserting) {
       context.missing(_encryptedDataMeta);
+    }
+    if (data.containsKey('encrypted_index')) {
+      context.handle(
+        _encryptedIndexMeta,
+        encryptedIndex.isAcceptableOrUnknown(
+          data['encrypted_index']!,
+          _encryptedIndexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_encryptedIndexMeta);
     }
     if (data.containsKey('creator_id')) {
       context.handle(
@@ -717,29 +646,13 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, EntryEntity> {
         DriftSqlType.string,
         data['${effectivePrefix}uuid'],
       )!,
-      category: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}category'],
-      )!,
-      title: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}title'],
-      )!,
-      url: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}url'],
-      )!,
-      notes: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}notes'],
-      )!,
-      favicon: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}favicon'],
-      )!,
       encryptedData: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}encrypted_data'],
+      )!,
+      encryptedIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}encrypted_index'],
       )!,
       creatorId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -770,25 +683,13 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
   /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
   final String uuid;
 
-  /// Die Kategorie des Eintrags.
-  final String category;
-
-  /// Der Anzeigename des Eintrags.
-  final String title;
-
-  /// Die zugehörige Adresse der Webseite oder des Dienstes.
-  final String url;
-
-  /// Ergänzende Notizen.
-  final String notes;
-
-  /// Der binäre Dateninhalt des Website-Icons, gespeichert als Base64-kodierter String.
-  /// Ermöglicht die visuelle Identifikation in der Liste ohne zusätzliche Netzwerkanfragen.
-  final String favicon;
-
-  /// Der AES-256-GCM verschlüsselte Daten-Container (Ciphertext + Nonce + Auth-Tag).
+  /// Der AES-256-GCM verschlüsselte Daten-Container.
   /// Enthält das serialisierte JSON-Objekt der Klasse [EntryPayload].
   final String encryptedData;
+
+  /// Der AES-256-GCM verschlüsselte Index-Container.
+  /// Enthält das serialisierte JSON-Objekt der Klasse [IndexPayload].
+  final String encryptedIndex;
 
   /// Die lokale ID des Benutzers, der diesen Eintrag erstellt hat.
   final int creatorId;
@@ -801,12 +702,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
   const EntryEntity({
     required this.id,
     required this.uuid,
-    required this.category,
-    required this.title,
-    required this.url,
-    required this.notes,
-    required this.favicon,
     required this.encryptedData,
+    required this.encryptedIndex,
     required this.creatorId,
     required this.updaterId,
     required this.updatedAt,
@@ -816,12 +713,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['uuid'] = Variable<String>(uuid);
-    map['category'] = Variable<String>(category);
-    map['title'] = Variable<String>(title);
-    map['url'] = Variable<String>(url);
-    map['notes'] = Variable<String>(notes);
-    map['favicon'] = Variable<String>(favicon);
     map['encrypted_data'] = Variable<String>(encryptedData);
+    map['encrypted_index'] = Variable<String>(encryptedIndex);
     map['creator_id'] = Variable<int>(creatorId);
     map['updater_id'] = Variable<int>(updaterId);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -832,12 +725,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     return EntriesCompanion(
       id: Value(id),
       uuid: Value(uuid),
-      category: Value(category),
-      title: Value(title),
-      url: Value(url),
-      notes: Value(notes),
-      favicon: Value(favicon),
       encryptedData: Value(encryptedData),
+      encryptedIndex: Value(encryptedIndex),
       creatorId: Value(creatorId),
       updaterId: Value(updaterId),
       updatedAt: Value(updatedAt),
@@ -852,12 +741,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     return EntryEntity(
       id: serializer.fromJson<int>(json['id']),
       uuid: serializer.fromJson<String>(json['uuid']),
-      category: serializer.fromJson<String>(json['category']),
-      title: serializer.fromJson<String>(json['title']),
-      url: serializer.fromJson<String>(json['url']),
-      notes: serializer.fromJson<String>(json['notes']),
-      favicon: serializer.fromJson<String>(json['favicon']),
       encryptedData: serializer.fromJson<String>(json['encryptedData']),
+      encryptedIndex: serializer.fromJson<String>(json['encryptedIndex']),
       creatorId: serializer.fromJson<int>(json['creatorId']),
       updaterId: serializer.fromJson<int>(json['updaterId']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -869,12 +754,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'uuid': serializer.toJson<String>(uuid),
-      'category': serializer.toJson<String>(category),
-      'title': serializer.toJson<String>(title),
-      'url': serializer.toJson<String>(url),
-      'notes': serializer.toJson<String>(notes),
-      'favicon': serializer.toJson<String>(favicon),
       'encryptedData': serializer.toJson<String>(encryptedData),
+      'encryptedIndex': serializer.toJson<String>(encryptedIndex),
       'creatorId': serializer.toJson<int>(creatorId),
       'updaterId': serializer.toJson<int>(updaterId),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -884,24 +765,16 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
   EntryEntity copyWith({
     int? id,
     String? uuid,
-    String? category,
-    String? title,
-    String? url,
-    String? notes,
-    String? favicon,
     String? encryptedData,
+    String? encryptedIndex,
     int? creatorId,
     int? updaterId,
     DateTime? updatedAt,
   }) => EntryEntity(
     id: id ?? this.id,
     uuid: uuid ?? this.uuid,
-    category: category ?? this.category,
-    title: title ?? this.title,
-    url: url ?? this.url,
-    notes: notes ?? this.notes,
-    favicon: favicon ?? this.favicon,
     encryptedData: encryptedData ?? this.encryptedData,
+    encryptedIndex: encryptedIndex ?? this.encryptedIndex,
     creatorId: creatorId ?? this.creatorId,
     updaterId: updaterId ?? this.updaterId,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -910,14 +783,12 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     return EntryEntity(
       id: data.id.present ? data.id.value : this.id,
       uuid: data.uuid.present ? data.uuid.value : this.uuid,
-      category: data.category.present ? data.category.value : this.category,
-      title: data.title.present ? data.title.value : this.title,
-      url: data.url.present ? data.url.value : this.url,
-      notes: data.notes.present ? data.notes.value : this.notes,
-      favicon: data.favicon.present ? data.favicon.value : this.favicon,
       encryptedData: data.encryptedData.present
           ? data.encryptedData.value
           : this.encryptedData,
+      encryptedIndex: data.encryptedIndex.present
+          ? data.encryptedIndex.value
+          : this.encryptedIndex,
       creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
       updaterId: data.updaterId.present ? data.updaterId.value : this.updaterId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -929,12 +800,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
     return (StringBuffer('EntryEntity(')
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
-          ..write('category: $category, ')
-          ..write('title: $title, ')
-          ..write('url: $url, ')
-          ..write('notes: $notes, ')
-          ..write('favicon: $favicon, ')
           ..write('encryptedData: $encryptedData, ')
+          ..write('encryptedIndex: $encryptedIndex, ')
           ..write('creatorId: $creatorId, ')
           ..write('updaterId: $updaterId, ')
           ..write('updatedAt: $updatedAt')
@@ -946,12 +813,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
   int get hashCode => Object.hash(
     id,
     uuid,
-    category,
-    title,
-    url,
-    notes,
-    favicon,
     encryptedData,
+    encryptedIndex,
     creatorId,
     updaterId,
     updatedAt,
@@ -962,12 +825,8 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
       (other is EntryEntity &&
           other.id == this.id &&
           other.uuid == this.uuid &&
-          other.category == this.category &&
-          other.title == this.title &&
-          other.url == this.url &&
-          other.notes == this.notes &&
-          other.favicon == this.favicon &&
           other.encryptedData == this.encryptedData &&
+          other.encryptedIndex == this.encryptedIndex &&
           other.creatorId == this.creatorId &&
           other.updaterId == this.updaterId &&
           other.updatedAt == this.updatedAt);
@@ -976,24 +835,16 @@ class EntryEntity extends DataClass implements Insertable<EntryEntity> {
 class EntriesCompanion extends UpdateCompanion<EntryEntity> {
   final Value<int> id;
   final Value<String> uuid;
-  final Value<String> category;
-  final Value<String> title;
-  final Value<String> url;
-  final Value<String> notes;
-  final Value<String> favicon;
   final Value<String> encryptedData;
+  final Value<String> encryptedIndex;
   final Value<int> creatorId;
   final Value<int> updaterId;
   final Value<DateTime> updatedAt;
   const EntriesCompanion({
     this.id = const Value.absent(),
     this.uuid = const Value.absent(),
-    this.category = const Value.absent(),
-    this.title = const Value.absent(),
-    this.url = const Value.absent(),
-    this.notes = const Value.absent(),
-    this.favicon = const Value.absent(),
     this.encryptedData = const Value.absent(),
+    this.encryptedIndex = const Value.absent(),
     this.creatorId = const Value.absent(),
     this.updaterId = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1001,34 +852,22 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
   EntriesCompanion.insert({
     this.id = const Value.absent(),
     required String uuid,
-    required String category,
-    required String title,
-    required String url,
-    required String notes,
-    required String favicon,
     required String encryptedData,
+    required String encryptedIndex,
     required int creatorId,
     required int updaterId,
     required DateTime updatedAt,
   }) : uuid = Value(uuid),
-       category = Value(category),
-       title = Value(title),
-       url = Value(url),
-       notes = Value(notes),
-       favicon = Value(favicon),
        encryptedData = Value(encryptedData),
+       encryptedIndex = Value(encryptedIndex),
        creatorId = Value(creatorId),
        updaterId = Value(updaterId),
        updatedAt = Value(updatedAt);
   static Insertable<EntryEntity> custom({
     Expression<int>? id,
     Expression<String>? uuid,
-    Expression<String>? category,
-    Expression<String>? title,
-    Expression<String>? url,
-    Expression<String>? notes,
-    Expression<String>? favicon,
     Expression<String>? encryptedData,
+    Expression<String>? encryptedIndex,
     Expression<int>? creatorId,
     Expression<int>? updaterId,
     Expression<DateTime>? updatedAt,
@@ -1036,12 +875,8 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (uuid != null) 'uuid': uuid,
-      if (category != null) 'category': category,
-      if (title != null) 'title': title,
-      if (url != null) 'url': url,
-      if (notes != null) 'notes': notes,
-      if (favicon != null) 'favicon': favicon,
       if (encryptedData != null) 'encrypted_data': encryptedData,
+      if (encryptedIndex != null) 'encrypted_index': encryptedIndex,
       if (creatorId != null) 'creator_id': creatorId,
       if (updaterId != null) 'updater_id': updaterId,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -1051,12 +886,8 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
   EntriesCompanion copyWith({
     Value<int>? id,
     Value<String>? uuid,
-    Value<String>? category,
-    Value<String>? title,
-    Value<String>? url,
-    Value<String>? notes,
-    Value<String>? favicon,
     Value<String>? encryptedData,
+    Value<String>? encryptedIndex,
     Value<int>? creatorId,
     Value<int>? updaterId,
     Value<DateTime>? updatedAt,
@@ -1064,12 +895,8 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
     return EntriesCompanion(
       id: id ?? this.id,
       uuid: uuid ?? this.uuid,
-      category: category ?? this.category,
-      title: title ?? this.title,
-      url: url ?? this.url,
-      notes: notes ?? this.notes,
-      favicon: favicon ?? this.favicon,
       encryptedData: encryptedData ?? this.encryptedData,
+      encryptedIndex: encryptedIndex ?? this.encryptedIndex,
       creatorId: creatorId ?? this.creatorId,
       updaterId: updaterId ?? this.updaterId,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -1085,23 +912,11 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
     if (uuid.present) {
       map['uuid'] = Variable<String>(uuid.value);
     }
-    if (category.present) {
-      map['category'] = Variable<String>(category.value);
-    }
-    if (title.present) {
-      map['title'] = Variable<String>(title.value);
-    }
-    if (url.present) {
-      map['url'] = Variable<String>(url.value);
-    }
-    if (notes.present) {
-      map['notes'] = Variable<String>(notes.value);
-    }
-    if (favicon.present) {
-      map['favicon'] = Variable<String>(favicon.value);
-    }
     if (encryptedData.present) {
       map['encrypted_data'] = Variable<String>(encryptedData.value);
+    }
+    if (encryptedIndex.present) {
+      map['encrypted_index'] = Variable<String>(encryptedIndex.value);
     }
     if (creatorId.present) {
       map['creator_id'] = Variable<int>(creatorId.value);
@@ -1120,12 +935,8 @@ class EntriesCompanion extends UpdateCompanion<EntryEntity> {
     return (StringBuffer('EntriesCompanion(')
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
-          ..write('category: $category, ')
-          ..write('title: $title, ')
-          ..write('url: $url, ')
-          ..write('notes: $notes, ')
-          ..write('favicon: $favicon, ')
           ..write('encryptedData: $encryptedData, ')
+          ..write('encryptedIndex: $encryptedIndex, ')
           ..write('creatorId: $creatorId, ')
           ..write('updaterId: $updaterId, ')
           ..write('updatedAt: $updatedAt')
@@ -2990,14 +2801,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'uk_entries_uuid',
     'CREATE UNIQUE INDEX uk_entries_uuid ON entries (uuid)',
   );
-  late final Index idxEntriesCategory = Index(
-    'idx_entries_category',
-    'CREATE INDEX idx_entries_category ON entries (category)',
-  );
-  late final Index idxEntriesTitle = Index(
-    'idx_entries_title',
-    'CREATE INDEX idx_entries_title ON entries (title)',
-  );
   late final Index idxEntriesUpdatedAt = Index(
     'idx_entries_updated_at',
     'CREATE INDEX idx_entries_updated_at ON entries (updated_at)',
@@ -3046,8 +2849,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxUsersIsHidden,
     idxUsersUpdatedAt,
     ukEntriesUuid,
-    idxEntriesCategory,
-    idxEntriesTitle,
     idxEntriesUpdatedAt,
     ukPermissionsEntryIdUserId,
     idxPermissionsUser,
@@ -3290,12 +3091,8 @@ typedef $$EntriesTableCreateCompanionBuilder =
     EntriesCompanion Function({
       Value<int> id,
       required String uuid,
-      required String category,
-      required String title,
-      required String url,
-      required String notes,
-      required String favicon,
       required String encryptedData,
+      required String encryptedIndex,
       required int creatorId,
       required int updaterId,
       required DateTime updatedAt,
@@ -3304,12 +3101,8 @@ typedef $$EntriesTableUpdateCompanionBuilder =
     EntriesCompanion Function({
       Value<int> id,
       Value<String> uuid,
-      Value<String> category,
-      Value<String> title,
-      Value<String> url,
-      Value<String> notes,
-      Value<String> favicon,
       Value<String> encryptedData,
+      Value<String> encryptedIndex,
       Value<int> creatorId,
       Value<int> updaterId,
       Value<DateTime> updatedAt,
@@ -3334,33 +3127,13 @@ class $$EntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get category => $composableBuilder(
-    column: $table.category,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get title => $composableBuilder(
-    column: $table.title,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get url => $composableBuilder(
-    column: $table.url,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get notes => $composableBuilder(
-    column: $table.notes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get favicon => $composableBuilder(
-    column: $table.favicon,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get encryptedData => $composableBuilder(
     column: $table.encryptedData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get encryptedIndex => $composableBuilder(
+    column: $table.encryptedIndex,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3399,33 +3172,13 @@ class $$EntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get category => $composableBuilder(
-    column: $table.category,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get title => $composableBuilder(
-    column: $table.title,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get url => $composableBuilder(
-    column: $table.url,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get notes => $composableBuilder(
-    column: $table.notes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get favicon => $composableBuilder(
-    column: $table.favicon,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get encryptedData => $composableBuilder(
     column: $table.encryptedData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get encryptedIndex => $composableBuilder(
+    column: $table.encryptedIndex,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3460,23 +3213,13 @@ class $$EntriesTableAnnotationComposer
   GeneratedColumn<String> get uuid =>
       $composableBuilder(column: $table.uuid, builder: (column) => column);
 
-  GeneratedColumn<String> get category =>
-      $composableBuilder(column: $table.category, builder: (column) => column);
-
-  GeneratedColumn<String> get title =>
-      $composableBuilder(column: $table.title, builder: (column) => column);
-
-  GeneratedColumn<String> get url =>
-      $composableBuilder(column: $table.url, builder: (column) => column);
-
-  GeneratedColumn<String> get notes =>
-      $composableBuilder(column: $table.notes, builder: (column) => column);
-
-  GeneratedColumn<String> get favicon =>
-      $composableBuilder(column: $table.favicon, builder: (column) => column);
-
   GeneratedColumn<String> get encryptedData => $composableBuilder(
     column: $table.encryptedData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get encryptedIndex => $composableBuilder(
+    column: $table.encryptedIndex,
     builder: (column) => column,
   );
 
@@ -3523,24 +3266,16 @@ class $$EntriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> uuid = const Value.absent(),
-                Value<String> category = const Value.absent(),
-                Value<String> title = const Value.absent(),
-                Value<String> url = const Value.absent(),
-                Value<String> notes = const Value.absent(),
-                Value<String> favicon = const Value.absent(),
                 Value<String> encryptedData = const Value.absent(),
+                Value<String> encryptedIndex = const Value.absent(),
                 Value<int> creatorId = const Value.absent(),
                 Value<int> updaterId = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => EntriesCompanion(
                 id: id,
                 uuid: uuid,
-                category: category,
-                title: title,
-                url: url,
-                notes: notes,
-                favicon: favicon,
                 encryptedData: encryptedData,
+                encryptedIndex: encryptedIndex,
                 creatorId: creatorId,
                 updaterId: updaterId,
                 updatedAt: updatedAt,
@@ -3549,24 +3284,16 @@ class $$EntriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String uuid,
-                required String category,
-                required String title,
-                required String url,
-                required String notes,
-                required String favicon,
                 required String encryptedData,
+                required String encryptedIndex,
                 required int creatorId,
                 required int updaterId,
                 required DateTime updatedAt,
               }) => EntriesCompanion.insert(
                 id: id,
                 uuid: uuid,
-                category: category,
-                title: title,
-                url: url,
-                notes: notes,
-                favicon: favicon,
                 encryptedData: encryptedData,
+                encryptedIndex: encryptedIndex,
                 creatorId: creatorId,
                 updaterId: updaterId,
                 updatedAt: updatedAt,

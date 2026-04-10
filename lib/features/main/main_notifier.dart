@@ -1,11 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/main/main_state.dart';
+import 'package:privault/models/payloads/index_payload.dart';
+import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+
+/// Kombiniert einen Datenbank-Eintrag mit seinen entschlüsselten Anzeigedaten.
+typedef EntryWithIndex = ({EntryEntity entry, IndexPayload index});
 
 final mainProvider = NotifierProvider<MainNotifier, MainState>(
   MainNotifier.new,
@@ -22,6 +29,7 @@ class MainNotifier extends Notifier<MainState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
+  late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
 
@@ -30,7 +38,7 @@ class MainNotifier extends Notifier<MainState> {
   // ------------------------------------------------------------------------
 
   /// Liste der Einträge
-  List<EntryEntity> _allEntries = [];
+  List<EntryWithIndex> _allEntries = [];
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -43,6 +51,7 @@ class MainNotifier extends Notifier<MainState> {
   @override
   MainState build() {
     // Dienste aus getIt holen
+    _cryptoService = getIt();
     _databaseService = getIt();
     _sessionService = getIt();
 
@@ -58,7 +67,19 @@ class MainNotifier extends Notifier<MainState> {
     state = const MainState(status: MainActionStatus.progress, error: AppError.none());
 
     try {
-      _allEntries = await _databaseService.getEntries();
+      final entries = await _databaseService.getEntries();
+      final indexKey = _sessionService.indexKey!;
+
+      _allEntries = await Future.wait(entries.map((entry) async {
+        try {
+          final decrypted = await _cryptoService.decrypt(entry.encryptedIndex, indexKey);
+          final index = IndexPayload.fromJson(json.decode(utf8.decode(decrypted)));
+          return (entry: entry, index: index);
+        } catch (_) {
+          // Fehlertoleranz: leerer Index falls encryptedIndex fehlt oder korrupt ist
+          return (entry: entry, index: const IndexPayload(category: '', title: '', url: '', notes: '', favicon: ''));
+        }
+      }));
 
       // UI-State aktualisieren
       state = state.copyWith(
@@ -108,26 +129,28 @@ class MainNotifier extends Notifier<MainState> {
   }
 
   /// Gruppiert die gefilterten Einträge nach Kategorien für die Darstellung in der UI.
-  Map<String, List<EntryEntity>> _groupEntries({String searchQuery = '', bool onlyMyEntries = false}) {
-    final Map<String, List<EntryEntity>> groups = {};
+  Map<String, List<EntryWithIndex>> _groupEntries({String searchQuery = '', bool onlyMyEntries = false}) {
+    final Map<String, List<EntryWithIndex>> groups = {};
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
     final q = searchQuery;
 
     // Filter anwenden
-    final filtered = _allEntries.where((entry) {
-      final matchesSearch = entry.title.toLowerCase().contains(q) || entry.url.toLowerCase().contains(q) || entry.notes.toLowerCase().contains(q);
-      final matchesUser = !onlyMyEntries || entry.creatorId == _sessionService.user?.id;
+    final filtered = _allEntries.where((e) {
+      final idx = e.index;
+      final matchesSearch = q.isEmpty ||
+          idx.title.toLowerCase().contains(q) ||
+          idx.url.toLowerCase().contains(q) ||
+          idx.notes.toLowerCase().contains(q);
+      final matchesUser = !onlyMyEntries || e.entry.creatorId == _sessionService.user?.id;
       return matchesSearch && matchesUser;
     });
 
     // Gruppieren
-    for (final entry in filtered) {
-      final category = entry.category.isEmpty ? placeholder : entry.category;
-      if (!groups.containsKey(category)) {
-        groups[category] = [];
-      }
-      groups[category]!.add(entry);
+    for (final e in filtered) {
+      final category = e.index.category.isEmpty ? placeholder : e.index.category;
+      groups.putIfAbsent(category, () => []).add(e);
     }
+
     return groups;
   }
 

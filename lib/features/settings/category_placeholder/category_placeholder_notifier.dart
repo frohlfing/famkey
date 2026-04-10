@@ -102,7 +102,7 @@ class CategoryPlaceholderNotifier extends Notifier<CategoryPlaceholderState> {
           categoryPlaceholder: categoryPlaceholder,
         );
         _settings = await _databaseService.saveSettings(updatedSettings);
-        _sessionService.setSettings(_settings);
+        _sessionService.setSettings(_settings!);
       }
 
       // 5. State aktualisieren

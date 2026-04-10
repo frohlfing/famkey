@@ -1,5 +1,6 @@
 import 'package:privault/core/app_error.dart';
 import 'package:privault/database/database.dart';
+import 'package:privault/features/main/main_notifier.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum MainActionStatus {
@@ -21,7 +22,7 @@ class MainState {
   final bool onlyMyEntries;
 
   /// Anzuzeigende Einträge gruppiert nach Kategorien
-  final Map<String, List<EntryEntity>> groupedEntries;
+  final Map<String, List<EntryWithIndex>> groupedEntries;
 
   /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
   final Set<String> collapsedCategories;
@@ -36,6 +37,9 @@ class MainState {
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isBusy => status == MainActionStatus.progress;
+
+  /// Sortierte Liste aller vorhandenen Kategorienamen – für die Vorschlagsliste im Edit-Dialog.
+  List<String> get categories => groupedEntries.keys.toList()..sort();
 
   /// Konstruktor
   const MainState({
@@ -53,7 +57,7 @@ class MainState {
     String? vaultName,
     String? searchQuery,
     bool? onlyMyEntries,
-    Map<String, List<EntryEntity>>? groupedEntries,
+    Map<String, List<EntryWithIndex>>? groupedEntries,
     Set<String>? collapsedCategories,
     MainActionStatus? status,
     AppError? error,

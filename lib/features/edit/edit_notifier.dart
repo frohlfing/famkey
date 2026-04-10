@@ -1,7 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
@@ -11,7 +9,9 @@ import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/edit/edit_form_data.dart';
 import 'package:privault/features/edit/edit_state.dart';
+import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
+import 'package:privault/models/payloads/index_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
@@ -37,9 +37,6 @@ class EditNotifier extends Notifier<EditState> {
   // --- Interne Variablen (nicht reaktiv, nicht UI‑relevant) ---
   // ------------------------------------------------------------------------
 
-  /// Objekt für HTTP-Anfragen (wird hier zum Download des Favicons benötigt)
-  final Dio _dio = Dio();
-
   /// Die aktuell geladene Datenbank-Entität. Ist null bei einem neuen Eintrag.
   EntryEntity? _entry;
 
@@ -48,8 +45,11 @@ class EditNotifier extends Notifier<EditState> {
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
 
-  /// Der Zeitstempel des Passworts (UTC) im Payload. Ist null bei einem neuen Eintrag.
+  /// Der Zeitstempel des Passworts (UTC) im Data-Payload. Ist null bei einem neuen Eintrag.
   DateTime? _passwordTimestamp;
+
+  /// Der Favicon als Base64-String im Data-Payload.
+  String? _favicon;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -83,7 +83,7 @@ class EditNotifier extends Notifier<EditState> {
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
 
       // Vorhandene Kategorien für Vorschlagsliste laden
-      final categories = await _databaseService.getCategories();
+      final categories = ref.read(mainProvider).categories;
       state = state.copyWith(existingCategories: categories);
 
       if (id != null) {
@@ -117,6 +117,7 @@ class EditNotifier extends Notifier<EditState> {
 
         // brauchen wir später beim Speichern des neuen Payloads
         _passwordTimestamp = payload.passwordTimestamp;
+        _favicon = payload.favicon;
 
         // UI-State aktualisieren
         state = state.copyWith(
@@ -179,23 +180,18 @@ class EditNotifier extends Notifier<EditState> {
         return;
       }
 
-      // 3. Key-Management: Neuen AES-Key generieren, falls nicht vorhanden
-      //_entryKey ??= Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
+      // 4. Zeitstempel des Passworts aktualisieren, falls Passwort geändert wurde.
+      final passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
 
-      // 4. Favicon herunterladen, falls URL sich geändert hat
-      var favicon = _entry?.favicon ?? '';
-      if (formData.url.isNotEmpty && formData.url != state.originalFormData.url) {
-        final icon = await downloadFavicon(formData.url);
-        if (icon != null) favicon = icon;
-      }
+      // 5. Favicon herunterladen, falls URL geändert wurde
+      final favicon = (formData.url.isNotEmpty && formData.url != state.originalFormData.url ? await downloadFavicon(formData.url) : _favicon) ?? '';
 
-      // 5. Payload für den verschlüsselten Eintrag bauen
-      DateTime? passwordTimestamp;
-      if (formData.password.isNotEmpty) {
-        passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
-      }
-      //passwordTimestamp = DateTime.parse('2018-10-01');
-      final payload = EntryPayload(
+      // 6. Neuen AES-Key speziell für diesen Eintrag generieren und per RSA verschlüsseln, falls _entryKey == null
+      _entryKey ??= _cryptoService.generateAesKey();
+      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
+
+      // 7. encryptedData bauen und mit dem entryKey verschlüsseln
+      final entryPayload = EntryPayload(
         category: formData.category,
         title: formData.title,
         username: formData.username,
@@ -205,24 +201,25 @@ class EditNotifier extends Notifier<EditState> {
         notes: formData.notes,
         favicon: favicon,
       );
+      final entryBytes = Uint8List.fromList(utf8.encode(json.encode(entryPayload.toJson())));
+      final encryptedData = await _cryptoService.encrypt(entryBytes, _entryKey!);
 
-      // 6. Neuen AES-Key generieren und per RSA verschlüsseln, falls _entryKey == null
-      _entryKey ??= _cryptoService.generateAesKey();
-      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
-
-      // 7. Payload per AES-Key verschlüsseln
-      final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
-      final encryptedData = await _cryptoService.encrypt(payloadBytes, _entryKey!);
-
-      // 8. Eintrag in der DB speichern
-      final entity = EntryEntity(
-        id: _entry?.id ?? 0,
-        uuid: _entry?.uuid ?? const Uuid().v4(),
+      // 8. encryptedIndex bauen und mit dem indexKey verschlüsseln
+      final indexPayload = IndexPayload(
         category: formData.category,
         title: formData.title,
         url: formData.url,
         notes: formData.notes,
         favicon: favicon,
+      );
+      final indexBytes = Uint8List.fromList(utf8.encode(json.encode(indexPayload.toJson())));
+      final encryptedIndex = await _cryptoService.encrypt(indexBytes, _sessionService.indexKey!);
+
+      // 9. Eintrag in der DB speichern
+      final entity = EntryEntity(
+        id: _entry?.id ?? 0,
+        uuid: _entry?.uuid ?? const Uuid().v4(),
+        encryptedIndex: encryptedIndex,
         encryptedData: encryptedData,
         creatorId: _sessionService.user!.id,
         updaterId: _sessionService.user!.id,
@@ -230,7 +227,7 @@ class EditNotifier extends Notifier<EditState> {
       );
       _entry = await _databaseService.saveEntryWithPermissions(entity, 1, encryptedEntryKey);
 
-      // 9. State aktualisieren
+      // 10. State aktualisieren
       state = state.copyWith(
         entryId: _entry!.id,
         originalFormData: formData,
@@ -242,17 +239,6 @@ class EditNotifier extends Notifier<EditState> {
       state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
-
-  // /// Lädt das Favicon einer Website über den Google-Dienst.
-  // Future<String?> _downloadFavicon(String url) async {
-  //   try {
-  //     final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
-  //     final faviconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=64';
-  //     final response = await _dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
-  //     if (response.data != null) return base64.encode(response.data!);
-  //   } catch (_) {}
-  //   return null;
-  // }
 
   // ------------------------------------------------------------------------
   // --- Löschen ---

@@ -58,7 +58,6 @@ void main() {
     
     test('1.1.1 load (New): Initialisiert leeres Formular', () async {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
-      when(mockDb.getCategories()).thenAnswer((_) async => ['Work', 'Social']);
 
       final notifier = container.read(editProvider.notifier);
       await notifier.load(null);
@@ -67,15 +66,14 @@ void main() {
       expect(state.status, equals(EditActionStatus.loaded));
       expect(state.entryId, equals(0));
       expect(state.formData.title, isEmpty);
-      expect(state.existingCategories, contains('Work'));
+      expect(state.existingCategories, isEmpty);
     });
 
     test('1.2.1 load (Edit): Lädt und entschlüsselt vorhandenen Eintrag', () async {
-      final entry = EntryEntity(id: 10, uuid: 'e1', category: 'C', title: 'T', url: 'u', notes: 'n', favicon: 'f', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: 'ENC_DATA');
+      final entry = EntryEntity(id: 10, uuid: 'e1', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: 'ENC_DATA', encryptedIndex: '');
       final payloadJson = json.encode(createTestPayload().toJson());
 
       when(mockSession.privateKey).thenReturn(Uint8List(32));
-      when(mockDb.getCategories()).thenAnswer((_) async => []);
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
       when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));
@@ -107,20 +105,20 @@ void main() {
       final user = UserEntity(id: 1, uuid: 'u', name: 'A', publicKey: 'PUB', isVerified: true, isHidden: false, updatedAt: DateTime.now());
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockSession.user).thenReturn(user);
-      when(mockDb.getCategories()).thenAnswer((_) async => []);
-      
+
       final notifier = container.read(editProvider.notifier);
       await notifier.load(null);
 
       notifier.setTitle('New Entry');
       notifier.setPassword('Secret123');
 
+      when(mockSession.indexKey).thenReturn(Uint8List(32));
+      when(mockCrypto.generateAesKey()).thenReturn(Uint8List(32));
       when(mockCrypto.encrypt(any, any)).thenAnswer((_) async => 'ENC_DATA');
       when(mockCrypto.encryptRsa(any, 'PUB')).thenAnswer((_) async => 'ENC_KEY');
       when(mockDb.saveEntryWithPermissions(any, 1, 'ENC_KEY')).thenAnswer((inv) async => (inv.positionalArguments[0] as EntryEntity).copyWith(id: 100));
 
       await notifier.save();
-
       expect(container.read(editProvider).status, equals(EditActionStatus.saved));
       expect(container.read(editProvider).entryId, equals(100));
       verify(mockDb.saveEntryWithPermissions(any, 1, 'ENC_KEY')).called(1);
@@ -128,9 +126,8 @@ void main() {
 
     test('3.1.1 deleteEntry: Löscht den Eintrag aus der DB', () async {
       // Setup: Bestehender Eintrag geladen
-      final entry = EntryEntity(id: 10, uuid: 'e1', category: 'C', title: 'T', url: 'u', notes: 'n', favicon: 'f', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: 'D');
+      final entry = EntryEntity(id: 10, uuid: 'e1', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: 'D', encryptedIndex: '');
       when(mockSession.privateKey).thenReturn(Uint8List(32));
-      when(mockDb.getCategories()).thenAnswer((_) async => []);
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
       when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));

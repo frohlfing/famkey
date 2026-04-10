@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
@@ -6,26 +8,36 @@ import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
+import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
-
 import 'main_notifier_test.mocks.dart';
 
-@GenerateMocks([DatabaseService, SessionService])
+Uint8List indexBytes(String category, String title, String url, String notes) {
+  final map = {'category': category, 'title': title, 'url': url, 'notes': notes, 'favicon': ''};
+  return Uint8List.fromList(utf8.encode(json.encode(map)));
+}
+
+@GenerateMocks([DatabaseService, SessionService, CryptoService])
 void main() {
   late ProviderContainer container;
+  late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
   late MockSessionService mockSession;
 
   setUp(() {
+    mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockSession = MockSessionService();
 
     getIt.reset();
+    getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<SessionService>(mockSession);
 
     // Standard-Stubs für SessionService (behebt MissingStubError)
+    when(mockSession.indexKey).thenReturn(Uint8List(32));
+    when(mockSession.indexKey).thenReturn(Uint8List(32));
     when(mockSession.settings).thenReturn(null);
     when(mockSession.vaultName).thenReturn('TestVault');
     when(mockSession.user).thenReturn(null);
@@ -41,16 +53,18 @@ void main() {
     
     List<EntryEntity> createTestEntries() {
       return [
-        EntryEntity(id: 1, uuid: 'e1', category: 'Work', title: 'Mail', url: 'm.de', notes: '', favicon: '', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: ''),
-        EntryEntity(id: 2, uuid: 'e2', category: 'Work', title: 'Slack', url: 's.de', notes: '', favicon: '', creatorId: 1, updaterId: 1, updatedAt: DateTime.now(), encryptedData: ''),
-        EntryEntity(id: 3, uuid: 'e3', category: '', title: 'Private', url: 'p.de', notes: 'Secret', favicon: '', creatorId: 2, updaterId: 2, updatedAt: DateTime.now(), encryptedData: ''),
+        EntryEntity(id: 1, uuid: 'e1', encryptedData: '', encryptedIndex: 'IDX_1', creatorId: 1, updaterId: 1, updatedAt: DateTime.now()),
+        EntryEntity(id: 2, uuid: 'e2', encryptedData: '', encryptedIndex: 'IDX_2', creatorId: 1, updaterId: 1, updatedAt: DateTime.now()),
+        EntryEntity(id: 3, uuid: 'e3', encryptedData: '', encryptedIndex: 'IDX_3', creatorId: 2, updaterId: 2, updatedAt: DateTime.now()),
       ];
     }
 
     test('1.1.1 load: Gruppiert Einträge korrekt nach Kategorie', () async {
       final entries = createTestEntries();
       when(mockDb.getEntries()).thenAnswer((_) async => entries);
-
+      when(mockCrypto.decrypt('IDX_1', any)).thenAnswer((_) async => indexBytes('Work',  'Mail',    'm.de', ''));
+      when(mockCrypto.decrypt('IDX_2', any)).thenAnswer((_) async => indexBytes('Work',  'Slack',   's.de', ''));
+      when(mockCrypto.decrypt('IDX_3', any)).thenAnswer((_) async => indexBytes('',      'Private', 'p.de', 'Secret'));
       final notifier = container.read(mainProvider.notifier);
       await notifier.load();
 
@@ -64,7 +78,10 @@ void main() {
     test('2.1.1 search: Filtert Einträge nach Titel oder URL', () async {
       final entries = createTestEntries();
       when(mockDb.getEntries()).thenAnswer((_) async => entries);
-      
+
+      when(mockCrypto.decrypt('IDX_1', any)).thenAnswer((_) async => indexBytes('Work',  'Mail',    'm.de', ''));
+      when(mockCrypto.decrypt('IDX_2', any)).thenAnswer((_) async => indexBytes('Work',  'Slack',   's.de', ''));
+      when(mockCrypto.decrypt('IDX_3', any)).thenAnswer((_) async => indexBytes('',      'Private', 'p.de', 'Secret'));
       final notifier = container.read(mainProvider.notifier);
       await notifier.load();
 
@@ -73,14 +90,14 @@ void main() {
       
       var state = container.read(mainProvider);
       expect(state.groupedEntries['Work']!.length, equals(1));
-      expect(state.groupedEntries['Work']!.first.title, equals('Slack'));
+      expect(state.groupedEntries['Work']!.first.index.title, equals('Slack'));
       expect(state.groupedEntries.containsKey('Allgemein'), isFalse);
 
       // Suche nach "p.de" (URL)
       notifier.setSearchQuery('p.de');
       state = container.read(mainProvider);
       expect(state.groupedEntries.containsKey('Work'), isFalse);
-      expect(state.groupedEntries['Allgemein']!.first.title, equals('Private'));
+      expect(state.groupedEntries['Allgemein']!.first.index.title, equals('Private'));
     });
 
     test('3.1.1 filter: "Nur Meine" zeigt nur eigene Einträge', () async {
@@ -91,6 +108,9 @@ void main() {
       final alice = UserEntity(id: 1, uuid: 'u1', name: 'Alice', publicKey: 'p', isVerified: true, isHidden: false, updatedAt: DateTime.now());
       when(mockSession.user).thenReturn(alice);
 
+      when(mockCrypto.decrypt('IDX_1', any)).thenAnswer((_) async => indexBytes('Work',  'Mail',    'm.de', ''));
+      when(mockCrypto.decrypt('IDX_2', any)).thenAnswer((_) async => indexBytes('Work',  'Slack',   's.de', ''));
+      when(mockCrypto.decrypt('IDX_3', any)).thenAnswer((_) async => indexBytes('',      'Private', 'p.de', 'Secret'));
       final notifier = container.read(mainProvider.notifier);
       await notifier.load();
 

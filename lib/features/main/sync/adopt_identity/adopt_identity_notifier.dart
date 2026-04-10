@@ -160,6 +160,25 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
           if (updatedPermissions.isNotEmpty) {
             await _databaseService.updatePermissions(updatedPermissions);
           }
+
+          // 9b. encryptedIndex-Felder mit dem neuen indexKey neu verschlüsseln
+          final oldIndexKey = _sessionService.indexKey!;
+          final newIndexKey = _cryptoService.deriveKeyFromKey(newPrivateKey, null, 'entry-index-encryption');
+          try {
+            final allEntries = await _databaseService.getEntries();
+            for (var entry in allEntries) {
+              if (entry.encryptedIndex.isEmpty) continue;
+              try {
+                final decrypted = await _cryptoService.decrypt(entry.encryptedIndex, oldIndexKey);
+                final reEncrypted = await _cryptoService.encrypt(decrypted, newIndexKey);
+                await _databaseService.saveEntry(entry.copyWith(encryptedIndex: reEncrypted));
+              } catch (e) {
+                throw Exception("Fehler beim verschlüsseln des Indexes für Eintrag ${entry.id}: $e");
+              }
+            }
+          } finally {
+            _cryptoService.wipeKey(newIndexKey);
+          }
         }
 
         // 10. Datenbankdatei mit dem neuen Master-Key umschlüsseln

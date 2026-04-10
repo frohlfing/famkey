@@ -15,7 +15,7 @@ class IndexPayload {
   /// Der Titel des Eintrags.
   final String title;
 
-  /// Die zugehörige Web-Adresse.
+  /// Die zugehörige Adresse der Webseite oder des Dienstes.
   final String url;
 
   /// Ergänzende Notizen zum Eintrag.

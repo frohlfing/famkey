@@ -15,6 +15,7 @@
 - ✅ Favicon erstellen
 - ✅ Icons der Webseiten speichern und anzeigen
 - ✅ Dateianhänge (Bilder direkt anzeigen, sonst Büroklammer-Icon als Link)
+- ❌ App-Icon anpassen
 
 ### 1.2 Meilenstein 2: Backend & Sync
 - ✅ API-Referenz definieren
@@ -28,6 +29,7 @@
 - ✅ Master-Passwort ändern
 - ✅ Automatische Referenzseite bauen
 - ✅ Landingpage der Webseite erstellen
+- ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
 
 ### 1.3 Meilenstein 3: Tests
 - ✅ Test-Umgebung einrichten
@@ -37,38 +39,29 @@
  
 ### 1.4 Meilenstein 4: Advanced Features
 - ✅ Multi-Themes
-- ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
-- ✅ Ladeanzeige einbauen für Operationen, die länger dauern könnten (Bildschirm für Eingaben sperren)
+
 - ✅ Fehler in Datei loggen
+- ❌ Unter Einstellungen ein Button zum Anzeigen/Löschen der Logdatei
+- ❌ Logdatei automatisch klein halten (Löschstrategie?)
+- ❌ Bei AppError.unknown auf Logfile hinweisen (beim Import, in der Snackbar, ...).
 
+- ✅ Keepass-XML-Import
+- ✅ Bitwarden-JSON-Import
+- ✅ 1Password-Import
+- ❌ Generic-CSV-Import
+- ❌ PriVault-ZIP-Import
 
-- ❌ Konzept für Suchen und filtern optimieren:
-- In Tabelle `settings` Feld `encyptedMetaKey` hinzufügen (AES-Schlüssel für Meta-Angaben eines Eintrags - Vorteil: viel schneller als für jeden einzelnen EIntrag RSA anwenden zu müssen (ist notwendig für SHaren)
-- In Tabelle `entries` Feld `meta` hinzufügen. Hier wird ein `entryMetaPayload` gespeichert. Beinhaltet category, title, url und notes. Wird in der Session abgelegt
-- In Tabelle `entries` Felder category, title, url und notes löschen
-- Evtl notes in meta zum suchindex umwandeln (kleinbuchstaben, doppelte Leerzeichen und doppelte wörter raus)
+- ❌ ZIP-Export
+- ❌ PDF- oder HTML-Generierung ("Notfall-Bogen" zum Ausdrucken, siehe https://copilot.microsoft.com/shares/W5xBgDcNnvejZCq5qXtid)
 
-- ❌ App-Icon anpassen
- 
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
-
-- ❌ Unter Einstellungen ein Button zum Anzeigen/Löschen der Logdatei
-- ❌ Logdatei automatisch klein halten (Löschstrategie?) 
-- ❌ Bei AppError.unknown auf Logfile hinweisen (beim Import, in der Snackbar, ...).
 
 - ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
 - ❌ Selbstzerstörung (Daten löschen beim x. Fehlversuch)
 
 - ❌ Notfall-Reset
-
-- ✅ Keepass-XML-Import
-- ❌ Bitwarden-JSON-Import
-- ❌ 1Password-Import
-- ❌ Generic-CSV-Import
-
-- ❌ CSV-Export
 
 - ❌ Auto-Fill
 
@@ -78,8 +71,6 @@
 
 - ❌ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
 - ❌ Report über die Passwortstärke und -Alter aller Einträge
- 
-- ❌ PDF-Generierung ("Notfall-Bogen" zum Ausdrucken, siehe https://copilot.microsoft.com/shares/W5xBgDcNnvejZCq5qXtid)
 
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
 

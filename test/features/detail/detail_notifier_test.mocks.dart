@@ -456,14 +456,6 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
           as _i5.Future<List<_i2.EntryEntity>>);
 
   @override
-  _i5.Future<List<String>> getCategories() =>
-      (super.noSuchMethod(
-            Invocation.method(#getCategories, []),
-            returnValue: _i5.Future<List<String>>.value(<String>[]),
-          )
-          as _i5.Future<List<String>>);
-
-  @override
   _i5.Future<_i2.EntryEntity?> getEntry(int? entryId) =>
       (super.noSuchMethod(
             Invocation.method(#getEntry, [entryId]),

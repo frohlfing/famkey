@@ -271,20 +271,20 @@ class _MainPageState extends ConsumerState<MainPage> {
   ///
   /// Zeigt das Favicon, den Titel und die URL an. Ein Tippen auf die Karte
   /// navigiert dich direkt zur Detailansicht des jeweiligen Eintrags.
-  Widget _buildEntryCard(BuildContext context, dynamic entry) {
+  Widget _buildEntryCard(BuildContext context, EntryWithIndex entry) {
     return Padding(
       padding: const EdgeInsets.only(top: 0, bottom: 0, left: 24, right: 24),
       child: Card(
         elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
-          leading: buildFavicon(entry.favicon),
+          leading: buildFavicon(entry.index.favicon),
           title: Text(
-            entry.title.isNotEmpty ? entry.title : 'Unbenannter Eintrag',
+            entry.index.title.isNotEmpty ? entry.index.title : 'Unbenannter Eintrag',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           subtitle: Text(
-            entry.url,
+            entry.index.url,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -347,9 +347,9 @@ class _MainPageState extends ConsumerState<MainPage> {
   }
 
   /// Öffnet die Detailansicht.
-  Future<void> _handleViewEntry(dynamic entry) async {
+  Future<void> _handleViewEntry(EntryWithIndex entry) async {
     // Öffnet die Editierseite und wartet, bis die Seite wieder geschlossen wird.
-    final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.id);
+    final hasChanged = await Navigator.of(context).pushNamed('/detail', arguments: entry.entry.id);
 
     // Wenn der Eintrag geändert wurde, die Liste neu laden.
     if (hasChanged == true && mounted) {

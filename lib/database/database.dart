@@ -60,8 +60,6 @@ class Users extends Table {
 
 /// Repräsentiert einen Tresoreintrag in der SQLite-Datenbank.
 @TableIndex(name: 'uk_entries_uuid', columns: {#uuid}, unique: true)
-@TableIndex(name: 'idx_entries_category', columns: {#category})
-@TableIndex(name: 'idx_entries_title', columns: {#title})
 @TableIndex(name: 'idx_entries_updated_at', columns: {#updatedAt})
 @DataClassName('EntryEntity')
 class Entries extends Table {
@@ -72,25 +70,13 @@ class Entries extends Table {
   /// Die globale eindeutige ID des Eintrags (Universally Unique Identifier v4).
   TextColumn get uuid => text()();
 
-  /// Die Kategorie des Eintrags.
-  TextColumn get category => text()();
-
-  /// Der Anzeigename des Eintrags.
-  TextColumn get title => text()();
-
-  /// Die zugehörige Adresse der Webseite oder des Dienstes.
-  TextColumn get url => text()();
-
-  /// Ergänzende Notizen.
-  TextColumn get notes => text()();
-
-  /// Der binäre Dateninhalt des Website-Icons, gespeichert als Base64-kodierter String.
-  /// Ermöglicht die visuelle Identifikation in der Liste ohne zusätzliche Netzwerkanfragen.
-  TextColumn get favicon => text()();
-
-  /// Der AES-256-GCM verschlüsselte Daten-Container (Ciphertext + Nonce + Auth-Tag).
+  /// Der AES-256-GCM verschlüsselte Daten-Container.
   /// Enthält das serialisierte JSON-Objekt der Klasse [EntryPayload].
   TextColumn get encryptedData => text()();
+
+  /// Der AES-256-GCM verschlüsselte Index-Container.
+  /// Enthält das serialisierte JSON-Objekt der Klasse [IndexPayload].
+  TextColumn get encryptedIndex => text()();
 
   /// Die lokale ID des Benutzers, der diesen Eintrag erstellt hat.
   IntColumn get creatorId => integer()();

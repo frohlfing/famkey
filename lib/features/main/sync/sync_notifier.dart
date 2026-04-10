@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
@@ -13,6 +14,7 @@ import 'package:privault/models/dtos/sync_dtos.dart';
 import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/friend_payload.dart';
+import 'package:privault/models/payloads/index_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
@@ -319,17 +321,21 @@ class SyncNotifier extends Notifier<SyncState> {
       if (entryDto.encryptedKey.isEmpty) throw Exception("Heruntergeladenen Eintrag ${entryDto.entryUuid} hat kein Entry-Key.");
 
       // 5.1 Suchfelder aus dem verschlüsselten Payload extrahieren
-      String category = '', title = '', url = '', notes = '', favicon = '';
+      String encryptedIndex = '';
       try {
         // Wir brauchen den EntryKey (AES), um an die Suchfelder zu kommen
         final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey, utf8.decode(_sessionService.privateKey!));
         final decryptedData = await _cryptoService.decrypt(entryDto.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
-        category = payload.category;
-        title = payload.title;
-        url = payload.url;
-        notes = payload.notes;
-        favicon = payload.favicon;
+        final indexPayload = IndexPayload(
+          category: payload.category,
+          title: payload.title,
+          url: payload.url,
+          notes: payload.notes,
+          favicon: payload.favicon,
+        );
+        final indexBytes = Uint8List.fromList(utf8.encode(json.encode(indexPayload.toJson())));
+        encryptedIndex = await _cryptoService.encrypt(indexBytes, _sessionService.indexKey!);
       } catch (e) {
         throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");
       }
@@ -346,12 +352,8 @@ class SyncNotifier extends Notifier<SyncState> {
       final entity = EntryEntity(
         id: 0,
         uuid: entryDto.entryUuid,
-        category: category,
-        title: title,
-        url: url,
-        notes: notes,
-        favicon: favicon,
         encryptedData: entryDto.encryptedData,
+        encryptedIndex: encryptedIndex,
         creatorId: userUuidMap[entryDto.creatorUuid] ?? 0,
         updaterId: userUuidMap[entryDto.updaterUuid] ?? 0,
         updatedAt: entryDto.updatedAt,

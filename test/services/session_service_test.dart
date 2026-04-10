@@ -16,6 +16,7 @@ void main() {
 
     setUp(() {
       mockCryptoService = MockCryptoService();
+      when(mockCryptoService.deriveKeyFromKey(any, any, any)).thenReturn(Uint8List(32));
       sut = SessionService(mockCryptoService);
     });
 
@@ -67,7 +68,9 @@ void main() {
       sut.clearSession();
       
       // Verifiziert, dass wipeKey auf dem Secret aufgerufen wurde
-      verify(mockCryptoService.wipeKey(secret)).called(1);
+      verify(mockCryptoService.wipeKey(secret)).called(1);       // privateKey
+      // Der indexKey wird ebenfalls gewipet, aber sein Wert ist Uint8List(32) aus dem Stub
+
       expect(sut.privateKey, isNull);
     });
 
@@ -81,6 +84,7 @@ void main() {
       
       expect(sut.user, isNull);
       expect(sut.privateKey, isNull);
+      expect(sut.indexKey, isNull);
       expect(sut.vaultName, isEmpty);
       expect(sut.settings, isNull);
     });

@@ -102,7 +102,7 @@ class UserNameNotifier extends Notifier<UserNameState> {
           name: userName,
         );
         _user = await _databaseService.saveUser(updatedUser);
-        _sessionService.setUser(_user);
+        _sessionService.setUser(_user!);
       }
 
       // 5. UI-State aktualisieren
