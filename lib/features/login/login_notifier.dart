@@ -191,7 +191,7 @@ class LoginNotifier extends Notifier<LoginState> {
       await _databaseService.initialize(vaultName, masterKey);
 
       if (state.isExists) {
-        // Tresor geöffnet
+        // Tresor soll geöffnet werden
 
         // Benutzer und Settings laden
         user = await _databaseService.getUser(1);
@@ -224,7 +224,7 @@ class LoginNotifier extends Notifier<LoginState> {
           return;
         }
       } else {
-        // Tresor angelegt
+        // Tresor soll angelegt werden
 
         // Salt-Datei anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
         await _databaseService.saveSalt(vaultName, salt);

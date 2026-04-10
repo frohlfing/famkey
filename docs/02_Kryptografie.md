@@ -156,10 +156,16 @@ Das fundamentale Sicherheitsversprechen von PriVault lautet: **Der Server kennt 
 - Das Master-Passwort wird niemals über das Netzwerk übertragen.
 
 ### 4.5. Speicher-Hygiene (RAM-Management)
-In einer Managed-Umgebung wie .NET ist die sichere Löschung von Daten komplex:
-- **Strings:** Sind in C# unveränderlich (immutable). Ein Passwort-String verbleibt im RAM, bis der Garbage Collector ihn überschreibt.
-- **Byte-Arrays:** Werden für Schlüssel bevorzugt verwendet. Mittels `ICryptoService.WipeKey()` werden sensible Arrays nach Gebrauch explizit mit Nullen überschrieben.
+In einer Managed-Umgebung wie Flutter/Dart ist die sichere Löschung von Daten komplex:
+- **Strings:** Sind in Dart unveränderlich (immutable). Ein Passwort-String verbleibt im RAM, bis der Garbage Collector ihn überschreibt.
+- **Uint8List-Arrays:** Werden für Schlüssel bevorzugt verwendet. Mittels `ICryptoService.WipeKey()` werden sensible Arrays nach Gebrauch explizit mit Nullen überschrieben.
 - **UI-Controls:** Um das Risiko zu minimieren, werden Login-Pages nach erfolgreichem Login schnellstmöglich aus dem Speicher entfernt.
+
+### 4.6. SQLCipher 
+
+Nicht nur der Inhalt der DB wird verschlüsselt, sondern die SQLite-Datei selbst auch. 
+Ausnahme: Bei Webbrowser-Appliance ist dies technisch nicht möglich.
+
 
 ---
 

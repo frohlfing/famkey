@@ -32,15 +32,13 @@ class WebService {
 
   /// Konstruktor.
   /// [dio] kann für Unit-Tests übergeben werden, um Header oder Mocks zu injizieren.
-  WebService(this._cryptoService, {
-    required String baseUrl,
-    required String apiToken,
-    Dio? dio,
-  }) : _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl.endsWith('/') ? baseUrl : '$baseUrl/')) {
-    _apiToken = apiToken;
+  WebService(this._cryptoService, {String? baseUrl, String? apiToken, Dio? dio})
+      : _dio = dio ?? Dio() {
+
+    _apiToken = apiToken ?? '';
 
     // Falls dio von außen kommt, stellen wir sicher, dass die BaseUrl passt
-    if (dio != null) {
+    if (baseUrl != null && baseUrl.isNotEmpty) {
       _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
     }
 

@@ -4,77 +4,111 @@ Diese Dokumentation umfasst den ersten Entwurf der UI und Grundfunktionen der Pr
 
 ## 1. UI (Entwurf)
 
-### 1.1 Hauptansicht
-- **Header:**
-    - **Suchfeld:** Volltextsuche über Titel, Benutzername und URL.
-    - **Sync-Indikator:** Kleines Icon (Wolke), das den Verbindungsstatus anzeigt (Grün = Synchron, Gelb = Lädt, Rot =
-      Offline).
-    - **Setup-Button (Zahnrad):** Navigiert zu den Einstellungen.
-- **Body:**
-    - **Liste der Einträge:** Scrollbare Liste.
-    - **Listen-Element:** Zeigt Favicon (links) und Titel (fett) + Untertitel (z.B. Benutzername oder URL).
-- **Footer / Floating Action Button (FAB):**
-    - **New-Button (+):** Erstellt einen leeren Eintrag.
+### 1.1 Loginseite
+- **Tresorname:** Textfeld. Daneben ein Button, um einen bereits existierenden Tresor auswählen zu können.
+- **Passwort:** Passwortfeld. Mit Eye-Button (Toggle Visibility)
+  - **Passwortstärke:** Ein Balken rot/gelb/grün (wird nur gezeigt, wenn ein neuer Tresor angelegt wird)
+  - **Fingerprint-Icon:** Wird nur gezeigt, wenn Biometrie aktiviert ist. Wenn Ja, kann das Passwortfeld leer bleiben.
+- **Login-Button:** Öffnet den Tresor (bzw. legt einen neuen an) und navigiert zur Hauptseite. 
+   Ist nur anklickbar, wenn ein Tresor und (sofern keine Biometrie möglich ist) das Passwort angegeben wurde.
+
+### 1.1 Hauptseite
+- **Menü:** Jeder Menüpunkt navigiert zu der entsprechenden Seite
+  - Synchronisation
+  - Importieren
+  - Exportieren
+  - Drucken
+  - Report
+  - Einstellungen
+  - Logout
+- **Plus-Button**: Öffnet die Editierseite zum Erstellen eines neuen Eintrags.
+- **Suchfeld:** Volltextsuche über Kategorie, Titel, URL und Notiz.
+- **Filter:** Nur eigene Einträge anzeigen (Ja/Nein).
+- **Scrollbare Liste der Einträge gruppiert in Kategorien:** Die Kategorien lassen sich auf- und zuklappen lassen.
+  Jedes Listen-Element zeigt Favicon, Titel und URL. Mit Klick darauf wird die Detailansicht geöffnet.
 
 ### 1.2 Detailansicht
 Wird geöffnet durch Klick auf einen Listeneintrag.
-- **Header:** Großer Titel & Icon.
+- **Header:** Großer Titel, Kategorie und Favicon (wird automatisch aus der URL geladen). 
+- **Edit-Button:** Öffnet die Bearbeitungsseite zum Ändern des Eintrags.
+- **Zurück-Button:** Navigiert zur Hauptseite.
 - **Felder (Read-Only):**
-    - **URL:** Klickbar (öffnet Browser).
-    - **Benutzername:** Daneben ein **Copy-Button**.
-    - **Passwort:** Standardmäßig maskiert (`******`). Daneben **Copy-Button** und **Eye-Button** (Toggle Visibility).
-    - **Notiz:** Mehrzeiliges Textfeld.
-    - **Anhänge:** Liste der Dateinamen (Klick = Öffnen/Speichern).
-    - **Geteilt mit:** Liste der E-Mail-Adressen, die Zugriff haben.
-    - **Metadaten:** "Zuletzt geändert: [Datum]".
-- **Aktionen (Unten):**
-    - **Edit-Button:** Wechselt in den Edit-Mode.
-    - **Delete-Button:** Löscht Eintrag (mit "Sind Sie sicher?"-Dialog).
-    - **Back-Button:** Zurück zur Hauptansicht.
+    - **URL:** Mit Copy-Button und Link-Button (öffnet Browser).
+    - **Benutzername:** Mit Copy-Button.
+    - **Passwort:** Standardmäßig maskiert (`******`). Mit Eye-Button (Toggle Visibility) und Copy-Button.
+      - **Passwortstärke:** Ein Balken rot/gelb/grün.
+      - **Passwortalter:** Berechnet aus Zeitstempel des Passworts.
+    - **Notiz:** Mehrzeiliges Textfeld (Readonly). Sieht wie normaler Text aus, aber selektierbar (zum Kopieren).
+- **Anhänge:** Button "Datei anhängen" mit Liste der eingefügten Dateien. 
+    - Für jede Datei wird ein Thumbnail (bei Bildern) oder ein Icon (entsprechend dem Dateityp) angezeigt, daneben Dateiname, Größe und Änderungsdatum. 
+    - Jede Datei kann geöffnet werden. 
+    - Für jede Datei ein Button zum Löschen.
+- **Teilen:** Button "Teilen mit" (zum Auswählen eines Freundes aus der Freundesliste) mit Liste der ausgewählten Freunde.
+    - Wird nur anzeigen, wenn unter "Einstellungen" mindestens ein Freund in die Freundesliste eingefügt wurde.
+    - Jeder Freund wird angezeigt mit Namen und Fingerprint. 
+    - Wenn der Freund nicht verifiziert ist, wird ein Warnhinweis angezeigt. 
+    - Für jeden Freund ein Switch "Mit Schreibrecht". Daneben ein Button zum Löschen.
+- **Metadaten:** Ersteller, Bearbeiter, Änderungsdatum
 
-### 1.3 Bearbeiten / Neuer Eintrag (Edit Mode)
+### 1.3 Bearbeitungsseite
+Wird von der Hauptseite (Eintrag hinzufügen) oder von der Detailansicht (Eintrag bearbeiten) aufgerufen. 
+- **Zurück-Button:** Navigiert im Bearbeitungsmodus zur Detailansicht, im Einfügemodus zur Hauptseite. 
+     Wurde etwas geändert, Nachfrage, ob gespeichert werden soll.    
+- **Save-Button:** Speichert die Änderungen und navigiert zur Detailansicht.
 - **Felder (Input):**
-    * Titel, URL, Benutzername, Notiz (Textfelder).
-    - **Passwort:** Textfeld + **Generator-Button** (Würfel/Zauberstab), der ein starkes Zufallspasswort einfügt.
-    - **Anhänge:** Button "Datei anhängen".
-    - **Teilen:** Eingabefeld "E-Mail Adresse" + Button "Hinzufügen" (prüft Public Key auf Server).
-- **Aktionen:**
-    - **Save:** Speichert (AES-Verschlüsselung + Upload).
-    - **Cancel:** Verwirft Änderungen.
+    - **Kategorie:** Textfeld. Daneben ein Button, um bereits existierende Kategorien auswählen zu können.
+    - **Titel:** Textfeld.
+    - **URL:** Textfeld.
+    - **Benutzername**: Textfeld.
+    - **Passwort:** Passwortfeld. Daneben Eye-Button und Generator-Button, der ein Zufallspasswort einfügt.
+      - **Passwortstärke:** Ein Balken rot/gelb/grün.
+    - **Notiz**: Mehrzeiliges Textfeld.
 
 ### 1.4 Einstellungen
-- **Account:**
-    * Anzeige: Eingeloggter Benutzer (E-Mail).
-    * Aktion: **Master-Passwort ändern** (Erfordert altes PW -> Re-Encryption des Private Keys).
-- **Server / Host:**
-    * Eingabefelder für API-URL (Hetzner Webspace).
-- **Sicherheit:**
-    - **Biometrie:** Switch (An/Aus).
-    - **Auto-Logout:** Slider oder Eingabe (z.B. "Nach 60 Sekunden Inaktivität").
-    - **Selbstzerstörung:** Switch + Eingabe ("Lösche lokale Datenbank nach 10 Fehlversuchen").
-- **Daten-Management:**
-    - **Import:** CSV-Datei importieren.
-    - **Export:** Datenbank entschlüsselt als CSV exportieren (Warnhinweis!).
-
+Wird über das Menü auf der Hauptseite aufgerufen.
+Hier sind alle Einstellungen einsehbar. Zum Bearbeiten der jeweiligen Einstellung wird ein Button gezeigt, der einen modalen Dialog öffnet.
+Ausnahme sind Ja/Nein-Optionen. Diese können direkt auf der Seite durch einen Switch geändert werden.
+- **Zurück-Button:** Navigiert zur Hauptseite.
+- **Optionen:**
+  - **Tresor:**
+      - Speicherort der Tresore: Wird nur angezeigt, kann nicht geändert werden.
+      - Tresorname: Kritische Operation, weil auch der Syncserver betroffen ist. Erfordert daher das Master-Passwort.
+  - **Login:**
+      - Button "Master-Passwort ändern": Kritische Operation, weil eine Umschlüsselung der SQLite-Datei erfolgt. Erfordert bisheriges Passwort.
+      - Switch "Biometrie verwenden": Erlaubt das Entsperren des Tresors via FIngerprint oder Gesichtserkennung.
+      - Auto-Logout: z.B. "Nach 60 Sekunden Inaktivität"
+      - Selbstzerstörung: z.B. "Lösche lokale Datenbank nach 10 Fehlversuchen".
+  - **Sync-Server:**
+      - Benutzername: Dieser Name wird bei Freunden in der Freundesliste angezeigt. 
+      - Serveradresse: Der zugehörige Dialog hat auch ein Button zum Testen der Verbindung. Hier muss auch der API-Token angegeben werden. 
+  - **Freunde:** (Freundesliste, die in der Detailansicht angezeigt wird, wenn ein Freund zum Teilen eines Eintrags ausgewählt wird.)
+     - Mit Button zum Freund hinzufügen (Sucht den Namen der Person auf dem Server).
+     - Liste der Freunde, jeweils mit Namen und Fingerprint. 
+     - Für jeden hinzugefügten Freund ein Switch "Verifiziert" und ein Lösch-Button.
+  - **Passwortgenerator:** Änderung aller Parameter über denselben Dialog.
+      - Länge
+      - Sonderzeichen
+      - Lesbarkeit optimieren (I, l, O, 0 ausschließen)
+  - **Designt:**
+      - Theme: System, Hell, Dunkel
+      - Umbenannte Kategorie (Dient als Platzhalter, falls keine Kategorie angegeben wurde)
+  - **Systemeinstellungen:**
+      - Button "Biometrie": Öffnet Systemeinstellungen für Fingerabdruck- oder Gesichtserkennung. 
+      - Button "Autofill": Öffnet Hilfeseite für das automatische Ausfüllen
+      - Button "App.Info": Zeigt Systemdetails dieser App an
+- **Button "Tresor löschen":** Wird bewusst als letztes angezeigt.
+    
 ## 2. Grundfunktionen
 
 ### 2.1 Tresor anlegen und User registrieren
-1. Nutzer gibt Tresor-Namen ("Familie") und Benutzernamen ("Frank") ein.
+1. Nutzer gibt neuen Tresornamen und Master-Passwort ein.
 2. App generiert lokal:
-    - `VaultHashName` (SHA256-Hash)
-    - `UserHashName` (SHA256-Hash)
     - `User-UUID` (V4).
     - `Salt` (Random).
     - `MasterKey` (via Argon2).
     - `RSA-KeyPair`.
 3. App verschlüsselt `RSA-Private-Key` mit `MasterKey`.
-4. App sendet `Register`-Request an Server (mit API-Token).
-   
-**Anmerkungen:**
-Um Konflikte zwischen verschiedenen Tresoren auf demselben Client zu vermeiden:
-- Jeder Tresor erhält eine **eigene SQLite-Datei**: `MandantName.db3`.
-- Beim Login wählt der Nutzer den Tresor-Namen aus.
-- Inkonsistenzen (z.B. falsches Salt in Preferences) führen zum sofortigen Löschen der lokalen Datei und Erzwingen einer Neuregistrierung/Onboarding.
+4. App legt SQLite-Datei an (verschlüsselt mit SQLCipher bei Mobil- und Desktop-App, nicht bei Webbrowser-Appliance)
 
 ### 2.2 Favicons
 Favicons werden beim Erstellen/Bearbeiten einmalig geladen und als Base64-String direkt im verschlüsselten Blob gespeichert.
@@ -86,6 +120,7 @@ Dateianhänge werden mit dem Entry-Key verschlüsselt und separat hochgeladen. B
 - Methode: "Last Edit Wins" (basierend auf UTC-Zeitstempel)
 - Weicht die Systemzeit des Geräts mehr als 5 Minuten von der Serverzeit (UTC) ab, verweigert der Server aufgrund der RSA-Signaturprüfung (`X-Timestamp`-Header) die Synchronisation.
 - Das Backend dient als "dummer" Speicher für verschlüsselte Blobs. Es validiert keine Dateninhalte, sondern nur Berechtigungen.
+- Tresorname, Benutzername und sonstige Klarnamen werden als SHA256-Hash gespeichert.   
 - Der Sync erfolgt in zwei Schritten:
     1. Server-Version prüfen: 
         - Wenn AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion: App ist veraltet
@@ -131,7 +166,7 @@ Zu unterscheiden ist:
   - 2: Lese- und Schreibrecht (CanWrite).
   - 3: Vollzugriff (Owner: Löschen, Rechte verwalten, Anhänge verwalten).
 - Vorgang:
-  1. App lädt `User-UUID` und `PublicKey` von Tinka vom Server.
+  1. App lädt `User-UUID` und `PublicKey` z.B. von Tinka vom Server.
   2. App zeigt Fingerprint an ("Verifiziere Tinka: A1-B2-C3...").
   3. App nimmt den unverschlüsselten `EntryKey` von Eintrag X (liegt im RAM).
   4. App verschlüsselt `EntryKey` mit `Tinka-PublicKey`.
@@ -217,23 +252,66 @@ Der Auto-Fill-Prozess läuft isoliert vom Haupt-UI ab und erfordert native Schni
 ### 2.14 Selbstzerstörung
 Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikalisch vom Gerät.
 
-### 2.15 Import
-
-### 2.15 Backup, Import & Export
+## 2.15 Backup, Import & Export
 - **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
+    - PriVault ZIP
    - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
    - KeePass XML (2.x) (Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md)
    - 1Password 1PUX (Spezifikation: https://support.1password.com/1pux-format/)
-   - Nicht spezifische CSV-Datei (wie bei KeePassXC)
+   - CSV (generisch, nicht spezifisch, wie bei KeePassXC)
    - Evtl., bietet KeePassXC an: Proton Pass JSON
    - Evtl., bietet 1Password an: Dashlane, LastPass, RoboForm
    - Wird NICHT unterstützt, weil Anhänge nicht enthalten sind: mSecure 6 CSV 
 - **Export/Backup:** Unverschlüsselter Export (mit Warnhinweis) zur Datenportabilität oder verschlüsselter Export als Backup 
    - Format: Standard Zip-Archiv 
-     - Datendatei: export.json (ähnlich wie Bitwarden, Binärdaten sind aber nicht eingebettet); oder CSV (Excel-Kompatibel, Vorteil: leicht einsehbar/editierbar)
-     - Dateianhänge unter files (Vorteil: man kann sie direkt öffnen) 
+     - Datendatei: export.json (ähnlich wie Bitwarden, Binärdaten sind aber nicht eingebettet); oder export.csv (Excel-Kompatibel, Vorteil: leicht einsehbar/editierbar)
+     - Dateianhänge unter files (Vorteil: man kann sie direkt öffnen)
+     - Kann verlustfrei importiert werden.
 - **HTML-/ oder PDF-Ausdruck:** Generierung eines Dokuments mit dem verschlüsselten Private-Key und dem Master-Passwort 
    (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
+   - Evtl im eingebetteten Webbrowser 
+
+## 2.16 Report
+- Statistik über Passwortstärke und Passwortalter 
+- Darknet-Check (Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen)
+- Einzelauflistung der schwachen Passwörter (ein Klick öffnet die Detailseite.
+
+### 2.17 Anzeige, Suche und Filterung der Einträge
+
+Die Hauptseite listet alle Einträge des Tresors auf und ermöglicht eine Volltextsuche über
+Kategorie, Titel, URL und Notizen. Da die SQLite-Datenbank der Web-Appliance technisch bedingt
+unverschlüsselt im lokalen Speicher des Browsers abgelegt wird (eine Verschlüsselung der
+Datenbankdatei ist im Browser-Umfeld nicht möglich), dürfen keine Klartextfelder persistent
+gespeichert werden.
+
+**Lösung: Lokales `encryptedIndex`-Feld**
+
+Jeder Eintrag besitzt neben `encryptedData` (dem sync-fähigen, RSA-verschlüsselten Payload) ein
+zweites verschlüsseltes Feld: `encryptedIndex`. Es enthält ein kleines JSON-Objekt mit den für
+die Listenansicht und Suche benötigten Feldern (Kategorie, Titel, URL, Notizen, Favicon).
+
+Eigenschaften von `encryptedIndex`:
+- Verschlüsselung: AES-256-GCM, identisch zu `encryptedData`
+- **Wird nicht synchronisiert** und nicht mit Freunden geteilt
+- **Key-Ableitung:** Der AES-Schlüssel (`indexKey`) wird deterministisch per HKDF-SHA256 aus dem
+  RSA-Private-Key abgeleitet (`info = 'entry-index-encryption'`), analog zur Freundesliste.
+  Er muss daher nicht gespeichert werden und ist nach jedem Login sofort reproduzierbar.
+- Der `indexKey` wird einmalig nach dem Login im `SessionService` gecacht.
+
+**Lebenszyklus:**
+- **Erstellen/Bearbeiten:** `encryptedIndex` wird zusammen mit `encryptedData` lokal geschrieben.
+- **Pull-Sync:** Nach dem Herunterladen eines Eintrags wird `encryptedData` ohnehin entschlüsselt
+  (um Kategorie, Titel etc. zu extrahieren). Dabei wird `encryptedIndex` direkt mitgeschrieben.
+- **Notfall-Reset (Key Rotation):** Der RSA-Key wechselt → `indexKey` ändert sich → alle lokalen
+  `encryptedIndex`-Felder werden nach dem Reset neu verschlüsselt. Da das Feld nicht gesynct
+  wird, ist dies eine reine Lokaloperation.
+
+**Suche und Filterung:**
+
+Beim Öffnen des Tresors werden alle `encryptedIndex`-Felder entschlüsselt und die extrahierten
+Daten im RAM gehalten (`MainNotifier._allEntries`). Suche und Filterung finden ausschließlich im
+Code statt, nicht per SQL. Für die zu erwartenden Tresorgrössen (typischerweise unter 1.000
+Einträge) ist das performant.
 
 ## 3. Versionierung
 

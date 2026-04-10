@@ -101,7 +101,8 @@
 - Tresor umbenennen, ohne den Server zu tangieren (vault_uuid)
 - Benutzer umbenennen, ohne den Server zu tangieren (bei Freunde umbenennen?)
 - Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
-- Detailansicht, Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
+- Detailansicht: Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
+- Detailansicht: "Geteilt mit" nur anzeigen, wenn in Einstellungen mindestens ein Freund eingefügt wurde
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)

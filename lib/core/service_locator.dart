@@ -18,13 +18,8 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<ConfigService>(() => ConfigService(prefs));
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
   getIt.registerLazySingleton<DatabaseService>(() => DatabaseService(getIt<ConfigService>()));
-  getIt.registerLazySingleton<SessionService>(() => SessionService(getIt<CryptoService>()));
   getIt.registerLazySingleton<PasswordService>(() => PasswordService());
-  getIt.registerLazySingleton<WebService>(
-    () => WebService(
-      getIt<CryptoService>(),
-      baseUrl: 'https://privault.test/api',
-      apiToken: '',
-    ),
+  getIt.registerLazySingleton<SessionService>(() => SessionService(getIt<CryptoService>()));
+  getIt.registerLazySingleton<WebService>(() => WebService(getIt<CryptoService>()),
   );
 }
