@@ -1,10 +1,10 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/main/import/import_form_data.dart';
-import 'package:privault/features/main/import/import_notifier.dart';
-import 'package:privault/features/main/import/import_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'import_form_data.dart';
+import 'import_notifier.dart';
+import 'import_state.dart';
+import '../../../core/app_file_factory.dart';
+import '../../../widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Importieren von Daten aus anderen Passwort-Managern.
 class ImportDialog extends ConsumerStatefulWidget {
@@ -92,8 +92,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     // Listener, der die Controller nur bei Initialladung oder Generierung füllt
     ref.listen(importProvider, (previous, next) {
       if (previous == next) return;
-      final formData = next.formData;
-      if (_pathController.text != formData.path) _pathController.text = formData.path;
+      final file = next.formData.file;
+      if (_pathController.text != file.path) _pathController.text = file.path;
     });
 
     // Gezielte Watches für maximale Performance
@@ -292,17 +292,18 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     try {
       // Datei auswählen
       final state = ref.read(importProvider);
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
+      final picker = createAppFilePicker();
+      final files = await picker.pickFiles(
         allowedExtensions: state.formData.format.allowedExtensions,
       );
-      if (!mounted || result == null || result.files.isEmpty || result.files.single.path == null) return;
-      final path = result.files.single.path!;
+      if (!mounted || files.isEmpty) return;
+      final file = files.first;
 
       // Datei an den TextController und an den Notifier übergeben
-      _pathController.text = path;
+      //_pathController.text = file.name;   // Nur Dateiname anzeigen, nicht Pfad
+      _pathController.text = file.path;
       final notifier = ref.read(importProvider.notifier);
-      notifier.setPath(path);
+      notifier.setFile(file);
     }
     finally {
       if (mounted) setState(() => _isPickingFile = false);

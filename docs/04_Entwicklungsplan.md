@@ -83,7 +83,7 @@
 - ❌ Unit-Tests
 - ❌ App Store-Bereitstellung
 
-### 1.6 Meilenstein 6: WebAssembly
+### 1.6 Meilenstein 6: WebAssembly (WASM)
 - ❌ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr). 
   Siehe Copilot-Chat .NET MAUI Deployment für Windows & Android 
 

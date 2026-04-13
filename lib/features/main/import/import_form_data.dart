@@ -1,3 +1,5 @@
+import '../../../core/app_file.dart';
+
 /// Ein Enum für den Status von Aktionen
 enum ImportFileFormat {
   none, // Keine Datei
@@ -29,23 +31,23 @@ class ImportFormData {
   /// Das Format der Importdatei.
   final ImportFileFormat format;
 
-  /// Der Pfad zur Datei.
-  final String path;
+  /// Die zu importierende Datei.
+  final AppFile file;
 
   /// Konstruktor
   const ImportFormData({
     this.format = ImportFileFormat.none,
-    this.path = '',
+    this.file = const AppFile.none(),
   });
 
   /// Daten aktualisieren (immutable)
   ImportFormData copyWith({
     ImportFileFormat? format,
-    String? path,
+    AppFile? file,
   }) {
     return ImportFormData(
       format: format ?? this.format,
-      path: path ?? this.path,
+      file: file ?? this.file,
     );
   }
 
@@ -57,7 +59,7 @@ class ImportFormData {
     other is ImportFormData && (
       runtimeType == other.runtimeType &&
       format == other.format &&
-      path == other.path
+      file.path == other.file.path
     );
 
   /// Liefert den HashCode für das Objekt
@@ -65,6 +67,6 @@ class ImportFormData {
   @override
   int get hashCode =>
     format.hashCode ^
-    path.hashCode;
+    file.path.hashCode;
   // @formatter:on
 }

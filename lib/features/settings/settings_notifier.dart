@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
@@ -355,7 +355,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Öffnet die App-Info-Seite in den Systemeinstellungen.
   Future<void> openAppSettings() async {
     // todo Die Platform-Weiche möchte ich hier nicht haben. Daher auslagern in einen Service.
-    if (Platform.isWindows) {
+
+    if (env.isWindows) {
       // Unter Windows gibt es keinen direkten Weg in die Detail-Ansicht einer fremden MSIX/EXE via URI.
       // Der Standardweg öffnet "ms-settings:appsfeatures-app".
       // Man kann versuchen, direkt auf die Windows-App-Einstellungen für *diese* App zu zielen.
@@ -372,7 +373,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
       // Fallback: Die allgemeine Liste der installierten Apps
       await launchUrl(Uri.parse('ms-settings:appsfeatures'));
-    } else if (Platform.isAndroid) {
+    } else if (env.isAndroid) {
       try {
         final packageInfo = await PackageInfo.fromPlatform();
         final packageName = packageInfo.packageName;
@@ -380,7 +381,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       } catch (_) {
         await launchUrl(Uri.parse('intent:#Intent;action=android.settings.APPLICATION_SETTINGS;end'));
       }
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (env.isApple) {
       await launchUrl(Uri.parse('app-settings:'));
     }
   }

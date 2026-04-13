@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:privault/core/env.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
@@ -64,7 +64,7 @@ class BiometricService {
       // Wir setzen ihn nur auf Android/iOS auf true, um stärkere Sicherheit zu erzwingen.
       final bool authenticated = await _auth.authenticate(
         localizedReason: "Tresor '$vaultName' entschlüsseln",
-        options: AuthenticationOptions(biometricOnly: !Platform.isWindows, stickyAuth: true),
+        options: AuthenticationOptions(biometricOnly: !env.isWindows, stickyAuth: true),
       );
 
       return authenticated ? base64.decode(base64Key) : null;
@@ -82,13 +82,15 @@ class BiometricService {
 
   /// Öffnet die plattformspezifischen Systemeinstellungen für Biometrie.
   Future<void> openSystemSettings() async {
+    if (kIsWeb) return; // im Browser nicht verfügbar
+
     String url = '';
-    if (Platform.isWindows) {
+    if (env.isWindows) {
       url = 'ms-settings:signinoptions';
-    } else if (Platform.isAndroid) {
+    } else if (env.isAndroid) {
       // Direkter Intent zu den Sicherheits-/Biometrie-Einstellungen
       url = 'intent:#Intent;action=android.settings.SECURITY_SETTINGS;end';
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (env.isApple) {
       // iOS / macOS Einstellungen für FaceID/Passcode
       url = 'App-Prefs:root=FACEID_PASSCODE';
     }

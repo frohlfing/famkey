@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:path/path.dart' as p;
-import 'package:privault/features/main/import/parser.dart';
+import '../../../../core/app_file.dart';
+import '../../../../core/app_file_factory.dart';
+import '../parser.dart';
 
 /// Ein Parser für unverschlüsselte Bitwarden JSON-Exportdateien.
 ///
@@ -13,8 +14,8 @@ import 'package:privault/features/main/import/parser.dart';
 /// - Die Dateianhänge sind im Unterordner "files" abgelegt.
 ///
 class BitwardenJsonParser implements Parser {
-  /// Pfad zur JSON-Datei
-  final String _path;
+  /// JSON-Datei
+  final AppFile _file;
 
   /// Zeilennummern der Item-IDs
   Map<String, int> _itemIdLineMap = {};
@@ -23,7 +24,7 @@ class BitwardenJsonParser implements Parser {
   Map<String, String> _folders = {};
 
   /// Konstruktor
-  BitwardenJsonParser(this._path);
+  BitwardenJsonParser(this._file);
 
   /// Lädt die Daten aus der Datei.
   ///
@@ -42,9 +43,9 @@ class BitwardenJsonParser implements Parser {
     // Datei öffnen und Inhalt lesen
     String fileContent;
     try {
-      fileContent = await File(_path).readAsString();
-    } on FileSystemException catch (e) {
-      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _path, originalErrorMessage: e.message);
+      fileContent = await _file.readAsString();
+    } catch (e) {
+      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }
 
     // Einmaliger Scan der Datei, um eine Map der Item-IDs zu ihrer Zeilennummer zu erstellen.
@@ -55,7 +56,7 @@ class BitwardenJsonParser implements Parser {
     try {
       json = jsonDecode(fileContent);
     } on FormatException catch (e) {
-      throw ParserError('Die JSON-Struktur der Datei ist fehlerhaft.', path: _path, originalErrorMessage: e.message);
+      throw ParserError('Die JSON-Struktur der Datei ist fehlerhaft.', path: _file.path, originalErrorMessage: e.message);
     }
 
     // Ordner (Kategorien) in eine Map (id-> name) laden
@@ -64,7 +65,7 @@ class BitwardenJsonParser implements Parser {
     // Alle "items" aus der JSON-Datei verarbeiten
     final items = json['items'] as List?;
     if (items == null) {
-      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` fehlt.', path: _path);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` fehlt.', path: _file.path);
     }
     return await Future.wait(items.map((item) => _parseItem(item))); // Future.wait, da das Laden von Anhängen asynchron ist
   }
@@ -133,7 +134,7 @@ class BitwardenJsonParser implements Parser {
   /// ```
   Future<ParsedEntry> _parseItem(dynamic itemData) async {
     if (itemData is! Map<String, dynamic>) {
-      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _path);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _file.path);
     }
     final Map<String, dynamic> item = itemData; // todo item as Map<String, dynamic>? übergeben
 
@@ -184,7 +185,7 @@ class BitwardenJsonParser implements Parser {
     final id = item['id'] as String?;
     final lineNumber = _itemIdLineMap[id];
     if (id == null || id.isEmpty) { // ID ist obligatorisch
-      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Ein Eintrag hat keine ID.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Ein Eintrag hat keine ID.', path: _file.path, lineNumber: lineNumber);
     }
 
     /// Es wird eine gültige UUID erwartet (Format: 8-4-4-4-12, z.B. "3a0b4a0c-2b8c-4b0c-9a3e-1f4b2a9c7e12").
@@ -194,7 +195,7 @@ class BitwardenJsonParser implements Parser {
     // - Position der Bindestriche (9, 14, 19, 24).
     // - Aber: Versions- und Varianten-Bits werden ignoriert
     if (!_isValidFUuid(id)) {
-      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Die ID "$id" ist keine gültige UUID.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. Die ID "$id" ist keine gültige UUID.', path: _file.path, lineNumber: lineNumber);
     }
 
     return (id, lineNumber);
@@ -243,7 +244,6 @@ class BitwardenJsonParser implements Parser {
     final passwordHistory = item['passwordHistory'] as List?;
     if (passwordHistory != null && passwordHistory.isNotEmpty) {
       final lastChangeDate = passwordHistory.first['lastUsedDate'] as String?;
-      // todo Prüfen, ob das Passwort ein anderes ist als das aktuelle
       passwordTimestamp = DateTime.tryParse(lastChangeDate ?? '')?.toUtc();
     }
     return passwordTimestamp;
@@ -267,7 +267,7 @@ class BitwardenJsonParser implements Parser {
     final attachmentsMeta = item['attachments'] as List?;
     if (attachmentsMeta == null) return attachments;
 
-    final baseDir = p.join(p.dirname(_path), 'files');
+    final baseDir = p.join(p.dirname(_file.path), 'files');
 
     for (final attachmentData in attachmentsMeta) {
       if (attachmentData is! Map<String, dynamic>) continue;
@@ -277,16 +277,16 @@ class BitwardenJsonParser implements Parser {
 
       var attachmentPath = p.join(baseDir, fileName);
       try {
-        final file = File(attachmentPath);
+        final file = createAppFile(attachmentPath);
         if (!await file.exists()) {
-          final lineNumber = await _findLineNumberOfText(_path, '"fileName": "$fileName"');
-          throw ParserError('Anhang "$fileName" nicht gefunden. Datei im Unterordner "files" erwartet.', path: _path, lineNumber: lineNumber);
+          final lineNumber = await _findLineNumberOfText(_file.path, '"fileName": "$fileName"');
+          throw ParserError('Anhang "$fileName" nicht gefunden. Datei im Unterordner "files" erwartet.', path: _file.path, lineNumber: lineNumber);
         }
         final binaryData = await file.readAsBytes();
         attachments.add(ParsedAttachment(binaryData, filename: fileName));
-      } on FileSystemException catch (e) {
-        final lineNumber = await _findLineNumberOfText(_path, '"fileName": "$fileName"');
-        throw ParserError('Anhang "$fileName" konnte nicht gelesen werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+      } catch (e) {
+        final lineNumber = await _findLineNumberOfText(_file.path, '"fileName": "$fileName"');
+        throw ParserError('Anhang "$fileName" konnte nicht gelesen werden.', path: _file.path, lineNumber: lineNumber, originalErrorMessage: e.toString());
       }
     }
 
@@ -297,9 +297,9 @@ class BitwardenJsonParser implements Parser {
   /// Verwendet einen Stream, um die Datei effizient zu lesen.
   Future<int?> _findLineNumberOfText(String filePath, String searchText) async {
     try {
-      final file = File(filePath);
+      final file = createAppFile(filePath);
       int lineNumber = 1;
-      await for (final line in file.openRead().transform(utf8.decoder).transform(const LineSplitter())) {
+      await for (final line in file.openReadLines()) {
         if (line.contains(searchText)) return lineNumber;
         lineNumber++;
       }

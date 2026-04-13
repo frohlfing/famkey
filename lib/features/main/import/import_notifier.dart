@@ -20,6 +20,8 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/app_file.dart';
+
 final importProvider = NotifierProvider<ImportNotifier, ImportState>(() {
   return ImportNotifier();
 });
@@ -99,14 +101,14 @@ class ImportNotifier extends Notifier<ImportState> {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'format'));
         return;
       }
-      if (formData.path.isEmpty) {
+      if (formData.file == AppFile.none()) {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'path'));
         return;
       }
 
       // 3. Datei parsen
       ParsedPayload parsedPayload;
-      final parser = _parserFactory(formData.format, formData.path);
+      final parser = _parserFactory(formData.format, formData.file);
       if (parser == null) {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, field: 'format'));
         return;
@@ -275,11 +277,11 @@ class ImportNotifier extends Notifier<ImportState> {
   }
 
   /// Erzeugt Abhängig vom State ein Parser-Objekt.
-  static Parser? _parserFactory(ImportFileFormat format, String path) {
+  static Parser? _parserFactory(ImportFileFormat format, AppFile file) {
     return switch (format) {
-      ImportFileFormat.bitwardenJson => BitwardenJsonParser(path),
-      ImportFileFormat.keepassXml => KeepassXmlParser(path),
-      ImportFileFormat.onePassword1Pux => OnePassword1PuxParser(path),
+      ImportFileFormat.bitwardenJson => BitwardenJsonParser(file),
+      ImportFileFormat.keepassXml => KeepassXmlParser(file),
+      ImportFileFormat.onePassword1Pux => OnePassword1PuxParser(file),
       _ => null, // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
@@ -297,19 +299,19 @@ class ImportNotifier extends Notifier<ImportState> {
   void setFormat(ImportFileFormat value) {
     if (value == state.formData.format) return;
     final error = state.error.field == 'format' ? AppError.none() : null;
-    final formData = state.formData.copyWith(format: value, path: '');
+    final formData = state.formData.copyWith(format: value, file: AppFile.none());
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 
-  /// Setter für Pfad zur Datei
-  void setPath(String value) {
-    if (value == state.formData.path) return;
+  /// Setter für Datei
+  void setFile(AppFile value) {
+    if (value.path == state.formData.file.path) return;
     final error = state.error.field == 'path' ? AppError.none() : null;
-    var formData = state.formData.copyWith(path: value);
+    var formData = state.formData.copyWith(file: value);
 
     // Automatische Formaterkennung, wenn noch keins gewählt wurde
     if (formData.format == ImportFileFormat.none) {
-      final extension = value.split('.').last.toLowerCase();
+      final extension = value.name.split('.').last.toLowerCase();
       if (extension == 'json') {
         formData = formData.copyWith(format: ImportFileFormat.bitwardenJson);
       } else if (extension == 'xml') {

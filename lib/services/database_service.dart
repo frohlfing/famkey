@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
+import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/services/config_service.dart';
 
@@ -70,7 +70,8 @@ class DatabaseService {
 
   /// Liest das Salt aus der Salt-Datei.
   Future<Uint8List?> getSalt(String vaultName) async {
-    final saltFile = File(_getSaltPath(vaultName));
+    if (kIsWeb) return null; // Im Webbrowser wird keine Salt-Datei benötigt, da die SQLite-Datei unverschlüsselt ist.
+    final saltFile = createAppFile(_getSaltPath(vaultName));
     if (await saltFile.exists()) {
       return saltFile.readAsBytes();
     }
@@ -79,7 +80,8 @@ class DatabaseService {
 
   /// Speichert das Salt in die Salt-Datei.
   Future<void> saveSalt(String vaultName, Uint8List saltBytes) {
-    final saltFile = File(_getSaltPath(vaultName));
+    if (kIsWeb) return Future.value(); // Im Webbrowser wird keine Salt-Datei benötigt, da die SQLite-Datei unverschlüsselt ist.
+    final saltFile = createAppFile(_getSaltPath(vaultName));
     return saltFile.writeAsBytes(saltBytes);
   }
 
@@ -96,18 +98,15 @@ class DatabaseService {
   /// Erstellt einen sicheren Dateipfad basierend auf dem Tresornamen.
   /// Bereinigt den Namen von ungültigen Dateisystemzeichen.
   String getDatabasePath(String vaultName) {
-    final storagePath = _configService.vaultStoragePath;
-
     // Bereinigung: Alle Zeichen außer Buchstaben, Zahlen, Unterstrichen und Bindestrichen durch '_' ersetzen.
     final safeName = vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
-
-    return p.join(storagePath, '$safeName.db3');
+    return p.join(_configService.vaultStoragePath, '$safeName.db3');
   }
 
   /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
   Future<bool> databaseExists(String vaultName) {
     final path = getDatabasePath(vaultName);
-    return File(path).exists();
+    return createAppFile(path).exists();
   }
 
   /// Scannt das Dateisystem nach vorhandenen Tresor-Datenbanken.
@@ -115,14 +114,16 @@ class DatabaseService {
     final path = _configService.vaultStoragePath;
     if (path.isEmpty) return [];
 
-    final dir = Directory(path);
+    final dir = createAppDirectory(path);
     if (!await dir.exists()) return [];
 
     final List<String> vaults = [];
-    await for (final file in dir.list()) {
+
+    final files = await dir.list();
+    for (final file in files) {
       if (file.path.endsWith('.db3.salt')) {
         final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
-        final dbFile = File(p.join(path, '$baseName.db3'));
+        final dbFile = createAppFile(p.join(path, '$baseName.db3'));
         if (await dbFile.exists()) vaults.add(baseName);
       }
     }
@@ -142,7 +143,7 @@ class DatabaseService {
   /// Wird z.B. vor kritischen Operationen wie `rekey` aufgerufen.
   Future<void> createBackup() async {
     _ensureDbPathInitialized();
-    final file = File(_currentDbPath!);
+    final file = createAppFile(_currentDbPath!);
     if (await file.exists()) {
       await file.copy('$_currentDbPath.bak');
     }
@@ -152,7 +153,7 @@ class DatabaseService {
   Future<void> removeBackup() async {
     _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
-    final backupFile = File(backupPath);
+    final backupFile = createAppFile(backupPath);
     if (await backupFile.exists()) {
       try {
         await backupFile.delete();
@@ -167,7 +168,7 @@ class DatabaseService {
   Future<void> restoreBackup() async {
     _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
-    final backupFile = File(backupPath);
+    final backupFile = createAppFile(backupPath);
     if (!await backupFile.exists()) {
       debugPrint("Es konnte keine Backup-Datei gefunden werden.");
       return;
@@ -189,15 +190,15 @@ class DatabaseService {
     final newPath = getDatabasePath(newName);
 
     // DB umbenennen
-    final oldFile = File(oldPath);
+    final oldFile = createAppFile(oldPath);
     if (await oldFile.exists()) await oldFile.rename(newPath);
 
     // Salt umbenennen
-    final oldSalt = File('$oldPath.salt');
+    final oldSalt = createAppFile('$oldPath.salt');
     if (await oldSalt.exists()) await oldSalt.rename('$newPath.salt');
 
     // Backup der Datei umbenennen
-    final oldBak = File('$oldPath.bak');
+    final oldBak = createAppFile('$oldPath.bak');
     if (await oldBak.exists()) await oldBak.rename('$newPath.bak');
 
     _currentDbPath = newPath;
@@ -210,10 +211,10 @@ class DatabaseService {
     await close();
 
     if (path != null) {
-      final dbFile = File(path);
+      final dbFile = createAppFile(path);
       if (await dbFile.exists()) await dbFile.delete();
 
-      final saltFile = File('$path.salt');
+      final saltFile = createAppFile('$path.salt');
       if (await saltFile.exists()) await saltFile.delete();
     }
   }
@@ -277,7 +278,6 @@ class DatabaseService {
     return (result ?? 0) > 0;
   }
 
-  // todo Pattern ändern: Nur wenn id == 0: DS nach UUID suchen und id übernehmen
   /// Speichert einen neuen Benutzer oder aktualisiert einen bestehenden Datensatz.
   /// Zurückgegeben wird die Entität mit der aktualisierten ID.
   Future<UserEntity> saveUser(UserEntity user) async {
@@ -312,8 +312,7 @@ class DatabaseService {
     _ensureDbInitialized();
 
     final now = DateTime.now().toUtc();
-    //await _db!.transaction(() async {
-    _db!.transaction(() async { // todo await hier weggelassen
+    await _db!.transaction(() async {
       // 1. Alle Permissions des Users entwerten.
       await _db!.customStatement(
         """
@@ -350,8 +349,7 @@ class DatabaseService {
   Future<void> deleteUser(int userId) async {
     _ensureDbInitialized();
 
-    //await _db!.transaction(() async {
-    _db!.transaction(() async { // todo await hier weggelassen
+    await _db!.transaction(() async {
       // 1. Lösche alle Permissions, die der Benutzer selbst hat
       await (_db!.delete(_db!.permissions)..where((p) => p.userId.equals(userId))).go();
 
@@ -499,8 +497,7 @@ class DatabaseService {
   Future<void> deleteEntryAndForget(int entryId) async {
     _ensureDbInitialized();
 
-    //await _db!.transaction(() async {
-    _db!.transaction(() async { // todo await hier weggelassen
+    await _db!.transaction(() async {
       // 1. Alle Berechtigungen für diesen Eintrag löschen
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(entryId))).go();
 
@@ -519,7 +516,7 @@ class DatabaseService {
     if (entry == null) return;
     final entryUuid = entry.uuid;
 
-    _db!.transaction(() async { // todo await hier weggelassen
+    await _db!.transaction(() async {
       // 1. Alle Berechtigungen für diesen Eintrag löschen
 
       await (_db!.delete(_db!.permissions)..where((p) => p.entryId.equals(entryId))).go();
@@ -636,7 +633,7 @@ class DatabaseService {
   /// Aktualisiert eine Liste von Berechtigungen.
   Future<void> updatePermissions(List<PermissionEntity> permissions) async {
     _ensureDbInitialized();
-    _db!.transaction(() async {
+    await _db!.transaction(() async {
       for (final p in permissions) {
         final companion = PermissionsCompanion(
             encryptedKey: Value(p.encryptedKey),
@@ -650,7 +647,7 @@ class DatabaseService {
   /// Löscht eine Berechtigung.
   Future<void> deletePermission(int permissionId) async {
     _ensureDbInitialized();
-    await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go(); // todo kann hier das await weg?
+    await (_db!.delete(_db!.permissions)..where((p) => p.id.equals(permissionId))).go();
   }
 
   /// Leert alle Entry-Keys eines Benutzers.
@@ -663,8 +660,7 @@ class DatabaseService {
 
     final now = DateTime.now().toUtc();
 
-    //await _db!.transaction(() async {
-    _db!.transaction(() async { // todo await hier weggelassen
+    await _db!.transaction(() async {
       // 1. Alle Entry-Keys des Users in einem Rutsch entfernen.
       // Wir prüfen manuell, ob Zeilen betroffen waren (in Drift über custom Update oder Select)
       final affectedRows = await _db!.customUpdate(
@@ -681,7 +677,7 @@ class DatabaseService {
 
       // 2. Zeitstempel der betroffenen Einträge aktualisieren.
       //await _db!.customStatement(
-      await _db!.customStatement( // todo await hier weggelassen
+      await _db!.customStatement(
         """
         UPDATE entries 
         SET updated_at = ? 
@@ -790,7 +786,7 @@ class DatabaseService {
   /// Löscht einen Anhang anhand seiner internen ID.
   Future<void> deleteAttachment(int attachmentId) async {
     _ensureDbInitialized();
-    await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(attachmentId))).go(); // todo kann hier das await weg?
+    await (_db!.delete(_db!.attachments)..where((a) => a.id.equals(attachmentId))).go();
   }
 
   // ------------------------------------------------------------------------
@@ -832,7 +828,7 @@ class DatabaseService {
   /// Zurückgegeben wird die Anzahl der neuen Einträge.
   Future<void> import(ImportBatch items) async {
     _ensureDbInitialized();
-    return _db!.transaction(() async {
+    await _db!.transaction(() async {
       for (final item in items) {
 
         // 1. Eintrag speichern

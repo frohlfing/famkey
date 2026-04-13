@@ -1,6 +1,11 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:privault/core/app_file_factory.dart';
+import 'package:privault/core/app_file.dart';
+import 'package:privault/core/env.dart';
+
+/// Globale Zugriffsvariable (Kurzform für Logger())
+final log = Logger(); // todo Logger() überall ersetzen
 
 enum LogLevel {
   debug,
@@ -37,17 +42,15 @@ enum LogLevel {
 /// - Schreibt Log-Einträge in eine Datei.
 /// - Behält die letzten X Tage im Log.
 /// - Gibt im Debug-Modus zusätzlich in die Konsole aus.
-/// - Ist Thread-Safe
+/// - Thread-Safe
 class Logger {
   /// Singleton-Instanz
   static final Logger _instance = Logger._internal();
-
   factory Logger() => _instance;
-
-  Logger._internal();
+  Logger._internal(); /// privater benannter Konstruktor
 
   /// Logdatei
-  late final File _logFile;
+  late final AppFile _logFile;
   bool _initialized = false;
 
   /// Minimaler Log-Level, der geschrieben wird
@@ -56,13 +59,14 @@ class Logger {
   /// Maximale Anzahl an Tagen, die in der Log-Datei aufbewahrt wird
   int maxDays = 7;
 
-  /// Initialisierung (wird einmalig beim App-Start aufgerufen)
+  /// Initialisierung
+  /// Wird einmalig in `main()` aufgerufen (nach `env.init();`).
   Future<void> init({required LogLevel minLevel, required int maxDays}) async {
     if (_initialized) return;
     _initialized = true;
     configure(minLevel: minLevel, maxDays: maxDays);
-    final dir = await getApplicationSupportDirectory();
-    _logFile = File('${dir.path}/privault.log');
+    final path = p.join(env.storagePath, 'privault.log');
+    _logFile = createAppFile(path);
     await _cleanupOldEntries();
   }
 
@@ -100,8 +104,7 @@ class Logger {
     if (level.priority < minLevel.priority) return;
 
     // Bei Unit-Tests nicht schreiben
-    bool isTestEnvironment = Platform.environment.containsKey('FLUTTER_TEST');
-    if (isTestEnvironment) return;
+    if (env.isTest) return;
 
     // Zeile generieren
     final timestamp = DateTime.now().toIso8601String();
@@ -119,10 +122,10 @@ class Logger {
     }
 
     // Datei schreiben
-    await _logFile.writeAsString('\n$line\n', mode: FileMode.append);
+    await _logFile.writeAsString('\n$line\n', append: true);
     if (stack != null) {
       final readable = _getReadableStackTrace(stack, maxFrames: 5);
-      await _logFile.writeAsString('$readable\n', mode: FileMode.append);
+      await _logFile.writeAsString('$readable\n', append: true);
     }
   }
 

@@ -1,8 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
-import 'package:privault/features/main/import/parser.dart';
+import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
+import '../../../../core/app_file.dart';
+import '../../../../core/app_file_factory.dart';
+import '../parser.dart';
 
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
 ///
@@ -16,8 +18,8 @@ import 'package:xml/xml.dart';
 /// - Die Binärdaten der Dateianhänge sind in der XML-Datei eingebettet.
 ///
 class KeepassXmlParser implements Parser {
-  /// Pfad zur XML-Datei
-  final String _path;
+  /// XML-Datei
+  final AppFile _file;
 
   /// Zeilennummern der base64-kodierten UUIDs
   Map<String, int> _uuidLineMap = {};
@@ -26,7 +28,7 @@ class KeepassXmlParser implements Parser {
   Map<String, Uint8List> _binaries = {};
 
   /// Konstruktor
-  KeepassXmlParser(this._path);
+  KeepassXmlParser(this._file);
 
   /// Lädt die Daten aus der Datei.
   ///
@@ -49,9 +51,9 @@ class KeepassXmlParser implements Parser {
     // Datei öffnen und Inhalt lesen
     String fileContent;
     try {
-      fileContent = await File(_path).readAsString();
-    } on FileSystemException catch (e) {
-      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _path, originalErrorMessage: e.message);
+      fileContent = await createAppFile(_file.path).readAsString();
+    } catch (e) {
+      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }
 
     // Einmaliger Scan der Datei, um eine Map von der base64-kodierten UUIDs zu ihrer Zeilennummer zu erstellen.
@@ -62,7 +64,7 @@ class KeepassXmlParser implements Parser {
     try {
       xml = XmlDocument.parse(fileContent);
     } on XmlException catch (e) {
-      throw ParserError('Die XML-Struktur der Datei ist fehlerhaft.', path: _path, originalErrorMessage: e.message);
+      throw ParserError('Die XML-Struktur der Datei ist fehlerhaft.', path: _file.path, originalErrorMessage: e.message);
     }
 
     // Dateianhänge aus `<Meta><Binaries>`-Block dekodieren
@@ -71,7 +73,7 @@ class KeepassXmlParser implements Parser {
     // Gruppendaten rekursiv parsen
     final rootGroup = xml.rootElement.findElements('Root').firstOrNull?.findElements('Group').firstOrNull;
     if (rootGroup == null) {
-      throw ParserError('Die KeePass-Datei ist fehlerhaft. `<Root><Group>` fehlt.', path: _path);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. `<Root><Group>` fehlt.', path: _file.path);
     }
     return _parseGroups(rootGroup, ''); // Die Root-Gruppe (die Gruppe direkt unter Root) hat den Namen des Tresors. Die Kategorie lassen wir daher leer.
   }
@@ -115,15 +117,15 @@ class KeepassXmlParser implements Parser {
         try {
           blob = base64.decode(bin.innerText.trim());
         } on FormatException catch (e) {
-          final lineNumber = await _findLineNumberOfText(_path, '<Binary ID="$id"');
-          throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+          final lineNumber = await _findLineNumberOfText(_file.path, '<Binary ID="$id"');
+          throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekodiert werden.', path: _file.path, lineNumber: lineNumber, originalErrorMessage: e.message);
         }
         if (bin.getAttribute('Compressed') == 'True') {
           try {
-            blob = Uint8List.fromList(gzip.decode(blob));
+            blob = Uint8List.fromList(GZipDecoder().decodeBytes(blob));
           } on FormatException catch (e) {
-            final lineNumber = await _findLineNumberOfText(_path, '<Binary ID="$id"');
-            throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekomprimiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+            final lineNumber = await _findLineNumberOfText(_file.path, '<Binary ID="$id"');
+            throw ParserError('Die KeePass-Datei ist fehlerhaft. Anhang ID=$id konnte nicht dekomprimiert werden.', path: _file.path, lineNumber: lineNumber, originalErrorMessage: e.message);
           }
         }
         map[id] = blob;
@@ -136,9 +138,9 @@ class KeepassXmlParser implements Parser {
   /// Verwendet einen Stream, um die Datei effizient zu lesen.
   Future<int?> _findLineNumberOfText(String filePath, String searchText) async {
     try {
-      final file = File(filePath);
+      final file = createAppFile(filePath);
       int lineNumber = 1;
-      await for (final line in file.openRead().transform(utf8.decoder).transform(const LineSplitter())) {
+      await for (final line in file.openReadLines()) {
         if (line.contains(searchText)) return lineNumber;
         lineNumber++;
       }
@@ -250,18 +252,18 @@ class KeepassXmlParser implements Parser {
     final base64Uuid = entry.findElements('UUID').firstOrNull?.innerText ?? '';
     final lineNumber = _uuidLineMap[base64Uuid];
     if (base64Uuid.isEmpty) { // UUID ist obligatorisch
-      throw ParserError('UUID fehlt.', path: _path, lineNumber: lineNumber);
+      throw ParserError('UUID fehlt.', path: _file.path, lineNumber: lineNumber);
     }
 
     Uint8List bytes;
     try {
       bytes = base64.decode(base64Uuid);
     } on FormatException catch (e) {
-      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" konnte nicht dekodiert werden.', path: _path, lineNumber: lineNumber, originalErrorMessage: e.message);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" konnte nicht dekodiert werden.', path: _file.path, lineNumber: lineNumber, originalErrorMessage: e.message);
     }
 
     if (bytes.length != 16) {
-      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die KeePass-Datei ist fehlerhaft. UUID "$base64Uuid" ist ungültig. 16 Bytes erwartet.', path: _file.path, lineNumber: lineNumber);
     }
 
     final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
@@ -373,8 +375,8 @@ class KeepassXmlParser implements Parser {
       if (fileName == null || ref == null) continue;
       final binary = _binaries[ref];
       if (binary == null) {
-        final lineNumber = await _findLineNumberOfText(_path, '<Value Ref="$ref"');
-        throw ParserError('Die KeePass-Datei ist fehlerhaft. Binär-Referenz "$ref" fehlt.', path: _path, lineNumber: lineNumber);
+        final lineNumber = await _findLineNumberOfText(_file.path, '<Value Ref="$ref"');
+        throw ParserError('Die KeePass-Datei ist fehlerhaft. Binär-Referenz "$ref" fehlt.', path: _file.path, lineNumber: lineNumber);
       }
       attachments.add(ParsedAttachment(binary, filename: fileName));
     }

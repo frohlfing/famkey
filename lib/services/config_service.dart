@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 /// Ein Wrapper um [SharedPreferences] für App-übergreifende (Tresor-unabhängige) Einstellungen.
 /// Der Speicherort ist Plattformabhängig. Unter Windows: `AppData/Roaming/.../`
@@ -29,19 +28,6 @@ class ConfigService {
   /// Konstruktor
   ConfigService(this._prefs);
 
-  /// Initialisierung (wird einmalig beim App-Start aufgerufen)
-  Future<void> init() async {
-    if (vaultStoragePath.isEmpty) {
-      final supportDir = await getApplicationSupportDirectory();
-      final defaultPath = p.join(supportDir.path, 'vaults');
-      final dir = Directory(defaultPath);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      vaultStoragePath = defaultPath;
-    }
-  }
-
   // ------------------------------------------------------------------------
   // --- Eigenschaften ---
   // ------------------------------------------------------------------------
@@ -53,6 +39,8 @@ class ConfigService {
   set lastVaultName(String value) => _prefs.setString(_keyLastVault, value);
 
   /// Zeigt an, ob in der Hauptliste aktuell nur die eigenen Einträge angezeigt werden sollen.
+  // todo diese Einstellung wird in der Hauptansicht noch nicht berücksichtigt.
+  // todo Weitere Einstellung: Bei Start alle Kategorien aufklappen
   bool get showOnlyMine => _prefs.getBool(_keyShowOnlyMine) ?? false;
 
   set showOnlyMine(bool value) => _prefs.setBool(_keyShowOnlyMine, value);
@@ -65,8 +53,8 @@ class ConfigService {
 
   set themeMode(ThemeMode value) => _prefs.setString(_keyTheme, value.name);
 
-  /// (Flutter-Spezifisch) Der Basispfad, in dem die SQLite-Tresordateien abgelegt werden.
-  String get vaultStoragePath => _prefs.getString(_keyStoragePath) ?? '';
+  /// Der Basispfad, in dem die SQLite-Tresordateien abgelegt werden.
+  String get vaultStoragePath => _prefs.getString(_keyStoragePath) ?? p.join(env.storagePath, 'vaults');
 
   set vaultStoragePath(String value) => _prefs.setString(_keyStoragePath, value);
 

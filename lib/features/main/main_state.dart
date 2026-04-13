@@ -1,5 +1,4 @@
 import 'package:privault/core/app_error.dart';
-import 'package:privault/database/database.dart';
 import 'package:privault/features/main/main_notifier.dart';
 
 /// Ein Enum für den Status von Aktionen

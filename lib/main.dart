@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/config_service.dart';
@@ -30,14 +31,18 @@ void main() async {
       return true; // handled (verhindert Absturz)
     };
 
+    // todo überdenken, warum env und Logger Singleton ist, der Rest ein Service. Auch Service ist im Grunde ein Singleton.
+    //  Unterschied: vom Singelton wird sofort eine Instanz erstellt.
+    // Konsequent ist das nicht, oder lässt argumentieren/begründen, warum Logger und Env kein Service ist?
+
     // Dienste registrieren
     await setupServiceLocator();
 
-    // Config-Service initialisieren
-    final configService = getIt<ConfigService>();
-    await configService.init();
+    // Umgebungsvariablen initialisieren
+    await env.init();
 
     // Logger initialisieren
+    final configService = getIt<ConfigService>();
     await Logger().init(minLevel: configService.logMinLevel, maxDays: configService.logMaxDays);
 
     // ProviderScope hinzufügen (Riverpod Einstiegspunkt)

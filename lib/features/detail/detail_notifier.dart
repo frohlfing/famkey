@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/app_file_factory.dart';
+import 'package:privault/core/app_file.dart';
 import 'package:privault/core/helper.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
@@ -177,7 +176,8 @@ class DetailNotifier extends Notifier<DetailState> {
     Clipboard.setData(ClipboardData(text: text));
   }
 
-   /// Öffnet die URL in einem neuen Browser-Tab.
+  /// Öffnet die URL in einem neuen Browser-Tab.
+  // todo gehört das nicht in die UI?
   Future<void> openUrl() async {
     if (state.url.isEmpty) return;
     final uri = Uri.parse(state.url.startsWith('http') ? state.url : 'https://${state.url}');
@@ -209,7 +209,7 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Fügt dem aktuellen Eintrag einen neuen Dateianhang hinzu.
-  Future<void> addAttachment(PlatformFile file) async {
+  Future<void> addAttachment(AppFile file) async {
     if (state.isBusy) return;
 
     // 1. Status auf progress setzen
@@ -220,7 +220,7 @@ class DetailNotifier extends Notifier<DetailState> {
       if (_entryKey == null) throw Exception('Der AES-Schlüssel des Eintrags ${_entry!.id} ist nicht entpackt.');
 
       // 2. Datei auslesen
-      final bytes = file.bytes!;
+      final bytes = await file.readAsBytes();
       final mimeType = getMimeType(file.name);
 
       // 3. Thumbnail erzeugen (wenn es ein Bild ist)
@@ -269,6 +269,7 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Entschlüsselt einen Anhang und öffnet ihn mit der System-App.
+  // todo gehört das nicht in die UI? Zumindest der Part nachdem die Daten entschlüsselt sind?
   Future<void> openAttachment(AttachmentEntity attachment, String filename) async {
     if (state.isBusy) return;
 
@@ -281,12 +282,11 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // Inhalt entschlüsseln
       final decryptedContent = await _cryptoService.decrypt(attachment.encryptedContent, _entryKey!);
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/$filename');
+      final tempFile = await createTempAppFile(filename);
       await tempFile.writeAsBytes(decryptedContent);
 
       // Datei öffnen
-      await OpenFilex.open(tempFile.path);
+      await OpenFilex.open(tempFile.path); // todo
 
       // Sicherheits-Cleanup: Temporäre Datei verzögert löschen
       Future.microtask(() async {

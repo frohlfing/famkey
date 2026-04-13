@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
-import 'package:privault/features/main/import/parser.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../core/app_file.dart';
+import '../../../../core/app_file_factory.dart';
+import '../parser.dart';
 
 /// Ein Parser für 1Password 1PUX Exportdateien.
 ///
@@ -16,14 +17,14 @@ import 'package:uuid/uuid.dart';
 /// - Der Ordner "files" im Archiv enthält die Dateianhänge. Der Name jeder Datei beginnt mit ihrer Dokument-ID.
 ///
 class OnePassword1PuxParser implements Parser {
-  /// Pfad zur .1pux-Datei
-  final String _path;
+  /// .1pux-Datei
+  final AppFile _file;
 
   /// Zeilennummern der Item-IDs
   Map<String, int> _itemIdLineMap = {};
 
   /// Konstruktor
-  OnePassword1PuxParser(this._path);
+  OnePassword1PuxParser(this._file);
 
   /// Lädt die Daten aus der Datei.
   ///
@@ -55,9 +56,9 @@ class OnePassword1PuxParser implements Parser {
     // Datei öffnen und Inhalt lesen
     Uint8List bytes;
     try {
-      bytes = await File(_path).readAsBytes();
-    } on FileSystemException catch (e) {
-      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _path, originalErrorMessage: e.message);
+      bytes = await createAppFile(_file.path).readAsBytes();
+    } catch (e) {
+      throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }
 
     // 1pux-Datei als ZIP-Archiv lesen
@@ -65,13 +66,13 @@ class OnePassword1PuxParser implements Parser {
     try {
       archive = ZipDecoder().decodeBytes(bytes);
     } on ArchiveException catch (e) {
-      throw ParserError('Die 1pux-Datei konnte nicht entpackt werden.', path: _path, originalErrorMessage: e.message);
+      throw ParserError('Die 1pux-Datei konnte nicht entpackt werden.', path: _file.path, originalErrorMessage: e.message);
     }
 
     // Die zentrale Datendatei 'export.data' finden und lesen
     final exportDataFile = archive.findFile('export.data');
     if (exportDataFile == null) {
-      throw ParserError('Die 1pux-Datei ist fehlerhaft. `export.data` ist nicht eingebettet.', path: _path);
+      throw ParserError('Die 1pux-Datei ist fehlerhaft. `export.data` ist nicht eingebettet.', path: _file.path);
     }
     final fileContent = utf8.decode(exportDataFile.content as List<int>);
 
@@ -83,7 +84,7 @@ class OnePassword1PuxParser implements Parser {
     try {
       json = jsonDecode(fileContent);
     } on FormatException catch (e) {
-      throw ParserError('Die 1pux-Datei ist fehlerhaft. `export.data` ist nicht JSON-basiert.', path: _path, originalErrorMessage: e.message);
+      throw ParserError('Die 1pux-Datei ist fehlerhaft. `export.data` ist nicht JSON-basiert.', path: _file.path, originalErrorMessage: e.message);
     }
 
     // Alle Einträge aus allen Tresoren extrahieren
@@ -174,7 +175,7 @@ class OnePassword1PuxParser implements Parser {
   /// ```
   ParsedEntry _parseItem(dynamic itemData, String accountUuid, String vaultUuid, String vaultName, Archive archive) {
     if (itemData is! Map<String, dynamic>) {
-      throw ParserError('Die 1pux-Datei ist fehlerhaft.`items` beinhaltet ungültige Daten.', path: _path);
+      throw ParserError('Die 1pux-Datei ist fehlerhaft.`items` beinhaltet ungültige Daten.', path: _file.path);
     }
     final Map<String, dynamic> item = itemData;
 
@@ -441,7 +442,7 @@ class OnePassword1PuxParser implements Parser {
   ParsedAttachment _buildAttachment(String documentId, String? fileName, Archive archive, int? lineNumber) {
     final archiveFile = archive.files.where((f) => f.name.startsWith('files/$documentId')).firstOrNull;
     if (archiveFile == null) {
-      throw ParserError('Die 1pux-Datei ist fehlerhaft. Dateianhang mit ID "$documentId" ist nicht eingebettet.', path: _path, lineNumber: lineNumber);
+      throw ParserError('Die 1pux-Datei ist fehlerhaft. Dateianhang mit ID "$documentId" ist nicht eingebettet.', path: _file.path, lineNumber: lineNumber);
     }
     final binary = archiveFile.content as Uint8List;
     return ParsedAttachment(binary, filename: fileName);

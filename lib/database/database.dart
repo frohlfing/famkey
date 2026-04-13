@@ -1,14 +1,6 @@
-import 'dart:ffi';
-import 'dart:io';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:privault/core/app_version.dart';
-import 'package:sqlite3/open.dart';
-import 'package:sqlite3/sqlite3.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/services/config_service.dart';
 import 'package:flutter/foundation.dart';
+import 'connection.dart';
 
 part 'database.g.dart';
 
@@ -233,7 +225,7 @@ class AppDatabase extends _$AppDatabase {
   final String password;
   final String dbName;
 
-  AppDatabase(this.dbName, this.password) : super(_openConnection(dbName, password));
+  AppDatabase(this.dbName, this.password) : super(openConnection(dbName, password));
 
   // Bei einer Änderung muss die Version erhöht werden, damit Drift weiß, dass es die Änderung ausführen muss.
   static const int version = 1;
@@ -267,46 +259,4 @@ class AppDatabase extends _$AppDatabase {
       }
     },
   );
-
-  static QueryExecutor _openConnection(String name, String password) {
-    return LazyDatabase(() async {
-      // WICHTIG: Nutze den zentralen Speicherpfad aus dem ConfigService
-      final config = getIt<ConfigService>();
-      final storagePath = config.vaultStoragePath;
-      final file = File(p.join(storagePath, '$name.db3'));
-
-      // DLL-Bindung für SQLCipher
-      if (!kIsWeb && Platform.isWindows) {
-        final dllPath = p.join(Directory.current.path, 'native', 'sqlcipher', 'windows', 'sqlite3mc_x64.dll');
-        if (File(dllPath).existsSync()) {
-          open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
-          debugPrint('✅ SQLiteMC DLL registriert');
-        }
-        else {
-          debugPrint('❌ SQLiteMC DLL nicht gefunden: $dllPath');
-        }
-      }
-
-      if (kDebugMode) {
-        // Brauchen wir, um die DB per Database Navigator öffnen zu können
-        debugPrint("🔑 DB-Passwort: $password");
-      }
-
-      if (kDebugMode) {
-        debugPrint("ℹ️ App-Version: ${await AppVersion.fullVersion}");
-        debugPrint("ℹ️ DB-Schema: ${AppVersion.databaseSchemaVersion}");
-        debugPrint("ℹ️ Sync-Protokoll: ${AppVersion.syncProtocolVersion}");
-      }
-
-      // Datenbank öffnen
-      final rawDb = sqlite3.open(file.path);
-
-      // Datenbank entsperren
-      rawDb.execute("PRAGMA cipher = 'sqlcipher';");
-      rawDb.execute("PRAGMA hexkey = '$password';");
-
-      // Ab hier übernimmt Drift und prüft, ob die Tabellen aktualisiert werden müssen.
-      return NativeDatabase.opened(rawDb);
-    });
-  }
 }

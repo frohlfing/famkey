@@ -1,0 +1,47 @@
+import 'dart:ffi';
+import 'dart:io';
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3/open.dart';
+import 'package:sqlite3/sqlite3.dart';
+import 'package:privault/core/app_version.dart';
+import 'package:privault/core/service_locator.dart';
+import 'package:privault/services/config_service.dart';
+
+/// Baut eine Datenbankverbindung zu SQLite für eine Desktop- oder Mobile-Platform auf.
+QueryExecutor openConnection(String name, String password) {
+  return LazyDatabase(() async {
+    // DLL-Bindung für SQLCipher
+    if (Platform.isWindows) {
+      final dllPath = p.join(Directory.current.path, 'native', 'sqlcipher', 'windows', 'sqlite3mc_x64.dll');
+      if (File(dllPath).existsSync()) {
+        open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
+        debugPrint('✅ SQLiteMC DLL registriert');
+      } else {
+        debugPrint('❌ SQLiteMC DLL nicht gefunden: $dllPath');
+      }
+    }
+
+    if (kDebugMode) {
+      // Brauchen wir, um die DB per Database Navigator öffnen zu können
+      debugPrint("🔑 DB-Passwort: $password"); // todo Löschen!!!
+      debugPrint("ℹ️ App-Version: ${await AppVersion.fullVersion}");
+      debugPrint("ℹ️ DB-Schema: ${AppVersion.databaseSchemaVersion}");
+      debugPrint("ℹ️ Sync-Protokoll: ${AppVersion.syncProtocolVersion}");
+    }
+
+    // Datenbank öffnen
+    final config = getIt<ConfigService>();
+    final path = p.join(config.vaultStoragePath, '$name.db3'); // WICHTIG: Zentralen Speicherpfad aus dem ConfigService nutzen!
+    final rawDb = sqlite3.open(path);
+
+    // Datenbank entsperren
+    rawDb.execute("PRAGMA cipher = 'sqlcipher';");
+    rawDb.execute("PRAGMA hexkey = '$password';");
+
+    // Ab hier übernimmt Drift und prüft, ob die Tabellen aktualisiert werden müssen.
+    return NativeDatabase.opened(rawDb);
+  });
+}
