@@ -43,6 +43,56 @@ Oder einfach `pubspec.lock` in Android Studio öffnen und nach dem Paketnamen su
 
 Bei einem Update der Flutter-Pakete dürfen diese beiden Dateien nicht vergessen werden.
 
+### Origin-Private File System (OPFS)
+
+OPFS ist ein persistentes, origin-gebundenes Dateisystem im Browser. 
+Dateipfade werden als Verzeichnisstruktur im OPFS abgebildet.
+
+Voraussetzung: Die App muss mit den COOP/COEP-Headern ausgeliefert werden,
+damit SharedArrayBuffer und Atomics verfügbar sind (für den Drift-Worker).
+
+Konfiguration in Android Studio:
+- `Run` → `Edit Configurations` → `Add New Configuration` → `Flutter`
+- In das Feld `Additional run args` dies einfügen:
+```
+-d chrome
+  --web-header=Cross-Origin-Opener-Policy=same-origin
+  --web-header=Cross-Origin-Embedder-Policy=require-corp
+```
+Das OPFS selbst funktioniert auch ohne diese Header.
+
+Per Terminal starten:
+```shell
+flutter run -d edge --web-header="Cross-Origin-Opener-Policy=same-origin" --web-header="Cross-Origin-Embedder-Policy=require-corp"
+```
+
+Verfügbare Browser anzeigen:
+```shell
+flutter devices
+```
+
+
+Dateien im OPFS anzeigen (in der Entwicklungskonsole des Browsers (F12)):
+```javascript
+const root = await navigator.storage.getDirectory();
+const driftDir = await root.getDirectoryHandle('drift_db');
+for await (const [name, handle] of driftDir.entries()) {
+  console.log(name, handle.kind);
+}
+```
+
+```javascript
+const root = await navigator.storage.getDirectory();
+const driftDir = await root.getDirectoryHandle('drift_db');
+await driftDir.removeEntry('test', { recursive: true });
+console.log('Tresor "test" gelöscht');
+try {
+  await driftDir.removeEntry('test.db3.salt');
+  console.log('Salt gelöscht');
+} catch (_) {
+}
+```
+
 ### Bedingten Import / Platform-Weiche
 
 Diese Pakete werden nicht bei einer WebAssembly unterstützt.

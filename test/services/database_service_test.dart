@@ -44,7 +44,7 @@ void main() {
       tempDir = await Directory.systemTemp.createTemp('privault_test_');
       when(mockConfigService.vaultStoragePath).thenReturn(tempDir.path);
       
-      sut = DatabaseService(mockConfigService);
+      sut = DatabaseService();
     });
 
     tearDown(() async {

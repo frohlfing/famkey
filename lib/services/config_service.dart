@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,7 +13,6 @@ class ConfigService {
   static const String _keyLastVault = 'last_vault_name';
   static const String _keyShowOnlyMine = 'show_only_mine';
   static const String _keyTheme = 'theme';
-  static const String _keyStoragePath = 'vault_storage_path';
   static const String _keyLogMinLevel = 'log_min_level';
   static const String _keyLogMaxDays = 'log_max_days';
 
@@ -52,11 +49,6 @@ class ConfigService {
   }
 
   set themeMode(ThemeMode value) => _prefs.setString(_keyTheme, value.name);
-
-  /// Der Basispfad, in dem die SQLite-Tresordateien abgelegt werden.
-  String get vaultStoragePath => _prefs.getString(_keyStoragePath) ?? p.join(env.storagePath, 'vaults');
-
-  set vaultStoragePath(String value) => _prefs.setString(_keyStoragePath, value);
 
   /// Minimaler Log-Level, der geschrieben wird (0=debug, 1=info, 2=warm, 3=error, 4=fatal)
   LogLevel get logMinLevel => LogLevel.fromPriority(_prefs.getInt(_keyLogMinLevel) ?? 1);

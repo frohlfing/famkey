@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
@@ -179,10 +180,8 @@ class LoginNotifier extends Notifier<LoginState> {
           return;
         }
       } else {
-        debugPrint("deriveKey Start");
         // Master-Key ableiten aus Passwort und Salt berechnen
         masterKey = await _cryptoService.deriveKey(password, salt);
-        debugPrint("deriveKey Ende");
       }
 
       Uint8List privateKey;
@@ -190,9 +189,7 @@ class LoginNotifier extends Notifier<LoginState> {
       SettingsEntity? settings;
 
       // 8. Datenbank öffnen bzw. anlegen
-      debugPrint("initialize Start");
       await _databaseService.initialize(vaultName, masterKey!);
-      debugPrint("initialize Ende");
       if (state.isExists) {
         // Tresor soll geöffnet werden
 
@@ -228,15 +225,13 @@ class LoginNotifier extends Notifier<LoginState> {
         }
       } else {
         // Tresor soll angelegt werden
-        debugPrint("TRESOR ANLEGEN");
+
         // Salt-Datei anlegen, RSA-Schlüsselpaar generieren und privaten Schlüssel verpacken
         await _databaseService.saveSalt(vaultName, salt);
-        debugPrint("generateRsaKeyPair");
         final (pubKey, privKey) = await _cryptoService.generateRsaKeyPair();
-        debugPrint("encrypt(privKey, masterKey)");
         final encryptedPrivKey = await _cryptoService.encrypt(privKey, masterKey);
         privateKey = privKey;
-        debugPrint("SAVE USER");
+
         // Benutzer der App (ID = 1) anlegen
         // SQLite-net schaut beim Insert in seine interne Sequenz-Tabelle.
         // Da die Datenbank neu ist, ist die nächste freie ID immer die 1.

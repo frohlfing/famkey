@@ -3,18 +3,13 @@ import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
 import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/database/database.dart';
-import 'package:privault/services/config_service.dart';
+import '../core/env.dart';
 
 /// Daten für `import()`
 typedef ImportBatch = List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})>;
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
-  // ------------------------------------------------------------------------
-  // --- Verwendete Dienste (Abhängigkeiten) ---
-  // ------------------------------------------------------------------------
-
-  final ConfigService _configService;
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen & Konstanten ---
@@ -31,7 +26,7 @@ class DatabaseService {
   // ------------------------------------------------------------------------
 
   /// Konstruktor
-  DatabaseService(this._configService);
+  DatabaseService();
 
   /// Gibt zurück, ob die Datenbankverbindung initialisiert ist.
   bool get isInitialized => _db != null;
@@ -70,7 +65,6 @@ class DatabaseService {
 
   /// Liest das Salt aus der Salt-Datei.
   Future<Uint8List?> getSalt(String vaultName) async {
-    if (kIsWeb) return null; // Im Webbrowser wird keine Salt-Datei benötigt, da die SQLite-Datei unverschlüsselt ist.
     final saltFile = createAppFile(_getSaltPath(vaultName));
     if (await saltFile.exists()) {
       return saltFile.readAsBytes();
@@ -80,7 +74,6 @@ class DatabaseService {
 
   /// Speichert das Salt in die Salt-Datei.
   Future<void> saveSalt(String vaultName, Uint8List saltBytes) {
-    if (kIsWeb) return Future.value(); // Im Webbrowser wird keine Salt-Datei benötigt, da die SQLite-Datei unverschlüsselt ist.
     final saltFile = createAppFile(_getSaltPath(vaultName));
     return saltFile.writeAsBytes(saltBytes);
   }
@@ -100,7 +93,7 @@ class DatabaseService {
   String getDatabasePath(String vaultName) {
     // Bereinigung: Alle Zeichen außer Buchstaben, Zahlen, Unterstrichen und Bindestrichen durch '_' ersetzen.
     final safeName = vaultName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
-    return p.join(_configService.vaultStoragePath, '$safeName.db3');
+    return p.join(env.vaultStoragePath, '$safeName.db3');
   }
 
   /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
@@ -109,24 +102,30 @@ class DatabaseService {
     return createAppFile(path).exists();
   }
 
-  /// Scannt das Dateisystem nach vorhandenen Tresor-Datenbanken.
+  /// Listet existierende Tresore auf.
   Future<List<String>> getExistingVaults() async {
-    final path = _configService.vaultStoragePath;
+    final path = env.vaultStoragePath;
     if (path.isEmpty) return [];
 
     final dir = createAppDirectory(path);
     if (!await dir.exists()) return [];
+    final files = await dir.list(recursive: true);
 
-    final List<String> vaults = [];
-
-    final files = await dir.list();
-    for (final file in files) {
-      if (file.path.endsWith('.db3.salt')) {
-        final baseName = p.basename(file.path).replaceAll('.db3.salt', '');
-        final dbFile = createAppFile(p.join(path, '$baseName.db3'));
-        if (await dbFile.exists()) vaults.add(baseName);
-      }
+    if (env.isWeb) {
+      // Drift legt /drift_db/<name>/database an
+      return files
+          .where((f) => f.name == 'database')
+          .map((f) => f.path.split('/').reversed.skip(1).first) // Verzeichnis direkt über "database"
+          .toList();
     }
+
+    // Nativ: vaults/<name>.db3
+    final vaults = files
+        .where((f) => f.name.endsWith('.db3'))
+        .map((f) => f.name.replaceAll('.db3', ''))
+        .toList();
+
+    debugPrint("Vaults: $vaults");
     return vaults;
   }
 

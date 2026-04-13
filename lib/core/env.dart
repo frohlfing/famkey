@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 /// Globale Zugriffsvariable (Kurzform für Env())
@@ -77,4 +78,7 @@ class Env {
   /// Unter Linux: `/home/<user>/.local/share/de.frohlfing.privault/privault`
   /// Im Webbrowser: kein Dateisystem (Leerstring)
   String get storagePath => _storagePath;
+
+  /// Speicherpfad für die Tresore
+  String get vaultStoragePath => isWeb ? 'drift_db' : p.join(_storagePath, 'vaults');
 }

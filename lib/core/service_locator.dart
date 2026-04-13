@@ -17,7 +17,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<BiometricService>(() => BiometricService());
   getIt.registerLazySingleton<ConfigService>(() => ConfigService(prefs));
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
-  getIt.registerLazySingleton<DatabaseService>(() => DatabaseService(getIt<ConfigService>()));
+  getIt.registerLazySingleton<DatabaseService>(() => DatabaseService());
   getIt.registerLazySingleton<PasswordService>(() => PasswordService());
   getIt.registerLazySingleton<SessionService>(() => SessionService(getIt<CryptoService>()));
   getIt.registerLazySingleton<WebService>(() => WebService(getIt<CryptoService>()));

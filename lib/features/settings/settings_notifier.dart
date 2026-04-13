@@ -81,7 +81,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
       // UI-State aktualisieren
       state = state.copyWith(
-        vaultStoragePath: _configService.vaultStoragePath,
+        vaultStoragePath: env.vaultStoragePath,
         vaultName: _sessionService.vaultName,
         useBiometric: _settings!.useBiometric,
         userName: _sessionService.user?.name ?? '',

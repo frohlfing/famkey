@@ -7,8 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:privault/core/app_version.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/services/config_service.dart';
+import '../../core/env.dart';
 
 /// Baut eine Datenbankverbindung zu SQLite für eine Desktop- oder Mobile-Platform auf.
 QueryExecutor openConnection(String name, String password) {
@@ -33,8 +32,7 @@ QueryExecutor openConnection(String name, String password) {
     }
 
     // Datenbank öffnen
-    final config = getIt<ConfigService>();
-    final path = p.join(config.vaultStoragePath, '$name.db3'); // WICHTIG: Zentralen Speicherpfad aus dem ConfigService nutzen!
+    final path = p.join(env.vaultStoragePath, '$name.db3'); // WICHTIG: Zentralen Speicherpfad aus dem ConfigService nutzen!
     final rawDb = sqlite3.open(path);
 
     // Datenbank entsperren

@@ -175,6 +175,9 @@ abstract class AppDirectory {
   /// Vollständiger Pfad (native) oder logischer Pfad (Web).
   String get path;
 
+  /// Ordnername (nur die letzte Ebene).
+  String get name;
+
   /// Prüft, ob das Verzeichnis existiert.
   Future<bool> exists();
 

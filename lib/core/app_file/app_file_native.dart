@@ -78,10 +78,13 @@ class AppFileNative implements AppFile {
 /// Nativ-Implementierung von [AppDirectory] auf Basis von `dart:io Directory`.
 /// Wird auf Android, iOS, Windows, macOS und Linux verwendet.
 class AppDirectoryNative implements AppDirectory {
+  AppDirectoryNative(this.path);
+
   @override
   final String path;
 
-  AppDirectoryNative(this.path);
+  @override
+  String get name => p.basename(path);
 
   @override
   Future<bool> exists() async {

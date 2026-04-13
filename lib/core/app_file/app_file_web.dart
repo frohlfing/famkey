@@ -6,8 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:web/web.dart' as web;
 import '../app_file.dart';
-
-final _fsIndex = _FsIndex();
+import '../logger.dart';
 
 /// Implementierung von [AppFile] für eine WebAssembly (WASM)
 /// auf Basis des Origin-Private File System (OPFS).
@@ -113,7 +112,6 @@ class AppFileWeb implements AppFile {
     final writable = await handle.createWritable().toDart;
     await writable.write(data.buffer.toJS).toDart;
     await writable.close().toDart;
-    await _fsIndex.put(_path);
   }
 
   @override
@@ -128,7 +126,6 @@ class AppFileWeb implements AppFile {
     } else {
       await writeAsBytes(utf8.encode(content));
     }
-    await _fsIndex.put(_path);
   }
 
   @override
@@ -140,7 +137,6 @@ class AppFileWeb implements AppFile {
     } catch (_) {
       // Ignorieren wenn Datei nicht existiert
     }
-    _fsIndex.remove(_path);
   }
 
   @override
@@ -159,29 +155,92 @@ class AppFileWeb implements AppFile {
   }
 }
 
+// --- type-Deklarationen für AppDirectoryWeb.list() ---
+
+// JS-Interop für den AsyncIterator von FileSystemDirectoryHandle.entries()
+extension type _IteratorResult(JSObject _) implements JSObject {
+  external JSBoolean get done;
+  external JSArray<JSAny> get value; // [JSString name, FileSystemHandle handle]
+}
+
+extension type _AsyncIterator(JSObject _) implements JSObject {
+  external JSPromise<_IteratorResult> next();
+}
+
+// entries() fehlt in den package:web-Bindings → manuell deklarieren
+extension _DirectoryEntries on web.FileSystemDirectoryHandle {
+  external _AsyncIterator entries();
+}
+
 /// Web-Implementierung von [AppDirectory] auf Basis des Origin-Private File System (OPFS).
 ///
-/// - OPFS kennt keine echten Ordner. Ein Verzeichnis "existiert", wenn mindestens eine Datei darin existiert.
-/// - Das direkte Durchsuchen des OPFS ist nicht möglich. Um das Auflisten der Dateien trotzdem zu ermöglichen,
-///   wird eine `.index.json` durch `AppFileWeb` gepflegt.
+/// OPFS kennt keine echten Ordner. Ein Verzeichnis "existiert", wenn mindestens eine Datei darin existiert.
 class AppDirectoryWeb implements AppDirectory {
-  @override
-  final String path;
-  static const String indexFileName = '.index.json';
-
   AppDirectoryWeb(this.path);
 
   @override
+  final String path;
+
+  @override
+  String get name => p.basename(path);
+
+  /// Navigiert vom OPFS-Root zum Zielverzeichnis.
+  /// Gibt null zurück wenn das Verzeichnis nicht existiert.
+  Future<web.FileSystemDirectoryHandle?> _resolveDir() async {
+    final root = await web.window.navigator.storage.getDirectory().toDart;
+    final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+    web.FileSystemDirectoryHandle dir = root;
+    for (final segment in segments) {
+      try {
+        dir = await dir.getDirectoryHandle(segment, web.FileSystemGetDirectoryOptions(create: false)).toDart;
+      } on web.DOMException catch (e) { // Browser-Fehler aus package:web
+        if (e.name == 'NotFoundError') return null; // 'NotFoundError' ist laut Web-Spec garantiert wenn ein Verzeichnis nicht existiert.
+        rethrow;
+      }
+    }
+    return dir;
+  }
+
+  @override
   Future<bool> exists() async {
-    // Prüfen, ob der Ordner im Index existiert
-    final files = await _fsIndex.list(path);
-    return files.isNotEmpty;
+    final dir = await _resolveDir();
+    if (dir == null) return false;
+    // Verzeichnis existiert – prüfen ob es mindestens einen Eintrag hat
+    final iter = dir.entries();
+    final first = await iter.next().toDart;
+    return !first.done.toDart;
   }
 
   @override
   Future<List<AppFile>> list({bool recursive = false}) async {
-    final files = await _fsIndex.list(path, recursive: recursive);
-    return files.map((f) => AppFileWeb(f)).toList();
+    final dir = await _resolveDir();
+    if (dir == null) return [];
+    final result = <AppFile>[];
+    await _collectEntries(dir, path, result, recursive: recursive);
+    return result;
+  }
+
+  /// Iteriert über die OPFS-API alle Einträge eines Verzeichnisses via AsyncIterator.
+  Future<void> _collectEntries(web.FileSystemDirectoryHandle dir, String currentPath, List<AppFile> result, {required bool recursive}) async {
+    final iter = dir.entries();
+    while (true) {
+      final next = await iter.next().toDart;
+      if (next.done.toDart) break;
+
+      final entry  = next.value;
+      final name   = (entry[0] as JSString).toDart;
+      final handle = entry[1];
+      final full   = '$currentPath/$name';
+
+      // 'kind' ist entweder 'file' oder 'directory'
+      final kind = (handle as web.FileSystemHandle).kind;
+
+      if (kind == 'file') {
+        result.add(AppFileWeb(full));
+      } else if (kind == 'directory' && recursive) {
+        await _collectEntries(handle as web.FileSystemDirectoryHandle, full, result, recursive: true);
+      }
+    }
   }
 }
 
@@ -192,10 +251,7 @@ class AppDirectoryWeb implements AppDirectory {
 class AppFilePickerWeb implements AppFilePicker {
 
   @override
-  Future<List<AppFile>> pickFiles({
-    List<String>? allowedExtensions,
-    bool allowMultiple = false,
-  }) async {
+  Future<List<AppFile>> pickFiles({List<String>? allowedExtensions, bool allowMultiple = false}) async {
     final input = web.HTMLInputElement()
       ..type = 'file'
       ..multiple = allowMultiple;
@@ -238,14 +294,11 @@ class AppFilePickerWeb implements AppFilePicker {
     }.toJS;
 
     // Abbruch: wenn das Window wieder fokussiert wird ohne Datei-Auswahl
-    web.window.addEventListener(
-      'focus',
-      (web.Event _) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (!completer.isCompleted) completer.complete([]);
-        });
-      }.toJS,
-    );
+    web.window.addEventListener('focus', (web.Event _) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!completer.isCompleted) completer.complete([]);
+      });
+    }.toJS);
 
     input.click();
     return completer.future;
@@ -255,171 +308,6 @@ class AppFilePickerWeb implements AppFilePicker {
   Future<Uint8List> _readFileBytes(web.File file) async {
     final buffer = await file.arrayBuffer().toDart;
     return buffer.toDart.asUint8List();
-  }
-}
-
-/// Repräsentiert einen baumartigen Dateisystem-Index für OPFS.
-/// Jeder Knoten ist entweder:
-/// - ein Ordner (Map)
-/// - oder eine Datei (bool oder null)
-///
-/// Beispielstruktur:
-/// {
-///   "temp": {
-///     "1234": {
-///       "foo": {
-///         "baz.txt": true
-///       }
-///     }
-///   }
-/// }
-///
-/// Öffentliche Methoden:
-/// - [put] fügt Dateien hinzu und legt Ordner automatisch an.
-/// - [remove] löscht Dateien und entfernt leere Ordner.
-/// - [list] listet Dateien eines Ordners (optional rekursiv).
-class _FsIndex {
-  static const String indexFileName = '.index.json';
-
-  /// Gemeinsamer Cache für alle Instanzen.
-  static Map<String, dynamic>? _cachedIndex;
-
-  /// Lädt den Index einmalig aus der Datei.
-  Future<Map<String, dynamic>> _load() async {
-    if (_cachedIndex != null) return _cachedIndex!;
-    final file = createAppFile(indexFileName);
-    if (!await file.exists()) {
-      _cachedIndex = {};
-      return _cachedIndex!;
-    }
-    final content = await file.readAsString();
-    if (content.trim().isEmpty) {
-      _cachedIndex = {};
-      return _cachedIndex!;
-    }
-    final decoded = jsonDecode(content);
-    _cachedIndex = Map<String, dynamic>.from(decoded as Map);
-    return _cachedIndex!;
-  }
-
-  /// Speichert den Cache zurück in die Datei.
-  Future<void> _save(Map<String, dynamic> index) async {
-    _cachedIndex = index;
-    final file = createAppFile(indexFileName);
-    await file.writeAsString(jsonEncode(index));
-  }
-
-  // --- Öffentliche Methoden ---
-
-  /// Fügt eine Datei in den Index ein.
-  ///
-  /// Beispiel:
-  /// put("temp/1234/foo/baz.txt")
-  ///
-  /// Legt automatisch alle Zwischenordner an:
-  /// "temp" → "1234" → "foo" → "baz.txt"
-  Future<void> put(String path) async {
-    final index = await _load();
-    final parts = path.split('/');
-    Map<String, dynamic> node = index;
-
-    // Ordnerkette anlegen
-    for (int i = 0; i < parts.length - 1; i++) {
-      node = Map<String, dynamic>.from(
-        node.putIfAbsent(parts[i], () => <String, dynamic>{}) as Map,
-      );
-    }
-
-    // Datei markieren
-    node[parts.last] = true;
-    await _save(index);
-  }
-
-  /// Entfernt eine Datei aus dem Index.
-  ///
-  /// Löscht automatisch leere Ordner, wenn keine weiteren Einträge vorhanden sind.
-  Future<void> remove(String path) async {
-    final index = await _load();
-    final parts = path.split('/');
-
-    List<Map<String, dynamic>> stack = [index];
-    Map<String, dynamic> node = index;
-
-    // Ordnerkette durchlaufen
-    for (int i = 0; i < parts.length - 1; i++) {
-      final next = node[parts[i]];
-      if (next is! Map) return; // Pfad existiert nicht
-      node = Map<String, dynamic>.from(next);
-      stack.add(node);
-    }
-
-    // Datei löschen
-    node.remove(parts.last);
-
-    // Leere Ordner rückwärts entfernen
-    for (int i = parts.length - 2; i >= 0; i--) {
-      final parent = stack[i];
-      final key = parts[i];
-      final child = parent[key];
-      if (child is Map && child.isEmpty) {
-        parent.remove(key);
-      } else {
-        break;
-      }
-    }
-
-    await _save(index);
-  }
-
-  /// Listet alle Dateien eines Ordners.
-  ///
-  /// Wenn [recursive] = false → nur Dateien direkt unterhalb des Ordners.
-  /// Wenn [recursive] = true → alle Dateien im gesamten Unterbaum.
-  ///
-  /// Beispiel:
-  /// list("temp/1234") → []
-  /// list("temp/1234", recursive: true) → ["temp/1234/foo/baz.txt"]
-  Future<List<String>> list(String path, {bool recursive = false}) async {
-    final index = await _load();
-    final node = _resolveNode(index, path);
-    if (node == null) return [];
-
-    if (!recursive) {
-      return node.entries
-          .where((e) => e.value is! Map)
-          .map((e) => '$path/${e.key}')
-          .toList();
-    }
-
-    final result = <String>[];
-    _walk(node, path, result);
-    return result;
-  }
-
-  // --- Interne Hilfsfunktionen ---
-
-  /// Findet den Knoten für einen gegebenen Pfad.
-  Map<String, dynamic>? _resolveNode(Map<String, dynamic> root, String path) {
-    if (path.isEmpty) return root;
-    Map<String, dynamic> node = root;
-    for (final part in path.split('/')) {
-      final next = node[part];
-      if (next is! Map) return null;
-      node = Map<String, dynamic>.from(next);
-    }
-    return node;
-  }
-
-  /// Rekursive Tiefensuche durch den Baum.
-  void _walk(Map<String, dynamic> node, String base, List<String> out) {
-    node.forEach((name, value) {
-      final full = base.isEmpty ? name : '$base/$name';
-      if (value is Map) {
-        _walk(Map<String, dynamic>.from(value), full, out);
-      } else {
-        out.add(full);
-      }
-    });
   }
 }
 
