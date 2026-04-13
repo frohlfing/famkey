@@ -80,6 +80,8 @@ Alle Abhängigkeiten werden in der Datei pubspec.yaml im Projektstamm verwaltet.
 - `sqflite_sqlcipher`: Datenbank inkl. Verschlüsselung
 - `argon2_ffi`: Für das sichere Hashen des Master-Passworts
 - `local_auth`: Für den Zugriff auf FaceID und Fingerabdruck
+- `webcrypto`: Für RSA
+- `dargon2_flutter`: Für Argon2
 
 Du fügst sie über die Kommandozeile hinzu:
 ```shell
@@ -87,8 +89,37 @@ flutter pub add flutter_riverpod
 flutter pub add sqflite_sqlcipher
 flutter pub add argon2_ffi
 flutter pub add local_auth
+flutter pub add webcrypto
+flutter pub add dargon2_flutter
 ```
 Anschließend wird automatisch ein `flutter pub get` ausgeführt, um die Pakete herunterzuladen.
+
+
+#### BoringSSL
+
+Einmalig ausführen (baut BoringSSL für native Plattformen): 
+```shell
+dart run webcrypto:setup
+```
+
+```
+Code wird generiert:
+- Bibliothek "C:/Users/frank/Source/AndroidStudio/privault/.dart_tool/webcrypto/Debug/webcrypto.lib" 
+- und Objekt "C:/Users/frank/Source/AndroidStudio/privault/.dart_tool/webcrypto/Debug/webcrypto.exp"
+  
+Package webcrypto now configured for use in your project.
+This is only necessary for using package:webcrypto in unit tests and scripts, not for usage in applications.
+```
+
+Troubleshooting:
+- CMake fehlt. 
+  - Android Studio → SDK Manager → SDK Tools → CMake → ✅ installieren
+  - Den Pfad zur Windows-Umgebungsvariable PATH hinzufügen:
+    `C:\Users\frank\AppData\Local\Android\Sdk\cmake\<version>\bin\`
+- NASM (Netwide Assembler) fehlt – wird von BoringSSL für die optimierten Crypto-Routinen benötigt.
+   - https://www.nasm.us/pub/nasm/releasebuilds/3.02rc6/win64/ (neueste Version, x.xx.xx-installer-x64.exe) herunterladen und installieren
+   - Den Pfad zur Windows-Umgebungsvariable PATH hinzufügen: `C:\Users\frank\AppData\Local\bin\NASM`
+
 
 ### 2.6 SQLCipher-DLL für Windows
 

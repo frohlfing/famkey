@@ -89,7 +89,7 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // 3. Entry-Key mittels RSA entschlüsseln
       if (_sessionService.privateKey == null) throw Exception("Sitzungsschlüssel fehlt");
-      _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+      _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
 
       // 4. Stammdaten mittels AES entschlüsseln
       final decryptedData = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);

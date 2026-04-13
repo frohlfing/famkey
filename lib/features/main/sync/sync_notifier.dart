@@ -238,7 +238,7 @@ class SyncNotifier extends Notifier<SyncState> {
     final encryptedFriends = userResponse.encryptedFriends;
     if (encryptedFriends == null || encryptedFriends.isEmpty) return;
     List<FriendPayload> friends;
-    final aesKey = _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
+    final aesKey = await _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
     try {
       final decrypted = await _cryptoService.decrypt(encryptedFriends, aesKey);
       final List<dynamic> jsonList = jsonDecode(utf8.decode(decrypted));
@@ -324,7 +324,7 @@ class SyncNotifier extends Notifier<SyncState> {
       String encryptedIndex = '';
       try {
         // Wir brauchen den EntryKey (AES), um an die Suchfelder zu kommen
-        final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey, utf8.decode(_sessionService.privateKey!));
+        final entryKey = await _cryptoService.decryptRsa(entryDto.encryptedKey, _sessionService.privateKey!);
         final decryptedData = await _cryptoService.decrypt(entryDto.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
         final indexPayload = IndexPayload(
@@ -524,7 +524,7 @@ class SyncNotifier extends Notifier<SyncState> {
   /// Verschlüsselt die Freunde und lädt sie auf den Server hoch.
   Future<void> _pushFriends() async {
     // Wir nutzen HKDF, um aus dem RSA-Private-Key einen stabilen AES-Key für die Freundesliste abzuleiten.
-    final aesKey = _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
+    final aesKey = await _cryptoService.deriveKeyFromKey(_sessionService.privateKey!, null, 'friends-list-encryption');
     try {
       // 1. Alle lokal hinzugefügten Freunde laden
       final users = await _databaseService.getUsers();

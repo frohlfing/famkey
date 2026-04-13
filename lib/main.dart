@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dargon2_flutter/dargon2_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,9 @@ void main() async {
   runZonedGuarded(() async { // fängt unbehandelte async‑Fehler ab
 
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Argon2 initialisieren
+    DArgon2Flutter.init();
 
     // Unbehandelte UI-Fehler abfangen
     FlutterError.onError = (FlutterErrorDetails details) async {

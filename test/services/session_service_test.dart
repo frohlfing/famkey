@@ -51,19 +51,19 @@ void main() {
       );
     }
 
-    test('1.1.1 User and Key properties work correctly', () {
+    test('1.1.1 User and Key properties work correctly', () async {
       final user = createTestUser();
       sut.setUser(user);
-      sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
+      await sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
       
       expect(sut.user, equals(user));
       expect(sut.privateKey, isNotNull);
       expect(sut.privateKey!.length, equals(3));
     });
 
-    test('2.1.1 clearSession: Sensible Daten werden beim Logout physisch aus dem RAM gelöscht', () {
+    test('2.1.1 clearSession: Sensible Daten werden beim Logout physisch aus dem RAM gelöscht', () async {
       final secret = Uint8List.fromList([0xAA, 0xBB, 0xCC]);
-      sut.setPrivateKey(secret);
+      await sut.setPrivateKey(secret);
       
       sut.clearSession();
       
@@ -74,9 +74,9 @@ void main() {
       expect(sut.privateKey, isNull);
     });
 
-    test('2.1.2 clearSession: Sitzung wird vollständig zurückgesetzt', () {
+    test('2.1.2 clearSession: Sitzung wird vollständig zurückgesetzt', () async {
       sut.setUser(createTestUser());
-      sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
+      await sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
       sut.setVaultName('MyVault');
       sut.setSettings(createTestSettings());
       
@@ -89,12 +89,12 @@ void main() {
       expect(sut.settings, isNull);
     });
 
-    test('2.2.1 setSession: Alle Felder werden korrekt gesetzt', () {
+    test('2.2.1 setSession: Alle Felder werden korrekt gesetzt', () async {
       final user = createTestUser();
       final key = Uint8List.fromList([1, 2, 3]);
       final settings = createTestSettings();
       
-      sut.setSession(
+      await sut.setSession(
         user: user, 
         privateKey: key, 
         vaultName: 'TestVault', 

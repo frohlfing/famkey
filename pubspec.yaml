@@ -32,9 +32,12 @@ dependencies:
   path_provider: ^2.1.2
 
   # Cryptography
-  cryptography: ^2.7.0
-  pointycastle: ^3.9.1
-  fast_rsa: ^3.6.1
+  # Einmalig ausführen (baut BoringSSL für native Plattformen): `dart run webcrypto:setup`
+  webcrypto: ^0.5.7 # schneller als cryptography und fast_rsa
+  #cryptography: ^2.7.0
+  #ast_rsa: ^3.6.1
+  dargon2_flutter: ^3.3.0 # schneller als pointycastle
+  #pointycastle: ^3.9.1
   crypto: ^3.0.3
   uuid: ^4.3.3
   zxcvbn: 1.0.0

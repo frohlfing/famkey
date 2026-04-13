@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -269,7 +268,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       if (myPerm == null) continue;
 
       // 3. Entry-Key mit meinem Private-Key entschlüsseln
-      final entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+      final entryKey = await _cryptoService.decryptRsa(myPerm.encryptedKey, _sessionService.privateKey!);
 
       // 4. Entry-Key mit dem NEUEN Public-Key des Freundes verschlüsseln
       final encryptedKey = await _cryptoService.encryptRsa(entryKey, friend.publicKey);

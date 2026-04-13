@@ -275,7 +275,7 @@ class LoginNotifier extends Notifier<LoginState> {
       _configService.lastVaultName = vaultName;
 
       // 10. Session anlegen
-      _sessionService.setSession(
+      await _sessionService.setSession(
         user: user,
         privateKey: privateKey,
         vaultName: vaultName,

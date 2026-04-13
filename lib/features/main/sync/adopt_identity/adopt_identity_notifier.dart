@@ -149,7 +149,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
             if (perm.encryptedKey.isNotEmpty && _sessionService.privateKey != null) {
               try {
                 // Entschlüsseln mit altem (aktuellem) Private-Key, verschlüsseln mit dem Public-Key der neuen Identität
-                final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+                final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
                 final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, _userIdentity!.publicKey);
                 updatedPermissions.add(perm.copyWith(encryptedKey: newEncryptedKey));
               } catch (e) {
@@ -163,7 +163,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
 
           // 9b. encryptedIndex-Felder mit dem neuen indexKey neu verschlüsseln
           final oldIndexKey = _sessionService.indexKey!;
-          final newIndexKey = _cryptoService.deriveKeyFromKey(newPrivateKey, null, 'entry-index-encryption');
+          final newIndexKey = await _cryptoService.deriveKeyFromKey(newPrivateKey, null, 'entry-index-encryption');
           try {
             final allEntries = await _databaseService.getEntries();
             for (var entry in allEntries) {
@@ -210,7 +210,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
 
         // 15. Session aktualisieren
         _sessionService.setUser(user);
-        _sessionService.setPrivateKey(newPrivateKey);
+        await _sessionService.setPrivateKey(newPrivateKey);
         _sessionService.setSettings(settings);
 
         // --- Ende Kritische Logik ---

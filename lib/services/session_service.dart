@@ -29,10 +29,10 @@ class SessionService {
   SessionService(this._cryptoService);
 
   /// Setzt die aktuelle Sitzung nach einem erfolgreichen Login oder Identitätswechsel.
-  void setSession({required UserEntity user, required Uint8List privateKey, required String vaultName, required SettingsEntity settings}) {
+  Future<void> setSession({required UserEntity user, required Uint8List privateKey, required String vaultName, required SettingsEntity settings}) async {
     _user = user;
     _privateKey = privateKey;
-    _indexKey = _cryptoService.deriveKeyFromKey(privateKey, null, 'entry-index-encryption');
+    _indexKey = await _cryptoService.deriveKeyFromKey(privateKey, null, 'entry-index-encryption');
     _vaultName = vaultName;
     _settings = settings;
   }
@@ -84,9 +84,9 @@ class SessionService {
   }
 
   /// Setter für den RSA Private-Key des Benutzers.
-  void setPrivateKey(Uint8List value) {
+  Future<void> setPrivateKey(Uint8List value) async {
     _privateKey = value;
-    _indexKey = _cryptoService.deriveKeyFromKey(value, null, 'entry-index-encryption');
+    _indexKey = await _cryptoService.deriveKeyFromKey(value, null, 'entry-index-encryption');
   }
 
   /// Setter für den Namen des geöffneten Tresors.

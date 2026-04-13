@@ -108,12 +108,12 @@ void main() {
 
       expect(container.read(loginProvider).status, equals(LoginActionStatus.success));
       verify(mockDb.initialize('Safe', masterKey)).called(1);
-      verify(mockSession.setSession(
+      (await verify(mockSession.setSession(
         user: user, 
         privateKey: privateKey, 
         vaultName: 'Safe', 
         settings: settings
-      )).called(1);
+      ))).called(1);
     });
 
     test('2.2.1 login: Falsches Passwort führt zu Fehlermeldung', () async {

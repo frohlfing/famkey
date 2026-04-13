@@ -1,184 +1,213 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:cryptography/cryptography.dart' as crypto_auth;
-import 'package:pointycastle/export.dart' as pc;
-import 'package:pointycastle/asn1.dart' as pc_asn1;
-import 'package:pointycastle/asymmetric/api.dart';
-import 'package:pointycastle/signers/rsa_signer.dart';
-import 'package:pointycastle/digests/sha256.dart';
-import 'package:fast_rsa/fast_rsa.dart' as frsa;
 import 'package:crypto/crypto.dart' as crypto_hash;
+import 'package:dargon2_flutter/dargon2_flutter.dart';
+import 'package:webcrypto/webcrypto.dart';
 
+/// Kryptografische Dienste für die App.
+///
+/// Verwendet:
+/// - [dargon2_flutter] für Argon2id (C-Referenzimplementierung nativ, hash-wasm auf Web)
+/// - [webcrypto] für RSA-OAEP, AES-256-GCM, HKDF, RSASSA-PKCS1-v1_5
+///   (BoringSSL nativ, SubtleCrypto auf Web – hardware-beschleunigt auf allen Plattformen)
 class CryptoService {
+
   // ------------------------------------------------------------------------
-  // --- Interne Variablen & Konstanten ---
+  // --- Konstanten ---
   // ------------------------------------------------------------------------
 
   // Argon2id Parameter (BSI-konform)
-  static const int argonMemorySize = 64 * 1024; // 64 MB RAM
-  static const int argonIterations = 4;
-  static const int argonParallelism = 4;
+  static const int _argonMemory      = 64 * 1024; // 64 MB RAM
+  static const int _argonIterations  = 4;
+  static const int _argonParallelism = 4;
+  static const int _argonKeyLength   = 32;
 
   // AES-GCM Konstanten
-  static const int nonceSize = 12; // 96 Bit IV (Standard für GCM)
-  static const int tagSize = 16; // 128 Bit Authentication Tag
+  static const int _nonceSize = 12; // 96 Bit IV (Standard für GCM)
+  static const int _tagSize   = 16; // 128 Bit Authentication Tag
 
-  final _aesGcm = crypto_auth.AesGcm.with256bits();
+  // RSA Konstanten
+  static const int _rsaModulusLength = 4096;
+  static final BigInt _rsaPublicExponent = BigInt.from(65537);
 
   // ------------------------------------------------------------------------
-  // --- Methoden ---
-  // ------------------------------------------------------------------------
-
   // --- AES ---
+  // ------------------------------------------------------------------------
 
-  /// Generiert ein kryptografisch sicheres 32 Byte langen AES-Schlüssel.
+  /// Generiert einen kryptografisch sicheren 32-Byte AES-Schlüssel.
   Uint8List generateAesKey() {
     final random = Random.secure();
     return Uint8List.fromList(List<int>.generate(32, (_) => random.nextInt(256)));
   }
 
-  /// Leitet einen 32-Byte (256 Bit) AES-Schlüssel aus einem Passwort und Salt mittels Argon2id ab (PBKDF).
+  /// Leitet einen 32-Byte (256 Bit) AES-Schlüssel aus einem Passwort und Salt
+  /// mittels Argon2id ab.
+  ///
+  /// Nativ: C-Referenzimplementierung via FFI (schnell).
+  /// Web: hash-wasm WebAssembly-Implementierung (schnell).
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
-    final params = pc.Argon2Parameters(
-      pc.Argon2Parameters.ARGON2_id,
-      salt,
-      desiredKeyLength: 32,
-      iterations: argonIterations,
-      memory: argonMemorySize,
-      lanes: argonParallelism,
+    final result = await argon2.hashPasswordString(
+      password,
+      salt: Salt(salt),
+      type: Argon2Type.id,
+      version: Argon2Version.V13,
+      memory: _argonMemory,
+      iterations: _argonIterations,
+      parallelism: _argonParallelism,
+      length: _argonKeyLength,
     );
-
-    final argon2 = pc.Argon2BytesGenerator();
-    argon2.init(params);
-
-    final result = Uint8List(32);
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-
-    try {
-      argon2.deriveKey(passwordBytes, 0, result, 0);
-      return result;
-    } finally {
-      wipeKey(passwordBytes);
-    }
+    return Uint8List.fromList(result.rawBytes);
   }
 
   /// Verschlüsselt Daten mit AES-256-GCM.
   ///
   /// Generiert eine zufällige Nonce für jede Verschlüsselung.
-  /// Das Ergebnis wird als Base64-String im Format `[Nonce] + [Tag] + [Ciphertext]` zurückgegeben.
+  /// Das Ergebnis wird als Base64-String im Format `[Nonce(12)] + [Tag(16)] + [Ciphertext]`
+  /// zurückgegeben – kompatibel mit dem bisherigen Format.
   Future<String> encrypt(Uint8List data, Uint8List key) async {
-    if (key.length != 32) {
-      throw Exception("Key muss exakt 32 Bytes lang sein (AES-256).");
-    }
+    if (key.length != 32) throw Exception('Key muss exakt 32 Bytes lang sein (AES-256).');
 
-    final secretKey = crypto_auth.SecretKey(key);
-    final nonce = _aesGcm.newNonce();
+    final nonce = Uint8List(_nonceSize);
+    fillRandomBytes(nonce);
 
-    final secretBox = await _aesGcm.encrypt(data, secretKey: secretKey, nonce: nonce);
+    final secretKey = await AesGcmSecretKey.importRawKey(key);
 
-    final combined = Uint8List(nonceSize + tagSize + secretBox.cipherText.length);
-    combined.setRange(0, nonceSize, secretBox.nonce);
-    combined.setRange(nonceSize, nonceSize + tagSize, secretBox.mac.bytes);
-    combined.setRange(nonceSize + tagSize, combined.length, secretBox.cipherText);
+    // webcrypto liefert: ciphertext + tag (tag ist die letzten 16 Bytes)
+    final output = await secretKey.encryptBytes(data, nonce);
+    final cipherText = output.sublist(0, output.length - _tagSize);
+    final tag        = output.sublist(output.length - _tagSize);
+
+    // Speicherformat: nonce + tag + ciphertext
+    final combined = Uint8List(_nonceSize + _tagSize + cipherText.length);
+    combined.setRange(0,                              _nonceSize,               nonce);
+    combined.setRange(_nonceSize,                     _nonceSize + _tagSize,    tag);
+    combined.setRange(_nonceSize + _tagSize,          combined.length,          cipherText);
 
     return base64.encode(combined);
   }
 
-  /// Entschlüsselt Daten, die mit `Encrypt"` erstellt wurden, und prüft deren Integrität (Auth-Tag).
+  /// Entschlüsselt Daten, die mit [encrypt] erstellt wurden,
+  /// und prüft deren Integrität (Auth-Tag).
   Future<Uint8List> decrypt(String encryptedDataBase64, Uint8List key) async {
-    if (key.length != 32) {
-      throw Exception("Key muss exakt 32 Bytes lang sein (AES-256).");
-    }
+    if (key.length != 32) throw Exception('Key muss exakt 32 Bytes lang sein (AES-256).');
 
     final blob = base64.decode(encryptedDataBase64);
-    if (blob.length < nonceSize + tagSize) {
-      throw Exception("Datenformat ungültig.");
-    }
+    if (blob.length < _nonceSize + _tagSize) throw Exception('Datenformat ungültig.');
 
-    final nonce = blob.sublist(0, nonceSize);
-    final tag = blob.sublist(nonceSize, nonceSize + tagSize);
-    final cipherText = blob.sublist(nonceSize + tagSize);
+    final nonce      = blob.sublist(0,             _nonceSize);
+    final tag        = blob.sublist(_nonceSize,    _nonceSize + _tagSize);
+    final cipherText = blob.sublist(_nonceSize + _tagSize);
 
-    final secretKey = crypto_auth.SecretKey(key);
-    final secretBox = crypto_auth.SecretBox(cipherText, nonce: nonce, mac: crypto_auth.Mac(tag));
+    // webcrypto erwartet: ciphertext + tag
+    final combined = Uint8List(cipherText.length + _tagSize);
+    combined.setRange(0,                combined.length - _tagSize, cipherText);
+    combined.setRange(combined.length - _tagSize, combined.length,  tag);
 
-    final clearText = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
-
+    final secretKey = await AesGcmSecretKey.importRawKey(key);
+    final clearText = await secretKey.decryptBytes(combined, nonce);
     return Uint8List.fromList(clearText);
   }
 
+  // ------------------------------------------------------------------------
   // --- RSA ---
+  // ------------------------------------------------------------------------
 
   /// Generiert ein RSA-4096 Schlüsselpaar.
   ///
-  /// Der Public-Key wird im SPKI/X.509 Format (Base64), der Private-Key als PKCS#8 Byte-Array zurückgegeben.
-  Future<(String, Uint8List)> generateRsaKeyPair() async {
-    final result = await frsa.RSA.generate(4096);
-    // Wir wandeln den Public Key in das X.509 Format (736 Zeichen) um
-    final x509PubKey = _ensureX509Format(result.publicKey);
-    return (x509PubKey, utf8.encode(result.privateKey));
+  /// Rückgabe:
+  /// - Public Key: Base64-kodierter SPKI-String (identisches Format wie bisher)
+  /// - Private Key: PKCS#8 DER-Bytes (Uint8List)
+  ///
+  /// Nativ: BoringSSL (~1-2 Sekunden).
+  /// Web: SubtleCrypto (~1-2 Sekunden).
+  Future<(String publicKey, Uint8List privateKey)> generateRsaKeyPair() async {
+    final keyPair = await RsaOaepPrivateKey.generateKey(
+      _rsaModulusLength,
+      _rsaPublicExponent,
+      Hash.sha256,
+    );
+
+    final spkiBytes  = await keyPair.publicKey.exportSpkiKey();
+    final pkcs8Bytes = await keyPair.privateKey.exportPkcs8Key();
+
+    return (base64.encode(spkiBytes), Uint8List.fromList(pkcs8Bytes));
   }
 
-  /// Verschlüsselt kleine Datenmengen mit einem RSA Public-Key (OAEP mit SHA-256 Padding).
-  Future<String> encryptRsa(Uint8List data, String publicKeyPem) async {
-    final pem = _ensurePemHeader(publicKeyPem, "PUBLIC KEY");
-    return await frsa.RSA.encryptOAEP(base64.encode(data), "", frsa.Hash.SHA256, pem);
+  /// Verschlüsselt kleine Datenmengen mit einem RSA Public-Key (OAEP mit SHA-256).
+  Future<String> encryptRsa(Uint8List data, String publicKeyBase64) async {
+    final spkiBytes = base64.decode(publicKeyBase64);
+    final publicKey = await RsaOaepPublicKey.importSpkiKey(spkiBytes, Hash.sha256);
+    final encrypted = await publicKey.encryptBytes(data);
+    return base64.encode(encrypted);
   }
 
-  /// Entschlüsselt Daten mit einem RSA Private Key (OAEP mit SHA-256 Padding).
-  Future<Uint8List> decryptRsa(String encryptedDataBase64, String privateKeyPem) async {
-    final pem = _ensurePemHeader(privateKeyPem, "PRIVATE KEY");
-    final decrypted = await frsa.RSA.decryptOAEP(encryptedDataBase64, "", frsa.Hash.SHA256, pem);
-    return base64.decode(decrypted);
+  /// Entschlüsselt Daten mit einem RSA Private Key (OAEP mit SHA-256).
+  ///
+  /// [privateKeyBytes] sind PKCS#8 DER-Bytes (wie von [generateRsaKeyPair] geliefert).
+  Future<Uint8List> decryptRsa(String encryptedDataBase64, Uint8List privateKeyBytes) async {
+    final privateKey = await RsaOaepPrivateKey.importPkcs8Key(privateKeyBytes, Hash.sha256);
+    final decrypted  = await privateKey.decryptBytes(base64.decode(encryptedDataBase64));
+    return Uint8List.fromList(decrypted);
   }
+
+  /// Signiert Daten mit dem RSA Private Key.
+  ///
+  /// Nutzt RSASSA-PKCS1-v1_5 mit SHA-256 (für Kompatibilität mit dem PHP-Backend).
+  /// [privateKeyBytes] sind PKCS#8 DER-Bytes.
+  Future<String> signData(Uint8List data, Uint8List privateKeyBytes) async {
+    //final privateKey = _parsePrivateKeyBytes(privateKeyBytes);
+    final privateKey = await RsassaPkcs1V15PrivateKey.importPkcs8Key(
+      privateKeyBytes,
+      Hash.sha256,
+    );
+    final signature = await privateKey.signBytes(data);
+    return base64.encode(signature);
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Sonstiges ---
+  // ------------------------------------------------------------------------
 
   /// Erzeugt einen SHA-256 Fingerprint eines (Base64-kodierten) Public-Keys.
   /// Format: HH:HH:HH:...
   String fingerprint(String publicKey) {
-    if (publicKey.trim().isEmpty) return "";
+    if (publicKey.trim().isEmpty) return '';
     final hash = crypto_hash.sha256.convert(base64.decode(publicKey));
-    return hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(':');
+    return hash.bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
+        .join(':');
   }
-
-  // --- Sonstiges ---
 
   /// Leitet mittels HKDF-SHA256 einen neuen symmetrischen Schlüssel ab.
   ///
-  /// Wir nutzen HKDF-SHA256, um aus einem inputKey (z.B. RSA Private-Key) einen symmetrischen Key abzuleiten.
-  /// Das Ergebnis ist ein pseudozufälliger 32-Byte (256 Bit) Schlüssel (deterministisch).
-  /// `salt` ist optional, aber empfohlen. `info` beschreibt den Zweck (z.B. "friends-list-encryption", beeinflusst auch das Ergebnis).
-  Uint8List deriveKeyFromKey(Uint8List keyMaterial, Uint8List? salt, String info) {
-    final hkdf = pc.HKDFKeyDerivator(pc.SHA256Digest());
-    final params = pc.HkdfParameters(keyMaterial, 32, salt, Uint8List.fromList(utf8.encode(info)));
-    hkdf.init(params);
-    final derivedKey = Uint8List(32);
-    // Das IKM wurde bereits über params/init gesetzt, daher hier null.
-    hkdf.deriveKey(null, 0, derivedKey, 0);
-    return derivedKey;
+  /// Deterministisch: gleiche Eingaben → gleicher Schlüssel.
+  /// [info] beschreibt den Verwendungszweck (z.B. "friends-list-encryption").
+  Future<Uint8List> deriveKeyFromKey(
+    Uint8List keyMaterial,
+    Uint8List? salt,
+    String info,
+  ) async {
+    final hkdfKey = await HkdfSecretKey.importRawKey(keyMaterial);
+    final derived = await hkdfKey.deriveBits(
+      256,
+      Hash.sha256,
+      utf8.encode(info),
+      salt ?? Uint8List(0),
+    );
+    return Uint8List.fromList(derived);
   }
 
-  /// Berechnet einen einfachen SHA-256 Hash eines Strings (Rückgabe als Hex-String).
+  /// Berechnet einen SHA-256 Hash eines Strings (Rückgabe als Hex-String).
   String computeHash(String input) {
-    final bytes = utf8.encode(input);
-    final digest = crypto_hash.sha256.convert(bytes);
+    final digest = crypto_hash.sha256.convert(utf8.encode(input));
     return digest.toString();
   }
 
-  /// Generiert ein kryptografisch sicheres, 16 Byte langes Salt.
+  /// Generiert ein kryptografisch sicheres, 16-Byte langes Salt.
   Uint8List generateSalt() {
     final random = Random.secure();
     return Uint8List.fromList(List<int>.generate(16, (_) => random.nextInt(256)));
-  }
-
-  /// Signiert Daten mit dem RSA Private Key.
-  /// Nutzt PKCS#1 v1.5 (für maximale Kompatibilität mit dem PHP-Backend).
-  Future<String> signData(Uint8List data, Uint8List privateKeyBytes) async {
-    final privateKey = _parsePrivateKeyBytes(privateKeyBytes);
-    final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
-    signer.init(true, pc.PrivateKeyParameter<RSAPrivateKey>(privateKey));
-    final sig = signer.generateSignature(data);
-    return base64.encode(sig.bytes);
   }
 
   /// Überschreibt sensitive Daten im Arbeitsspeicher mit Nullen, um die Verweildauer von Schlüsseln zu minimieren.
@@ -189,77 +218,77 @@ class CryptoService {
     }
   }
 
-  // ------------------------------------------------------------------------
-  // --- Interne Methoden / Helper ---
-  // ------------------------------------------------------------------------
-
-  /// Parst den Private-Key aus dem PKCS#8 Format.
-  RSAPrivateKey _parsePrivateKeyBytes(Uint8List bytes) {
-    var workingBytes = bytes;
-    if (workingBytes.isNotEmpty && workingBytes[0] == 45) {
-      final pem = utf8.decode(workingBytes);
-      workingBytes = base64.decode(_stripPem(pem));
-    }
-
-    final asn1Parser = pc_asn1.ASN1Parser(workingBytes);
-    final topLevelSeq = asn1Parser.nextObject() as pc_asn1.ASN1Sequence;
-    pc_asn1.ASN1Sequence rsaSeq;
-
-    if (topLevelSeq.elements!.length >= 3 && topLevelSeq.elements![2] is pc_asn1.ASN1OctetString) {
-      final privKeyOctet = topLevelSeq.elements![2] as pc_asn1.ASN1OctetString;
-      final rsaParser = pc_asn1.ASN1Parser(privKeyOctet.valueBytes!);
-      rsaSeq = rsaParser.nextObject() as pc_asn1.ASN1Sequence;
-    } else {
-      rsaSeq = topLevelSeq;
-    }
-
-    BigInt getInt(int index) {
-      final el = rsaSeq.elements![index];
-      return (el as dynamic).integer ?? (el as dynamic).valueAsBigInteger;
-    }
-
-    return RSAPrivateKey(getInt(1), getInt(3), getInt(4), getInt(5));
-  }
-
-  /// Stellt sicher, dass der Public-Key im X.509 Format (736 Zeichen) vorliegt.
-  String _ensureX509Format(String keyPem) {
-    final rawBase64 = _stripPem(keyPem);
-    if (rawBase64.length == 736) return rawBase64;
-
-    if (rawBase64.length == 704) {
-      // Umwandlung von PKCS#1 zu X.509
-      final pkcs1Bytes = base64.decode(rawBase64);
-
-      final algorithmSeq = pc_asn1.ASN1Sequence();
-      algorithmSeq.add(pc_asn1.ASN1ObjectIdentifier.fromIdentifierString('1.2.840.113549.1.1.1'));
-      algorithmSeq.add(pc_asn1.ASN1Null());
-
-      // Bei ASN1BitString heißt der Parameter stringValues
-      final publicKeyBitString = pc_asn1.ASN1BitString(stringValues: pkcs1Bytes);
-
-      final spkiSeq = pc_asn1.ASN1Sequence();
-      spkiSeq.add(algorithmSeq);
-      spkiSeq.add(publicKeyBitString);
-
-      return base64.encode(spkiSeq.encode());
-    }
-
-    return rawBase64;
-  }
-
-  /// Entfernt den Header und Footer aus dem PEM-String.
-  String _stripPem(String pem) {
-    return pem
-        .replaceAll(RegExp(r'-----BEGIN [A-Z ]+-----'), '') //
-        .replaceAll(RegExp(r'-----END [A-Z ]+-----'), '')
-        .replaceAll('\n', '')
-        .replaceAll('\r', '')
-        .trim();
-  }
-
-  /// Stellt sicher, dass der Private-Key im PKCS#8 Format (Base64) vorliegt.
-  String _ensurePemHeader(String key, String type) {
-    if (key.startsWith('-----')) return key;
-    return "-----BEGIN RSA $type-----\n$key\n-----END RSA $type-----";
-  }
+  // // ------------------------------------------------------------------------
+  // // --- Interne Methoden / Helper ---
+  // // ------------------------------------------------------------------------
+  //
+  // /// Parst den Private-Key aus dem PKCS#8 Format.
+  // RSAPrivateKey _parsePrivateKeyBytes(Uint8List bytes) {
+  //   var workingBytes = bytes;
+  //   if (workingBytes.isNotEmpty && workingBytes[0] == 45) {
+  //     final pem = utf8.decode(workingBytes);
+  //     workingBytes = base64.decode(_stripPem(pem));
+  //   }
+  //
+  //   final asn1Parser = pc_asn1.ASN1Parser(workingBytes);
+  //   final topLevelSeq = asn1Parser.nextObject() as pc_asn1.ASN1Sequence;
+  //   pc_asn1.ASN1Sequence rsaSeq;
+  //
+  //   if (topLevelSeq.elements!.length >= 3 && topLevelSeq.elements![2] is pc_asn1.ASN1OctetString) {
+  //     final privKeyOctet = topLevelSeq.elements![2] as pc_asn1.ASN1OctetString;
+  //     final rsaParser = pc_asn1.ASN1Parser(privKeyOctet.valueBytes!);
+  //     rsaSeq = rsaParser.nextObject() as pc_asn1.ASN1Sequence;
+  //   } else {
+  //     rsaSeq = topLevelSeq;
+  //   }
+  //
+  //   BigInt getInt(int index) {
+  //     final el = rsaSeq.elements![index];
+  //     return (el as dynamic).integer ?? (el as dynamic).valueAsBigInteger;
+  //   }
+  //
+  //   return RSAPrivateKey(getInt(1), getInt(3), getInt(4), getInt(5));
+  // }
+  //
+  // /// Stellt sicher, dass der Public-Key im X.509 Format (736 Zeichen) vorliegt.
+  // String _ensureX509Format(String keyPem) {
+  //   final rawBase64 = _stripPem(keyPem);
+  //   if (rawBase64.length == 736) return rawBase64;
+  //
+  //   if (rawBase64.length == 704) {
+  //     // Umwandlung von PKCS#1 zu X.509
+  //     final pkcs1Bytes = base64.decode(rawBase64);
+  //
+  //     final algorithmSeq = pc_asn1.ASN1Sequence();
+  //     algorithmSeq.add(pc_asn1.ASN1ObjectIdentifier.fromIdentifierString('1.2.840.113549.1.1.1'));
+  //     algorithmSeq.add(pc_asn1.ASN1Null());
+  //
+  //     // Bei ASN1BitString heißt der Parameter stringValues
+  //     final publicKeyBitString = pc_asn1.ASN1BitString(stringValues: pkcs1Bytes);
+  //
+  //     final spkiSeq = pc_asn1.ASN1Sequence();
+  //     spkiSeq.add(algorithmSeq);
+  //     spkiSeq.add(publicKeyBitString);
+  //
+  //     return base64.encode(spkiSeq.encode());
+  //   }
+  //
+  //   return rawBase64;
+  // }
+  //
+  // /// Entfernt den Header und Footer aus dem PEM-String.
+  // String _stripPem(String pem) {
+  //   return pem
+  //       .replaceAll(RegExp(r'-----BEGIN [A-Z ]+-----'), '') //
+  //       .replaceAll(RegExp(r'-----END [A-Z ]+-----'), '')
+  //       .replaceAll('\n', '')
+  //       .replaceAll('\r', '')
+  //       .trim();
+  // }
+  //
+  // /// Stellt sicher, dass der Private-Key im PKCS#8 Format (Base64) vorliegt.
+  // String _ensurePemHeader(String key, String type) {
+  //   if (key.startsWith('-----')) return key;
+  //   return "-----BEGIN RSA $type-----\n$key\n-----END RSA $type-----";
+  // }
 }

@@ -98,7 +98,7 @@ class EditNotifier extends Notifier<EditState> {
         // Berechtigung prüfen und Entry-Key mittels RSA entschlüsseln
         final perm = await _databaseService.getPermissionByEntryIdAndUserId(_entry!.id, 1);
         if (perm == null) throw Exception('Eintrag $id konnte nicht entschlüsselt werden.');
-        _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, utf8.decode(_sessionService.privateKey!));
+        _entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
 
         // Payload mittels AES entschlüsseln
         final decrypted = await _cryptoService.decrypt(_entry!.encryptedData, _entryKey!);
