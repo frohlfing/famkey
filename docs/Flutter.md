@@ -71,7 +71,6 @@ Verfügbare Browser anzeigen:
 flutter devices
 ```
 
-
 Dateien im OPFS anzeigen (in der Entwicklungskonsole des Browsers (F12)):
 ```javascript
 const root = await navigator.storage.getDirectory();
@@ -101,6 +100,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import `package:open_filex/src/platform/`;
 ```
 
 Wenn Teile daraus verwendet werden müssen, muss mit `kIsWeb` sichergestellt werden, dass im Web der Code nicht ausgeführt wird.

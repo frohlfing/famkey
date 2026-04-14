@@ -153,6 +153,21 @@ class AppFileWeb implements AppFile {
     await delete();
     return copy;
   }
+
+  @override
+  Future<void> view() async {
+    final bytes = await readAsBytes();
+    final blob = web.Blob(
+      [bytes.buffer.toJS].toJS,
+      web.BlobPropertyBag(type: 'application/octet-stream'),
+    );
+    final url = web.URL.createObjectURL(blob);
+    web.HTMLAnchorElement()
+      ..href = url
+      ..download = name
+      ..click();
+    Future.delayed(const Duration(seconds: 1), () => web.URL.revokeObjectURL(url));
+  }
 }
 
 // --- type-Deklarationen für AppDirectoryWeb.list() ---

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
+//import 'package:open_filex/open_filex.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/core/app_file.dart';
@@ -286,7 +286,7 @@ class DetailNotifier extends Notifier<DetailState> {
       await tempFile.writeAsBytes(decryptedContent);
 
       // Datei öffnen
-      await OpenFilex.open(tempFile.path); // todo
+      await tempFile.view();
 
       // Sicherheits-Cleanup: Temporäre Datei verzögert löschen
       Future.microtask(() async {

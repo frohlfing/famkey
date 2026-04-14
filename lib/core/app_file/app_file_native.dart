@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -72,6 +73,11 @@ class AppFileNative implements AppFile {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
+  }
+
+  @override
+  Future<void> view() async {
+    await OpenFilex.open(_file.path);
   }
 }
 

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Controller\AttachmentController;
+use App\Controller\FaviconController;
 use App\Controller\SyncController;
 use App\Controller\VaultController;
 use App\Controller\UserController;
@@ -32,6 +33,11 @@ function registerRoutes(Router $router): void
     // --- Resource version ---
 
     $router->get('/version', [VersionController::class, 'version'], protected: false);
+
+    // --- Resource Favicon ---
+
+    // Favicon-Proxy: Umgeht CORS-Beschränkungen im Browser.
+    $router->get('/favicon', [FaviconController::class, 'get'], protected: false);
 
     // --- Resource User ---
 

@@ -151,6 +151,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 16),
                               child: Image.memory(base64Decode(favicon), width: 64, height: 64),
+                              //child: Image.memory(base64Decode(favicon), width: 64, height: 64, errorBuilder: (ctx, err, stack) => const Icon(Icons.lock_outlined)),
                             ),
                           Text(
                             title,

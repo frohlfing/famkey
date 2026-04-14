@@ -53,6 +53,10 @@ abstract class AppFile {
   /// Benennt die Datei um / verschiebt sie nach [newPath].
   /// Gibt die neue [AppFile]-Instanz zurück.
   Future<AppFile> rename(String newPath);
+
+  /// Öffnet die Datei mit der zuständigen System-App (nativ)
+  /// bzw. löst einen Browser-Download aus (Web).
+  Future<void> view();
 }
 
 /// Repräsentiert eine nicht existierende Datei.
@@ -94,6 +98,9 @@ class _AppFileNone implements AppFile {
 
   @override
   Future<AppFile> rename(String newPath) async => _AppFileNone();
+
+  @override
+  Future<void> view() async {}
 }
 
 /// Im-Memory-Implementierung von [AppFile].
@@ -167,6 +174,9 @@ class AppFileMemory implements AppFile {
   Future<AppFile> rename(String newPath) async {
     return AppFileMemory(newPath, _bytes);
   }
+
+  @override
+  Future<void> view() => throw UnsupportedError('AppFileMemory unterstützt kein view()');
 }
 
 /// Plattformunabhängige Abstraktion für ein Verzeichnis.

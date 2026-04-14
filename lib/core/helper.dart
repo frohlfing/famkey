@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+import 'package:privault/core/service_locator.dart';
+import '../services/session_service.dart';
 
 /// Sammlung von Hilfsfunktionen für die UI.
 
@@ -99,40 +102,40 @@ IconData getIconForType(String type) {
   // @formatter:on
 }
 
-/// Lädt das Favicon einer Website über den Google-Dienst (Base64).
-Future<String?> downloadFavicon(String url) async {
-  try {
-    final Dio dio = Dio();
-    final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
-    final faviconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=64';
-    final response = await dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
-    if (response.data != null) return base64.encode(response.data!);
-  } catch (_) {}
-  return null;
-}
-
-/// Hilfsfunktion zum Rendern des Webseiten-Icons (Favicon).
+/// Lädt das Favicon einer Website über den Google-Dienst und gibt es als Base64-String zurück.
 ///
-/// Versucht das in der Datenbank hinterlegte Base64-Bild anzuzeigen.
-/// Falls kein Bild vorhanden ist oder die Daten beschädigt sind, wird
-/// ein dezentes Standard-Icon als Platzhalter genutzt.
-Widget buildFavicon(String base64) {
-  if (base64.isEmpty) {
-    return const Icon(Icons.lock_outlined, color: Colors.blueGrey);
+/// ## CORS (Cross-Origin Resource Sharing)
+/// Browser blockieren direkte Anfragen an fremde Domains, sofern der Zielserver keinen `Access-Control-Allow-Origin`-Header setzt.
+/// Google setzen diesen Header nicht. Für die Web-Appliance wird daher der eigene Sync-Server als Proxy verwendet:
+/// Er ruft das Favicon serverseitig ab und leitet es mit korrektem CORS-Header zurück an den Client.
+/// Auf nativen Plattformen entfällt dieser Umweg (kein CORS auf nativem Code).
+Future<String?> downloadFavicon(String url) async {
+  final domain = Uri.parse(url.startsWith('http') ? url : 'https://$url').host;
+  if (domain.isEmpty) return null;
+
+  String faviconUrl;
+  if (kIsWeb) {
+    // Sync-Server als CORS-Proxy verwenden.
+    final sessionService = getIt<SessionService>();
+    final host = sessionService.settings?.host ?? ''; // enthält die API-URL (z.B. "https://privault.test/api")
+    final apiUrl = host.endsWith('/') ? host.substring(0, host.length - 1) : host; // Slash am Ende entfernen, falls vorhanden
+    final baseUrl = apiUrl.endsWith('/api') ? apiUrl.substring(0, apiUrl.length - 4) : 'https://privault.frank-rohlfing.de'; // "/api"-Suffix entfernen.
+    faviconUrl = '$baseUrl/favicons.php?domain=$domain';
+  } else {
+    // Nativ: direkt ohne Proxy
+    faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
   }
+
+  final dio = Dio();
+
   try {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Image.memory(
-        base64Decode(base64),
-        width: 32,
-        height: 32,
-        errorBuilder: (ctx, err, stack) => const Icon(Icons.lock_outlined),
-      ),
-    );
-  } catch (_) {
-    return const Icon(Icons.lock_outlined);
-  }
+    final response = await dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
+    if (response.data != null && response.data!.isNotEmpty) {
+      return base64.encode(response.data!);
+    }
+  } catch (_) {}
+
+  return null;
 }
 
 /// Formatiert Byte-Größen in lesbare Einheiten (KB, MB, GB).

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/helper.dart';
@@ -292,6 +294,25 @@ class _MainPageState extends ConsumerState<MainPage> {
         ),
       ),
     );
+  }
+
+  /// Hilfsfunktion zum Rendern des Webseiten-Icons (Favicon).
+  ///
+  /// Versucht das in der Datenbank hinterlegte Base64-Bild anzuzeigen.
+  /// Falls kein Bild vorhanden ist oder die Daten beschädigt sind, wird
+  /// ein dezentes Standard-Icon als Platzhalter genutzt.
+  Widget buildFavicon(String base64) {
+    // if (base64.isEmpty) {
+    //   return const Icon(Icons.lock_outlined, color: Colors.blueGrey);
+    // }
+    // try {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.memory(base64Decode(base64), width: 32, height: 32, errorBuilder: (ctx, err, stack) => const Icon(Icons.lock_outlined)),
+      );
+    // } catch (_) {
+    //   return const Icon(Icons.lock_outlined);
+    // }
   }
 
   // ------------------------------------------------------------------------
