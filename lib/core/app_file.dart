@@ -18,6 +18,9 @@ abstract class AppFile {
   /// Der Dateiname ohne Verzeichnispfad.
   String get name;
 
+  /// Der MIME-Typ.
+  String get mime;
+
   /// Gibt an, ob die Datei existiert.
   Future<bool> exists();
 
@@ -53,10 +56,6 @@ abstract class AppFile {
   /// Benennt die Datei um / verschiebt sie nach [newPath].
   /// Gibt die neue [AppFile]-Instanz zurück.
   Future<AppFile> rename(String newPath);
-
-  /// Öffnet die Datei mit der zuständigen System-App (nativ)
-  /// bzw. löst einen Browser-Download aus (Web).
-  Future<void> view();
 }
 
 /// Repräsentiert eine nicht existierende Datei.
@@ -68,6 +67,9 @@ class _AppFileNone implements AppFile {
 
   @override
   String get name => '';
+
+  @override
+  String get mime => '';
 
   @override
   Future<bool> exists() async => false;
@@ -100,7 +102,7 @@ class _AppFileNone implements AppFile {
   Future<AppFile> rename(String newPath) async => _AppFileNone();
 
   @override
-  Future<void> view() async {}
+  Future<void> download() async {}
 }
 
 /// Im-Memory-Implementierung von [AppFile].
@@ -123,6 +125,9 @@ class AppFileMemory implements AppFile {
   }
 
   @override
+  String get mime => getMimeType(_path);
+
+  @override
   Future<bool> exists() async => true;
 
   @override
@@ -130,7 +135,9 @@ class AppFileMemory implements AppFile {
 
   @override
   Future<String> readAsString() async {
-    return utf8.decode(_bytes);
+    // `allowMalformed: true` ersetzt ungültige Byte-Sequenzen durch das Unicode-Ersatzzeichen `\uFFFD` statt
+    // eine Exception zu werfen – sinnvoll für Text-Dateien die eventuell eine andere Kodierung als UTF-8 haben.
+    return utf8.decode(_bytes, allowMalformed: true);
   }
 
   @override
@@ -174,9 +181,6 @@ class AppFileMemory implements AppFile {
   Future<AppFile> rename(String newPath) async {
     return AppFileMemory(newPath, _bytes);
   }
-
-  @override
-  Future<void> view() => throw UnsupportedError('AppFileMemory unterstützt kein view()');
 }
 
 /// Plattformunabhängige Abstraktion für ein Verzeichnis.
@@ -218,4 +222,60 @@ abstract class AppFilePicker {
   ///
   /// Wird auf Web nicht unterstützt (gibt leere Liste zurück).
   Future<List<AppFile>> pickDirectory();
+}
+
+// ------------------------------------------------------------------------
+// --- Helper ---
+// ------------------------------------------------------------------------
+
+/// Ermittelt den MIME-Typ basierend auf der Dateiendung.
+String getMimeType(String filename) {
+  // @formatter:off
+  final ext = filename.split('.').last.toLowerCase();
+  switch (ext) {
+    // Bild
+    case 'jpg': return 'image/jpeg';
+    case 'jpeg': return 'image/jpeg';
+    case 'png': return 'image/png';
+    case 'gif': return 'image/gif';
+    case 'bmp': return 'image/bmp';
+    case 'webp': return 'image/webp';
+    // Text
+    case 'txt': return 'text/plain';
+    case 'md': return 'text/markdown';
+    case 'html': return 'text/html';
+    case 'csv': return 'text/csv';
+    case 'vcf': return 'text/vcard';
+    // Audio
+    case 'mp3': return 'audio/mpeg';
+    case 'wav': return 'audio/wav';
+    case 'flac': return 'audio/flac';
+    case 'aac': return 'audio/aac';
+    case 'ogg': return 'audio/ogg';
+    // Video
+    case 'mp4': return 'video/mp4';
+    case 'avi': return 'video/x-msvideo';
+    case 'mov': return 'video/quicktime';
+    case 'mkv': return 'video/x-matroska';
+    case 'webm': return 'video/webm';
+    // PDF
+    case 'pdf': return 'application/pdf';
+    // Word
+    case 'doc': return 'application/msword';
+    case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    // Excel
+    case 'xls': return 'application/vnd.ms-excel';
+    case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    // Powerpoint
+    case 'ppt': return 'application/vnd.ms-powerpoint';
+    case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    // Archiv
+    case 'zip': return 'application/zip';
+    case 'rar': return 'application/vnd.rar';
+    case 'tar': return 'application/x-tar';
+    case '7z': return 'application/x-7z-compressed';
+    // Fallback
+    default: return 'application/octet-stream';
+  }
+  // @formatter:on
 }

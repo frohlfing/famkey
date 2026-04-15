@@ -6,6 +6,7 @@ import 'package:privault/core/helper.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/features/detail/detail_state.dart';
+import 'package:privault/features/detail/preview/preview_dialog.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/features/detail/friend_dialog.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
@@ -79,6 +80,10 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
         case DetailActionStatus.attachmentDeleted:
           Snack.show(context, 'Anhang gelöscht', success: true);
+          break;
+
+        case DetailActionStatus.attachmentReady:
+          _showPreviewDialog();
           break;
 
         case DetailActionStatus.shareUpdated:
@@ -309,7 +314,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                           )
                         else
                           ...attachments.map((attachment) {
-                            final iconType = getIconType(attachment.meta.filename, attachment.meta.mime);
                             return Card(
                               margin: const EdgeInsets.only(bottom: 8),
                               child: ListTile(
@@ -320,7 +324,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                                     child: attachment.meta.thumbnail != null && attachment.meta.thumbnail!.isNotEmpty ? ClipRRect(
                                       borderRadius: BorderRadius.circular(4),
                                       child: Image.memory(base64Decode(attachment.meta.thumbnail!), width: 48, height: 48, fit: BoxFit.cover),
-                                    ) : Icon(getIconForType(iconType), size: 48, color: Colors.blueGrey),
+                                    ) : Icon(_getIconData(attachment.meta.mime), size: 48, color: Colors.blueGrey),
                                   ),
                                 ),
                                 title: Text(attachment.meta.filename),
@@ -548,6 +552,15 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   /// um diesen Eintrag mit ihm zu teilen.
   ///
   /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
+  Future<void> _showPreviewDialog() async {
+    final state = ref.read(detailProvider);
+    await PreviewDialog.show(context, state.previewFile);
+  }
+
+  /// Öffnet einen Dialog zur Auswahl eines Kontakts aus Deiner Freundesliste,
+  /// um diesen Eintrag mit ihm zu teilen.
+  ///
+  /// Es werden nur Kontakte angezeigt, die noch keinen Zugriff auf den Eintrag haben.
   Future<void> _handleAddFriend() async {
     final state = ref.read(detailProvider);
     final user = await FriendDialog.show(context, state.unsharedFriends);
@@ -569,5 +582,59 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       final notifier = ref.read(detailProvider.notifier);
       notifier.revokeAccess(user);
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Helper ---
+  // ------------------------------------------------------------------------
+
+  /// Wählt ein passendes Icon basierend auf der Dateiendung oder des MIME-Typs.
+  ///
+  /// Dies sorgt für eine visuelle Unterscheidung zwischen verschiedenen Anhangs-Typen
+  /// wie Bildern, PDFs, Dokumenten oder Archiven.
+  IconData _getIconData(String mimeType) {
+    final parts = mimeType.split('/');
+    final type = parts.first;
+    final subtype = parts.last;
+    // @formatter:off
+    switch (type) {
+      // Bild
+      case 'image': return Icons.image_outlined;
+      // Text
+      case 'text':
+        switch (subtype) {
+          case 'md': return Icons.code_outlined;
+          case 'html': return Icons.html_outlined;
+          case 'csv': return Icons.picture_as_pdf_outlined;
+          case 'vcf': return Icons.contact_page_outlined;
+          default: return Icons.text_snippet_outlined;
+        }
+      // Audio
+      case 'audio': return Icons.audiotrack_outlined;
+      // Video
+      case 'video': return Icons.movie_outlined;
+      case 'application':
+        switch (subtype) {
+          // PDF
+          case 'pdf': return Icons.picture_as_pdf_outlined;
+          // Word
+          case 'msword':
+          case 'vnd.openxmlformats-officedocument.wordprocessingml.document': return Icons.description_outlined;
+          // Excel
+          case 'vnd.ms-excel':
+          case 'vnd.openxmlformats-officedocument.spreadsheetml.sheet': return Icons.table_chart_outlined;
+          // Powerpoint
+          case 'vnd.ms-powerpoint':
+          case 'application/vnd.openxmlformats-officedocument.presentationml.presentation': return Icons.present_to_all_outlined;
+          // Archiv
+          case 'zip':
+          case 'vnd.rar':
+          case 'x-tar':
+          case 'x-7z-compressed': return Icons.inventory_2_outlined;
+        }
+    }
+    // Fallback
+    return Icons.insert_drive_file_outlined;
+    // @formatter:on
   }
 }

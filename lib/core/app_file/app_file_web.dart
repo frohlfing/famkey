@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:web/web.dart' as web;
 import '../app_file.dart';
-import '../logger.dart';
 
 /// Implementierung von [AppFile] für eine WebAssembly (WASM)
 /// auf Basis des Origin-Private File System (OPFS).
@@ -37,6 +36,9 @@ class AppFileWeb implements AppFile {
 
   @override
   String get name => p.basename(_path);
+
+  @override
+  String get mime => getMimeType(_path);
 
   /// Gibt das FileSystemFileHandle für diese Datei zurück.
   /// Legt dabei alle notwendigen Verzeichnisse rekursiv an, wenn [create] = true.
@@ -87,7 +89,9 @@ class AppFileWeb implements AppFile {
   @override
   Future<String> readAsString() async {
     final bytes = await readAsBytes();
-    return utf8.decode(bytes);
+    // `allowMalformed: true` ersetzt ungültige Byte-Sequenzen durch das Unicode-Ersatzzeichen `\uFFFD` statt
+    // eine Exception zu werfen – sinnvoll für Text-Dateien die eventuell eine andere Kodierung als UTF-8 haben.
+    return utf8.decode(bytes, allowMalformed: true);
   }
 
   @override
@@ -152,21 +156,6 @@ class AppFileWeb implements AppFile {
     final copy = await this.copy(newPath);
     await delete();
     return copy;
-  }
-
-  @override
-  Future<void> view() async {
-    final bytes = await readAsBytes();
-    final blob = web.Blob(
-      [bytes.buffer.toJS].toJS,
-      web.BlobPropertyBag(type: 'application/octet-stream'),
-    );
-    final url = web.URL.createObjectURL(blob);
-    web.HTMLAnchorElement()
-      ..href = url
-      ..download = name
-      ..click();
-    Future.delayed(const Duration(seconds: 1), () => web.URL.revokeObjectURL(url));
   }
 }
 
@@ -346,3 +335,15 @@ Future<AppFile> createTempAppFile([String? filename]) {
 
 /// Erzeugt eine [AppFilePicker]-Instanz (Web/OPFS).
 AppFilePicker createAppFilePicker() => AppFilePickerWeb();
+
+/// Löst einen Browser-Download aus.
+Future<void> downloadAppFile(AppFile file) async {
+  final bytes = await file.readAsBytes();
+  final blob = web.Blob([bytes.buffer.toJS].toJS, web.BlobPropertyBag(type: 'application/octet-stream'));
+  final url = web.URL.createObjectURL(blob);
+  web.HTMLAnchorElement()
+    ..href = url
+    ..download = file.name
+    ..click();
+  Future.delayed(const Duration(seconds: 1), () => web.URL.revokeObjectURL(url));
+}

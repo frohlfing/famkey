@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/core/app_file.dart';
 import 'package:privault/core/helper.dart';
 import 'package:privault/core/logger.dart';
@@ -220,18 +219,18 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // 2. Datei auslesen
       final bytes = await file.readAsBytes();
-      final mimeType = getMimeType(file.name);
+      final mime = file.mime;
 
       // 3. Thumbnail erzeugen (wenn es ein Bild ist)
       String? thumbnailBase64;
-      if (mimeType.startsWith('image/')) {
+      if (mime.startsWith('image/')) {
         thumbnailBase64 = await createThumbnail(bytes);
       }
 
       // 4. Metadaten-Payload vorbereiten
       final metaPayload = AttachmentMetaPayload(
         filename: file.name,
-        mime: mimeType,
+        mime: mime,
         size: bytes.length,
         thumbnail: thumbnailBase64,
         timestamp: DateTime.now().toUtc(),
@@ -268,7 +267,6 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Entschlüsselt einen Anhang und öffnet ihn mit der System-App.
-  // todo gehört das nicht in die UI? Zumindest der Part nachdem die Daten entschlüsselt sind?
   Future<void> openAttachment(AttachmentEntity attachment, String filename) async {
     if (state.isBusy) return;
 
@@ -281,31 +279,32 @@ class DetailNotifier extends Notifier<DetailState> {
 
       // Inhalt entschlüsseln
       final decryptedContent = await _cryptoService.decrypt(attachment.encryptedContent, _entryKey!);
-      final tempFile = await createTempAppFile(filename);
-      await tempFile.writeAsBytes(decryptedContent);
+      final previewFile = AppFileMemory(filename, decryptedContent);
 
-      // Datei öffnen
-      await tempFile.view();
+      // Status auf attachmentReady setzen, so dass die UI den Preview-Dialog öffnet
+      state = state.copyWith(
+        status: DetailActionStatus.attachmentReady,
+        previewFile: previewFile,
+      );
 
-      // Sicherheits-Cleanup: Temporäre Datei verzögert löschen
-      Future.microtask(() async {
-        for (var i = 0; i < 10; i++) {
-          await Future.delayed(const Duration(seconds: 2));
-          try {
-            if (await tempFile.exists()) {
-              await tempFile.delete();
-              Logger().debug('Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
-              break;
-            }
-          } catch (e) {
-            // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
-            Logger().error('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
-            state = state.copyWith(error: AppError(ErrorCode.cleanupFailed));
-          }
-        }
-      });
+      // // Sicherheits-Cleanup: Temporäre Datei verzögert löschen
+      // Future.microtask(() async {
+      //   for (var i = 0; i < 10; i++) {
+      //     await Future.delayed(const Duration(seconds: 2));
+      //     try {
+      //       if (await tempFile.exists()) {
+      //         await tempFile.delete();
+      //         Logger().debug('Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
+      //         break;
+      //       }
+      //     } catch (e) {
+      //       // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
+      //       Logger().error('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
+      //       state = state.copyWith(error: AppError(ErrorCode.cleanupFailed));
+      //     }
+      //   }
+      // });
 
-      state = state.copyWith(status: DetailActionStatus.loaded);
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
@@ -331,35 +330,6 @@ class DetailNotifier extends Notifier<DetailState> {
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
-
-  // /// Erzeugt ein Vorschaubild ohne Ränder
-  // /// Die Funktion muss static sein, das sie innerhalb eines Worker-Threads aufgerufen wird.
-  // static String? _createThumbnail(Uint8List bytes) {
-  //   try {
-  //     // 1. Image dekodieren
-  //     final image = img.decodeImage(bytes);
-  //     if (image == null || image.width <= 0 || image.height <= 0) return null;
-  //
-  //     const maxWidth = 128;
-  //     const maxHeight = 128;
-  //
-  //     // 2. Aspect-Fit berechnen
-  //     final scale = math.min(maxWidth / image.width, maxHeight / image.height);
-  //     final newW = math.max(1, (image.width * scale).round());
-  //     final newH = math.max(1, (image.height * scale).round());
-  //
-  //     // 3. Resize auf exakte Zielgröße (verhindert Trauerränder)
-  //     final thumbnail = img.copyResize(image, width: newW, height: newH, interpolation: img.Interpolation.linear);
-  //
-  //     // 4. Encode mit 80% Qualität
-  //     return base64Encode(img.encodeJpg(thumbnail, quality: 80));
-  //   } catch (e) {
-  //     // In statischen Methoden können wir kein logError() der Instanz rufen!
-  //     // Wir loggen hier nur auf die Konsole oder geben null zurück.
-  //     debugPrint('Thumbnail-Fehler: $e');
-  //     return null;
-  //   }
-  // }
 
   // ------------------------------------------------------------------------
   // --- Geteilt mit ---

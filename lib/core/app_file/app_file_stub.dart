@@ -22,3 +22,7 @@ Future<AppFile> createTempAppFile([String? filename])
 /// Erzeugt eine [AppFilePicker]-Instanz.
 AppFilePicker createAppFilePicker()
   => throw UnsupportedError('Plattform nicht unterstützt');
+
+/// Öffnet den Systemdialog zum Speichern der Datei (nativ) oder löst einen Browser-Download aus (Web/OPFS).
+Future<void> downloadAppFile(AppFile file)
+  => throw UnsupportedError('Plattform nicht unterstützt');

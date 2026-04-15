@@ -1,4 +1,5 @@
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/app_file.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 
@@ -9,6 +10,7 @@ enum DetailActionStatus {
   loaded, // Eintrag wurde erfolgreich geladen
   attachmentAdded, // Dateianhang wurde erfolgreich hinzugefügt
   attachmentDeleted, // Dateianhang wurde erfolgreich gelöscht
+  attachmentReady,  // Anhang entschlüsselt, bereit zur Anzeige
   shareUpdated, // Freigabe wurde erfolgreich aktualisiert
   accessRevoked, // Zugriffsrecht wurde erfolgreich entzogen
   failure, // Aktion mit Fehler beendet
@@ -53,6 +55,9 @@ class DetailState {
 
   /// Liste der Dateianhänge inkl. Metadaten.
   final List<({AttachmentEntity attachment, AttachmentMetaPayload meta})> attachments;
+
+  /// Die Datei für die Vorschau.
+  final AppFile previewFile;
 
   // --- Teilen mit ---
 
@@ -112,6 +117,7 @@ class DetailState {
     this.favicon = '',
     this.auditHint = '',
     this.attachments = const [],
+    this.previewFile = const AppFile.none(),
     this.friends = const [],
     this.myAccessLevel = 1,
     this.status = DetailActionStatus.initial,
@@ -131,6 +137,7 @@ class DetailState {
     String? favicon,
     String? auditHint,
     List<({AttachmentEntity attachment, AttachmentMetaPayload meta})>? attachments,
+    AppFile? previewFile,
     List<({UserEntity user, int accessLevel})>? friends,
     int? myAccessLevel,
     DetailActionStatus? status,
@@ -148,6 +155,7 @@ class DetailState {
       favicon: favicon ?? this.favicon,
       auditHint: auditHint ?? this.auditHint,
       attachments: attachments ?? this.attachments,
+      previewFile: previewFile ?? this.previewFile,
       friends: friends ?? this.friends,
       myAccessLevel: myAccessLevel ?? this.myAccessLevel,
       status: status ?? this.status,

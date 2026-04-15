@@ -21,6 +21,9 @@ class AppFileNative implements AppFile {
   String get name => p.basename(_file.path);
 
   @override
+  String get mime => getMimeType(_file.path);
+
+  @override
   Future<bool> exists() => _file.exists();
 
   @override
@@ -73,11 +76,6 @@ class AppFileNative implements AppFile {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-  }
-
-  @override
-  Future<void> view() async {
-    await OpenFilex.open(_file.path);
   }
 }
 
@@ -163,3 +161,8 @@ Future<AppFile> createTempAppFile([String? filename]) async {
 
 /// Erzeugt eine [AppFilePicker]-Instanz (nativ).
 AppFilePicker createAppFilePicker() => AppFilePickerNative();
+
+/// Öffnet den Systemdialog zum Speichern der Datei.
+Future<void> downloadAppFile(AppFile file) async {
+  await OpenFilex.open(file.path);
+}
