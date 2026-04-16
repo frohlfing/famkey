@@ -129,7 +129,15 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
             ],
 
             // --- Vorschau-Inhalt ---
-            Expanded(child: renderer.buildWidget()),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.black26),
+                ),
+                child: renderer.buildWidget(),
+              ),
+            ),
 
             const SizedBox(height: 16),
           ],

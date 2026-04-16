@@ -32,6 +32,8 @@ class _CodeBlock extends _Block {
 
 class _Rule extends _Block {}
 
+class _PageBreak extends _Block {}
+
 class _Table extends _Block {
   final List<String> headers;
   final List<List<String>> rows;
@@ -54,7 +56,7 @@ class _ListBlock extends _Block {
 // ---------------------------------------------------------------------------
 
 class _ListItem {
-  final int depth; // 0 = erste Ebene, 1 = eingerückt, …
+  final int depth;
   final String text;
   _ListItem(this.depth, this.text);
 }
@@ -80,6 +82,7 @@ class _Span {
 /// - Inline-Code `` `code` ``
 /// - Code-Blöcke ` ``` `
 /// - Horizontale Linien `---`
+/// - Erzwungener Seitenumbruch `\pagebreak`
 /// - Aufzählungslisten `- item` mit Einrückung für Verschachtelung
 /// - Tabellen `| col | col |`
 /// - Block-Bilder `![alt](data:image/...;base64,...)`
@@ -91,49 +94,6 @@ class MarkdownRenderer implements Renderer {
   @override
   bool get isPrintable => bytes != null && bytes!.isNotEmpty;
 
-  /// Druckt das Markdown mit [pw.MultiPage] – mehrere Seiten, Seitenrand,
-  /// und Unicode-fähige Schrift via [PdfGoogleFonts].
-  ///
-  /// Verwendet Noto Sans für korrekte Darstellung von Sonderzeichen
-  /// (Umlaute, En-Dash `–`, etc.). Schriften werden nach dem ersten Download
-  /// automatisch gecacht.
-  @override
-  Future<bool> printNatively(String jobName) async {
-    final content = markdown;
-    if (content == null || content.isEmpty) return false;
-
-    final blocks = _parseBlocks(content);
-
-    // Unicode-fähige Schriften laden
-    final regular = await PdfGoogleFonts.notoSansRegular();
-    final bold    = await PdfGoogleFonts.notoSansBold();
-    final italic  = await PdfGoogleFonts.notoSansItalic();
-
-    await Printing.layoutPdf(
-      name: jobName,
-      onLayout: (format) async {
-        final doc = pw.Document();
-        doc.addPage(
-          pw.MultiPage(
-            pageFormat: format,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 48, vertical: 48),
-            theme: pw.ThemeData.withFont(
-              base:   regular,
-              bold:   bold,
-              italic: italic,
-            ),
-            // Jedes Block-Widget als eigenes Top-Level-Element übergeben –
-            // pw.MultiPage bricht automatisch auf mehrere Seiten um.
-            build: (context) => blocks.map(_toPwWidget).toList(),
-          ),
-        );
-        return doc.save();
-      },
-    );
-
-    return true;
-  }
-
   String? get markdown =>
       bytes == null ? null : utf8.decode(bytes!, allowMalformed: true);
 
@@ -143,7 +103,6 @@ class MarkdownRenderer implements Renderer {
 
   static List<_Block> _parseBlocks(String input) {
     final blocks = <_Block>[];
-    // CR+LF und CR normalisieren → robustes Handling aller Zeilenenden
     final lines = input
         .replaceAll('\r\n', '\n')
         .replaceAll('\r', '\n')
@@ -151,13 +110,12 @@ class MarkdownRenderer implements Renderer {
     int i = 0;
 
     while (i < lines.length) {
-      // Trailing-Whitespace entfernen (inkl. evt. übrig gebliebenes \r)
       final line = lines[i].trimRight();
 
       // --- Leerzeile ---
       if (line.trim().isEmpty) { i++; continue; }
 
-      // --- Überschrift: zeichenbasiert statt Regex (robuster) ---
+      // --- Überschrift (zeichenbasiert – robust gegenüber Sonderzeichen) ---
       if (line.startsWith('#')) {
         int level = 0;
         while (level < line.length && line[level] == '#') {
@@ -170,6 +128,12 @@ class MarkdownRenderer implements Renderer {
             i++; continue;
           }
         }
+      }
+
+      // --- Erzwungener Seitenumbruch ---
+      if (line.trim() == r'\pagebreak') {
+        blocks.add(_PageBreak());
+        i++; continue;
       }
 
       // --- Horizontale Linie ---
@@ -189,8 +153,7 @@ class MarkdownRenderer implements Renderer {
       }
 
       // --- Aufzählungsliste ---
-      final listMatch = RegExp(r'^(\s*)[-*]\s(.+)').firstMatch(line);
-      if (listMatch != null) {
+      if (RegExp(r'^\s*[-*]\s').hasMatch(line)) {
         final items = <_ListItem>[];
         var j = i;
         while (j < lines.length) {
@@ -211,7 +174,6 @@ class MarkdownRenderer implements Renderer {
         while (i < lines.length && lines[i].trimRight().trim().startsWith('|')) {
           tableLines.add(lines[i].trimRight()); i++;
         }
-        // Trennzeilen (|---|---|) herausfiltern
         final content = tableLines
             .where((l) => !RegExp(r'^\|[\s\-|:]+\|$').hasMatch(l.trim()))
             .toList();
@@ -224,7 +186,7 @@ class MarkdownRenderer implements Renderer {
         continue;
       }
 
-      // --- Block-Bild (einziger Inhalt der Zeile) ---
+      // --- Block-Bild ---
       final imgMatch = RegExp(r'^!\[([^\]]*)\]\(([^)]+)\)\s*$').firstMatch(line.trim());
       if (imgMatch != null) {
         final data = _parseDataUri(imgMatch.group(2)!);
@@ -238,6 +200,7 @@ class MarkdownRenderer implements Renderer {
         final l = lines[i].trimRight();
         if (l.trim().isEmpty) break;
         if (l.startsWith('#')) break;
+        if (l.trim() == r'\pagebreak') break;
         if (RegExp(r'^[-*_]{3,}$').hasMatch(l.trim())) break;
         if (l.trimLeft().startsWith('```')) break;
         if (l.trim().startsWith('|')) break;
@@ -247,7 +210,7 @@ class MarkdownRenderer implements Renderer {
       if (text.isNotEmpty) {
         blocks.add(_Paragraph(text.join(' ')));
       } else {
-        i++; // Unbekannte Zeile überspringen – verhindert Endlosschleife
+        i++;
       }
     }
 
@@ -272,26 +235,19 @@ class MarkdownRenderer implements Renderer {
   // Parser – Inline-Spans
   // --------------------------------------------------------------------------
 
-  /// Parst Inline-Formatierung: `**fett**`, `*kursiv*`, `` `code` ``.
-  ///
-  /// Reihenfolge: `**` vor `*`, damit Bold korrekt priorisiert wird.
-  /// Fett und Kursiv werden intern nach Code-Spans durchsucht,
-  /// sodass `**Text mit \`code\`**` korrekt gerendert wird.
   static List<_Span> _parseInline(String text) {
     final spans = <_Span>[];
     final pattern = RegExp(
-      r'\*\*(.+?)\*\*'    // **fett**
-      r'|\*([^*\n]+?)\*'  // *kursiv*
-      r'|`([^`\n]+)`'     // `code`
-      r'|([^*`]+)'        // Klartext
-      r'|([*`])',          // einzelnes * oder ` (Catch-all)
+      r'\*\*(.+?)\*\*'
+      r'|\*([^*\n]+?)\*'
+      r'|`([^`\n]+)`'
+      r'|([^*`]+)'
+      r'|([*`])',
     );
     for (final m in pattern.allMatches(text)) {
       if (m.group(1) != null) {
-        // Fett: inneren Text nach Code-Spans durchsuchen
         spans.addAll(_parseInnerCode(m.group(1)!, bold: true));
       } else if (m.group(2) != null) {
-        // Kursiv: inneren Text nach Code-Spans durchsuchen
         spans.addAll(_parseInnerCode(m.group(2)!, italic: true));
       } else if (m.group(3) != null) {
         spans.add(_Span(m.group(3)!, code: true));
@@ -304,9 +260,6 @@ class MarkdownRenderer implements Renderer {
     return spans;
   }
 
-  /// Parst nur Code-Spans innerhalb von bereits erkanntem Fett/Kursiv.
-  ///
-  /// Ermöglicht `**Text mit \`code\`**` → [bold(Text mit ), bold+code(code)].
   static List<_Span> _parseInnerCode(String text, {bool bold = false, bool italic = false}) {
     final spans = <_Span>[];
     final pattern = RegExp(r'`([^`\n]+)`|([^`]+)|([`])');
@@ -356,6 +309,20 @@ class MarkdownRenderer implements Renderer {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: Divider(),
     ),
+    _PageBreak() => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            'Seitenumbruch',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
+        ),
+        const Expanded(child: Divider()),
+      ]),
+    ),
     _CodeBlock() => Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -381,17 +348,14 @@ class MarkdownRenderer implements Renderer {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: block.items.map((item) => Padding(
-          padding: EdgeInsets.only(
-            left: 4.0 + item.depth * 20.0,
-            top: 2, bottom: 2,
-          ),
+          padding: EdgeInsets.only(left: 4.0 + item.depth * 20.0, top: 2, bottom: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
                 width: 16,
                 child: Text(
-                  item.depth == 0 ? '•' : item.depth == 1 ? '◦' : '▸',
+                  item.depth == 0 ? '•' : item.depth == 1 ? '–' : '·',
                   style: const TextStyle(fontSize: 14),
                 ),
               ),
@@ -430,7 +394,6 @@ class MarkdownRenderer implements Renderer {
             span.text,
             style: TextStyle(
               fontFamily: 'monospace',
-              fontSize: 12,
               fontWeight: span.bold ? FontWeight.bold : null,
               fontStyle: span.italic ? FontStyle.italic : null,
             ),
@@ -475,7 +438,66 @@ class MarkdownRenderer implements Renderer {
   );
 
   // --------------------------------------------------------------------------
-  // PDF-Widget (Druck)
+  // Drucken – pw.MultiPage mit Unicode-Schriften
+  // --------------------------------------------------------------------------
+
+  /// Druckt mit [pw.MultiPage] (automatische Seitenumbrüche), Seitenrändern,
+  /// und Unicode-fähigen Noto-Sans-Schriften für korrekte Sonderzeichen.
+  ///
+  /// `\pagebreak`-Marker im Markdown erzwingen einen neuen Abschnitt →
+  /// jeder Abschnitt beginnt auf einer neuen Seite.
+  @override
+  Future<bool> printNatively(String jobName) async {
+    final content = markdown;
+    if (content == null || content.isEmpty) return false;
+
+    // Unicode-fähige Schriften (Noto Sans deckt Umlaute, –, · etc. ab)
+    final regular = await PdfGoogleFonts.notoSansRegular();
+    final bold    = await PdfGoogleFonts.notoSansBold();
+    final italic  = await PdfGoogleFonts.notoSansItalic();
+
+    // Blöcke an _PageBreak-Markern aufteilen →
+    // jeder Abschnitt wird als eigene pw.MultiPage eingefügt
+    // und beginnt damit auf einer neuen Seite.
+    final allBlocks = _parseBlocks(content);
+    final sections  = <List<_Block>>[];
+    var current     = <_Block>[];
+    for (final block in allBlocks) {
+      if (block is _PageBreak) {
+        sections.add(current);
+        current = [];
+      } else {
+        current.add(block);
+      }
+    }
+    sections.add(current);
+
+    await Printing.layoutPdf(
+      name: jobName,
+      onLayout: (format) async {
+        final doc = pw.Document();
+        final theme = pw.ThemeData.withFont(
+          base:   regular,
+          bold:   bold,
+          italic: italic,
+        );
+        for (final section in sections.where((s) => s.isNotEmpty)) {
+          doc.addPage(pw.MultiPage(
+            pageFormat: format,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 48, vertical: 48),
+            theme: theme,
+            build: (context) => section.map(_toPwWidget).toList(),
+          ));
+        }
+        return doc.save();
+      },
+    );
+
+    return true;
+  }
+
+  // --------------------------------------------------------------------------
+  // PDF-Widget (Fallback für buildPrintableWidget)
   // --------------------------------------------------------------------------
 
   @override
@@ -486,7 +508,10 @@ class MarkdownRenderer implements Renderer {
     }
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: _parseBlocks(content).map(_toPwWidget).toList(),
+      children: _parseBlocks(content)
+          .where((b) => b is! _PageBreak)
+          .map(_toPwWidget)
+          .toList(),
     );
   }
 
@@ -505,6 +530,7 @@ class MarkdownRenderer implements Renderer {
       padding: const pw.EdgeInsets.symmetric(vertical: 8),
       child: pw.Divider(color: PdfColors.grey),
     ),
+    _PageBreak() => pw.SizedBox(), // wird in printNatively als Abschnittstrenner behandelt
     _CodeBlock() => pw.Container(
       width: double.infinity,
       margin: const pw.EdgeInsets.symmetric(vertical: 6),
@@ -533,18 +559,15 @@ class MarkdownRenderer implements Renderer {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: block.items.map((item) => pw.Padding(
-          padding: pw.EdgeInsets.only(
-            left: 4.0 + item.depth * 20.0,
-            top: 2, bottom: 2,
-          ),
+          padding: pw.EdgeInsets.only(left: 4.0 + item.depth * 20.0, top: 2, bottom: 2),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(
                 width: 16,
+                // Zeichen aus Latin/Basic – sicher in allen Noto-Schriften
                 child: pw.Text(
-                  item.depth == 0 ? '\u2022' : item.depth == 1 ? '\u25E6' : '\u25B8',
-                  style: const pw.TextStyle(fontSize: 10),
+                  item.depth == 0 ? '\u2022' : item.depth == 1 ? '\u2013' : '\u00B7',
                 ),
               ),
               pw.SizedBox(width: 4),
@@ -577,8 +600,8 @@ class MarkdownRenderer implements Renderer {
     style: pw.TextStyle(
       fontWeight: span.bold ? pw.FontWeight.bold : null,
       fontStyle: span.italic ? pw.FontStyle.italic : null,
+      // Nur für Code: Courier – kein explizites fontSize, erbt Grundgröße
       font: span.code ? pw.Font.courier() : null,
-      fontSize: span.code ? 10 : null,
     ),
   );
 
