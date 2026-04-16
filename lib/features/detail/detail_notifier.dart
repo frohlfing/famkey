@@ -287,24 +287,6 @@ class DetailNotifier extends Notifier<DetailState> {
         previewFile: previewFile,
       );
 
-      // // Sicherheits-Cleanup: Temporäre Datei verzögert löschen
-      // Future.microtask(() async {
-      //   for (var i = 0; i < 10; i++) {
-      //     await Future.delayed(const Duration(seconds: 2));
-      //     try {
-      //       if (await tempFile.exists()) {
-      //         await tempFile.delete();
-      //         Logger().debug('Sicherheits-Cleanup: Temporäre Datei gelöscht (Versuch ${i + 1}).');
-      //         break;
-      //       }
-      //     } catch (e) {
-      //       // Fehler nur loggen, den Cleanup-Prozess aber nicht unterbrechen.
-      //       Logger().error('Fehler beim Entfernen der temporären Datei (Versuch ${i + 1}): $e');
-      //       state = state.copyWith(error: AppError(ErrorCode.cleanupFailed));
-      //     }
-      //   }
-      // });
-
     } catch (e, st) {
       Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));

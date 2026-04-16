@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_file.dart';
@@ -31,11 +30,6 @@ class PreviewState {
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy => status == PreviewActionStatus.progress;
-
-  /// Gibt den Inhalt der Datei als Text zurück.
-  // `allowMalformed: true` ersetzt ungültige Byte-Sequenzen durch das Unicode-Ersatzzeichen `\uFFFD` statt
-  // eine Exception zu werfen – sinnvoll für Text-Dateien die eventuell eine andere Kodierung als UTF-8 haben.
-  String? get text => bytes == null ? null : utf8.decode(bytes!, allowMalformed: true);
 
   /// Konstruktor
   const PreviewState({

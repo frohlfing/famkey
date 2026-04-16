@@ -592,8 +592,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   ///
   /// Dies sorgt für eine visuelle Unterscheidung zwischen verschiedenen Anhangs-Typen
   /// wie Bildern, PDFs, Dokumenten oder Archiven.
-  IconData _getIconData(String mimeType) {
-    final parts = mimeType.split('/');
+  IconData _getIconData(String mime) {
+    final parts = mime.split('/');
     final type = parts.first;
     final subtype = parts.last;
     // @formatter:off
@@ -607,7 +607,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
           case 'html': return Icons.html_outlined;
           case 'csv': return Icons.picture_as_pdf_outlined;
           case 'vcf': return Icons.contact_page_outlined;
-          default: return Icons.text_snippet_outlined;
+          default: return Icons.text_snippet_outlined; // txt
         }
       // Audio
       case 'audio': return Icons.audiotrack_outlined;
@@ -631,6 +631,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
           case 'vnd.rar':
           case 'x-tar':
           case 'x-7z-compressed': return Icons.inventory_2_outlined;
+          // JSON
+          case 'json': return Icons.data_array_outlined;
         }
     }
     // Fallback

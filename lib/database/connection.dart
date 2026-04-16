@@ -1,4 +1,4 @@
 // Conditional Import für die plattformspezifische Implementierung
-export 'connection/connection_stub.dart'
-  if (dart.library.ffi) 'connection/connection_native.dart'
-  if (dart.library.js_interop) 'connection/connection_web.dart';
+export 'connections/connection_stub.dart'
+  if (dart.library.ffi) 'connections/connection_native.dart'
+  if (dart.library.js_interop) 'connections/connection_web.dart';

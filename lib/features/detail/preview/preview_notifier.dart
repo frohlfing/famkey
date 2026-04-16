@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_file.dart';
-import 'package:privault/core/app_file/app_file_native.dart';
+import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/features/detail/preview/preview_state.dart';
+import 'package:privault/features/detail/preview/renderer_factory.dart';
 
 final previewProvider = NotifierProvider<PreviewNotifier, PreviewState>(() {
   return PreviewNotifier();
@@ -82,19 +85,58 @@ class PreviewNotifier extends Notifier<PreviewState> {
   }
 
   /// Druckt den Anhang.
+  ///
+  /// Jeder Renderer entscheidet selbst über seinen Druckpfad via [Renderer.printNatively]:
+  /// - [PdfRenderer] → übergibt die Originalbytes direkt an das Drucksystem.
+  /// - [HtmlRenderer] → druckt die gerenderte WebView-Seite (inkl. CSS/Bilder).
+  /// - Alle anderen → Fallback: PDF über [Renderer.buildPrintableWidget] aufbauen.
   Future<void> print() async {
     if (state.isBusy) return;
 
     state = state.copyWith(status: PreviewActionStatus.progress, error: AppError.none());
 
     try {
-      // todo: Drucken implementieren (package:printing)
-      throw UnimplementedError('Drucken ist noch nicht implementiert.');
+      final bytes = state.bytes;
+      if (bytes == null || bytes.isEmpty) {
+        throw StateError('Keine Daten zum Drucken vorhanden.');
+      }
+
+      final renderer = createRenderer(bytes, state.file.mime);
+
+      if (!renderer.isPrintable) {
+        throw StateError('Dieser Dateityp kann nicht gedruckt werden.');
+      }
+
+      // Nativer Druckpfad – jeder Renderer implementiert das selbst.
+      // Gibt false zurück → Fallback auf PDF-Aufbau.
+      final handledNatively = await renderer.printNatively(state.file.name);
+      if (handledNatively) {
+        state = state.copyWith(status: PreviewActionStatus.success);
+        return;
+      }
+
+      // Fallback: PDF über buildPrintableWidget aufbauen (z. B. Text, Bild)
+      await Printing.layoutPdf(
+        name: state.file.name,
+        onLayout: (format) async {
+          final doc = pw.Document();
+
+          doc.addPage(
+            pw.Page(
+              pageFormat: format,
+              build: (context) => renderer.buildPrintableWidget(),
+            ),
+          );
+
+          return doc.save();
+        },
+      );
+
+      state = state.copyWith(status: PreviewActionStatus.success);
+
     } catch (e, st) {
       Logger().fatal('Fehler beim Drucken des Anhangs: $e', stack: st);
       state = state.copyWith(status: PreviewActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
-
-
 }

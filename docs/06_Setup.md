@@ -166,6 +166,18 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
     System.Diagnostics.Debug.WriteLine("MASTER KEY (HEX): " + keyHex);
 ```
 
+### 2.8 HTML-Renderer
+
+- in Yaaml eintragen:
+   ```yaml
+   flutter_inappwebview: ^6.1.5
+   ```
+- Android: Netzwerk-Ausnahme verbieten
+   In `apps/privault/android/app/src/main/AndroidManifest.xml` darf **kein** `android:usesCleartextTraffic="true"` gesetzt sein. Standardmäßig ist es false — gut so.
+- iOS:  App Transport Security aktiv lassen
+   In `Info.plist` darf **kein** `NSAllowsArbitraryLoads = true` gesetzt sein.
+
+
 ## 3. Setup für Android-Apps unter Windows
 
 Flutter nutzt das native Android SDK. Die Einrichtung ist daher fast identisch.

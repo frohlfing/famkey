@@ -48,7 +48,7 @@ dependencies:
   # Network
   dio: ^5.4.0
 
-  # Biometrics & Files
+  # Files
   local_auth: ^2.2.0
   file_picker: ^8.0.0
   open_filex: ^4.5.0
@@ -61,7 +61,14 @@ dependencies:
   # Riverpod
   flutter_riverpod: ^3.3.1
   riverpod_annotation: ^4.0.2
+
+  # Web/OPFS
   web: ^1.1.1
+
+  # Renderer
+  printing: ^5.13.4
+  pdf: ^3.11.1
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
   flutter_test:

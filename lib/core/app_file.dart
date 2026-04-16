@@ -270,10 +270,13 @@ String getMimeType(String filename) {
     case 'ppt': return 'application/vnd.ms-powerpoint';
     case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     // Archiv
+    case '1pux':
     case 'zip': return 'application/zip';
     case 'rar': return 'application/vnd.rar';
     case 'tar': return 'application/x-tar';
     case '7z': return 'application/x-7z-compressed';
+    // Json
+    case 'json': return 'application/json';
     // Fallback
     default: return 'application/octet-stream';
   }
