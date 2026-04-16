@@ -85,11 +85,6 @@ class PreviewNotifier extends Notifier<PreviewState> {
   }
 
   /// Druckt den Anhang.
-  ///
-  /// Jeder Renderer entscheidet selbst über seinen Druckpfad via [Renderer.printNatively]:
-  /// - [PdfRenderer] → übergibt die Originalbytes direkt an das Drucksystem.
-  /// - [HtmlRenderer] → druckt die gerenderte WebView-Seite (inkl. CSS/Bilder).
-  /// - Alle anderen → Fallback: PDF über [Renderer.buildPrintableWidget] aufbauen.
   Future<void> print() async {
     if (state.isBusy) return;
 
@@ -120,14 +115,12 @@ class PreviewNotifier extends Notifier<PreviewState> {
         name: state.file.name,
         onLayout: (format) async {
           final doc = pw.Document();
-
           doc.addPage(
             pw.Page(
               pageFormat: format,
               build: (context) => renderer.buildPrintableWidget(),
             ),
           );
-
           return doc.save();
         },
       );

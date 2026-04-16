@@ -147,6 +147,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
           label: const Text('Herunterladen'),
         ),
 
+        // Drucken
         if (renderer.isPrintable)
           TextButton.icon(
             onPressed: state.isBusy ? null : notifier.print,

@@ -9,7 +9,7 @@ abstract class Renderer {
   /// Baut das Widget für die Vorschau.
   Widget buildWidget();
 
-  /// Optionaler nativer Druckpfad (z. B. HTML über die WebView-Engine).
+  /// Optionaler nativer Druckpfad.
   ///
   /// Gibt `true` zurück, wenn der Druck nativ initiiert wurde –
   /// in diesem Fall überspringt [PreviewNotifier] den PDF-Fallback.
