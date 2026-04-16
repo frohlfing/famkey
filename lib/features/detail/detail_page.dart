@@ -603,11 +603,11 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       // Text
       case 'text':
         switch (subtype) {
-          case 'md': return Icons.code_outlined;
+          case 'markdown': return Icons.code_outlined;
           case 'html': return Icons.html_outlined;
           case 'csv': return Icons.picture_as_pdf_outlined;
-          case 'vcf': return Icons.contact_page_outlined;
-          default: return Icons.text_snippet_outlined; // txt
+          case 'vcard': return Icons.contact_page_outlined;
+          default: return Icons.text_snippet_outlined; // plain
         }
       // Audio
       case 'audio': return Icons.audiotrack_outlined;

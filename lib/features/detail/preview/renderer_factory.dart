@@ -3,6 +3,7 @@ import 'renderer.dart';
 import 'renderers/fallback_renderer.dart';
 import 'renderers/html_renderer.dart';
 import 'renderers/image_renderer.dart';
+import 'renderers/markdown_renderer.dart';
 import 'renderers/pdf_renderer.dart';
 import 'renderers/text_renderer.dart';
 
@@ -20,11 +21,11 @@ Renderer createRenderer(Uint8List? bytes, String mime) {
     // Text
     case 'text':
       switch (subtype) {
-        //case 'md': return MarkdownRenderer(bytes);
+        case 'markdown': return MarkdownRenderer(bytes);
         case 'html': return HtmlRenderer(bytes);
         //case 'csv': return CsvRenderer(bytes);
-        //case 'vcf': return VCardRenderer(bytes);
-        default: return TextRenderer(bytes); // txt
+        //case 'vcard': return VcardRenderer(bytes);
+        default: return TextRenderer(bytes); // plain
       }
 
     // // Audio
