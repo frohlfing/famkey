@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:pdf/widgets.dart' as pw;
-
 import '../renderer.dart';
 
 /// Sicherer Renderer für HTML-Inhalte.
@@ -197,12 +194,5 @@ class HtmlRenderer implements Renderer {
   // --------------------------------------------------------------------------
 
   @override
-  Future<bool> printNatively(String jobName) async {
-    return false;
-  }
-
-  @override
-  pw.Widget buildPrintableWidget() {
-    return pw.Center(child: pw.Text('HTML-Druck wird nicht unterstützt.'));
-  }
+  Future<void> print(String jobName) async {}
 }

@@ -98,8 +98,23 @@ class MarkdownRenderer implements Renderer {
       bytes == null ? null : utf8.decode(bytes!, allowMalformed: true);
 
   // --------------------------------------------------------------------------
-  // Parser – Blöcke
+  // Flutter-Widget (Vorschau)
   // --------------------------------------------------------------------------
+
+  @override
+  Widget buildWidget() {
+    final content = markdown;
+    if (content == null || content.isEmpty) {
+      return const Center(child: Text('Kein Inhalt verfügbar.'));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _parseBlocks(content).map(_toFlutterWidget).toList(),
+      ),
+    );
+  }
 
   static List<_Block> _parseBlocks(String input) {
     final blocks = <_Block>[];
@@ -231,10 +246,6 @@ class MarkdownRenderer implements Renderer {
     try { return base64Decode(src.substring(comma + 1)); } catch (_) { return null; }
   }
 
-  // --------------------------------------------------------------------------
-  // Parser – Inline-Spans
-  // --------------------------------------------------------------------------
-
   static List<_Span> _parseInline(String text) {
     final spans = <_Span>[];
     final pattern = RegExp(
@@ -273,25 +284,6 @@ class MarkdownRenderer implements Renderer {
       }
     }
     return spans;
-  }
-
-  // --------------------------------------------------------------------------
-  // Flutter-Widget (Vorschau)
-  // --------------------------------------------------------------------------
-
-  @override
-  Widget buildWidget() {
-    final content = markdown;
-    if (content == null || content.isEmpty) {
-      return const Center(child: Text('Kein Inhalt verfügbar.'));
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _parseBlocks(content).map(_toFlutterWidget).toList(),
-      ),
-    );
   }
 
   static Widget _toFlutterWidget(_Block block) => switch (block) {
@@ -447,9 +439,9 @@ class MarkdownRenderer implements Renderer {
   /// `\pagebreak`-Marker im Markdown erzwingen einen neuen Abschnitt →
   /// jeder Abschnitt beginnt auf einer neuen Seite.
   @override
-  Future<bool> printNatively(String jobName) async {
+  Future<void> print(String jobName) async {
     final content = markdown;
-    if (content == null || content.isEmpty) return false;
+    if (content == null || content.isEmpty) return;
 
     // Unicode-fähige Schriften (Noto Sans deckt Umlaute, –, · etc. ab)
     final regular = await PdfGoogleFonts.notoSansRegular();
@@ -491,27 +483,6 @@ class MarkdownRenderer implements Renderer {
         }
         return doc.save();
       },
-    );
-
-    return true;
-  }
-
-  // --------------------------------------------------------------------------
-  // PDF-Widget (Fallback für buildPrintableWidget)
-  // --------------------------------------------------------------------------
-
-  @override
-  pw.Widget buildPrintableWidget() {
-    final content = markdown;
-    if (content == null || content.isEmpty) {
-      return pw.Center(child: pw.Text('Kein Inhalt verfügbar.'));
-    }
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: _parseBlocks(content)
-          .where((b) => b is! _PageBreak)
-          .map(_toPwWidget)
-          .toList(),
     );
   }
 

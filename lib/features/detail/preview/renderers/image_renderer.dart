@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../renderer.dart';
 
@@ -32,25 +33,21 @@ class ImageRenderer implements Renderer {
   }
 
   @override
-  Future<bool> printNatively(String jobName) async {
-    return false;
-  }
-
-  @override
-  pw.Widget buildPrintableWidget() {
-    final image = bytes == null ? null : pw.MemoryImage(bytes!);
-
-    if (image == null) {
-      return pw.Center(
-        child: pw.Text('Das Bild konnte nicht geladen werden.'),
-      );
-    }
-
-    return pw.Center(
-      child: pw.Image(
-        image,
-        fit: pw.BoxFit.contain,
-      ),
+  Future<void> print(String jobName) async {
+    if (bytes == null || bytes!.isEmpty) return;
+    await Printing.layoutPdf(
+      name: jobName,
+      onLayout: (format) async {
+        final doc = pw.Document();
+        doc.addPage(pw.Page(
+          pageFormat: format,
+          margin: pw.EdgeInsets.zero,
+          build: (_) => pw.Center(
+            child: pw.Image(pw.MemoryImage(bytes!), fit: pw.BoxFit.contain),
+          ),
+        ));
+        return doc.save();
+      },
     );
   }
 }

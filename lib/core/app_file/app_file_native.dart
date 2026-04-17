@@ -162,7 +162,25 @@ Future<AppFile> createTempAppFile([String? filename]) async {
 /// Erzeugt eine [AppFilePicker]-Instanz (nativ).
 AppFilePicker createAppFilePicker() => AppFilePickerNative();
 
-/// Öffnet den Systemdialog zum Speichern der Datei.
+/// Öffnet den Systemdialog zum Speichern der Datei auf der Festplatte.
+/// Funktioniert sowohl für AppFileNative als auch für AppFileMemory.
 Future<void> downloadAppFile(AppFile file) async {
-  await OpenFilex.open(file.path);
+  // 1. Die Bytes der Datei laden (egal ob von Disk oder aus dem RAM)
+  final bytes = await file.readAsBytes();
+
+  // 2. Den "Speichern unter"-Dialog aufrufen
+  // FilePicker.platform.saveFile öffnet den nativen Dateimanager
+  final String? outputPath = await FilePicker.platform.saveFile(
+    dialogTitle: 'Datei speichern unter...',
+    fileName: file.name,
+    // Optional: Du könntest hier die Extension einschränken
+    // type: FileType.custom,
+    // allowedExtensions: [p.extension(file.path).replaceAll('.', '')],
+  );
+
+  // 3. Wenn der Nutzer nicht abgebrochen hat, die Daten schreiben
+  if (outputPath != null) {
+    final outputFile = File(outputPath);
+    await outputFile.writeAsBytes(bytes);
+  }
 }

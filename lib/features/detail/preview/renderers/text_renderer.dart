@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../renderer.dart';
 
@@ -37,18 +38,20 @@ class TextRenderer implements Renderer {
   }
 
   @override
-  Future<bool> printNatively(String jobName) async {
-    return false;
-  }
-
-  @override
-  pw.Widget buildPrintableWidget() {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(24),
-      child: pw.Text(
-        text ?? '',
-        style: const pw.TextStyle(fontSize: 11),
-      ),
+  Future<void> print(String jobName) async {
+    await Printing.layoutPdf(
+      name: jobName,
+      onLayout: (format) async {
+        final doc = pw.Document();
+        doc.addPage(pw.Page(
+          pageFormat: format,
+          build: (_) => pw.Padding(
+            padding: const pw.EdgeInsets.all(24),
+            child: pw.Text(text ?? '', style: const pw.TextStyle(fontSize: 11)),
+          ),
+        ));
+        return doc.save();
+      },
     );
   }
 }

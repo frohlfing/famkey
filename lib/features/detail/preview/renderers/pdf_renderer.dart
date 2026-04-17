@@ -41,27 +41,14 @@ class PdfRenderer implements Renderer {
     );
   }
 
-  /// Druckt das PDF direkt über die Originalbytes – ohne Umweg über
-  /// [buildPrintableWidget]. Damit bleibt das PDF verlustfrei.
+  /// Druckt das PDF verlustfrei direkt aus den Originalbytes.
   @override
-  Future<bool> printNatively(String jobName) async {
+  Future<void> print(String jobName) async {
     final data = bytes;
-    if (data == null || data.isEmpty) return false;
-
+    if (data == null || data.isEmpty) return;
     await Printing.layoutPdf(
       name: jobName,
       onLayout: (_) async => data,
-    );
-
-    return true;
-  }
-
-  /// Wird nicht erreicht, da [printNatively] immer `true` zurückgibt,
-  /// solange Bytes vorhanden sind.
-  @override
-  pw.Widget buildPrintableWidget() {
-    return pw.Center(
-      child: pw.Text('PDF wird direkt über die Originaldatei gedruckt.'),
     );
   }
 }

@@ -1,6 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/app_file.dart';
 import 'package:privault/core/app_file_factory.dart';
@@ -97,33 +95,10 @@ class PreviewNotifier extends Notifier<PreviewState> {
       }
 
       final renderer = createRenderer(bytes, state.file.mime);
-
       if (!renderer.isPrintable) {
         throw StateError('Dieser Dateityp kann nicht gedruckt werden.');
       }
-
-      // Nativer Druckpfad – jeder Renderer implementiert das selbst.
-      // Gibt false zurück → Fallback auf PDF-Aufbau.
-      final handledNatively = await renderer.printNatively(state.file.name);
-      if (handledNatively) {
-        state = state.copyWith(status: PreviewActionStatus.success);
-        return;
-      }
-
-      // Fallback: PDF über buildPrintableWidget aufbauen (z. B. Text, Bild)
-      await Printing.layoutPdf(
-        name: state.file.name,
-        onLayout: (format) async {
-          final doc = pw.Document();
-          doc.addPage(
-            pw.Page(
-              pageFormat: format,
-              build: (context) => renderer.buildPrintableWidget(),
-            ),
-          );
-          return doc.save();
-        },
-      );
+      await renderer.print(state.file.name);
 
       state = state.copyWith(status: PreviewActionStatus.success);
 

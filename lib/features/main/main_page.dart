@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/helper.dart';
+import 'package:privault/features/main/export/export_dialog.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/features/main/main_state.dart';
 import 'package:privault/features/main/import/import_dialog.dart';
@@ -107,6 +107,9 @@ class _MainPageState extends ConsumerState<MainPage> {
                   case 'import':
                     _showImportDialog();
                     break;
+                  case 'export':
+                    _showExportDialog();
+                    break;
                   case 'settings':
                     _showSettingsPage();
                     break;
@@ -128,6 +131,13 @@ class _MainPageState extends ConsumerState<MainPage> {
                   child: ListTile(
                     leading: Icon(Icons.file_download_outlined),
                     title: Text('Importieren'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'export',
+                  child: ListTile(
+                    leading: Icon(Icons.file_upload_outlined),
+                    title: Text('Exportieren'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -335,6 +345,10 @@ class _MainPageState extends ConsumerState<MainPage> {
       final notifier = ref.read(mainProvider.notifier);
       notifier.load();
     }
+  }
+  /// Öffnet den Dialog zum Exportieren des Tresors.
+  Future<void> _showExportDialog() async {
+    await ExportDialog.show(context);
   }
 
   /// Öffnet die Einstellungen.

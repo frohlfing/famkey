@@ -9,17 +9,7 @@ abstract class Renderer {
   /// Baut das Widget für die Vorschau.
   Widget buildWidget();
 
-  /// Optionaler nativer Druckpfad.
-  ///
-  /// Gibt `true` zurück, wenn der Druck nativ initiiert wurde –
-  /// in diesem Fall überspringt [PreviewNotifier] den PDF-Fallback.
-  /// Standard-Implementierung: `false` (kein nativer Druck, Fallback greift).
-  ///
+  /// Druckt den Inhalt.
   /// [jobName] ist der angezeigte Druckauftrag-Name im System-Druckdialog.
-  Future<bool> printNatively(String jobName) async => false;
-
-  /// Baut das Widget für die PDF-Druckausgabe (Fallback).
-  ///
-  /// Wird nur aufgerufen, wenn [printNatively] `false` zurückgibt.
-  pw.Widget buildPrintableWidget();
+  Future<void> print(String jobName);
 }

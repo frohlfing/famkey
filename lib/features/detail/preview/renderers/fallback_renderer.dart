@@ -35,16 +35,5 @@ class FallbackRenderer implements Renderer {
   }
 
   @override
-  Future<bool> printNatively(String jobName) async {
-    return false;
-  }
-
-  @override
-  pw.Widget buildPrintableWidget() {
-    return pw.Center(
-      child: pw.Text(
-        'Keine Vorschau verfügbar.',
-      ),
-    );
-  }
+  Future<void> print(String jobName) async {}
 }
