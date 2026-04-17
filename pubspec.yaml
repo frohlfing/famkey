@@ -56,7 +56,7 @@ dependencies:
 
   # Importformate (XML, Zip)
   xml: ^6.3.0
-  archive: ^3.4.9
+  archive: ^4.0.9
 
   # Riverpod
   flutter_riverpod: ^3.3.1

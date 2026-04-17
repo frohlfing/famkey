@@ -1,4 +1,4 @@
-import '../app_file.dart';
+import 'package:privault/core/app_file.dart';
 
 // Fallback, falls keine plattformspezifische Implementierung verfügbar ist.
 

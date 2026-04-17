@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 /// Gemeinsames Interface für die Darstellung und den Druck von Anhangs-Inhalten.
 abstract class Renderer {

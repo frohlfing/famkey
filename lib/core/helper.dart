@@ -47,15 +47,14 @@ Future<String?> downloadFavicon(String url) async {
 
 /// Formatiert Byte-Größen in lesbare Einheiten (KB, MB, GB).
 String formatSize(int bytes) {
-  const scale = 1024;
-  const orders = ["B", "KB", "MB", "GB"];
+  const units = ['B', 'KB', 'MB', 'GB'];
   double size = bytes.toDouble();
-  int order = 0;
-  while (size >= scale && order < orders.length - 1) {
-    order++;
-    size /= scale;
+  int unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    unit++;
+    size /= 1024;
   }
-  return "${size.toStringAsFixed(2)} ${orders[order]}";
+  return '${size.toStringAsFixed(2)} ${units[unit]}';
 }
 
 /// Erzeugt eine Thumbnail (Base64)

@@ -103,7 +103,7 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
   @override
   _i4.Future<_i3.Uint8List> decryptRsa(
     String? encryptedDataBase64,
-    String? privateKeyPem,
+      _i3.Uint8List privateKeyPem,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decryptRsa, [
@@ -126,16 +126,12 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
           as String);
 
   @override
-  _i3.Uint8List deriveKeyFromKey(
-    _i3.Uint8List? keyMaterial,
-    _i3.Uint8List? salt,
-    String? info,
-  ) =>
+  _i4.Future<_i3.Uint8List> deriveKeyFromKey(_i3.Uint8List keyMaterial, _i3.Uint8List? salt,  String info) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
             returnValue: _i3.Uint8List(0),
           )
-          as _i3.Uint8List);
+          as _i4.Future<_i3.Uint8List>);
 
   @override
   String computeHash(String? input) =>

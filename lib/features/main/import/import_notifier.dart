@@ -155,7 +155,9 @@ class ImportNotifier extends Notifier<ImportState> {
         var favicon = parsedEntry.favicon ?? '';
         final url = parsedEntry.url ?? '';
         if (favicon.isEmpty && url.isNotEmpty) {
-          favicon = await downloadFavicon(url) ?? '';
+          try {
+            favicon = await downloadFavicon(url) ?? '';
+          } catch (_) { }
         }
 
         // Zeitpunkt der letzten Änderung auf Jetzt setzen, wenn nicht angegeben

@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
+import 'package:privault/core/app_file.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web/web.dart' as web;
-import '../app_file.dart';
 
 /// Implementierung von [AppFile] für eine WebAssembly (WASM)
 /// auf Basis des Origin-Private File System (OPFS).

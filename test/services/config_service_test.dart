@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path/path.dart' as p;
 
 void main() {
   // Notwendig für SharedPreferences und PathProvider Mocks
@@ -37,7 +36,6 @@ void main() {
       expect(sut.lastVaultName, equals(''));
       expect(sut.showOnlyMine, isFalse);
       expect(sut.themeMode, equals(ThemeMode.system));
-      expect(sut.vaultStoragePath, equals(''));
       expect(sut.logMinLevel, equals(LogLevel.info));
       expect(sut.logMaxDays, equals(7));
     });
@@ -47,7 +45,6 @@ void main() {
       sut1.lastVaultName = 'VaultX';
       sut1.showOnlyMine = true;
       sut1.themeMode = ThemeMode.dark;
-      sut1.vaultStoragePath = '/tmp/vaults';
       sut1.logMinLevel = LogLevel.debug;
       sut1.logMaxDays = 14;
 
@@ -56,28 +53,8 @@ void main() {
       expect(sut2.lastVaultName, equals('VaultX'));
       expect(sut2.showOnlyMine, isTrue);
       expect(sut2.themeMode, equals(ThemeMode.dark));
-      expect(sut2.vaultStoragePath, equals('/tmp/vaults'));
       expect(sut2.logMinLevel, equals(LogLevel.debug));
       expect(sut2.logMaxDays, equals(14));
-    });
-
-    test('1.1.3 Init: Setzt Standardpfad, wenn noch kein Pfad gespeichert ist', () async {
-      final sut = ConfigService(prefs);
-      expect(sut.vaultStoragePath, isEmpty);
-
-      await sut.init();
-
-      final expectedPath = p.join(mockPath, 'vaults');
-      expect(sut.vaultStoragePath, equals(expectedPath));
-    });
-
-    test('1.1.4 Init: Überschreibt vorhandenen Pfad nicht', () async {
-      final sut = ConfigService(prefs);
-      sut.vaultStoragePath = '/existing/path';
-
-      await sut.init();
-
-      expect(sut.vaultStoragePath, equals('/existing/path'));
     });
   });
 }

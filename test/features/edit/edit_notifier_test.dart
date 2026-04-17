@@ -76,7 +76,7 @@ void main() {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
-      when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decryptRsa(any, Uint8List(0))).thenAnswer((_) async => Uint8List(32));
       when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(payloadJson)));
       when(mockPw.estimateStrength(any)).thenReturn(3);
 
@@ -130,7 +130,7 @@ void main() {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
-      when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decryptRsa(any, Uint8List(0))).thenAnswer((_) async => Uint8List(32));
       when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(json.encode(createTestPayload().toJson()))));
 
       final notifier = container.read(editProvider.notifier);

@@ -16,7 +16,11 @@ void main() {
 
     setUp(() {
       mockCryptoService = MockCryptoService();
-      when(mockCryptoService.deriveKeyFromKey(any, any, any)).thenReturn(Uint8List(32));
+      when(mockCryptoService.deriveKeyFromKey(
+        Uint8List(0), // Dummy statt Matcher
+        Uint8List(0), // Dummy statt Matcher
+        '',           // Dummy String
+      )).thenAnswer((_) async => Uint8List(32));
       sut = SessionService(mockCryptoService);
     });
 

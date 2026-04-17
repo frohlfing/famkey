@@ -135,7 +135,7 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
   @override
   _i5.Future<_i4.Uint8List> decryptRsa(
     String? encryptedDataBase64,
-    String? privateKeyPem,
+      _i4.Uint8List privateKeyPem,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decryptRsa, [
@@ -158,16 +158,16 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
           as String);
 
   @override
-  _i4.Uint8List deriveKeyFromKey(
+  _i5.Future<_i4.Uint8List> deriveKeyFromKey(
     _i4.Uint8List? keyMaterial,
     _i4.Uint8List? salt,
-    String? info,
+    String info,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
             returnValue: _i4.Uint8List(0),
           )
-          as _i4.Uint8List);
+          as _i5.Future<_i4.Uint8List>);
 
   @override
   String computeHash(String? input) =>
@@ -827,7 +827,7 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
           as String);
 
   @override
-  void setSession({
+  Future<void> setSession({
     required _i2.UserEntity? user,
     required _i4.Uint8List? privateKey,
     required String? vaultName,
@@ -855,7 +855,7 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
   );
 
   @override
-  void setPrivateKey(_i4.Uint8List? value) => super.noSuchMethod(
+  Future<void> setPrivateKey(_i4.Uint8List? value) => super.noSuchMethod(
     Invocation.method(#setPrivateKey, [value]),
     returnValueForMissingStub: null,
   );

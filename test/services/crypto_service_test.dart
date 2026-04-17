@@ -74,7 +74,7 @@ void main() {
       final originalData = Uint8List.fromList(utf8.encode("SecretMessage"));
       
       final encrypted = await sut.encryptRsa(originalData, pub);
-      final decrypted = await sut.decryptRsa(encrypted, utf8.decode(priv));
+      final decrypted = await sut.decryptRsa(encrypted, priv);
       
       expect(decrypted, equals(originalData));
     });
@@ -132,15 +132,15 @@ void main() {
       expect(() => sut.wipeKey(null), returnsNormally);
     });
     
-    test('3.5.1 deriveKeyFromKey: Erzeugt deterministisch einen 32-Byte Key.', () {
+    test('3.5.1 deriveKeyFromKey: Erzeugt deterministisch einen 32-Byte Key.', () async {
        final inputMaterial = Uint8List.fromList([1, 2, 3, 4]);
        final salt = Uint8List.fromList([5, 6, 7, 8]);
        const info = "test-context";
        
-       final key1 = sut.deriveKeyFromKey(inputMaterial, salt, info);
-       final key2 = sut.deriveKeyFromKey(inputMaterial, salt, info);
-       
-       expect(key1.length, equals(32));
+       final key1 = await sut.deriveKeyFromKey(inputMaterial, salt, info);
+       final key2 = await sut.deriveKeyFromKey(inputMaterial, salt, info);
+
+       expect(utf8.decode(key1).length, equals(32));
        expect(key1, equals(key2));
     });
   });

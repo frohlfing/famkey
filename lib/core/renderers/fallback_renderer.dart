@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pdf/widgets.dart' as pw;
-import '../renderer.dart';
+import 'package:privault/core/renderer.dart';
 
 /// Fallback-Renderer, wenn für den Dateityp keine Vorschau verfügbar ist.
 class FallbackRenderer implements Renderer {

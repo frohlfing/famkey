@@ -4,7 +4,7 @@ import 'package:privault/core/app_file.dart';
 import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/features/detail/preview/preview_state.dart';
-import 'package:privault/features/detail/preview/renderer_factory.dart';
+import 'package:privault/core/renderer_factory.dart';
 
 final previewProvider = NotifierProvider<PreviewNotifier, PreviewState>(() {
   return PreviewNotifier();

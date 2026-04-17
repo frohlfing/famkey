@@ -2,11 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:privault/core/app_file.dart';
 import 'package:uuid/uuid.dart';
-import '../app_file.dart';
 
 /// Implementierung von [AppFile] für eine Desktop- oder Mobile-Platform auf Basis von `dart:io File`.
 class AppFileNative implements AppFile {

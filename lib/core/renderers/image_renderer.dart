@@ -1,10 +1,8 @@
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
-import '../renderer.dart';
+import 'package:privault/core/renderer.dart';
 
 /// Renderer für Bildinhalte.
 class ImageRenderer implements Renderer {

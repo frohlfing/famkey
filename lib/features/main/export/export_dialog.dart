@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/renderer_factory.dart';
 import 'package:privault/features/main/export/export_notifier.dart';
 import 'package:privault/features/main/export/export_state.dart';
-import 'package:privault/features/detail/preview/renderer_factory.dart';
 
-/// Ein modaler Dialog zum Exportieren des Tresors
+/// Ein modaler Dialog zum Exportieren des Tresors.
 class ExportDialog extends ConsumerStatefulWidget {
 
   /// Konstruktor
@@ -15,7 +15,7 @@ class ExportDialog extends ConsumerStatefulWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (context) => ExportDialog(),
+      builder: (context) => const ExportDialog(),
     );
   }
 
@@ -24,6 +24,8 @@ class ExportDialog extends ConsumerStatefulWidget {
 }
 
 class _ExportDialogState extends ConsumerState<ExportDialog> {
+
+  final TextEditingController _passwordController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -41,11 +43,12 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     });
   }
 
-  // /// Gibt Ressourcen frei.
-  // @override
-  // void dispose() {
-  //   super.dispose();
-  // }
+  /// Gibt Ressourcen frei.
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   // ------------------------------------------------------------------------
   // --- Benutzeroberfläche ---
@@ -54,41 +57,40 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   @override
   Widget build(BuildContext context) {
 
-    // // Listener für Status-Änderungen
-    // ref.listen(exportProvider.select((s) => s.status), (previous, next) {
-    //   switch (next) {
-    //     case ExportActionStatus.saved:
-    //       Navigator.of(context).pop(true); // Zurück zur Detailseite
-    //       break;
-    //
-    //     default:
-    //       break;
-    //   }
-    // });
+    // Listener für Status-Änderungen
+    // Schließt den Dialog automatisch nach erfolgreichem Export.
+    ref.listen(exportProvider.select((s) => s.status), (previous, next) {
+      switch (next) {
+        case ExportActionStatus.success:
+          Navigator.of(context).pop(true); // Zurück zur Hauptseite
+          break;
 
-    // // Listener, der die Controller nur bei Initialladung oder Generierung füllt
-    // ref.listen(exportProvider, (previous, next) {
-    //   if (previous == next) return;
-    //   final formData = next.formData;
-    //   if (_passwordController.text != formData.password) _passwordController.text = formData.password;
-    // });
+        default:
+          break;
+      }
+    });
+
+    // Passwort-Controller synchron halten
+    ref.listen(exportProvider, (previous, next) {
+      if (previous == next) return;
+      final formData = next.formData;
+      if (_passwordController.text != formData.password) _passwordController.text = formData.password;
+    });
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(exportProvider.select((s) => s.isBusy));
 
     // Notifier, State und Renderer holen
     final notifier = ref.read(exportProvider.notifier);
-    final state = ref.watch(exportProvider);
+    final state    = ref.watch(exportProvider);
     final renderer = createRenderer(state.mdBytes, state.mdFile.mime);
+    final encrypt  = state.formData.encrypt;
 
     return AlertDialog(
       title: Row(
         children: [
           Expanded(
-            child: Text(
-              state.mdFile.name,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: const Text('Tresor exportieren', overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -102,8 +104,10 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+
+            // --- Vorschau ---
             Expanded(
-              child:Stack(
+              child: Stack(
                 children: [
                   // --- Vorschau ---
                   Container(
@@ -148,6 +152,43 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
             ),
 
+            const SizedBox(height: 12),
+
+            // --- ZIP verschlüsseln ---
+            Row(
+              children: [
+                Switch(
+                  value: encrypt,
+                  onChanged: isBusy ? null : notifier.setEncrypt,
+                ),
+                const SizedBox(width: 8),
+                const Text('ZIP-Archiv verschlüsseln'),
+              ],
+            ),
+
+            // --- Passwort (nur sichtbar wenn Verschlüsselung aktiv) ---
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              child: encrypt
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        enabled: !isBusy,
+                        decoration: const InputDecoration(
+                          labelText: 'Passwort',
+                          hintText: 'Passwort für das ZIP-Archiv',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.lock_outline),
+                          isDense: true,
+                        ),
+                        onChanged: notifier.setPassword,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+
             const SizedBox(height: 16),
           ],
         ),
@@ -156,28 +197,26 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       // --- Buttons ---
       actions: [
 
-        // Schließen
-        ElevatedButton(
-          autofocus: true,
-          onPressed: isBusy ? null : () => Navigator.of(context).pop(false),
+        // Abbrechen
+        TextButton(
+          onPressed: isBusy ? null : () => Navigator.of(context).pop(),
           child: const Text('Abbrechen'),
         ),
 
         // Drucken
         if (renderer.isPrintable)
           TextButton.icon(
-            onPressed: state.isBusy ? null : notifier.print,
+            onPressed: isBusy ? null : notifier.print,
             icon: const Icon(Icons.print_outlined),
             label: const Text('Drucken'),
           ),
 
         // Exportieren
         ElevatedButton.icon(
-          onPressed: state.isBusy ? null : notifier.export,
+          onPressed: (isBusy || (encrypt && state.formData.password.isEmpty)) ? null : notifier.export,
           icon: const Icon(Icons.download_outlined),
           label: const Text('Exportieren'),
         ),
-
       ],
     );
   }
