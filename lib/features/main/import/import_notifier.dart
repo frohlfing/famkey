@@ -84,12 +84,12 @@ class ImportNotifier extends Notifier<ImportState> {
 
     // 1. UI-State aktualisieren
     state = state.copyWith(
-      formData: formData,
       totalCount: 0,
       addedCount: added,
       skippedCount: skipped,
       isAborting: false,
-      status: ImportActionStatus.progress, error: AppError.none(),
+      status: ImportActionStatus.progress,
+      error: AppError.none(),
     );
 
     try {
@@ -251,7 +251,7 @@ class ImportNotifier extends Notifier<ImportState> {
           return;
         }
 
-        // 13. Alles zusammen in eine Batch hinzufügen
+        // Alles zusammen in eine Batch hinzufügen
         batch.add((
           entry: entry,
           encryptedEntryKey: encryptedEntryKey,

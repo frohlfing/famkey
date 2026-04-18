@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/renderer_factory.dart';
 import 'package:privault/features/main/export/export_notifier.dart';
 import 'package:privault/features/main/export/export_state.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Exportieren des Tresors.
 class ExportDialog extends ConsumerStatefulWidget {
@@ -82,15 +83,15 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
     // Notifier, State und Renderer holen
     final notifier = ref.read(exportProvider.notifier);
-    final state    = ref.watch(exportProvider);
+    final state = ref.watch(exportProvider);
     final renderer = createRenderer(state.mdBytes, state.mdFile.mime);
-    final encrypt  = state.formData.encrypt;
+    final encrypt = state.formData.encrypt;
 
     return AlertDialog(
-      title: Row(
+      title: const Row(
         children: [
           Expanded(
-            child: const Text('Tresor exportieren', overflow: TextOverflow.ellipsis),
+            child: Text('Tresor exportieren', overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -120,18 +121,15 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                     child: renderer.buildWidget(),
                   ),
 
-                  // --- Ladeanzeige ---
-                  if (state.status == ExportActionStatus.progress)
-                    Container(
-                      color: Colors.white.withValues(alpha: 0.3), // Hintergrund leicht abdunkeln
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-
                   // --- Fehleranzeige ---
                   if (state.status == ExportActionStatus.failure)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 16),
+                    //Container(
+                    //  color: Colors.white.withValues(alpha: 0.85),
+                    //  padding: const EdgeInsets.all(16),
+                    //  child: Center(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
                           children: [
@@ -152,6 +150,27 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
             ),
 
+            // --- Fortschrittsanzeige (Laden & Exportieren) ---
+            if (state.isBusy) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: state.totalCount > 0
+                    ? state.currentCount / state.totalCount
+                    : null,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _buildProgressText(state),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
             const SizedBox(height: 12),
 
             // --- ZIP verschlüsseln ---
@@ -166,12 +185,33 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ],
             ),
 
+            // --- Hinweis zur AES-256-Verschlüsselung ---
+            if (encrypt)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: Theme.of(context).colorScheme.secondary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Verwendet AES-256. Zum Öffnen wird 7-Zip (kostenlos, empfohlen) '
+                        'oder WinRAR benötigt – Windows Explorer unterstützt AES-256-ZIP nicht.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // --- Passwort (nur sichtbar wenn Verschlüsselung aktiv) ---
             AnimatedSize(
               duration: const Duration(milliseconds: 200),
               child: encrypt
                   ? Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: TextField(
                         controller: _passwordController,
                         obscureText: true,
@@ -199,25 +239,90 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
         // Abbrechen
         TextButton(
-          onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+          onPressed: state.isAborting ? null : (state.isBusy ? _handleCancelOperation : () => Navigator.of(context).pop()),
           child: const Text('Abbrechen'),
         ),
 
-        // Drucken
+        // Drucken – nur wenn Vorschau geladen
         if (renderer.isPrintable)
-          TextButton.icon(
+          TextButton(
             onPressed: isBusy ? null : notifier.print,
-            icon: const Icon(Icons.print_outlined),
-            label: const Text('Drucken'),
+            child: const Text('Drucken'),
           ),
 
-        // Exportieren
-        ElevatedButton.icon(
-          onPressed: (isBusy || (encrypt && state.formData.password.isEmpty)) ? null : notifier.export,
-          icon: const Icon(Icons.download_outlined),
-          label: const Text('Exportieren'),
+        // Exportieren – nur wenn Vorschau geladen
+        ElevatedButton(
+          onPressed: isBusy ? null : _handleExport,
+          child: const Text('Exportieren'),
         ),
+
       ],
     );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Hilfsmethoden ---
+  // ------------------------------------------------------------------------}
+
+  /// Fortschrittstext je nach Phase und Fortschritt.
+  String _buildProgressText(ExportState state) {
+    final total   = state.totalCount;
+    final current = state.currentCount;
+    final pct     = total > 0 ? ' (${(current / total * 100).toStringAsFixed(0)} %)' : '';
+    final counts  = total > 0 ? ' – $current von $total Einträgen$pct' : '';
+
+    return state.status == ExportActionStatus.loading
+      ? 'Vorschau wird generiert...$counts'
+      : 'Exportdatei wird erstellt...$counts';
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Handler ---
+  // ------------------------------------------------------------------------
+
+  /// Bricht nach einer Rückfrage den laufenden Vorgang ab.
+  Future<void> _handleCancelOperation() async {
+    final isLoading = ref.read(exportProvider).status == ExportActionStatus.loading;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Vorgang abbrechen',
+      text: isLoading
+        ? 'Möchtest du das Generieren der Vorschau wirklich abbrechen?'
+        : 'Möchtest du den Export wirklich abbrechen?',
+      cancel: 'Nein, fortfahren',
+      ok: 'Ja, abbrechen',
+      autofocus: false,
+    );
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(exportProvider.notifier);
+      notifier.cancelOperation();
+    }
+  }
+
+  /// Startet nach einer Rückfrage den Export.
+  Future<void> _handleExport() async {
+    final state = ref.read(exportProvider);
+
+    final text = state.formData.encrypt
+      ? 'Das Archiv wird mit AES-256 verschlüsselt – dem derzeit sichersten ZIP-Verfahren.\n\n'
+        '✅ Als kryptographisch sicher anerkannt.\n\n'
+        '⚠️ Zum Öffnen wird 7-Zip (kostenlos, empfohlen) oder WinRAR benötigt. '
+        'Windows Explorer und viele andere ZIP-Programme unterstützen AES-256-ZIP nicht.\n\n'
+        'Fortfahren?'
+      : 'Der Tresor wird als unverschlüsselte ZIP-Datei exportiert. '
+        '⚠️ Alle Passwörter sind für jeden lesbar, der die Datei erhält.\n\n'
+        'Fortfahren?';
+
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Exportieren',
+      text: text,
+      ok: 'Ja, exportieren',
+    );
+
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(exportProvider.notifier);
+      notifier.export();
+    }
   }
 }

@@ -10,7 +10,6 @@ import 'package:privault/core/helper.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/renderers/markdown_renderer.dart';
 import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
 import 'package:privault/features/main/export/export_state.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
@@ -21,17 +20,6 @@ import 'package:privault/services/session_service.dart';
 final exportProvider = NotifierProvider<ExportNotifier, ExportState>(() {
   return ExportNotifier();
 });
-
-// ---------------------------------------------------------------------------
-// Interner Container für einen entschlüsselten Eintrag
-// ---------------------------------------------------------------------------
-
-class _DecryptedEntry {
-  final EntryPayload payload;
-  final Uint8List entryKey;
-  final List<AttachmentMetaPayload> metas;
-  _DecryptedEntry(this.payload, this.entryKey, this.metas);
-}
 
 // ---------------------------------------------------------------------------
 // ExportNotifier
@@ -72,23 +60,61 @@ class ExportNotifier extends Notifier<ExportState> {
   /// Entschlüsselt alle Einträge und generiert eine Markdown-Vorschau.
   Future<void> load() async {
     if (state.isBusy) return;
-    state = const ExportState().copyWith(
-      status: ExportActionStatus.loading,
-      error: AppError.none(),
-    );
 
-    // Kurze Pause für den Lade-Indikator
-    await Future.delayed(const Duration(milliseconds: 200));
+    // 1. Ladeanzeige einblenden
+    state = const ExportState().copyWith(status: ExportActionStatus.loading, error: AppError.none());
+    //await WidgetsBinding.instance.endOfFrame; // Warten bis Flutter den Ladeindikator gerendert hat.
 
     try {
-      final entries = await _databaseService.getEntries();
-      final decrypted = await _decryptAll(entries);
-      final vaultName = _sessionService.vaultName;
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final md = _buildMarkdown(decrypted, vaultName);
-      final mdBytes = Uint8List.fromList(utf8.encode(md));
-      final mdFile = AppFileMemory('$vaultName-$date.md', mdBytes);
 
+      if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
+      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+
+      // 2. Alle Einträge abfragen
+      final entries = await _databaseService.getEntries();
+      state = state.copyWith(totalCount: entries.length);
+
+      // 3. Einträge durchlaufen und nach Kategorie sortieren
+      int processed = 0;
+      final byCategory = <String, List<({EntryPayload payload, List<AttachmentMetaPayload> metas})>>{};
+      for (final entry in entries) {
+
+        // Eintrag entschlüsseln
+        final perm = await _databaseService.getPermissionByEntryIdAndUserId(entry.id, _sessionService.user!.id);
+        if (perm == null) throw Exception('Zum Eintrag ${entry.id} sind keine Zugriffsrechte gespeichert.');
+        final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
+        final raw = await _cryptoService.decrypt(entry.encryptedData, entryKey);
+        final payload = EntryPayload.fromJson(json.decode(utf8.decode(raw)));
+
+        // Anhang-Metadaten entschlüsseln
+        final metas = <AttachmentMetaPayload>[];
+        for (final att in await _databaseService.getAttachmentsByEntryId(entry.id)) {
+          final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
+          metas.add(AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm))));
+        }
+
+        // Kategorie zuordnen
+        (byCategory[payload.category] ??= []).add((payload: payload, metas: metas));
+
+        // Fortschritt aktualisieren
+        processed++;
+        state = state.copyWith(currentCount: processed);
+        await Future.delayed(Duration.zero); // Rendering-Frame freigeben
+
+        // Wurde abgebrochen?
+        if (state.isAborting) {
+          state = const ExportState().copyWith(status: ExportActionStatus.initial);
+          return;
+        }
+      }
+
+      // 4. Markdown mit den sortierten Einträgen aufbauen
+      final md = _buildMarkdown(byCategory, entries.length);
+
+      // 5. UI-State aktualisieren
+      final mdBytes = Uint8List.fromList(utf8.encode(md));
+      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final mdFile = AppFileMemory('${_sessionService.vaultName}-$date.md', mdBytes);
       state = state.copyWith(
         mdFile: mdFile,
         mdBytes: mdBytes,
@@ -97,64 +123,19 @@ class ExportNotifier extends Notifier<ExportState> {
 
     } catch (e, st) {
       Logger().fatal('Fehler beim Generieren des Exports: $e', stack: st);
-      state = state.copyWith(
-        status: ExportActionStatus.failure,
-        error: AppError(ErrorCode.unknown),
-      );
+      state = state.copyWith(status: ExportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Entschlüsseln ---
-  // ------------------------------------------------------------------------
-
-  /// Entschlüsselt alle Einträge und Anhang-Metadaten in einem Durchlauf.
-  ///
-  /// Einträge für die kein Zugriff besteht oder die fehlschlagen werden
-  /// stillschweigend übersprungen.
-  Future<Map<EntryEntity, _DecryptedEntry>> _decryptAll(
-      List<EntryEntity> entries) async {
-    final result = <EntryEntity, _DecryptedEntry>{};
-    final privateKey = _sessionService.privateKey;
-    final userId = _sessionService.user?.id;
-    if (privateKey == null || userId == null) return result;
-
-    for (final entry in entries) {
-      try {
-        final perm = await _databaseService.getPermissionByEntryIdAndUserId(
-          entry.id, userId,
-        );
-        if (perm == null) continue;
-
-        final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, privateKey);
-        final raw = await _cryptoService.decrypt(entry.encryptedData, entryKey);
-        final payload = EntryPayload.fromJson(json.decode(utf8.decode(raw)));
-
-        // Anhang-Metadaten
-        final metas = <AttachmentMetaPayload>[];
-        for (final att in await _databaseService.getAttachmentsByEntryId(entry.id)) {
-          try {
-            final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
-            metas.add(AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm))));
-          } catch (_) {}
-        }
-
-        result[entry] = _DecryptedEntry(payload, entryKey, metas);
-      } catch (_) {}
-    }
-    return result;
   }
 
   // ------------------------------------------------------------------------
   // --- Markdown generieren ---
   // ------------------------------------------------------------------------
 
-  String _buildMarkdown(
-      Map<EntryEntity, _DecryptedEntry> decrypted, String vaultName) {
-    final buffer      = StringBuffer();
-    final date        = DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now().toLocal());
+  String _buildMarkdown(Map<String, List<({EntryPayload payload, List<AttachmentMetaPayload> metas})>> byCategory, int totalCount) {
+    final buffer = StringBuffer();
+    final date = DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now().toLocal());
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
-    int lineCount     = 0;
+    int lineCount = 0;
 
     void writeln(String line) {
       buffer.writeln(line);
@@ -162,27 +143,22 @@ class ExportNotifier extends Notifier<ExportState> {
     }
 
     // --- Titel ---
-    writeln('# $vaultName – Export vom $date');
+    writeln('# ${_sessionService.vaultName} – Export vom $date');
     writeln('');
-    writeln('Enthält ${decrypted.length} Einträge.');
+    writeln('Enthält $totalCount Einträge.');
     writeln('');
 
-    // --- Nach Kategorien gruppieren ---
-    final byCategory = <String, List<MapEntry<EntryEntity, _DecryptedEntry>>>{};
-    for (final e in decrypted.entries) {
-      final cat = e.value.payload.category.isEmpty ? placeholder : e.value.payload.category;
-      (byCategory[cat] ??= []).add(e);
-    }
+    // todo placeholder bei der Sortierung berücksichtigen
     final sortedCats = byCategory.keys.toList()..sort();
 
     for (final category in sortedCats) {
       writeln('---');
-      writeln('## $category');
+      writeln('## ${category.isEmpty ? placeholder : category}');
       writeln('');
 
       for (final e in byCategory[category]!) {
-        final payload = e.value.payload;
-        final metas= e.value.metas;
+        final payload = e.payload;
+        final metas = e.metas;
 
         writeln('### ${payload.title}');
         if (payload.favicon.isNotEmpty) writeln('![Favicon](data:image/png;base64,${payload.favicon})');
@@ -249,47 +225,67 @@ class ExportNotifier extends Notifier<ExportState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Export ---
+  // --- Export: ZIP-Archiv erstellen ---
   // ------------------------------------------------------------------------
 
   /// Erstellt ein ZIP-Archiv mit CSV, JSON, Markdown und Anhängen.
   ///
-  /// Optional wird das fertige ZIP mit AES-256-GCM verschlüsselt.
-  /// Da das `archive`-Package kein natives AES-ZIP unterstützt, werden
-  /// die ZIP-Bytes nach der Kodierung mit [CryptoService] verschlüsselt.
-  /// Der Schlüssel wird via PBKDF2 aus dem Passwort abgeleitet.
+  /// Verschlüsselung: AES-256 (AE-1) via `ZipEncoder(password:)` wenn
+  /// [ExportFormData.encrypt] gesetzt ist. archive 4.x schreibt automatisch
+  /// AE-1 wenn ein Passwort angegeben wird.
   Future<void> export() async {
     if (state.isBusy) return;
-    state = state.copyWith(status: ExportActionStatus.progress, error: AppError.none());
+
+    final formData = state.formData;
+
+    int processed = 0;
+
+    // 1. UI-State aktualisieren
+    state = state.copyWith(
+      totalCount: 0,
+      currentCount: processed,
+      isAborting: false,
+      status: ExportActionStatus.progress,
+      error: AppError.none(),
+    );
 
     try {
-      final entries = await _databaseService.getEntries();
-      final decrypted = await _decryptAll(entries);
-      final vaultName = _sessionService.vaultName;
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final archive = Archive();
 
+      if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
+      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
+
+      // 2. Alle Einträge abfragen
+      final entries = await _databaseService.getEntries();
+      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      // 3. Gesamtanzahl für die Fortschrittsanzeige im State setzen
+      state = state.copyWith(totalCount: entries.length, currentCount: 0);
+
+      // 4. Zieldateien initialisieren
+      final archive = Archive();
       final csvRows = <List<String>>[
         ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'attachments', 'shared_with', 'updated_at'],
       ];
       final jsonList = <Map<String, dynamic>>[];
 
-      for (final e in decrypted.entries) {
-        final entry = e.key;
-        final payload = e.value.payload;
-        final entryKey = e.value.entryKey;
+      // 5. Einträge durchlaufen, CSV- und JSON-Datei erstelle, und Attachments extrahieren...
+      for (final entry in entries) {
 
-        // Anhänge entschlüsseln und ins Archiv packen
-        final attachments = <String>[];
-        final atts = await _databaseService.getAttachmentsByEntryId(entry.id);
-        for (final att in atts) {
-          try {
-            final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
-            final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm)));
-            final content = await _cryptoService.decrypt(att.encryptedContent, entryKey);
-            archive.addFile(ArchiveFile('files/${entry.uuid}/${meta.filename}', content.length, content));
-            attachments.add('${att.uuid}:${meta.filename}:${meta.timestamp}');
-          } catch (_) {}
+        // Eintrag entschlüsseln
+        final perm = await _databaseService.getPermissionByEntryIdAndUserId(entry.id, 1);
+        if (perm == null) throw Exception('Zum Eintrag ${entry.id} sind keine Zugriffsrechte gespeichert.');
+        final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
+        final raw = await _cryptoService.decrypt(entry.encryptedData, entryKey);
+        final payload = EntryPayload.fromJson(json.decode(utf8.decode(raw)));
+
+        // Anhänge des Eintrags entschlüsseln und ins Archiv packen
+        final attachmentNames = <String>[];
+        for (final att in await _databaseService.getAttachmentsByEntryId(entry.id)) {
+          final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
+          final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm)));
+          final content = await _cryptoService.decrypt(att.encryptedContent, entryKey);
+          archive.addFile(ArchiveFile('files/${entry.uuid}/${meta.filename}', content.length, content));
+          attachmentNames.add('${att.uuid}:${meta.filename}:${meta.timestamp}');
         }
 
         // "Geteilt mit" auflisten
@@ -313,7 +309,7 @@ class ExportNotifier extends Notifier<ExportState> {
           _csvEscape(passwordTimestamp ?? ''),
           _csvEscape(payload.url),
           _csvEscape(payload.notes),
-          _csvEscape(attachments.join('; ')),
+          _csvEscape(attachmentNames.join('; ')),
           _csvEscape(sharedWith.join('; ')),
           _csvEscape(updatedAt),
         ]);
@@ -329,14 +325,26 @@ class ExportNotifier extends Notifier<ExportState> {
           'url': payload.url,
           'notes': payload.notes,
           'favicon': payload.favicon,
-          'attachments': attachments,
+          'attachments': attachmentNames,
           'shared_with': sharedWith,
           'updated_at': updatedAt,
         });
+
+        // Fortschritt aktualisieren
+        processed++;
+        state = state.copyWith(currentCount: processed);
+        await Future.delayed(Duration.zero); // Rendering-Frame freigeben
+
+        // Abbruch prüfen
+        if (state.isAborting) {
+          state = state.copyWith(status: ExportActionStatus.loaded, isAborting: false);
+          return;
+        }
       }
 
       // Textdateien ins Archiv
-      final csv  = Uint8List.fromList(utf8.encode(csvRows.map((r) => r.join(',')).join('\n')));
+      final vaultName = _sessionService.vaultName;
+      final csv = Uint8List.fromList(utf8.encode(csvRows.map((r) => r.join(',')).join('\n')));
       final json_ = Uint8List.fromList(utf8.encode(const JsonEncoder.withIndent('  ').convert(jsonList)));
       archive.addFile(ArchiveFile('$vaultName-$date.csv',  csv.length,   csv));
       archive.addFile(ArchiveFile('$vaultName-$date.json', json_.length, json_));
@@ -346,9 +354,9 @@ class ExportNotifier extends Notifier<ExportState> {
       }
 
       // ZIP kodieren
-      // Standard-ZIP-Passwortschutz via ZipCrypto (erfordert archive: ^4.0.0).
-      // Das erzeugte ZIP kann mit jedem Standard-ZIP-Tool (7-Zip, WinRAR etc.) mit dem Passwort geöffnet werden.
-      final password = state.formData.encrypt && state.formData.password.isNotEmpty ? state.formData.password : null;
+      // archive 4.x: ZipEncoder(password:) erzeugt AES-256-verschlüsseltes ZIP (AE-1).
+      // Kompatibel mit 7-Zip und WinRAR; Windows Explorer unterstützt AES-256-ZIP nicht.
+      final password = formData.encrypt && formData.password.isNotEmpty ? formData.password : null;
       final zipBytes = Uint8List.fromList(ZipEncoder(password: password).encode(archive));
 
       // Datei speichern
@@ -363,6 +371,17 @@ class ExportNotifier extends Notifier<ExportState> {
         status: ExportActionStatus.failure,
         error: AppError(ErrorCode.unknown),
       );
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Abbruch ---
+  // ------------------------------------------------------------------------
+
+  /// Signalisiert dem laufenden Vorgang, dass er abgebrochen werden soll.
+  void cancelOperation() {
+    if (state.isBusy) {
+      state = state.copyWith(isAborting: true);
     }
   }
 

@@ -15,14 +15,23 @@ enum ExportActionStatus {
 
 class ExportState {
 
+  /// Formulardaten (Verschlüsselungsverfahren, Passwort).
+  final ExportFormData formData;
+
   /// Die Markdown-Datei für die Vorschau und zum Drucken.
   final AppFile mdFile;
 
   /// Inhalt der Markdown-Datei.
   final Uint8List? mdBytes;
 
-  /// Formulardaten (Verschlüsselung, Passwort).
-  final ExportFormData formData;
+  /// Gesamtzahl für die Fortschrittsanzeige.
+  final int totalCount;
+
+  /// Bereits verarbeitete Einträge für die Fortschrittsanzeige.
+  final int currentCount;
+
+  /// true, wenn der Benutzer den laufenden Vorgang abbrechen möchte.
+  final bool isAborting;
 
   /// Der Status der letzten Aktion.
   final ExportActionStatus status;
@@ -32,30 +41,40 @@ class ExportState {
 
   // --- Getter ---
 
+  /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy => status == ExportActionStatus.progress ||
                      status == ExportActionStatus.loading;
 
   /// Konstruktor
   const ExportState({
+    this.formData = const ExportFormData(),
     this.mdFile = const AppFile.none(),
     this.mdBytes,
-    this.formData = const ExportFormData(),
+    this.totalCount = 0,
+    this.currentCount = 0,
+    this.isAborting = false,
     this.status = ExportActionStatus.initial,
     this.error = const AppError.none(),
   });
 
   /// Status aktualisieren (immutable)
   ExportState copyWith({
+    ExportFormData? formData,
     AppFile? mdFile,
     Uint8List? mdBytes,
-    ExportFormData? formData,
+    int? totalCount,
+    int? currentCount,
+    bool? isAborting,
     ExportActionStatus? status,
     AppError? error,
   }) {
     return ExportState(
+      formData: formData ?? this.formData,
       mdFile: mdFile ?? this.mdFile,
       mdBytes: mdFile == const AppFile.none() ? null : mdBytes ?? this.mdBytes,
-      formData: formData ?? this.formData,
+      totalCount: totalCount ?? this.totalCount,
+      currentCount: currentCount ?? this.currentCount,
+      isAborting: isAborting ?? this.isAborting,
       status: status ?? this.status,
       error: error ?? this.error,
     );

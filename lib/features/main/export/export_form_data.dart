@@ -1,10 +1,16 @@
 /// Formulardaten für den Export-Dialog.
 class ExportFormData {
+
   /// Gibt an ob das ZIP-Archiv verschlüsselt werden soll.
   final bool encrypt;
 
   /// Passwort für die ZIP-Verschlüsselung (nur relevant wenn [encrypt] true ist).
   final String password;
+
+  // --- Getter ---
+
+  /// Gibt an ob der Export gestartet werden kann.
+  bool get canExport => !encrypt || password.isNotEmpty;
 
   /// Konstruktor
   const ExportFormData({
@@ -30,8 +36,8 @@ class ExportFormData {
     identical(this, other) ||
       other is ExportFormData && (
         runtimeType == other.runtimeType &&
-            encrypt == other.encrypt &&
-            password == other.password
+        encrypt == other.encrypt &&
+        password == other.password
       );
 
   /// Liefert den HashCode für das Objekt
@@ -40,5 +46,5 @@ class ExportFormData {
   int get hashCode =>
     encrypt.hashCode ^
     password.hashCode;
-// @formatter:on
+  // @formatter:on
 }
