@@ -16,7 +16,6 @@ import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
-import 'package:flutter/widgets.dart';
 
 final exportProvider = NotifierProvider<ExportNotifier, ExportState>(() {
   return ExportNotifier();
@@ -249,8 +248,10 @@ class ExportNotifier extends Notifier<ExportState> {
         final sharedWith = e.sharedWith;
 
         writeln('### ${payload.title}');
-        if (payload.favicon.isNotEmpty) writeln('![Favicon](data:image/png;base64,${payload.favicon})');
-        writeln('');
+
+        if (payload.favicon.isNotEmpty) {
+          writeln('![Favicon](data:image/png;base64,${payload.favicon})');
+        }
 
         if (payload.username.isNotEmpty) {
           writeln('- **Benutzername**: ${payload.username}');
@@ -270,7 +271,6 @@ class ExportNotifier extends Notifier<ExportState> {
             final trimmed = s.trim();
             if (trimmed.isNotEmpty) writeln('  - $trimmed');
           }
-          writeln('');
         }
 
         if (attachments.isNotEmpty) {
@@ -278,16 +278,16 @@ class ExportNotifier extends Notifier<ExportState> {
           for (final attachment in attachments) {
             writeln('  - ${attachment.filename} (${formatSize(attachment.size)})');
           }
-          writeln('');
         }
 
-        if (attachments.isNotEmpty) {
+        if (sharedWith.isNotEmpty) {
           writeln('- **Geteilt mit**:');
           for (final friend in sharedWith) {
             writeln('  - ${friend.username} (${friend.accessLevel == 2 ? 'Schreibzugriff' : 'Lesezugriff'})');   // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
           }
-          writeln('');
         }
+
+        writeln('');
 
         if (lineCount >= _linesPerPage) {
           writeln(r'\pagebreak');
