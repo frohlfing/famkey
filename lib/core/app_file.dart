@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:privault/core/helper.dart';
+
 /// Plattformunabhängige Abstraktion für Dateizugriffe.
 ///
 /// - Nativ (Android, iOS, Windows, macOS, Linux): `dart:io File`
@@ -100,9 +102,6 @@ class _AppFileNone implements AppFile {
 
   @override
   Future<AppFile> rename(String newPath) async => _AppFileNone();
-
-  @override
-  Future<void> download() async {}
 }
 
 /// Im-Memory-Implementierung von [AppFile].
@@ -121,7 +120,7 @@ class AppFileMemory implements AppFile {
   @override
   String get name {
     final segments = _path.replaceAll('\\', '/').split('/');
-    return segments.last;
+    return sanitizeFilename(segments.last);
   }
 
   @override

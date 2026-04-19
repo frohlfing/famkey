@@ -93,3 +93,16 @@ String? _createThumbnailWorker(Uint8List bytes) {
     return null;
   }
 }
+
+/// Bereinigt einen Dateinamen von illegalen Zeichen.
+/// Ersetzt Zeichen wie < > : " / \ | ? * und Steuerzeichen durch einen Unterstrich.
+String sanitizeFilename(String input, {String replacement = '_'}) {
+  // Liste der illegalen Zeichen:
+  // / \ : * ? " < > |  sowie Steuerzeichen (ASCII 0-31)
+  final illegalChars = RegExp(r'[<>:"/\\|?*\x00-\x1F]');
+  String sanitized = input.replaceAll(illegalChars, replacement).trim();
+  if (sanitized.length > 255) {
+    sanitized = sanitized.substring(0, 255);
+  }
+  return sanitized;
+}

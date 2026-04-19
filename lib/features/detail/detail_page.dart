@@ -371,7 +371,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                           )
                         else
                           ...sharedFriends.map((friend) {
-                            final isWritable = friend.accessLevel == 2;
+                            final isWritable = friend.accessLevel == 2; // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
                             Widget leadingIcon = Stack(
                               alignment: Alignment.bottomRight,
                               children: [

@@ -165,8 +165,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ),
               ],
 
-              // --- Status-Anzeigen ---
-              if (status == ImportActionStatus.progress && state.totalCount == 0) ...[
+              // --- Fortschrittsanzeige ---
+              if (status == ImportActionStatus.progress && state.totalCount == 0)
                 const Center(
                   child: Column(
                     children: [
@@ -177,41 +177,39 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                     ],
                   ),
                 ),
-              ],
 
-              if (status == ImportActionStatus.progress && state.totalCount > 0) ...[
+              if (status == ImportActionStatus.progress && state.totalCount > 0)
                 Center(
                   child: Column(
                     children: [
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
                       // Fortschrittsanzeige
                       LinearProgressIndicator(value: state.currentCount / state.totalCount),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
                       // Abbrechen-Button
                       ElevatedButton.icon(
-                        onPressed: state.isAborting ? null : _handleCancelImport,
+                        onPressed: state.isAborting ? null : _handleAbortImport,
                         icon: const Icon(Icons.stop),
                         label: const Text('Abbrechen'),
                       ),
                     ],
                   ),
                 ),
-              ],
 
-              if (status == ImportActionStatus.success) ...[
+              if (status == ImportActionStatus.success)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.green),
+                      const Icon(Icons.check_outlined, color: Colors.green),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -228,9 +226,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                     ],
                   ),
                 ),
-              ],
 
-              if (status == ImportActionStatus.failure) ...[
+              // --- Fehleranzeige ---
+              if (status == ImportActionStatus.failure)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Row(
@@ -250,7 +248,6 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ),
               ],
 
-            ],
           ),
         ),
       ),
@@ -311,7 +308,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   }
 
   /// Bricht nach einer Nachfrage den Import ab.
-  Future<void> _handleCancelImport() async {
+  Future<void> _handleAbortImport() async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Import abbrechen',
@@ -322,7 +319,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     );
     if (mounted && confirmed == true) {
       final notifier = ref.read(importProvider.notifier);
-      notifier.cancelImport();
+      notifier.abortImport();
     }
   }
 }

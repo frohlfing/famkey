@@ -16,15 +16,36 @@ import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:flutter/widgets.dart';
 
 final exportProvider = NotifierProvider<ExportNotifier, ExportState>(() {
   return ExportNotifier();
 });
 
-// ---------------------------------------------------------------------------
-// ExportNotifier
-// ---------------------------------------------------------------------------
+/// Für den Export relevante Informationen über ein Attachment.
+typedef ExportAttachment = ({String uuid, String filename, DateTime timestamp, int size});
 
+/// Für den Export relevante Informationen über einen Freund.
+typedef ExportFriend = ({String uuid, String username, int accessLevel});
+
+/// Der Notifier für den Export-Prozess.
+///
+/// Die Exportdatei ist ein Zip-Archiv mit folgenden Inhalt:
+/// zip-file/
+///   ├── files/       # Dateianhänge
+///   ├── export.csv/  # CSV-Datei mit den Einträgen (RFC-4180-konform)
+///   └── export.md/   # Markdown-Datei mit den Einträgen (zum Ausdrucken geeignet)
+///
+/// CSV-Spezifikation RFC-4180:
+/// - Feldtrenner (Field Separation): Komma.
+/// - Feldbegrenzer (Quoting): `"` (wird gesetzt, wenn der Wert Komma, Quote oder Zeilenumbruch enthält).
+/// - Satzende: `\r\n` (auch für die letzte Zeile).
+/// - Escaping: Quotes (`"`) im Inhalt werden verdoppelt
+
+/// - Sub-Escaping für `attachments` und `shared_with`:
+///   - Feldtrenner: Semikolon
+///   - Satztrenner: Pipe-Zeichen (`|`)
+///   - Escaping: Backslashes (`\`) werden verdoppelt, Semikolon und Pipe im Inhalt werden mit Backslash maskiert
 class ExportNotifier extends Notifier<ExportState> {
 
   // ------------------------------------------------------------------------
@@ -41,6 +62,9 @@ class ExportNotifier extends Notifier<ExportState> {
 
   /// Geschätzte Zeilen pro Seite – steuert den `\pagebreak`-Marker.
   static const int _linesPerPage = 50;
+
+  /// Das Zip-Archiv, das beim Laden erstellt wird.
+  final _archive = Archive();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -61,8 +85,20 @@ class ExportNotifier extends Notifier<ExportState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
+    // Fortschritt
+    int processed = 0;
+
+    // Einträge nach Kategorie sortiert (für die Generierung der Markdown-Datei)
+    final byCategory = <String, List<({EntryPayload payload, List<ExportAttachment> attachments, List<ExportFriend> sharedWith})>>{};
+
+    // Zeilen für die CSV-Datei
+    final csvRows = <List<String>>[
+      ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'attachments', 'shared_with', 'updated_at'],
+    ];
+
     // 1. Ladeanzeige einblenden
     state = const ExportState().copyWith(status: ExportActionStatus.loading, error: AppError.none());
+    await Future.delayed(const Duration(milliseconds: 50));
     //await WidgetsBinding.instance.endOfFrame; // Warten bis Flutter den Ladeindikator gerendert hat.
 
     try {
@@ -72,11 +108,11 @@ class ExportNotifier extends Notifier<ExportState> {
 
       // 2. Alle Einträge abfragen
       final entries = await _databaseService.getEntries();
-      state = state.copyWith(totalCount: entries.length);
 
-      // 3. Einträge durchlaufen und nach Kategorie sortieren
-      int processed = 0;
-      final byCategory = <String, List<({EntryPayload payload, List<AttachmentMetaPayload> metas})>>{};
+      // 3. Gesamtanzahl für die Fortschrittsanzeige im State setzen
+      state = state.copyWith(total: entries.length);
+
+      // 4. Einträge durchlaufen, CSV-Datei erstelle, und Attachments extrahieren...
       for (final entry in entries) {
 
         // Eintrag entschlüsseln
@@ -86,37 +122,69 @@ class ExportNotifier extends Notifier<ExportState> {
         final raw = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(raw)));
 
-        // Anhang-Metadaten entschlüsseln
-        final metas = <AttachmentMetaPayload>[];
+        // Anhänge des Eintrags entschlüsseln und ins Archiv packen
+        final attachments = <ExportAttachment>[];
         for (final att in await _databaseService.getAttachmentsByEntryId(entry.id)) {
           final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
-          metas.add(AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm))));
+          final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm)));
+          final content = await _cryptoService.decrypt(att.encryptedContent, entryKey);
+          _archive.addFile(ArchiveFile('files/${entry.uuid}/${meta.filename}', content.length, content));
+          attachments.add((uuid: att.uuid, filename: meta.filename, timestamp: meta.timestamp, size: meta.size));
         }
 
-        // Kategorie zuordnen
-        (byCategory[payload.category] ??= []).add((payload: payload, metas: metas));
+        // "Geteilt mit" auflisten
+        final sharedWith = <ExportFriend>[];
+        final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(entry.id);
+        for (final friend in friends) {
+          sharedWith.add((uuid: friend.user.uuid, username: friend.user.name, accessLevel: friend.accessLevel));
+        }
+
+        // Datumsfelder zum String umwandeln
+        final passwordTimestamp = payload.passwordTimestamp?.toIso8601String();
+        final updatedAt = entry.updatedAt.toIso8601String();
+
+        // CSV-Zeile schreiben
+        csvRows.add([
+          _csvEscape(entry.uuid),
+          _csvEscape(payload.category),
+          _csvEscape(payload.title),
+          _csvEscape(payload.username),
+          _csvEscape(payload.password),
+          _csvEscape(passwordTimestamp ?? ''),
+          _csvEscape(payload.url),
+          _csvEscape(payload.notes),
+          _csvEscape(attachments.map((a) => '${a.uuid}|${_csvSubEscape(a.filename)}|${a.timestamp.toIso8601String()}').join(';')),
+          _csvEscape(sharedWith.map((f) => '${f.uuid}|${_csvSubEscape(f.username)}|${f.accessLevel}').join(';')),
+          _csvEscape(updatedAt),
+        ]);
+
+        // Eintrag der Kategorie zuordnen (für Markdown-Datei)
+        (byCategory[payload.category] ??= []).add((payload: payload, attachments: attachments, sharedWith: sharedWith));
 
         // Fortschritt aktualisieren
         processed++;
-        state = state.copyWith(currentCount: processed);
-        await Future.delayed(Duration.zero); // Rendering-Frame freigeben
+        state = state.copyWith(processed: processed);
+        await Future.delayed(const Duration(milliseconds: 10)); // Rendering-Frame freigeben
 
         // Wurde abgebrochen?
         if (state.isAborting) {
-          state = const ExportState().copyWith(status: ExportActionStatus.initial);
+          state = state.copyWith(status: ExportActionStatus.aborted, isAborting: false);
           return;
         }
       }
 
-      // 4. Markdown mit den sortierten Einträgen aufbauen
-      final md = _buildMarkdown(byCategory, entries.length);
+      // 5. CSV-Datei in das Archiv legen
+      final csv = Uint8List.fromList(utf8.encode('${csvRows.map((r) => r.join(',')).join('\r\n')}\r\n')); // laut RFC-4180 CSV Specification endet jede Zeile mit \r\n
+      _archive.addFile(ArchiveFile('export.csv', csv.length, csv));
 
-      // 5. UI-State aktualisieren
+      // 6. Markdown-Datei erzeugen und in das Archiv legen
+      final md = _buildMarkdown(byCategory, entries.length);
       final mdBytes = Uint8List.fromList(utf8.encode(md));
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final mdFile = AppFileMemory('${_sessionService.vaultName}-$date.md', mdBytes);
+      _archive.addFile(ArchiveFile('export.md', mdBytes.length, mdBytes));
+
+      // 7. UI-State aktualisieren
       state = state.copyWith(
-        mdFile: mdFile,
+        mdFile: AppFileMemory('export.md', mdBytes),
         mdBytes: mdBytes,
         status: ExportActionStatus.loaded,
       );
@@ -127,11 +195,30 @@ class ExportNotifier extends Notifier<ExportState> {
     }
   }
 
-  // ------------------------------------------------------------------------
-  // --- Markdown generieren ---
-  // ------------------------------------------------------------------------
+  /// Führt ein Escaping nach der CSV-Spezifikation RFC-4180 durch.
+  String _csvEscape(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\r') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
 
-  String _buildMarkdown(Map<String, List<({EntryPayload payload, List<AttachmentMetaPayload> metas})>> byCategory, int totalCount) {
+  String _csvSubEscape(String value) {
+    return value
+        .replaceAll('\\', '\\\\')  // Backslash verdoppeln
+        .replaceAll('|', '\\|')    // Pipe-Zeichen mit Backslash escapen
+        .replaceAll(';', '\\;');   // Semikolon mit Backslash escapen
+  }
+
+  // String _csvSubUnescape(String value) {
+  //   return value
+  //     .replaceAll('\\;', ';')    // Semikolon unescapen
+  //     .replaceAll('\\|', '|')    // Pipe-Zeichen unescapen
+  //     .replaceAll('\\\\', '\\'); // Backslash unescapen
+  // }
+
+  /// Generiert eine Markdown-Datei aus den Einträgen.
+  String _buildMarkdown(Map<String, List<({EntryPayload payload, List<ExportAttachment> attachments, List<ExportFriend> sharedWith})>> byCategory, int totalCount) {
     final buffer = StringBuffer();
     final date = DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now().toLocal());
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
@@ -158,7 +245,8 @@ class ExportNotifier extends Notifier<ExportState> {
 
       for (final e in byCategory[category]!) {
         final payload = e.payload;
-        final metas = e.metas;
+        final attachments = e.attachments;
+        final sharedWith = e.sharedWith;
 
         writeln('### ${payload.title}');
         if (payload.favicon.isNotEmpty) writeln('![Favicon](data:image/png;base64,${payload.favicon})');
@@ -185,15 +273,21 @@ class ExportNotifier extends Notifier<ExportState> {
           writeln('');
         }
 
-        if (metas.isNotEmpty) {
+        if (attachments.isNotEmpty) {
           writeln('- **Anhänge**:');
-          for (final meta in metas) {
-            writeln('  - ${meta.filename} (${formatSize(meta.size)})');
+          for (final attachment in attachments) {
+            writeln('  - ${attachment.filename} (${formatSize(attachment.size)})');
           }
           writeln('');
         }
 
-        // todo "Geteilt mit" auflisten (Name, Zugriffsrecht)
+        if (attachments.isNotEmpty) {
+          writeln('- **Geteilt mit**:');
+          for (final friend in sharedWith) {
+            writeln('  - ${friend.username} (${friend.accessLevel == 2 ? 'Schreibzugriff' : 'Lesezugriff'})');   // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
+          }
+          writeln('');
+        }
 
         if (lineCount >= _linesPerPage) {
           writeln(r'\pagebreak');
@@ -207,27 +301,25 @@ class ExportNotifier extends Notifier<ExportState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Drucken ---
+  // --- Drucken und Exportieren ---
   // ------------------------------------------------------------------------
 
+  /// Druckt die Markdown-Datei.
   Future<void> print() async {
     if (state.isBusy) return;
     state = state.copyWith(status: ExportActionStatus.progress, error: AppError.none());
     try {
+
       final bytes = state.mdBytes;
-      if (bytes == null || bytes.isEmpty) throw StateError('Keine Daten.');
+      if (bytes == null || bytes.isEmpty) throw Exception('Keine Markdown-Datei zum Drucken vorhanden.');
       await MarkdownRenderer(bytes).print(state.mdFile.name);
       state = state.copyWith(status: ExportActionStatus.loaded);
+
     } catch (e, st) {
       Logger().fatal('Fehler beim Drucken: $e', stack: st);
       state = state.copyWith(status: ExportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
-
-  // ------------------------------------------------------------------------
-  // --- Export: ZIP-Archiv erstellen ---
-  // ------------------------------------------------------------------------
-
   /// Erstellt ein ZIP-Archiv mit CSV, JSON, Markdown und Anhängen.
   ///
   /// Verschlüsselung: AES-256 (AE-1) via `ZipEncoder(password:)` wenn
@@ -235,134 +327,25 @@ class ExportNotifier extends Notifier<ExportState> {
   /// AE-1 wenn ein Passwort angegeben wird.
   Future<void> export() async {
     if (state.isBusy) return;
-
     final formData = state.formData;
 
-    int processed = 0;
-
     // 1. UI-State aktualisieren
-    state = state.copyWith(
-      totalCount: 0,
-      currentCount: processed,
-      isAborting: false,
-      status: ExportActionStatus.progress,
-      error: AppError.none(),
-    );
+    state = state.copyWith(status: ExportActionStatus.progress, error: AppError.none());
 
     try {
 
-      if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
-      if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
-
-      // 2. Alle Einträge abfragen
-      final entries = await _databaseService.getEntries();
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-      // 3. Gesamtanzahl für die Fortschrittsanzeige im State setzen
-      state = state.copyWith(totalCount: entries.length, currentCount: 0);
-
-      // 4. Zieldateien initialisieren
-      final archive = Archive();
-      final csvRows = <List<String>>[
-        ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'attachments', 'shared_with', 'updated_at'],
-      ];
-      final jsonList = <Map<String, dynamic>>[];
-
-      // 5. Einträge durchlaufen, CSV- und JSON-Datei erstelle, und Attachments extrahieren...
-      for (final entry in entries) {
-
-        // Eintrag entschlüsseln
-        final perm = await _databaseService.getPermissionByEntryIdAndUserId(entry.id, 1);
-        if (perm == null) throw Exception('Zum Eintrag ${entry.id} sind keine Zugriffsrechte gespeichert.');
-        final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
-        final raw = await _cryptoService.decrypt(entry.encryptedData, entryKey);
-        final payload = EntryPayload.fromJson(json.decode(utf8.decode(raw)));
-
-        // Anhänge des Eintrags entschlüsseln und ins Archiv packen
-        final attachmentNames = <String>[];
-        for (final att in await _databaseService.getAttachmentsByEntryId(entry.id)) {
-          final dm = await _cryptoService.decrypt(att.encryptedMeta, entryKey);
-          final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm)));
-          final content = await _cryptoService.decrypt(att.encryptedContent, entryKey);
-          archive.addFile(ArchiveFile('files/${entry.uuid}/${meta.filename}', content.length, content));
-          attachmentNames.add('${att.uuid}:${meta.filename}:${meta.timestamp}');
-        }
-
-        // "Geteilt mit" auflisten
-        final sharedWith = <String>[];
-        final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(entry.id);
-        for (final friend in friends) {
-          sharedWith.add('${friend.user.uuid}:${friend.user.name}:${friend.accessLevel}');
-        }
-
-        // Datumsfelder zum String umwandeln
-        final passwordTimestamp = payload.passwordTimestamp?.toIso8601String();
-        final updatedAt = entry.updatedAt.toIso8601String();
-
-        // CSV-Zeile schreiben
-        csvRows.add([
-          _csvEscape(entry.uuid),
-          _csvEscape(payload.category),
-          _csvEscape(payload.title),
-          _csvEscape(payload.username),
-          _csvEscape(payload.password),
-          _csvEscape(passwordTimestamp ?? ''),
-          _csvEscape(payload.url),
-          _csvEscape(payload.notes),
-          _csvEscape(attachmentNames.join('; ')),
-          _csvEscape(sharedWith.join('; ')),
-          _csvEscape(updatedAt),
-        ]);
-
-        // JSON-Eintrag schreiben
-        jsonList.add({
-          'uuid': entry.uuid,
-          'category': payload.category,
-          'title': payload.title,
-          'username': payload.username,
-          'password': payload.password,
-          'passwordTimestamp': passwordTimestamp,
-          'url': payload.url,
-          'notes': payload.notes,
-          'favicon': payload.favicon,
-          'attachments': attachmentNames,
-          'shared_with': sharedWith,
-          'updated_at': updatedAt,
-        });
-
-        // Fortschritt aktualisieren
-        processed++;
-        state = state.copyWith(currentCount: processed);
-        await Future.delayed(Duration.zero); // Rendering-Frame freigeben
-
-        // Abbruch prüfen
-        if (state.isAborting) {
-          state = state.copyWith(status: ExportActionStatus.loaded, isAborting: false);
-          return;
-        }
-      }
-
-      // Textdateien ins Archiv
-      final vaultName = _sessionService.vaultName;
-      final csv = Uint8List.fromList(utf8.encode(csvRows.map((r) => r.join(',')).join('\n')));
-      final json_ = Uint8List.fromList(utf8.encode(const JsonEncoder.withIndent('  ').convert(jsonList)));
-      archive.addFile(ArchiveFile('$vaultName-$date.csv',  csv.length,   csv));
-      archive.addFile(ArchiveFile('$vaultName-$date.json', json_.length, json_));
-      final mdBytes = state.mdBytes;
-      if (mdBytes != null) {
-        archive.addFile(ArchiveFile('$vaultName-$date.md', mdBytes.length, mdBytes));
-      }
-
-      // ZIP kodieren
+      // 2. ZIP kodieren
       // archive 4.x: ZipEncoder(password:) erzeugt AES-256-verschlüsseltes ZIP (AE-1).
       // Kompatibel mit 7-Zip und WinRAR; Windows Explorer unterstützt AES-256-ZIP nicht.
       final password = formData.encrypt && formData.password.isNotEmpty ? formData.password : null;
-      final zipBytes = Uint8List.fromList(ZipEncoder(password: password).encode(archive));
+      final zipBytes = Uint8List.fromList(ZipEncoder(password: password).encode(_archive));
 
-      // Datei speichern
+      // 3. Datei speichern
+      final vaultName = _sessionService.vaultName;
+      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
       await downloadAppFile(AppFileMemory('$vaultName-$date.zip', zipBytes));
 
-      // UI-State aktualisieren
+      // 4. UI-State aktualisieren
       state = state.copyWith(status: ExportActionStatus.success);
 
     } catch (e, st) {
@@ -374,15 +357,9 @@ class ExportNotifier extends Notifier<ExportState> {
     }
   }
 
-  // ------------------------------------------------------------------------
-  // --- Abbruch ---
-  // ------------------------------------------------------------------------
-
   /// Signalisiert dem laufenden Vorgang, dass er abgebrochen werden soll.
-  void cancelOperation() {
-    if (state.isBusy) {
-      state = state.copyWith(isAborting: true);
-    }
+  void abortLoading() {
+    state = state.copyWith(isAborting: true);
   }
 
   // ------------------------------------------------------------------------
@@ -396,17 +373,5 @@ class ExportNotifier extends Notifier<ExportState> {
   /// Setter für Passwort
   void setPassword(String value) =>
       state = state.copyWith(formData: state.formData.copyWith(password: value));
-
-  // ------------------------------------------------------------------------
-  // --- Hilfsmethoden ---
-  // ------------------------------------------------------------------------
-
-  /// Maskiert CSV-Trennzeichen und CSV-Feldbegrenzungszeichen
-  String _csvEscape(String value) {
-    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-      return '"${value.replaceAll('"', '""').replaceAll('\n', '\\n')}"';
-    }
-    return value;
-  }
 
 }

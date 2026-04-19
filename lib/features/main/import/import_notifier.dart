@@ -207,7 +207,7 @@ class ImportNotifier extends Notifier<ImportState> {
         final attachments = <({String uuid, String encryptedMeta, String encryptedContent})>[];
         if (parsedEntry.attachments != null) {
           for (final attachment in parsedEntry.attachments!) {
-            final filename = attachment.filename ?? '';
+            final filename = sanitizeFilename(attachment.filename ?? '');
 
             // Mime-Typ ermitteln (falls nicht angegeben)
             var mime = attachment.mime ?? '';
@@ -289,7 +289,7 @@ class ImportNotifier extends Notifier<ImportState> {
   }
 
   /// Benutzer möchte den Import abbrechen
-  void cancelImport() {
+  void abortImport() {
     state = state.copyWith(isAborting: true);
   }
 

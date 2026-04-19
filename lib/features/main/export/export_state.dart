@@ -6,10 +6,11 @@ import 'package:privault/features/main/export/export_form_data.dart';
 /// Ein Enum für den Status von Aktionen
 enum ExportActionStatus {
   initial,  // Ausgangszustand
-  loading,  // Markdown wird generiert
-  loaded,   // Markdown wurde generiert, Vorschau bereit
-  progress, // Export läuft
-  success,  // Aktion erfolgreich abgeschlossen
+  loading,  // Die Daten werden geladen und die Exportdatei generiert.
+  loaded,   // Ladevorgang abgeschlossen. Die Markdowndatei kann gedruckt und die Exportdatei gespeichert werden.
+  aborted,  // Der Ladevorgang wurde abgebrochen. Der Dialog wird geschlossen.
+  progress, // Druck- oder Speichervorgang läuft.
+  success,  // Speichervorgang erfolgreich abgeschlossen. Der Dialog kann geschlossen werden.
   failure,  // Aktion mit Fehler beendet
 }
 
@@ -25,10 +26,10 @@ class ExportState {
   final Uint8List? mdBytes;
 
   /// Gesamtzahl für die Fortschrittsanzeige.
-  final int totalCount;
+  final int total;
 
   /// Bereits verarbeitete Einträge für die Fortschrittsanzeige.
-  final int currentCount;
+  final int processed;
 
   /// true, wenn der Benutzer den laufenden Vorgang abbrechen möchte.
   final bool isAborting;
@@ -50,8 +51,8 @@ class ExportState {
     this.formData = const ExportFormData(),
     this.mdFile = const AppFile.none(),
     this.mdBytes,
-    this.totalCount = 0,
-    this.currentCount = 0,
+    this.total = 0,
+    this.processed = 0,
     this.isAborting = false,
     this.status = ExportActionStatus.initial,
     this.error = const AppError.none(),
@@ -62,8 +63,8 @@ class ExportState {
     ExportFormData? formData,
     AppFile? mdFile,
     Uint8List? mdBytes,
-    int? totalCount,
-    int? currentCount,
+    int? total,
+    int? processed,
     bool? isAborting,
     ExportActionStatus? status,
     AppError? error,
@@ -72,8 +73,8 @@ class ExportState {
       formData: formData ?? this.formData,
       mdFile: mdFile ?? this.mdFile,
       mdBytes: mdFile == const AppFile.none() ? null : mdBytes ?? this.mdBytes,
-      totalCount: totalCount ?? this.totalCount,
-      currentCount: currentCount ?? this.currentCount,
+      total: total ?? this.total,
+      processed: processed ?? this.processed,
       isAborting: isAborting ?? this.isAborting,
       status: status ?? this.status,
       error: error ?? this.error,
