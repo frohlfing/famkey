@@ -1,10 +1,13 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/app_file.dart';
+import 'package:privault/core/app_file_factory.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:privault/widgets/password_field.dart';
 import 'import_form_data.dart';
 import 'import_notifier.dart';
 import 'import_state.dart';
-import '../../../core/app_file_factory.dart';
-import '../../../widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Importieren von Daten aus anderen Passwort-Managern.
 class ImportDialog extends ConsumerStatefulWidget {
@@ -43,6 +46,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   // ------------------------------------------------------------------------
 
   final _pathController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -64,6 +68,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   @override
   void dispose() {
     _pathController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -94,13 +99,14 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       if (previous == next) return;
       final file = next.formData.file;
       if (_pathController.text != file.path) _pathController.text = file.path;
+      // todo Passwort seten?
     });
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(importProvider.select((s) => s.isBusy));
     final status = ref.watch(importProvider.select((s) => s.status));
-    //final status = state.status;
-    //final isBusy = state.isBusy;
+    final formData = ref.watch(importProvider.select((s) => s.formData));
+    final fileSelected = ref.watch(importProvider.select((s) => s.formData.file)) != const AppFile.none();
 
     // Notifier holen
     final notifier = ref.read(importProvider.notifier);
@@ -117,6 +123,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
+              // --- Formular ----
               if (status == ImportActionStatus.initial || status == ImportActionStatus.failure) ...[
                 const Text('Wähle das Format und die Datei aus, die du importieren möchtest.'),
                 const SizedBox(height: 24),
@@ -133,6 +140,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                   ),
                   hint: const Text('Format wählen'),
                   items: const [
+                    DropdownMenuItem(value: ImportFileFormat.privaultZip, child: Text('PriVault ZIP')),
                     DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
                     DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
                     DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX'), ),
@@ -163,6 +171,32 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                     border: const OutlineInputBorder(),
                   ),
                 ),
+
+                // --- Verschlüsselung Switch ---
+                // Wird nur angezeigt, wenn das Format Passwörter unterstützt
+                // und eine Datei ausgewählt wurde.
+                if (formData.format.supportsPassword && fileSelected) ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    value: formData.encrypt,
+                    onChanged: isBusy ? null : notifier.setEncrypt,
+                    title: const Text('Die Datei ist verschlüsselt'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+
+                // --- Passwort-Feld ---
+                // Wird nur angezeigt, wenn der Switch aktiviert ist.
+                if (formData.format.supportsPassword && fileSelected && formData.encrypt) ...[
+                  const SizedBox(height: 8),
+                  PasswordField(
+                    controller: _passwordController,
+                    label: 'Passwort',
+                    prefixIcon: Icons.lock_outline,
+                    errorText: state.error.field == 'password' ? state.error.text : null,
+                    onChanged: notifier.setPassword,
+                  ),
+                ],
               ],
 
               // --- Fortschrittsanzeige ---
@@ -203,6 +237,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                   ),
                 ),
 
+              // --- Erfolgsmeldung ---
               if (status == ImportActionStatus.success)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
@@ -228,7 +263,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ),
 
               // --- Fehleranzeige ---
-              if (status == ImportActionStatus.failure)
+              if (status == ImportActionStatus.failure && state.error.field == null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Row(
@@ -254,20 +289,20 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
 
       // --- Buttons ---
       actions: [
-        if (state.status == ImportActionStatus.initial || state.status == ImportActionStatus.failure)
+        if (status == ImportActionStatus.initial || status == ImportActionStatus.failure)
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Abbrechen'),
           ),
 
-        if (state.status == ImportActionStatus.initial)
+        if (status == ImportActionStatus.initial)
           ElevatedButton(
             autofocus: true,
             onPressed: notifier.import,
             child: const Text('Importieren'),
           ),
 
-        if (state.status == ImportActionStatus.success)
+        if (status == ImportActionStatus.success)
           ElevatedButton(
             autofocus: true,
             onPressed: () => Navigator.of(context).pop(true),
@@ -322,4 +357,5 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       notifier.abortImport();
     }
   }
+
 }

@@ -12,6 +12,7 @@ import 'package:privault/features/main/import/import_state.dart';
 import 'package:privault/features/main/import/parsers/bitwarden_json_parser.dart';
 import 'package:privault/features/main/import/parsers/keepass_xml_parser.dart';
 import 'package:privault/features/main/import/parsers/onepassword_1pux_parser.dart';
+import 'package:privault/features/main/import/parsers/privault_zip_parser.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/models/payloads/index_payload.dart';
@@ -108,7 +109,7 @@ class ImportNotifier extends Notifier<ImportState> {
 
       // 3. Datei parsen
       ParsedPayload parsedPayload;
-      final parser = _parserFactory(formData.format, formData.file);
+      final parser = _parserFactory(formData.format, formData.file, password: formData.encrypt ? formData.password : null);
       if (parser == null) {
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, field: 'format'));
         return;
@@ -116,9 +117,13 @@ class ImportNotifier extends Notifier<ImportState> {
       try {
         parsedPayload = await parser.parse();
       }
-      on ParserError catch(e) {
+      on ParserError catch (e) {
+        if (e.field == 'password' && !state.formData.encrypt) { // Passwortfehler?
+          final formData = state.formData.copyWith(encrypt: true); // Switch auf On schalten, damit das Passwortfeld sichtbar ist
+          state = state.copyWith(formData: formData);
+        }
         final text = '${e.message}${e.lineNumber != null ? ' (Zeile ${e.lineNumber})' : ''}';
-        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, text: text));
+        state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, text: text, field: e.field));
         Logger().error('ParserError: ${e.message}', context: {'path': e.path, 'line': e.lineNumber, 'error': e.originalErrorMessage});
         return;
       }
@@ -126,8 +131,8 @@ class ImportNotifier extends Notifier<ImportState> {
       // Gesamtanzahl für die Fortschrittsanzeige im State setzen
       state = state.copyWith(totalCount: parsedPayload.length);
 
-      // Geparsten Einträge durchlaufen...
-      final List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})> batch = [];
+      // Geparsten Einträge durchlaufen und Batch aufbauen...
+      final ImportBatch batch = [];
       for (final parsedEntry in parsedPayload) {
 
         // 4. Daten validieren & bereinigen
@@ -245,6 +250,67 @@ class ImportNotifier extends Notifier<ImportState> {
           }
         }
 
+        // 13. Freund-Permissions aufbauen
+        //
+        // Ablauf pro Freund:
+        //   a) User lokal per UUID suchen.
+        //   b) Nicht vorhanden → neu anlegen (isVerified = false).
+        //      Der Fingerprint muss nach dem nächsten Sync manuell verifiziert werden.
+        //   c) Entry-Key mit dem Public-Key des Freundes RSA-verschlüsseln.
+        //   d) Permission in die Liste aufnehmen.
+        //
+        // Hinweis: Ist der Freund dem Sync-Server unbekannt, löscht _pullFriends() ihn beim
+        // nächsten Sync wieder (kaskadierend). Das ist das erwartete Verhalten.
+        final friendPermissions = <ImportFriendPermission>[];
+        if (parsedEntry.sharedWith != null) {
+          for (final friend in parsedEntry.sharedWith!) {
+
+            // a/b: User lokal suchen oder anlegen
+            UserEntity? localUser = await _databaseService.getUserByUuid(friend.uuid);
+            if (localUser == null) {
+              try {
+                localUser = await _databaseService.saveUser(UserEntity(
+                  id:         0,
+                  uuid:       friend.uuid,
+                  name:       friend.username,
+                  publicKey:  friend.publicKey,
+                  isVerified: false,    // muss nach Sync manuell verifiziert werden
+                  isHidden:   false,
+                  updatedAt:  DateTime.now().toUtc(),
+                ));
+              } catch (e) {
+                Logger().error('Import: User ${friend.uuid} konnte nicht angelegt werden: $e');
+                continue;
+              }
+            }
+            // else if (localUser.publicKey != friend.publicKey) {
+            //   // Public Key weicht ab – wir vertrauen dem lokalen (bereits verifizierten)
+            //   // Key und überspringen diese Freigabe sicherheitshalber.
+            //   Logger().warn(
+            //     'Import: Public Key von ${friend.uuid} weicht vom lokalen ab – Freigabe übersprungen.',
+            //     context: {'uuid': friend.uuid},
+            //   );
+            //   continue;
+            // }
+
+            // c: Entry-Key für den Freund verschlüsseln
+            final String encryptedFriendKey;
+            try {
+              encryptedFriendKey = await _cryptoService.encryptRsa(entryKey, localUser.publicKey);
+            } catch (e) {
+              Logger().error('Import: RSA-Verschlüsselung für ${friend.uuid} fehlgeschlagen: $e');
+              continue;
+            }
+
+            // d: Permission aufnehmen
+            friendPermissions.add((
+            userId:       localUser.id,
+            encryptedKey: encryptedFriendKey,
+            accessLevel:  friend.accessLevel,
+            ));
+          }
+        }
+
         // Prüfung: Wurde abgebrochen?
         if (state.isAborting) {
           state = state.copyWith(status: ImportActionStatus.initial, isAborting: false);
@@ -255,7 +321,8 @@ class ImportNotifier extends Notifier<ImportState> {
         batch.add((
           entry: entry,
           encryptedEntryKey: encryptedEntryKey,
-          attachments: attachments
+          attachments: attachments,
+          friendPermissions: friendPermissions,
         ));
 
         // Fortschritt aktualisieren
@@ -278,12 +345,13 @@ class ImportNotifier extends Notifier<ImportState> {
     }
   }
 
-  /// Erzeugt Abhängig vom State ein Parser-Objekt.
-  static Parser? _parserFactory(ImportFileFormat format, AppFile file) {
+  /// Gibt den passenden Parser für das gewählte Format zurück.
+  static Parser? _parserFactory(ImportFileFormat format, AppFile file, {String? password}) {
     return switch (format) {
       ImportFileFormat.bitwardenJson => BitwardenJsonParser(file),
       ImportFileFormat.keepassXml => KeepassXmlParser(file),
       ImportFileFormat.onePassword1Pux => OnePassword1PuxParser(file),
+      ImportFileFormat.privaultZip => PrivaultZipParser(file, password: password),
       _ => null, // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
@@ -297,11 +365,11 @@ class ImportNotifier extends Notifier<ImportState> {
   // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
-  /// Setter für Format der Datei
+  /// Setter für Dateiformat. Setzt dabei auch Datei und Passwort zurück.
   void setFormat(ImportFileFormat value) {
     if (value == state.formData.format) return;
     final error = state.error.field == 'format' ? AppError.none() : null;
-    final formData = state.formData.copyWith(format: value, file: AppFile.none());
+    final formData = state.formData.copyWith(format: value, file: AppFile.none(), password: '');
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 
@@ -314,15 +382,31 @@ class ImportNotifier extends Notifier<ImportState> {
     // Automatische Formaterkennung, wenn noch keins gewählt wurde
     if (formData.format == ImportFileFormat.none) {
       final extension = value.name.split('.').last.toLowerCase();
-      if (extension == 'json') {
-        formData = formData.copyWith(format: ImportFileFormat.bitwardenJson);
-      } else if (extension == 'xml') {
-        formData = formData.copyWith(format: ImportFileFormat.keepassXml);
-      } else if (extension == '1pux') {
-        formData = formData.copyWith(format: ImportFileFormat.onePassword1Pux);
-      }
+      formData = formData.copyWith(format: switch (extension) {
+        'json' => ImportFileFormat.bitwardenJson,
+        'xml'  => ImportFileFormat.keepassXml,
+        '1pux' => ImportFileFormat.onePassword1Pux,
+        'zip'  => ImportFileFormat.privaultZip,
+        _      => ImportFileFormat.none,
+      });
     }
 
+    state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
+  }
+
+  /// Setter für Switch "ZIP-Archiv ist verschlüsselt"
+  void setEncrypt(bool value) {
+    if (value == state.formData.encrypt) return;
+    final error = state.error.field == 'encrypt' ? AppError.none() : null;
+    final formData = state.formData.copyWith(encrypt: value);
+    state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
+  }
+
+  /// Setzt das Passwort (nur relevant für verschlüsselte PriVault-ZIP-Exporte).
+  void setPassword(String value) {
+    if (value == state.formData.password) return;
+    final error = state.error.field == 'password' ? AppError.none() : null;
+    final formData = state.formData.copyWith(password: value);
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 

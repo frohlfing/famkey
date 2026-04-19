@@ -145,7 +145,8 @@ void main() {
 
       when(mockWeb.getPublicKeys(any)).thenAnswer((_) async => []);
       when(mockDb.getUsers()).thenAnswer((_) async => []);
-      when(mockCrypto.deriveKeyFromKey(any, any, any)).thenReturn(Uint8List(32));
+      when(mockCrypto.deriveKeyFromKey(any, any, any)).thenAnswer((_) async => Uint8List(32));
+
       when(mockDb.hasPermissionsWithoutKey()).thenAnswer((_) async => false);
       when(mockWeb.pullSync(any, any)).thenAnswer((_) async => SyncPullResponse(
         updates: [], deletes: [], serverTime: DateTime.now()

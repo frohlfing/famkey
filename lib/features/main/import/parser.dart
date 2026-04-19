@@ -15,11 +15,11 @@ class ParserError implements Exception {
   /// Die ursprüngliche Fehlermeldung, die den Fehler ausgelöst hat (fürs Logging).
   final String? originalErrorMessage;
 
-  // /// Der Stack Trace der ursprünglichen Exception (fürs Logging).
-  // final StackTrace? stackTrace;
+  /// Das Formularfeld, das den Fehler verursacht hat (z.B. `'password'`).
+  final String? field;
 
   /// Konstruktor
-  ParserError(this.message, {this.path, this.lineNumber, this.originalErrorMessage});
+  ParserError(this.message, {this.path, this.lineNumber, this.originalErrorMessage, this.field});
 
   @override
   String toString() {
@@ -45,6 +45,32 @@ class ParsedAttachment {
 
   /// Konstruktor
   ParsedAttachment(this.binary, {this.filename, this.mime, this.timestamp});
+}
+
+/// Container für eine geparste Freigabe (Freund mit Zugriffsrecht).
+///
+/// Enthält alle Informationen für den **Offline-Import** einer Freigabe.
+/// Der [publicKey] stammt aus dem Export und wird für die RSA-Verschlüsselung
+/// des Entry-Keys benötigt – kein Serveraufruf erforderlich.
+class ParsedSharedUser {
+  /// UUID des Freundes (Format: 8-4-4-4-12).
+  final String uuid;
+
+  /// Anzeigename des Freundes.
+  final String username;
+
+  /// Zugriffsebene (1 = Lesen, 2 = Schreiben).
+  final int accessLevel;
+
+  /// Öffentlicher RSA-Schlüssel des Freundes.
+  final String publicKey;
+
+  ParsedSharedUser({
+    required this.uuid,
+    required this.username,
+    required this.accessLevel,
+    required this.publicKey,
+  });
 }
 
 /// Container für einen geparsten Eintrag.
@@ -80,11 +106,14 @@ class ParsedEntry {
   /// Der binäre Dateninhalt des Website-Icons (Favicon) als Base64-String.
   final String? favicon;
 
-  /// Zeitpunkt der letzten Änderung (UTC).
+  /// Zeitpunkt der letzten Änderung der Stammdaten (UTC).
   final DateTime? updatedAt;
 
   /// Dateianhänge
   final List<ParsedAttachment>? attachments;
+
+  /// Freigaben – nur beim PriVault-Import befüllt, bei anderen Formaten `null`.
+  final List<ParsedSharedUser>? sharedWith;
 
   /// Zeilennummer in der Importdatei (1-basiert)
   final int? lineNumber;
@@ -101,6 +130,7 @@ class ParsedEntry {
     this.favicon,
     this.updatedAt,
     this.attachments,
+    this.sharedWith,
     this.lineNumber,
   });
 }

@@ -88,13 +88,13 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
           as _i4.Future<(String, _i3.Uint8List)>);
 
   @override
-  _i4.Future<String> encryptRsa(_i3.Uint8List? data, String? publicKeyPem) =>
+  _i4.Future<String> encryptRsa(_i3.Uint8List? data, String? publicKeyBase64) =>
       (super.noSuchMethod(
-            Invocation.method(#encryptRsa, [data, publicKeyPem]),
+            Invocation.method(#encryptRsa, [data, publicKeyBase64]),
             returnValue: _i4.Future<String>.value(
               _i5.dummyValue<String>(
                 this,
-                Invocation.method(#encryptRsa, [data, publicKeyPem]),
+                Invocation.method(#encryptRsa, [data, publicKeyBase64]),
               ),
             ),
           )
@@ -102,17 +102,33 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
 
   @override
   _i4.Future<_i3.Uint8List> decryptRsa(
-    String encryptedDataBase64,
-    _i3.Uint8List privateKeyPem,
+    String? encryptedDataBase64,
+    _i3.Uint8List? privateKeyBytes,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decryptRsa, [
               encryptedDataBase64,
-              privateKeyPem,
+              privateKeyBytes,
             ]),
             returnValue: _i4.Future<_i3.Uint8List>.value(_i3.Uint8List(0)),
           )
           as _i4.Future<_i3.Uint8List>);
+
+  @override
+  _i4.Future<String> signData(
+    _i3.Uint8List? data,
+    _i3.Uint8List? privateKeyBytes,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#signData, [data, privateKeyBytes]),
+            returnValue: _i4.Future<String>.value(
+              _i5.dummyValue<String>(
+                this,
+                Invocation.method(#signData, [data, privateKeyBytes]),
+              ),
+            ),
+          )
+          as _i4.Future<String>);
 
   @override
   String fingerprint(String? publicKey) =>
@@ -129,11 +145,11 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
   _i4.Future<_i3.Uint8List> deriveKeyFromKey(
     _i3.Uint8List? keyMaterial,
     _i3.Uint8List? salt,
-    String info,
+    String? info,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
-            returnValue: _i3.Uint8List(0),
+            returnValue: _i4.Future<_i3.Uint8List>.value(_i3.Uint8List(0)),
           )
           as _i4.Future<_i3.Uint8List>);
 
@@ -155,22 +171,6 @@ class MockCryptoService extends _i1.Mock implements _i2.CryptoService {
             returnValue: _i3.Uint8List(0),
           )
           as _i3.Uint8List);
-
-  @override
-  _i4.Future<String> signData(
-    _i3.Uint8List? data,
-    _i3.Uint8List? privateKeyBytes,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#signData, [data, privateKeyBytes]),
-            returnValue: _i4.Future<String>.value(
-              _i5.dummyValue<String>(
-                this,
-                Invocation.method(#signData, [data, privateKeyBytes]),
-              ),
-            ),
-          )
-          as _i4.Future<String>);
 
   @override
   void wipeKey(_i3.Uint8List? key) => super.noSuchMethod(

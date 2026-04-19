@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:privault/core/app_error.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
@@ -31,7 +29,6 @@ void main() {
   late ProviderContainer container;
   late MockAutofillService mockAutofill;
   late MockBiometricService mockBio;
-  late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
   late MockSessionService mockSession;
@@ -39,7 +36,6 @@ void main() {
   setUp(() {
     mockAutofill = MockAutofillService();
     mockBio = MockBiometricService();
-    mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockSession = MockSessionService();
@@ -47,7 +43,6 @@ void main() {
     getIt.reset();
     getIt.registerSingleton<AutofillService>(mockAutofill);
     getIt.registerSingleton<BiometricService>(mockBio);
-    getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<SessionService>(mockSession);
@@ -55,8 +50,6 @@ void main() {
     // Standard-Stubs für load(), damit es in jedem Test funktioniert
     when(mockDb.getNotHiddenFriends()).thenAnswer((_) async => []);
     when(mockDb.getUserIdsWithEmptyEntryKeys()).thenAnswer((_) async => []);
-    when(mockConfig.vaultStoragePath).thenReturn('/mock/path');
-    when(mockConfig.themeMode).thenReturn(ThemeMode.system);
     when(mockSession.vaultName).thenReturn('MyVault');
     when(mockSession.user).thenReturn(null);
 
@@ -125,7 +118,6 @@ void main() {
       notifier.setThemeMode(ThemeMode.dark);
 
       expect(container.read(settingsProvider).themeMode, equals(ThemeMode.dark));
-      verify(mockConfig.themeMode = ThemeMode.dark).called(1);
     });
 
     test('4.1.1 toggleVerification: Rekeying bei Verifizierung', () async {
@@ -153,7 +145,7 @@ void main() {
     test('5.1.1 deleteVault: Bereinigt alle lokalen Daten', () async {
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
-      when(mockConfig.lastVaultName).thenReturn('MyVault');
+
 
       final notifier = container.read(settingsProvider.notifier);
       await notifier.deleteVault();
@@ -161,7 +153,6 @@ void main() {
       expect(container.read(settingsProvider).status, equals(SettingsActionStatus.deleted));
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
       verify(mockBio.removeMasterKey('MyVault')).called(1);
-      verify(mockConfig.lastVaultName = '').called(1);
       verify(mockSession.clearSession()).called(1);
     });
 

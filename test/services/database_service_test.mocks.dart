@@ -3,8 +3,6 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i6;
-
 import 'package:flutter/material.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i3;
@@ -59,17 +57,6 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
           as _i4.ThemeMode);
 
   @override
-  String get vaultStoragePath =>
-      (super.noSuchMethod(
-            Invocation.getter(#vaultStoragePath),
-            returnValue: _i3.dummyValue<String>(
-              this,
-              Invocation.getter(#vaultStoragePath),
-            ),
-          )
-          as String);
-
-  @override
   _i5.LogLevel get logMinLevel =>
       (super.noSuchMethod(
             Invocation.getter(#logMinLevel),
@@ -101,12 +88,6 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
   );
 
   @override
-  set vaultStoragePath(String? value) => super.noSuchMethod(
-    Invocation.setter(#vaultStoragePath, value),
-    returnValueForMissingStub: null,
-  );
-
-  @override
   set logMinLevel(_i5.LogLevel? value) => super.noSuchMethod(
     Invocation.setter(#logMinLevel, value),
     returnValueForMissingStub: null,
@@ -117,13 +98,4 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
     Invocation.setter(#logMaxDays, value),
     returnValueForMissingStub: null,
   );
-
-  @override
-  _i6.Future<void> init() =>
-      (super.noSuchMethod(
-            Invocation.method(#init, []),
-            returnValue: _i6.Future<void>.value(),
-            returnValueForMissingStub: _i6.Future<void>.value(),
-          )
-          as _i6.Future<void>);
 }

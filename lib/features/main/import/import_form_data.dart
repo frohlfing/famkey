@@ -6,6 +6,7 @@ enum ImportFileFormat {
   bitwardenJson, // Bitwarden JSON
   keepassXml, // KeePass XML (2.x)
   onePassword1Pux, // 1Password 1PUX (8.x)
+  privaultZip, // PriVault ZIP-Export
 
   // In Planung (späterer Ausbau):
   //genericCsv, // nicht spezifische CSV-Datei
@@ -20,9 +21,13 @@ extension ImportFileFormatExtension on ImportFileFormat {
       ImportFileFormat.bitwardenJson => ['json'],
       ImportFileFormat.keepassXml => ['xml'],
       ImportFileFormat.onePassword1Pux => ['1pux'],
-      _ => ['json', 'xml', '1pux'], // Default-Fall (Catch-all) -> alle unterstützen Formate
+      ImportFileFormat.privaultZip => ['zip'],
+      _ => ['json', 'xml', '1pux', 'zip'], // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
+
+  /// Gibt an, ob das Format ein optionales Passwort unterstützt.
+  bool get supportsPassword => this == ImportFileFormat.privaultZip;
 }
 
 /// Alle Daten im Dialog, die der Benutzer ändern kann.
@@ -34,20 +39,32 @@ class ImportFormData {
   /// Die zu importierende Datei.
   final AppFile file;
 
+  /// Gibt an, ob die Datei verschlüsselt ist (gesteuert durch den Switch in der UI).
+  final bool encrypt;
+
+  /// Passwort zum Entschlüsseln – nur relevant wenn [encrypt] true ist.
+  final String password;
+
   /// Konstruktor
   const ImportFormData({
     this.format = ImportFileFormat.none,
     this.file = const AppFile.none(),
+    this.encrypt  = false,
+    this.password = '',
   });
 
-  /// Daten aktualisieren (immutable)
+  /// Daten aktualisieren (immutable).
   ImportFormData copyWith({
     ImportFileFormat? format,
     AppFile? file,
+    bool? encrypt,
+    String? password,
   }) {
     return ImportFormData(
       format: format ?? this.format,
       file: file ?? this.file,
+      encrypt: encrypt  ?? this.encrypt,
+      password: password ?? this.password,
     );
   }
 
@@ -59,7 +76,9 @@ class ImportFormData {
     other is ImportFormData && (
       runtimeType == other.runtimeType &&
       format == other.format &&
-      file.path == other.file.path
+      file.path == other.file.path &&
+      encrypt == other.encrypt &&
+      password == other.password
     );
 
   /// Liefert den HashCode für das Objekt
@@ -67,6 +86,8 @@ class ImportFormData {
   @override
   int get hashCode =>
     format.hashCode ^
-    file.path.hashCode;
+    file.path.hashCode ^
+    encrypt.hashCode ^
+    password.hashCode;
   // @formatter:on
 }

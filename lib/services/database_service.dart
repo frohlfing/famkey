@@ -5,8 +5,16 @@ import 'package:privault/core/app_file_factory.dart';
 import 'package:privault/database/database.dart';
 import '../core/env.dart';
 
+/// Daten für einen Freund-Permission-Eintrag innerhalb einer `import()`-Batch.
+typedef ImportFriendPermission = ({int userId, String encryptedKey, int accessLevel});
+
 /// Daten für `import()`
-typedef ImportBatch = List<({EntryEntity entry, String encryptedEntryKey, List<({String uuid, String encryptedMeta, String encryptedContent})> attachments})>;
+typedef ImportBatch = List<({
+  EntryEntity entry,
+  String encryptedEntryKey,
+  List<({String uuid, String encryptedMeta, String encryptedContent})> attachments,
+  List<ImportFriendPermission> friendPermissions,
+})>;
 
 /// Dienst für die Interaktion mit der lokalen SQLCipher-Datenbank.
 class DatabaseService {
@@ -821,13 +829,19 @@ class DatabaseService {
     return settings;
   }
 
-  /// Importiert die Daten
+  /// Importiert die Daten in einer einzigen Transaktion.
   ///
-  /// Es wird nur hinzugefügt, nicht überschrieben. Die Einträge dürfen noch nicht existieren.
-  /// Zurückgegeben wird die Anzahl der neuen Einträge.
+  /// Es wird nur hinzugefügt, nicht überschrieben.  Die Einträge dürfen noch
+  /// nicht existieren (UUID-Prüfung erfolgt im Notifier vor dem Aufruf).
+  ///
+  /// Für jeden Eintrag werden gespeichert:
+  ///   1. Der Eintrag selbst (entries)
+  ///   2. Die eigene Permission des Importeurs (userId = 1, accessLevel = 3)
+  ///   3. Dateianhänge (attachments)
+  ///   4. Freund-Permissions (friendPermissions) – können leer sein
   Future<void> import(ImportBatch items) async {
     _ensureDbInitialized();
-    await _db!.transaction(() async {
+    return _db!.transaction(() async {
       for (final item in items) {
 
         // 1. Eintrag speichern
@@ -861,6 +875,27 @@ class DatabaseService {
             isSynced: Value(false),
           );
           await _db!.into(_db!.attachments).insert(attCompanion);
+        }
+
+        // 4. Freund-Permissions speichern
+        //
+        // Jede Permission enthält den Entry-Key, der bereits im Notifier mit
+        // dem Public Key des Freundes RSA-verschlüsselt wurde.
+        // userId bezieht sich auf den lokalen DB-Primärschlüssel des Users
+        // (nicht dessen UUID) – wird im Notifier aufgelöst.
+        for (final fp in item.friendPermissions) {
+          // Doppelten Eintrag (userId + entryId) verhindern
+          final existing = await (_db!.select(_db!.permissions)
+            ..where((p) => p.entryId.equals(entryId) & p.userId.equals(fp.userId)))
+              .getSingleOrNull();
+          if (existing != null) continue;
+
+          await _db!.into(_db!.permissions).insert(PermissionsCompanion(
+            entryId:      Value(entryId),
+            userId:       Value(fp.userId),
+            encryptedKey: Value(fp.encryptedKey),
+            accessLevel:  Value(fp.accessLevel),
+          ));
         }
       }
     });

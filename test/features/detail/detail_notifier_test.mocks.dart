@@ -120,13 +120,13 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
           as _i5.Future<(String, _i4.Uint8List)>);
 
   @override
-  _i5.Future<String> encryptRsa(_i4.Uint8List? data, String? publicKeyPem) =>
+  _i5.Future<String> encryptRsa(_i4.Uint8List? data, String? publicKeyBase64) =>
       (super.noSuchMethod(
-            Invocation.method(#encryptRsa, [data, publicKeyPem]),
+            Invocation.method(#encryptRsa, [data, publicKeyBase64]),
             returnValue: _i5.Future<String>.value(
               _i6.dummyValue<String>(
                 this,
-                Invocation.method(#encryptRsa, [data, publicKeyPem]),
+                Invocation.method(#encryptRsa, [data, publicKeyBase64]),
               ),
             ),
           )
@@ -135,16 +135,32 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
   @override
   _i5.Future<_i4.Uint8List> decryptRsa(
     String? encryptedDataBase64,
-      _i4.Uint8List privateKeyPem,
+    _i4.Uint8List? privateKeyBytes,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#decryptRsa, [
               encryptedDataBase64,
-              privateKeyPem,
+              privateKeyBytes,
             ]),
             returnValue: _i5.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
           )
           as _i5.Future<_i4.Uint8List>);
+
+  @override
+  _i5.Future<String> signData(
+    _i4.Uint8List? data,
+    _i4.Uint8List? privateKeyBytes,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#signData, [data, privateKeyBytes]),
+            returnValue: _i5.Future<String>.value(
+              _i6.dummyValue<String>(
+                this,
+                Invocation.method(#signData, [data, privateKeyBytes]),
+              ),
+            ),
+          )
+          as _i5.Future<String>);
 
   @override
   String fingerprint(String? publicKey) =>
@@ -161,11 +177,11 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
   _i5.Future<_i4.Uint8List> deriveKeyFromKey(
     _i4.Uint8List? keyMaterial,
     _i4.Uint8List? salt,
-    String info,
+    String? info,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#deriveKeyFromKey, [keyMaterial, salt, info]),
-            returnValue: _i4.Uint8List(0),
+            returnValue: _i5.Future<_i4.Uint8List>.value(_i4.Uint8List(0)),
           )
           as _i5.Future<_i4.Uint8List>);
 
@@ -187,22 +203,6 @@ class MockCryptoService extends _i1.Mock implements _i3.CryptoService {
             returnValue: _i4.Uint8List(0),
           )
           as _i4.Uint8List);
-
-  @override
-  _i5.Future<String> signData(
-    _i4.Uint8List? data,
-    _i4.Uint8List? privateKeyBytes,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#signData, [data, privateKeyBytes]),
-            returnValue: _i5.Future<String>.value(
-              _i6.dummyValue<String>(
-                this,
-                Invocation.method(#signData, [data, privateKeyBytes]),
-              ),
-            ),
-          )
-          as _i5.Future<String>);
 
   @override
   void wipeKey(_i4.Uint8List? key) => super.noSuchMethod(
@@ -752,6 +752,8 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
         attachments,
         String encryptedEntryKey,
         _i2.EntryEntity entry,
+        List<({int accessLevel, String encryptedKey, int userId})>
+        friendPermissions,
       })
     >?
     items,
@@ -827,20 +829,23 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
           as String);
 
   @override
-  Future<void> setSession({
+  _i5.Future<void> setSession({
     required _i2.UserEntity? user,
     required _i4.Uint8List? privateKey,
     required String? vaultName,
     required _i2.SettingsEntity? settings,
-  }) => super.noSuchMethod(
-    Invocation.method(#setSession, [], {
-      #user: user,
-      #privateKey: privateKey,
-      #vaultName: vaultName,
-      #settings: settings,
-    }),
-    returnValueForMissingStub: null,
-  );
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#setSession, [], {
+              #user: user,
+              #privateKey: privateKey,
+              #vaultName: vaultName,
+              #settings: settings,
+            }),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
   void clearSession() => super.noSuchMethod(
@@ -855,10 +860,13 @@ class MockSessionService extends _i1.Mock implements _i9.SessionService {
   );
 
   @override
-  Future<void> setPrivateKey(_i4.Uint8List? value) => super.noSuchMethod(
-    Invocation.method(#setPrivateKey, [value]),
-    returnValueForMissingStub: null,
-  );
+  _i5.Future<void> setPrivateKey(_i4.Uint8List? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#setPrivateKey, [value]),
+            returnValue: _i5.Future<void>.value(),
+            returnValueForMissingStub: _i5.Future<void>.value(),
+          )
+          as _i5.Future<void>);
 
   @override
   void setVaultName(String? value) => super.noSuchMethod(

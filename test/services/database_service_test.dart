@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
 import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/database/database.dart';
@@ -42,8 +41,7 @@ void main() {
       
       // 2. Temporäres Verzeichnis
       tempDir = await Directory.systemTemp.createTemp('privault_test_');
-      when(mockConfigService.vaultStoragePath).thenReturn(tempDir.path);
-      
+
       sut = DatabaseService();
     });
 

@@ -25,7 +25,7 @@ final exportProvider = NotifierProvider<ExportNotifier, ExportState>(() {
 typedef ExportAttachment = ({String uuid, String filename, DateTime timestamp, int size});
 
 /// Für den Export relevante Informationen über einen Freund.
-typedef ExportFriend = ({String uuid, String username, int accessLevel});
+typedef ExportFriend = ({String uuid, String username, int accessLevel, String publicKey});
 
 /// Der Notifier für den Export-Prozess.
 ///
@@ -34,6 +34,9 @@ typedef ExportFriend = ({String uuid, String username, int accessLevel});
 ///   ├── files/       # Dateianhänge
 ///   ├── export.csv/  # CSV-Datei mit den Einträgen (RFC-4180-konform)
 ///   └── export.md/   # Markdown-Datei mit den Einträgen (zum Ausdrucken geeignet)
+///
+/// CSV-Spalten (Kopfzeile):
+///   uuid, category, title, username, password, password_timestamp, url, notes, favicon, attachments, shared_with, updated_at
 ///
 /// CSV-Spezifikation RFC-4180:
 /// - Feldtrenner (Field Separation): Komma.
@@ -91,8 +94,22 @@ class ExportNotifier extends Notifier<ExportState> {
     final byCategory = <String, List<({EntryPayload payload, List<ExportAttachment> attachments, List<ExportFriend> sharedWith})>>{};
 
     // Zeilen für die CSV-Datei
+    //
+    // Spaltenreihenfolge (fest, wird vom PrivaultZipParser vorausgesetzt):
+    //   0  uuid
+    //   1  category
+    //   2  title
+    //   3  username
+    //   4  password
+    //   5  password_timestamp
+    //   6  url
+    //   7  notes
+    //   8  favicon
+    //   9  updated_at
+    //   10 attachments
+    //   11 shared_with
     final csvRows = <List<String>>[
-      ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'attachments', 'shared_with', 'updated_at'],
+      ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'favicon', 'updated_at', 'attachments', 'shared_with']
     ];
 
     // 1. Ladeanzeige einblenden
@@ -111,7 +128,7 @@ class ExportNotifier extends Notifier<ExportState> {
       // 3. Gesamtanzahl für die Fortschrittsanzeige im State setzen
       state = state.copyWith(total: entries.length);
 
-      // 4. Einträge durchlaufen, CSV-Datei erstelle, und Attachments extrahieren...
+      // 4. Einträge durchlaufen, CSV-Datei erstellen, und Attachments extrahieren...
       for (final entry in entries) {
 
         // Eintrag entschlüsseln
@@ -128,14 +145,24 @@ class ExportNotifier extends Notifier<ExportState> {
           final meta = AttachmentMetaPayload.fromJson(json.decode(utf8.decode(dm)));
           final content = await _cryptoService.decrypt(att.encryptedContent, entryKey);
           _archive.addFile(ArchiveFile('files/${entry.uuid}/${meta.filename}', content.length, content));
-          attachments.add((uuid: att.uuid, filename: meta.filename, timestamp: meta.timestamp, size: meta.size));
+          attachments.add((
+            uuid: att.uuid,
+            filename: meta.filename,
+            timestamp: meta.timestamp,
+            size: meta.size,
+          ));
         }
 
         // "Geteilt mit" auflisten
         final sharedWith = <ExportFriend>[];
         final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(entry.id);
         for (final friend in friends) {
-          sharedWith.add((uuid: friend.user.uuid, username: friend.user.name, accessLevel: friend.accessLevel));
+          sharedWith.add((
+            uuid: friend.user.uuid,
+            username: friend.user.name,
+            accessLevel: friend.accessLevel,
+            publicKey: friend.user.publicKey,
+          ));
         }
 
         // Datumsfelder zum String umwandeln
@@ -152,9 +179,10 @@ class ExportNotifier extends Notifier<ExportState> {
           _csvEscape(passwordTimestamp ?? ''),
           _csvEscape(payload.url),
           _csvEscape(payload.notes),
-          _csvEscape(attachments.map((a) => '${a.uuid}|${_csvSubEscape(a.filename)}|${a.timestamp.toIso8601String()}').join(';')),
-          _csvEscape(sharedWith.map((f) => '${f.uuid}|${_csvSubEscape(f.username)}|${f.accessLevel}').join(';')),
+          _csvEscape(payload.favicon),
           _csvEscape(updatedAt),
+          _csvEscape(attachments.map((a) => '${a.uuid};${_csvSubEscape(a.filename)};${a.timestamp.toIso8601String()}').join('|')),
+          _csvEscape(sharedWith.map((f) => '${f.uuid};${_csvSubEscape(f.username)};${f.accessLevel}').join('|')),
         ]);
 
         // Eintrag der Kategorie zuordnen (für Markdown-Datei)
@@ -202,19 +230,13 @@ class ExportNotifier extends Notifier<ExportState> {
     return value;
   }
 
+  /// Sub-Escaping für Felder mit Semikolon/Pipe-Struktur (attachments, shared_with).
   String _csvSubEscape(String value) {
     return value
         .replaceAll('\\', '\\\\')  // Backslash verdoppeln
         .replaceAll('|', '\\|')    // Pipe-Zeichen mit Backslash escapen
         .replaceAll(';', '\\;');   // Semikolon mit Backslash escapen
   }
-
-  // String _csvSubUnescape(String value) {
-  //   return value
-  //     .replaceAll('\\;', ';')    // Semikolon unescapen
-  //     .replaceAll('\\|', '|')    // Pipe-Zeichen unescapen
-  //     .replaceAll('\\\\', '\\'); // Backslash unescapen
-  // }
 
   /// Generiert eine Markdown-Datei aus den Einträgen.
   String _buildMarkdown(Map<String, List<({EntryPayload payload, List<ExportAttachment> attachments, List<ExportFriend> sharedWith})>> byCategory, int totalCount) {
@@ -320,7 +342,7 @@ class ExportNotifier extends Notifier<ExportState> {
       state = state.copyWith(status: ExportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
-  /// Erstellt ein ZIP-Archiv mit CSV, JSON, Markdown und Anhängen.
+  /// Speichert das ZIP-Archiv.
   ///
   /// Verschlüsselung: AES-256 (AE-1) via `ZipEncoder(password:)` wenn
   /// [ExportFormData.encrypt] gesetzt ist. archive 4.x schreibt automatisch
@@ -367,11 +389,18 @@ class ExportNotifier extends Notifier<ExportState> {
   // ------------------------------------------------------------------------
 
   /// Setter für Switch "ZIP-Archiv verschlüsseln"
-  void setEncrypt(bool value) =>
-      state = state.copyWith(formData: state.formData.copyWith(encrypt: value));
+  void setEncrypt(bool value) {
+    if (value == state.formData.encrypt) return;
+    final error = state.error.field == 'encrypt' ? AppError.none() : null;
+    final formData = state.formData.copyWith(encrypt: value);
+    state = state.copyWith(formData: formData, status: ExportActionStatus.loaded, error: error);
+  }
 
   /// Setter für Passwort
-  void setPassword(String value) =>
-      state = state.copyWith(formData: state.formData.copyWith(password: value));
-
+  void setPassword(String value) {
+    if (value == state.formData.password) return;
+    final error = state.error.field == 'password' ? AppError.none() : null;
+    final formData = state.formData.copyWith(password: value);
+    state = state.copyWith(formData: formData, status: ExportActionStatus.loaded, error: error);
+  }
 }
