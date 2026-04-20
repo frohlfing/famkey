@@ -17,6 +17,37 @@ flutter pub upgrade --major-versions
 flutter pub outdated
 ```
 
+## ORM (Object-Relational Mapping) mit Drift 
+
+Drift ist eine leistungsstarke Datenbankbibliothek für Dart- und Flutter-Anwendungen.
+
+### Schritte, um eine neue Entität (z.B. `UserEntity`) zu erstellen:
+
+1. Tabelle definieren: Erstelle in der `database.dart` (in `lib/database`) eine neue Klasse:
+```Dart
+class UserEntities extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+}
+```
+
+2. Tabelle registrieren: Füge die Klasse in der `@DriftDatabase`-Annotation hinzu:
+```Dart
+@DriftDatabase(tables: [Users, ..., UserEntities]) // <-- Hier ergänzen
+class AppDatabase extends _$AppDatabase { 
+... 
+```
+
+3. `database.g.dart` generieren bzw. aktualisieren (die zugrundeliegende _$AppDatabase-Klasse mit dem SQL-Code und der Mapping-Logik):
+```shell
+flutter pub run build_runner build --delete-conflicting-outputs 
+```
+
+4. Schema-Version erhöhen (Wichtig bei Updates!):
+   Wenn die App ausgerollt ist und du eine Tabelle hinzufügst, musst du `schemaVersion` von 1 auf 2 erhöhen
+   und dann doch eine MigrationStrategy definieren, damit Drift weiß, dass es die neue Tabelle nachinstallieren muss.
+
+
 ## Unterschied zwischen watch und read (und listen)
 
 | Methode                     | Wann benutzen?                                         | Was passiert?                                                                                                                   |
@@ -25,74 +56,8 @@ flutter pub outdated
 | `ref.read(provider)`        | In Callbacks (`onPressed`) oder einmalig im `listen`.  | Holt den aktuellen Schnappschuss des States, ohne eine dauerhafte Verbindung aufzubauen. Es löst keinen Re-Build aus.           |
 | `ref.listen(provider, ...)` | In der `build`-Methode (für Seiteneffekte).            | Führt eine Funktion aus, wenn sich der State ändert (wenn `next` ungleich `previous` ist), aber ohne das Widget neu zu rendern. |
 
-## WebAppliance (WASM)
 
-### WasmDatabase
-
-Für die WasmDatabase müssen diese beiden Dateien in den `web`-Ordner kopiert werden:
-
-- `drift_worker.js` - Quelle: https://github.com/simolus3/drift/releases/tag/drift-2.31.0
-- `sqlite3.wasm` - Quelle: https://github.com/simolus3/sqlite3.dart/releases/tag/sqlite3-2.9.4
-
-Die Versionsnummern müssen exakt mit den Flutter-Paketen übereinstimmen!
-Versionen aus `pubspec.lock` lesen:
-```shell
-Select-String -Path pubspec.lock -Pattern "^\s+(sqlite3|drift):" -A 2
-````
-Oder einfach `pubspec.lock` in Android Studio öffnen und nach dem Paketnamen suchen.
-
-Bei einem Update der Flutter-Pakete dürfen diese beiden Dateien nicht vergessen werden.
-
-### Origin-Private File System (OPFS)
-
-OPFS ist ein persistentes, origin-gebundenes Dateisystem im Browser. 
-Dateipfade werden als Verzeichnisstruktur im OPFS abgebildet.
-
-Voraussetzung: Die App muss mit den COOP/COEP-Headern ausgeliefert werden,
-damit SharedArrayBuffer und Atomics verfügbar sind (für den Drift-Worker).
-
-Konfiguration in Android Studio:
-- `Run` → `Edit Configurations` → `Add New Configuration` → `Flutter`
-- In das Feld `Additional run args` dies einfügen:
-```
--d chrome
-  --web-header=Cross-Origin-Opener-Policy=same-origin
-  --web-header=Cross-Origin-Embedder-Policy=require-corp
-```
-Das OPFS selbst funktioniert auch ohne diese Header.
-
-Per Terminal starten:
-```shell
-flutter run -d edge --web-header="Cross-Origin-Opener-Policy=same-origin" --web-header="Cross-Origin-Embedder-Policy=require-corp"
-```
-
-Verfügbare Browser anzeigen:
-```shell
-flutter devices
-```
-
-Dateien im OPFS anzeigen (in der Entwicklungskonsole des Browsers (F12)):
-```javascript
-const root = await navigator.storage.getDirectory();
-const driftDir = await root.getDirectoryHandle('drift_db');
-for await (const [name, handle] of driftDir.entries()) {
-  console.log(name, handle.kind);
-}
-```
-
-```javascript
-const root = await navigator.storage.getDirectory();
-const driftDir = await root.getDirectoryHandle('drift_db');
-await driftDir.removeEntry('test', { recursive: true });
-console.log('Tresor "test" gelöscht');
-try {
-  await driftDir.removeEntry('test.db3.salt');
-  console.log('Salt gelöscht');
-} catch (_) {
-}
-```
-
-### Bedingten Import / Platform-Weiche
+## Bedingten Import / Platform-Weiche
 
 Diese Pakete werden nicht bei einer WebAssembly unterstützt.
 ```dart

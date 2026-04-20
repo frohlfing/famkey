@@ -40,40 +40,46 @@ Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 
 ---
 
-## 2. Setup für Flutter (dart) unter Windows
+## 2. Setup der IDE unter Windows 
 
-### 2.1 Flutter SDK installieren
+### 2.1 Android Studio mit Flutter (inkl. dart) einrichten
 
-Falls noch nicht geschehen, installiere das Flutter SDK. Es beinhaltet auch das notwendige Dart SDK.
-1. Lade das aktuelle Flutter SDK (Stable Channel) von der offiziellen Webseite herunter
-2. Entpacke die ZIP-Datei in einen permanenten Ordner, z.B. `C:\flutter`.
-3. Füge das bin-Verzeichnis des Flutter SDK zu deinem Path in den Windows-Umgebungsvariablen hinzu (z.B. `C:\flutter\bin`).
+1. Android Studio installieren
+   https://developer.android.com/studio?hl=de
 
-### 2.2 Flutter-Installation prüfen
+2. Flutter SDK installieren
+   https://docs.flutter.dev/install/manual
+   c:\flutter gespeichert
 
-Flutter bietet ein Kommandozeilen-Tool, um deine Entwicklungsumgebung zu überprüfen.
-1. Öffne eine neue PowerShell oder CMD.
-2. Führe folgenden Befehl aus, um zu sehen, ob alle Komponenten korrekt eingerichtet sind:
-  ```shell
-  flutter doctor
-  ```
-`flutter doctor` zeigt dir an, ob Android Studio, das Android SDK oder andere benötigte Tools fehlen oder konfiguriert werden müssen.
+3. bin-Ordner des Flutter-SDK-Verzeichnisses zur Umgebungsvariable Path hinzufügen:
+   Press Windows + Pause/Break → Advanced System Settings → Environment Variables.
+   Edit PATH Variable
+   Under User variables, select Path → Edit → New.
+   Add the path to the bin folder
 
-### 2.3 Windows Developer Mode aktivieren
+4. Android Studio öffnen
+5. Flutter-Plugin installieren
+6. Android Studio neustarten
+
+### 2.2 Windows Developer Mode aktivieren
 
 Damit du die App auf deinem eigenen Windows-PC testen/ausführen kannst, musst du Windows in den Entwicklermodus
 schalten.
 1. Windows-Einstellungen öffnen -> **System** -> **Für Entwickler**.
 2. Schalter **"Entwicklermodus"** auf **Ein**.
 
-### 2.4 Projekt in Android Studio öffnen
+### 2.3 Neues Projekt in Android Studio anlegen
 
-1. Starte Android Studio.
-2. Wähle "Open an Existing Project".
-3. Navigiere zum Root-Verzeichnis deines Projekts (z.B. `C:/Users/frank/Source/AndroidStudio/privault`) und öffne es.
-4. Android Studio erkennt das Flutter-Projekt und fragt eventuell, ob du die Dart- und Flutter-Plugins installieren möchtest. Bestätige dies.
+- New Flutter Project auswählen
+    - Flutter-Pojekt
+    - Projektname: `privault` (muss snake_case sein!)
+    - Ordner: `C:\Users\frank\Source\AndroidStudio\privault`
+    - Organization: `de.frohlfing.privault` (Umgekehrte Domain!)
+      Wichtig! Dies wird zum eindeutigen Package-Namen für Android und zur Bundle-ID für iOS.
+      Der Standardwert `com.example` darf nicht für die Veröffentlichung verwendet werden.
+    - Android language: `Kotlin`
 
-### 2.5 Verwendete Abhängigkeiten (die Dart/Flutter-Pakete)
+### 2.4 Verwendete Abhängigkeiten (die Dart/Flutter-Pakete)
 
 Alle Abhängigkeiten werden in der Datei pubspec.yaml im Projektstamm verwaltet.
 - `flutter_riverpod`: State-Management
@@ -94,8 +100,7 @@ flutter pub add dargon2_flutter
 ```
 Anschließend wird automatisch ein `flutter pub get` ausgeführt, um die Pakete herunterzuladen.
 
-
-#### BoringSSL
+#### Webcrypto
 
 Einmalig ausführen (baut BoringSSL für native Plattformen): 
 ```shell
@@ -121,14 +126,14 @@ Troubleshooting:
    - Den Pfad zur Windows-Umgebungsvariable PATH hinzufügen: `C:\Users\frank\AppData\Local\bin\NASM`
 
 
-### 2.6 SQLCipher-DLL für Windows
+### 2.5 SQLCipher-DLL für Windows
 
 SQLCipher (basiert auf SQLite 3.51.2) wird benötigt, um unter Windows die SQLite-DB verschlüsseln zu können.
 
 - Download: https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.2.7 (`sqlite3mc-2.2.7-sqlite-3.51.2-win64.zip`)
 - `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\privault\` kopieren
 
-### 2.7 Datenbank-Tool für Android Studio
+### 2.6 Datenbank-Tool für Android Studio
 
 Database Navigator 3.7.2.0 von Oracle 
 https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduction-oracle-database-navigator.html
@@ -166,7 +171,7 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
     System.Diagnostics.Debug.WriteLine("MASTER KEY (HEX): " + keyHex);
 ```
 
-### 2.8 HTML-Renderer
+### 2.7 HTML-Renderer
 
 - in Yaaml eintragen:
    ```yaml
@@ -177,8 +182,36 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
 - iOS:  App Transport Security aktiv lassen
    In `Info.plist` darf **kein** `NSAllowsArbitraryLoads = true` gesetzt sein.
 
+### 2.8 App-Icon
 
-## 3. Setup für Android-Apps unter Windows
+1. `flutter_launcher_icons` installieren (einmalig): 
+    - `pubspec.yaml` erweitern
+        ```yaml
+        dev_dependencies:
+          flutter_launcher_icons: ^0.13.1
+        
+        flutter_launcher_icons:
+          image_path: "assets/icons/app_icon.png"
+          android: true
+          ios: true
+          web:
+            generate: true
+            image_path: "assets/icons/app_icon.png"
+          windows:
+            generate: true
+            image_path: "assets/icons/app_icon.png"
+        ```
+   - Pakete aktualisieren: `flutter pub get`
+
+2. Icon (1024 x 1024) unter `assets/icons/app_icon.png` ablegen
+3. Icons generieren: `flutter pub run flutter_launcher_icons`
+   Das erzeugt automatisch: 
+     - Android adaptive icons (`mipmap-*`)
+     - Windows `.ico`
+     - Web `favicon.png`, `manifest.json`, `icons/`
+     - iOS Assets
+
+## 3. Einrichtung der IDE für Android-Apps
 
 Flutter nutzt das native Android SDK. Die Einrichtung ist daher fast identisch.
 
@@ -216,6 +249,9 @@ So aktivierst du Hyper‑V:
 2. Erstelle ein neues virtuelles Gerät (z.B. "Pixel 5, API 34").
 3. Du kannst den Emulator direkt aus dem Device Manager oder über die Toolbar in Android Studio starten.
 4. **Logcat (Logfiles):** Öffne den Logcat-Tab am unteren Rand von Android Studio.
+
+Hardware-Profile für den Emulator
+https://developer.samsung.com/galaxy-emulator-skin/galaxy-s.html
 
 ### 3.5 Troubleshooting
 
@@ -282,11 +318,68 @@ Das CLI-Tool kann dies:
 
 ---
 
-## 4. Setup für das Backend (PHP) unter Windows
+## 4. Einrichtung der IDE für WebAppliance (WASM)
+
+### 4.1 WasmDatabase
+
+Für die WasmDatabase müssen diese beiden Dateien in den `web`-Ordner kopiert werden:
+
+- `drift_worker.js` - Quelle: https://github.com/simolus3/drift/releases/tag/drift-2.31.0
+- `sqlite3.wasm` - Quelle: https://github.com/simolus3/sqlite3.dart/releases/tag/sqlite3-2.9.4
+
+Die Versionsnummern müssen exakt mit den Flutter-Paketen übereinstimmen!
+Versionen aus `pubspec.lock` lesen:
+```shell
+Select-String -Path pubspec.lock -Pattern "^\s+(sqlite3|drift):" -A 2
+````
+Oder einfach `pubspec.lock` in Android Studio öffnen und nach dem Paketnamen suchen.
+
+Bei einem Update der Flutter-Pakete dürfen diese beiden Dateien nicht vergessen werden.
+
+### 4.2 Origin-Private File System (OPFS)
+
+OPFS ist ein persistentes, origin-gebundenes Dateisystem im Browser.
+Dateipfade werden als Verzeichnisstruktur im OPFS abgebildet.
+
+Voraussetzung: Die App muss mit den COOP/COEP-Headern ausgeliefert werden,
+damit SharedArrayBuffer und Atomics verfügbar sind (für den Drift-Worker).
+
+Konfiguration in Android Studio:
+- `Run` → `Edit Configurations` → `Add New Configuration` → `Flutter`
+- In das Feld `Additional run args` dies einfügen:
+```
+-d chrome
+  --web-header=Cross-Origin-Opener-Policy=same-origin
+  --web-header=Cross-Origin-Embedder-Policy=require-corp
+```
+Das OPFS selbst funktioniert auch ohne diese Header.
+
+Per Terminal starten:
+```shell
+flutter run -d edge --web-header="Cross-Origin-Opener-Policy=same-origin" --web-header="Cross-Origin-Embedder-Policy=require-corp"
+```
+
+Verfügbare Browser anzeigen:
+```shell
+flutter devices
+```
+
+Dateien im OPFS anzeigen (in der Entwicklungskonsole des Browsers (F12)):
+```javascript
+const root = await navigator.storage.getDirectory();
+const driftDir = await root.getDirectoryHandle('drift_db');
+for await (const [name, handle] of driftDir.entries()) {
+  console.log(name, handle.kind);
+}
+```
+
+---
+
+## 5. Backend (PHP) unter Windows
 
 Für die Entwicklung unter Windows dient **Laragon** als Server.
 
-### 4.1 Lokalen Webserver einrichten
+### 5.1 Lokalen Webserver einrichten
 
 1. [Laragon](https://laragon.org/download) installieren.
 
@@ -298,7 +391,7 @@ Für die Entwicklung unter Windows dient **Laragon** als Server.
     * Dienste starten.
     * Schloss neben Apache anklicken, um SSL zu aktivieren.
 
-### 4.2 VirtualHost hinzufügen
+### 5.2 VirtualHost hinzufügen
 
 1. Neue Webseite erstellen -> Blank (Name: privault)
 2. Apache -> sites-enabeled -> auto.privault.test.conf
@@ -307,7 +400,7 @@ Für die Entwicklung unter Windows dient **Laragon** als Server.
 
 Webseite ist jetzt erreichbar unter: https://privault.test/
 
-### 4.3 Datenbank anlegen
+### 5.3 Datenbank anlegen
 
 1. phpMyAdmin starten:
    https://localhost/phpmyadmin6/public/ (User: root, kein Passwort)
@@ -316,7 +409,7 @@ Webseite ist jetzt erreichbar unter: https://privault.test/
     * Server connection collation: utf8mb4_unicode_ci
 3. SQL-Datei Host/migrations/001_initial_schema.sql importieren
 
-### 4.4 Xdebug installieren
+### 5.4 Xdebug installieren
 
 1. PHP-Info ausgeben: <?php phpinfo(); ?>
 2. [Xdebug Wizard](https://xdebug.org/wizard) ausführen und ermittelte DLL nach `C:\laragon\bin\php\php_xdebug.dll` kopieren.
@@ -332,7 +425,7 @@ Webseite ist jetzt erreichbar unter: https://privault.test/
 4. Apache neu starten
 5. Im Browser Xdebug-Erweiterung installieren
 
-### 4.5 WinSCP installieren
+### 5.5 WinSCP installieren
 
 Wird für den Dateitransfer via FTP/SFTP auf das Produktivsystem benötigt.
 Alternativ kann auch ein Git-Deployment eingerichtet werden.
