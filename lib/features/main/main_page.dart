@@ -110,6 +110,9 @@ class _MainPageState extends ConsumerState<MainPage> {
                   case 'export':
                     _showExportDialog();
                     break;
+                  case 'report':
+                    _showReportPage();
+                    break;
                   case 'settings':
                     _showSettingsPage();
                     break;
@@ -138,6 +141,13 @@ class _MainPageState extends ConsumerState<MainPage> {
                   child: ListTile(
                     leading: Icon(Icons.file_upload_outlined),
                     title: Text('Exportieren'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'report',
+                  child: ListTile(
+                    leading: Icon(Icons.security_outlined),
+                    title: Text('Sicherheitsbericht'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -350,6 +360,11 @@ class _MainPageState extends ConsumerState<MainPage> {
   Future<void> _showExportDialog() async {
     await ExportDialog.show(context);
   }
+
+   /// Öffnet den Sicherheitsbericht.
+   Future<void> _showReportPage() async {
+     await Navigator.of(context).pushNamed('/report');
+   }
 
   /// Öffnet die Einstellungen.
   Future<void> _showSettingsPage() async {

@@ -96,3 +96,7 @@
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
 - 🐞 Android: Systembutton funktionieren nicht
 - 🐞 Android: Biometrie funktioniert nicht 
+
+!!!!!!!!!!!!!!!!!!!!!!
+- ❌ LogFileDialog schöner machen
+- ❌ LogConfigDialog schöner machen

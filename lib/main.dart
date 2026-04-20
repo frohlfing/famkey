@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
+import 'package:privault/features/report/report_page.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/features/detail/detail_page.dart';
 import 'package:privault/features/edit/edit_page.dart';
@@ -36,7 +37,7 @@ void main() async {
     };
 
     // todo überdenken, warum env und Logger Singleton ist, der Rest ein Service. Auch Service ist im Grunde ein Singleton.
-    //  Unterschied: vom Singelton wird sofort eine Instanz erstellt.
+    //  Unterschied: vom Singleton wird sofort eine Instanz erstellt.
     // Konsequent ist das nicht, oder lässt argumentieren/begründen, warum Logger und Env kein Service ist?
 
     // Dienste registrieren
@@ -148,6 +149,7 @@ class PriVaultApp extends ConsumerWidget {
       routes: {
         '/': (context) => const LoginPage(),
         '/main': (context) => const MainPage(),
+        '/report': (context) => const ReportPage(),
         '/settings': (context) => const SettingsPage(),
       },
     );
