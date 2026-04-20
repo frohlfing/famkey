@@ -193,7 +193,7 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
         flutter_launcher_icons:
           image_path: "assets/icons/app_icon.png"
           android: true
-          ios: true
+          ios: false
           web:
             generate: true
             image_path: "assets/icons/app_icon.png"
@@ -444,38 +444,11 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
 
 ## 7. Ordnerstruktur
 <pre>
-privault/                                      # Projekt-Root (Monorepo)
- ├── apps/                                     # Enthält alle eigenständigen Flutter-Apps (Feature‑First)
- │    ├── privault/                            # Die eigentliche PriVault-App (Android/iOS/Windows/Web)
- │    │    ├── android/                        # Android-spezifische Dateien (Gradle, Manifest, Ressourcen)
- │    │    ├── lib/                            # App-spezifischer Flutter-Code
- │    │    │    ├── features/                  # Feature-Module (Screens + ViewModels + Widgets)
- │    │    │    │    ├── main/                 # Hauptseite 
- │    │    │    │    │    ├── main_screen.dart
- │    │    │    │    │    ├── main_viewmodel.dart
- │    │    │    │    │    └── widgets/
- │    │    │    │    ├── login/                # Loginseite
- │    │    │    │    ├── detail/               # Detailansicht
- │    │    │    │    ├── edit/                 # Editierseite
- │    │    │    │    └── settings/             # Setupseite
- │    │    │    ├── app.dart                   # App-Setup (Theme, Routing, Provider-Setup)
- │    │    │    └── main.dart                  # Einstiegspunkt der App
- │    │    ├── test/                           # Widget- und Unit-Tests der App
- │    │    ├── web/                            # Web-spezifische Dateien
- │    │    ├── windows/                        # Windows-spezifische Runner + CMake
- │    │    ├── pubspec.yaml                    # Dependencies der priVault-App
- │    │    └── .metadata                       # Flutter-Projekt-Metadaten
- │    │                                        
- │    └── admin/                               # Admin-App für Windows (in Planung)
- │         ├── lib/                            # Admin-spezifischer Flutter-Code
- │         │    ├── features/                  # Eigene Screens + ViewModels
- │         │    └── main.dart                  # Einstiegspunkt der Admin-App
- │         ├── windows/                        # Windows-spezifischer Runner
- │         ├── pubspec.yaml                    # Dependencies der Admin-App
- │         └── test/                            
- │                                             
+privault/                                      # Projekt-Root
+ ├── android/                                  # Android-spezifische Dateien (Gradle, Manifest, Ressourcen)
+ ├── assets/                                   # Assests der App (z.B. app_icon.png)
+ ├── coverage/                                 # Entsteht durch flutter test --coverage
  ├── docs/                                     # Projektdokumentation (Markdown)
- │
  ├── host/                                     # Backend (PHP)
  │    ├── coverage/                            # Automatisch generierte Code-Coverage-Daten
  │    │    ├── clover.xml                      # Clover-Report (XML) für IDE 
@@ -501,44 +474,55 @@ privault/                                      # Projekt-Root (Monorepo)
  │    ├── secrets.example.php                  # Beispiel-Konfiguration (dient als Vorlage für config.php)
  │    ├── config.php                           # Lokale Konfiguration mit Zugangsdaten/Secrets (nicht im Git-Repository)
  │    └── sqlca.pem                            # CA-Zertifikat für TLS zur DB (z.B. Hetzner), s. https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql/
- │
+ ├── lib/                                      # App-spezifischer Flutter-Code
+ │    ├── core/                                # Kern-Logik
+ │    ├── database/                            # Datenbank-Schema und Entitites (Drift)
+ │    │    ├── database.dart
+ │    │    └── database.g.dart
+ │    ├── features/                            # Feature-Module (Pages + Notifiers + States)
+ │    │    ├── main/                           # Hauptseite 
+ │    │    │    ├── export/                    # Export-Dialog
+ │    │    │    ├── import/                    # Import-Dialog  
+ │    │    │    ├── sync/                      # Dialog für die Synchronisierung
+ │    │    │    ├── main_page.dart             # UI der Hauptseite
+ │    │    │    ├── main_notifier.dart         # Logik der Hauptseit 
+ │    │    │    └── main_state.dart            # Status der Hauptseite 
+ │    │    ├── login/                          # Loginseite
+ │    │    ├── detail/                         # Detailansicht
+ │    │    ├── edit/                           # Editierseite
+ │    │    └── settings/                       # Setupseite
+ │    ├── models/  (oder besser /domain ?)     # Datenmodelle (Entities, DTOs, Payloads, Exceptions)
+ │    │    ├── dtos/
+ │    │    └── payloads/
+ │    ├── services/                            # Services (z.B. Database, Crypto, etc.)
+ │    │    ├── biometric_service.dart
+ │    │    ├── config_service.dart
+ │    │    ├── crypto_service.dart
+ │    │    ├── database_service.dart
+ │    │    ├── password_service.dart
+ │    │    ├── session_service.dart
+ │    │    └── web_service.dart
+ │    ├── widgets/                             # Allgemeien Widgets (Stateless) 
+ │    │    ├── confirm_dialog.dart
+ │    │    ├── password_field.dart
+ │    │    ├── snacl.dart
+ │    │    └── text_dialog.dart
+ │    └── main.dart                            # Einstiegspunkt der App
  ├── native/                                   # Native Bibliotheken (z.B. SQLite3MC)
  │    └── sqlcipher/                           # SQLCipher (SQLite mit Verschlüsselungsfunktion)
  │         └── windows/
  │              ├── sqlite3mc_x64.dll          # SQLite3 Multiple Ciphers 2.2.7 (basiert auf SQLite 3.51.2) 
  │              └── sqlite-jdbc-3.51.2.0.jar   # SQLCipher‑fähiger JDBC‑Treiber (für Database Navigator)
- │
- ├── packages/                                 # Wiederverwendbare, plattformunabhängigen Flutter-/Dart-Pakete (Layer‑First)
- │    ├── core/                                # Basis-Funktionalität (UI-unabhängig)
- │    │    ├── lib/
- │    │    │    ├── app_version.dart           # Versionierung
- │    │    │    ├── base_view_model.dart       # Abstrakte ViewModel-Basis
- │    │    │    ├── service_locator.dart       # DI/Service-Locator
- │    │    │    └── core.dart                  # Barrel-File (optional)
- │    │    └── pubspec.yaml
- │    │
- │    ├── domain/                              # Datenmodelle (Entities, DTOs, Payloads, Exceptions)
- │    │    ├── lib/
- │    │    │    └── models/
- │    │    │         ├── dtos/
- │    │    │         ├── entities/
- │    │    │         ├── exceptions/
- │    │    │         └── payloads/
- │    │    └── pubspec.yaml
- │    │
- │    └── data/                                # Datenzugriff, DB, Repositories, Services
- │         ├── lib/
- │         │    ├── database/                  # SQLite3MC-Integration, DB-Adapter
- │         │    ├── services/                  # DB-Service, Sync-Service, Session-Service
- │         │    └── data.dart                  # Barrel-File (optional)
- │         └── pubspec.yaml
- │
- ├─ .analysis_options.yaml                     # Zentrale Linting-/Analyzer-Regeln für alle Apps/Packages
- ├─ .gitignore                                 # Vom Git-Repository auszuschließende Dateien
- ├─ .analysis_options.yaml                     # Konfiguration für den Analysator
- ├─ LICENSE                                    # Lizenzhinweis   
- ├─ pubspec.yaml                               # Paketinformation
- └─ README.md                                  # Landingpage für das Git-Repository
+ ├── test/                                     # Widget- und Unit-Tests der App
+ ├── web/                                      # Web-spezifische Dateien
+ ├── windows/                                  # Windows-spezifische Runner + CMake
+ ├── .gitignore                                # Vom Git-Repository auszuschließende Dateien
+ ├── .metadata                                 # Flutter-Projekt-Metadaten
+ ├── pubspec.yaml                              # Dependencies der App
+ ├── analysis_options.yaml                     # Linting-/Analyzer-Regeln
+ ├── LICENSE                                   # Lizenzhinweis   
+ ├── pubspec.yaml                              # Paketinformation
+ └── README.md                                 # Landingpage für das Git-Repository
 </pre>
 
 ---

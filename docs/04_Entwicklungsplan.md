@@ -15,7 +15,7 @@
 - ✅ Favicon erstellen
 - ✅ Icons der Webseiten speichern und anzeigen
 - ✅ Dateianhänge (Bilder direkt anzeigen, sonst Büroklammer-Icon als Link)
-- ❌ App-Icon anpassen
+- ✅ App-Icon anpassen
 
 ### 1.2 Meilenstein 2: Backend & Sync
 - ✅ API-Referenz definieren
