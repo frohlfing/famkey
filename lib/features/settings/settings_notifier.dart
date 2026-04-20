@@ -95,6 +95,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
         friendNeedsRekeying: friendNeedsRekeying,
         themeMode: _configService.themeMode,
         categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+        logMinLevel: _configService.logMinLevel,
+        logMaxDays: _configService.logMaxDays,
         status: SettingsActionStatus.loaded,
       );
 

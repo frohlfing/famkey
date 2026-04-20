@@ -42,14 +42,13 @@
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
 
 - ✅ Fehler in Datei loggen
-- ❌ Unter Einstellungen ein Button zum Anzeigen/Löschen der Logdatei
-- ❌ Logdatei automatisch klein halten (Löschstrategie?)
+- ✅ Unter Settings ein Button zum Anzeigen/Löschen der Logdatei
+- ✅ Logdatei automatisch klein halten
 - ❌ Bei AppError.unknown auf Logfile hinweisen (beim Import, in der Snackbar, ...).
 
 - ✅ Keepass-XML-Import
 - ✅ Bitwarden-JSON-Import
 - ✅ 1Password-Import
-- ❌ Generic-CSV-Import
 - ✅ PriVault-ZIP-Import
 - ✅ Export (ZIP-File)
 - ✅ Drucken (Markdown-Generierung)

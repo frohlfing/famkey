@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
+import 'package:privault/features/settings/log_config/log_config_dialog.dart';
+import 'package:privault/features/settings/log_file/log_file_dialog.dart';
 import 'package:privault/features/settings/master_password/master_password_dialog.dart';
 import 'package:privault/features/settings/new_friend/new_friend_dialog.dart';
 import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
@@ -322,7 +324,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // ------------------------------------------------------------------------
 
                 _buildSectionTitle('Passwortgenerator'),
-                const SizedBox(height: 16),
+                // const SizedBox(height: 16),
 
                 _buildText(
                   'Länge',
@@ -389,6 +391,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: Icons.label_outlined,
                   onPressed: _showCategoryPlaceholderDialog,
                   tooltip: 'Platzhalter für unbenannte Kategorie ändern',
+                ),
+
+                const Divider(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Logging ---
+                // ------------------------------------------------------------------------
+
+                _buildSectionTitle('Fehlerprotokoll'),
+                // const SizedBox(height: 16),
+
+                _buildText(
+                  'Minimaler Log-Level, der geschrieben wird',
+                  (state) => state.logMinLevel.toString(),
+                  icon: Icons.emoji_symbols_outlined,
+                  onPressed: _showLogConfigDialog,
+                  tooltip: 'Fehlerprotokoll konfigurieren',
+                ),
+
+                _buildText(
+                  'Maximale Aufbewahrungsdauer der Logeinträge in Tagen',
+                  (state) => state.logMaxDays.toString(),
+                  icon: Icons.onetwothree_outlined,
+                ),
+
+                _buildSystemButton(
+                  Icons.article_outlined,
+                  'Logdatei anzeigen',
+                  '',
+                  _showLogFileDialog,
                 ),
 
                 const Divider(height: 32),
@@ -518,10 +550,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             width: 220,
             child: ElevatedButton.icon(onPressed: onPressed, icon: Icon(icon), label: Text(label)),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 4),
-            child: Text(help, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ),
+          if (help.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 4),
+              child: Text(help, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
         ],
       ),
     );
@@ -652,20 +685,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  // /// Fragt nach Bestätigung und startet denn den Exportprozess.
-  // Future<void> _showExportDialog() async {
-  //   final confirmed = await ConfirmDialog.show(
-  //     context,
-  //     title: 'Export bestätigen',
-  //     text: 'Der Tresor wird in eine unverschlüsselte Datei exportiert. Fortfahren?',
-  //     ok: 'Ja, fortfahren',
-  //   );
-  //   if (!mounted || confirmed != true) return;
-  //
-  //   final ok = await ExportDialog.show(context);
-  //   if (ok == true) {
-  //     _hasChanged = true;
-  //     // Neu laden ist hier nicht nötig
-  //   }
-  // }
+  /// Öffnet den Dialog zum Anzeigen der Logdatei.
+  Future<void> _showLogConfigDialog() async {
+    await LogConfigDialog.show(context);
+  }
+
+  /// Öffnet den Dialog zum Anzeigen der Logdatei.
+  Future<void> _showLogFileDialog() async {
+    await LogFileDialog.show(context);
+  }
 }

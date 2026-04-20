@@ -1,4 +1,5 @@
 import 'package:privault/core/app_error.dart';
+import 'package:privault/core/logger.dart';
 import 'package:privault/database/database.dart';
 import 'package:flutter/material.dart';
 import 'package:privault/services/password_service.dart';
@@ -72,6 +73,14 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
+  // --- Logging ---
+
+  /// Minimaler Log-Level, der geschrieben wird.
+  final LogLevel logMinLevel;
+
+  /// Maximale Aufbewahrungsdauer der Logeinträge in Tagen.
+  final int logMaxDays;
+
   // --- Action-Status und -Error ---
 
   /// Der Status der letzten Aktion.
@@ -108,6 +117,8 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
+    this.logMinLevel = LogLevel.info,
+    this.logMaxDays = 7,
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -128,6 +139,8 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
+    LogLevel? logMinLevel,
+    int? logMaxDays,
     SettingsActionStatus? status,
     AppError? error,
   }) {
@@ -145,7 +158,9 @@ class SettingsState {
       pwSpecialChars: pwSpecialChars ?? this.pwSpecialChars,
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
-      categoryPlaceholder: categoryPlaceholder?? this.categoryPlaceholder,
+      categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
+      logMaxDays: logMaxDays ?? this.logMaxDays,
+      logMinLevel: logMinLevel ?? this.logMinLevel,
       status: status ?? this.status,
       error: error ?? this.error,
     );
