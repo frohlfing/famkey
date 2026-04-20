@@ -50,10 +50,9 @@
 - ✅ Bitwarden-JSON-Import
 - ✅ 1Password-Import
 - ❌ Generic-CSV-Import
-- ❌ PriVault-ZIP-Import
-
-- ❌ Export (ZIP-File)
-- ❌ Drucken (Markdown-Generierung, "Notfall-Bogen" zum Ausdrucken, siehe https://copilot.microsoft.com/shares/W5xBgDcNnvejZCq5qXtid)
+- ✅ PriVault-ZIP-Import
+- ✅ Export (ZIP-File)
+- ✅ Drucken (Markdown-Generierung)
 
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
@@ -79,12 +78,12 @@
  
 ### 1.5 Meilenstein 5: Androide App
 - ✅ Emulator installieren
-- ❌ Layout anpassen
-- ❌ Unit-Tests
+- ✅ Layout anpassen
 - ❌ App Store-Bereitstellung
 
 ### 1.6 Meilenstein 6: WebAssembly (WASM)
 - ✅ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr).
+- ❌ WASM auf dem Sync-Server bereitstellen
 
 ## 2. Todos / Feinschliff
 - todos erledigten

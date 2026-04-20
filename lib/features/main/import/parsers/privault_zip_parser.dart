@@ -194,9 +194,9 @@ class PrivaultZipParser implements Parser {
   List<ParsedAttachment>? _parseAttachments(String raw, String entryUuid, Archive archive) {
     if (raw.isEmpty) return null;
     final result = <ParsedAttachment>[];
-    for (final record in _splitSubRecords(raw)) {
+    for (final record in _splitOn(raw, ';')) {
       if (record.isEmpty) continue;
-      final parts = _splitSubFields(record);
+      final parts = _splitOn(record, '|');
       if (parts.length < 2) continue;
 
       // parts[0] = Attachment-UUID (wird beim Import neu vergeben)
@@ -229,9 +229,9 @@ class PrivaultZipParser implements Parser {
   List<ParsedSharedUser>? _parseSharedWith(String raw) {
     if (raw.isEmpty) return null;
     final result = <ParsedSharedUser>[];
-    for (final record in _splitSubRecords(raw)) {
+    for (final record in _splitOn(raw, ';')) {
       if (record.isEmpty) continue;
-      final parts = _splitSubFields(record);
+      final parts = _splitOn(record, '|');
       if (parts.length < 4) continue;
 
       final userUuid    = parts[0].trim();
@@ -255,6 +255,13 @@ class PrivaultZipParser implements Parser {
   // --- RFC-4180 CSV-Parser ---
   // -------------------------------------------------------------------------
 
+  /// Parst einen RFC-4180-konformen CSV-String in eine Liste von Zeilen.
+  ///
+  /// Jede Zeile ist eine Liste von Feldern (Strings). Die Methode verarbeitet:
+  /// - Gequotete Felder (`"..."`) mit eingebetteten Kommas und Zeilenumbrüchen
+  /// - Escaped Quotes innerhalb gequoteter Felder (`""` → `"`)
+  /// - CRLF (`\r\n`) und LF (`\n`) als Zeilenenden
+  /// - Leere Felder (`,,`)
   List<List<String>> _parseCsv(String content) {
     final rows   = <List<String>>[];
     var   fields = <String>[];
@@ -291,6 +298,9 @@ class PrivaultZipParser implements Parser {
     return rows;
   }
 
+  /// Prüft, ob die Kopfzeile der CSV-Datei den erwarteten Spalten entspricht.
+  ///
+  /// Der Vergleich ist case-insensitiv.
   bool _headersMatch(List<String> actual, List<String> expected) {
     debugPrint('${actual.length} != ${expected.length}');
     if (actual.length != expected.length) return false;
@@ -305,9 +315,17 @@ class PrivaultZipParser implements Parser {
   // --- Sub-Encoding (Semikolon / Pipe mit Backslash-Escaping) ---
   // -------------------------------------------------------------------------
 
-  List<String> _splitSubRecords(String value) => _splitOn(value, ';');
-  List<String> _splitSubFields(String record)  => _splitOn(record, '|');
-
+  /// Teilt [value] an einem einzelnen Trennzeichen [sep] auf.
+  ///
+  /// Im Gegensatz zu `String.split()` berücksichtigt diese Methode das
+  /// Backslash-Escaping: Ein mit `\` maskiertes Trennzeichen wird **nicht**
+  /// als Trenner gewertet, sondern als Teil des Feldinhalts durchgereicht.
+  /// Das Auflösen der Escape-Sequenzen obliegt [_subUnescape].
+  ///
+  /// Beispiel:
+  /// ```
+  /// _splitOn('a;b\\;c;d', ';') → ['a', 'b\\;c', 'd']
+  /// ```
   List<String> _splitOn(String value, String sep) {
     final parts  = <String>[];
     final buffer = StringBuffer();
@@ -325,6 +343,7 @@ class PrivaultZipParser implements Parser {
     return parts;
   }
 
+  /// Sub-Escaping für die Felder mit Semikolon/Pipe-Struktur (attachments, shared_with).
   String _subUnescape(String value) {
     final buffer = StringBuffer();
     int i = 0;
@@ -342,12 +361,4 @@ class PrivaultZipParser implements Parser {
     }
     return buffer.toString();
   }
-
-// todo geht das nicht so einfacher?
-// String _csvSubUnescape(String value) {
-//   return value
-//     .replaceAll('\\;', ';')    // Semikolon unescapen
-//     .replaceAll('\\|', '|')    // Pipe-Zeichen unescapen
-//     .replaceAll('\\\\', '\\'); // Backslash unescapen
-// }
 }

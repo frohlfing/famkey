@@ -233,7 +233,7 @@ class ExportNotifier extends Notifier<ExportState> {
   /// Sub-Escaping für Felder mit Semikolon/Pipe-Struktur (attachments, shared_with).
   String _csvSubEscape(String value) {
     return value
-        .replaceAll('\\', '\\\\')  // Backslash verdoppeln
+        .replaceAll('\\', '\\\\')  // Backslash verdoppeln (zuerst!)
         .replaceAll('|', '\\|')    // Pipe-Zeichen mit Backslash escapen
         .replaceAll(';', '\\;');   // Semikolon mit Backslash escapen
   }
