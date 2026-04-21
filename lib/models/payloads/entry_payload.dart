@@ -20,6 +20,8 @@ class EntryPayload {
   final String password;
 
   /// Der Zeitstempel des Passworts (UTC, optional).
+  ///
+  /// `null` = kein Zeitstempel bekannt.
   final DateTime? passwordTimestamp;
 
   /// Die zugehörige Web-Adresse.

@@ -45,7 +45,10 @@ class EditNotifier extends Notifier<EditState> {
   /// Wird benötigt, um Daten und Anhänge zu ver- und zu entschlüsseln.
   Uint8List? _entryKey;
 
-  /// Der Zeitstempel des Passworts (UTC) im Data-Payload. Ist null bei einem neuen Eintrag.
+  /// Der Zeitstempel des Passworts (UTC) aus dem Data-Payload. Ist null bei einem neuen Eintrag.
+  ///
+  /// - Wird beim Laden eines bestehenden Eintrags gesetzt.
+  /// - WIrd beim Speichern ausgelesen, wenn das Passwort nicht geändert wurde.
   DateTime? _passwordTimestamp;
 
   /// Der Favicon als Base64-String im Data-Payload.
