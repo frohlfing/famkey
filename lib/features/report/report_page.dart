@@ -199,6 +199,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       padding: const EdgeInsets.all(16),
       children: [
         _buildPwnedSection(context, theme),
+
+        // todo "Top 10 - Schwächste Passwörter" und Balkendiagramm einfügen
+
         const SizedBox(height: 24),
         _buildOldestSection(context, theme),
         if (hasUnknown) ...[

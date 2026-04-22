@@ -60,37 +60,23 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
     // Listener für Status-Änderungen
     ref.listen(exportProvider.select((s) => s.status), (previous, next) {
-      switch (next) {
-        case ExportActionStatus.aborted:
-          // Ladevorgang abgebrochen
-          Navigator.of(context).pop(true); // Zurück zur Hauptseite
-          break;
-
-        default:
-          break;
-      }
+      if (next == ExportActionStatus.aborted) Navigator.of(context).pop(true);
     });
 
     // Passwort-Controller synchron halten
-    ref.listen(exportProvider, (previous, next) {
-      if (previous == next) return;
-      final formData = next.formData;
-      if (_passwordController.text != formData.password) _passwordController.text = formData.password;
+    ref.listen(exportProvider.select((s) => s.formData.password), (previous, next) {
+      if (_passwordController.text != next) _passwordController.text = next;
     });
 
     // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(exportProvider.select((s) => s.isBusy));
-
-    // Notifier, State und Renderer holen
+    final isBusy   = ref.watch(exportProvider.select((s) => s.isBusy));
+    final status   = ref.watch(exportProvider.select((s) => s.status));
+    final encrypt  = ref.watch(exportProvider.select((s) => s.formData.encrypt));
     final notifier = ref.read(exportProvider.notifier);
-    final state = ref.watch(exportProvider); // todo watch? Wenn state geändert wird, wird der Komplette Dialog neu gezeichnet?
-    final renderer = createRenderer(state.mdBytes, state.mdFile.mime);
-    final encrypt = state.formData.encrypt;
 
     return AlertDialog(
       title: const Text('Tresor exportieren'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0), // Abstand zum Bildschirmrand verringern
-      //contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
       content: SizedBox(
         width: 600,
         child: Column(
@@ -99,43 +85,54 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
           children: [
 
             // --- Fortschrittsanzeige ---
-            if (state.status == ExportActionStatus.loading)
-              Center(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
-                    LinearProgressIndicator(value: state.total > 0 ? state.processed / state.total : 0),
-                    const SizedBox(height: 16),
-                    Text(
-                      "${state.processed} von ${state.total} Einträgen verarbeitet (${(state.processed / state.total * 100).toStringAsFixed(0)}%)",
-                      style: Theme.of(context).textTheme.bodySmall,
+            if (status == ExportActionStatus.loading)
+              Consumer(
+                builder: (ctx, ref, _) {
+                  final total     = ref.watch(exportProvider.select((s) => s.total));
+                  final processed = ref.watch(exportProvider.select((s) => s.processed));
+                  return Center(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 24),
+                        LinearProgressIndicator(value: total > 0 ? processed / total : 0),
+                        const SizedBox(height: 16),
+                        Text(
+                          '$processed von $total Einträgen verarbeitet (${total > 0 ? (processed / total * 100).toStringAsFixed(0) : 0}%)',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _handleAbortLoading,
+                          icon: const Icon(Icons.stop),
+                          label: const Text('Abbrechen'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Abbrechen-Button
-                    ElevatedButton.icon(
-                      onPressed: _handleAbortLoading,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Abbrechen'),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
 
             // --- Vorschau & Formular ---
-            if (state.status == ExportActionStatus.loaded || state.status == ExportActionStatus.progress) ... [
+            if (status == ExportActionStatus.loaded || status == ExportActionStatus.progress) ...[
               Expanded(
                 child: Stack(
                   children: [
                     // --- Vorschau ---
-                    Container(
-                      width: double.infinity, // Stack ausfüllen
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.black26),
-                      ),
-                      child: renderer.buildWidget(),
+                    Consumer(
+                      builder: (ctx, ref, _) {
+                        final mdBytes  = ref.watch(exportProvider.select((s) => s.mdBytes));
+                        final mime     = ref.watch(exportProvider.select((s) => s.mdFile.mime));
+                        final renderer = createRenderer(mdBytes, mime);
+                        return Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: Colors.black26),
+                          ),
+                          child: renderer.buildWidget(),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -179,32 +176,30 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
             ],
 
-            if (state.status == ExportActionStatus.success)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
+            if (status == ExportActionStatus.success)
+              const Padding(
+                padding: EdgeInsets.only(top: 16),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_outlined, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Die Exportdatei wurde erfolgreich gespeichert.'),
-                      ),
+                    Icon(Icons.check_outlined, color: Colors.green),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Die Exportdatei wurde erfolgreich gespeichert.')),
                   ],
                 ),
               ),
 
             // --- Fehleranzeige ---
-            if (state.status == ExportActionStatus.failure)
+            if (status == ExportActionStatus.failure)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.error, color: Theme.of(context).colorScheme.error),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        state.error.text,
+                        ref.read(exportProvider).error.text,
                         softWrap: true,
                         style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
@@ -220,28 +215,28 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       // --- Buttons ---
       actions: [
         // Abbrechen - nicht während des Ladens und nicht nach erfolgreich Speichern
-        if (state.status != ExportActionStatus.loading && state.status != ExportActionStatus.success)
+        if (status != ExportActionStatus.loading && status != ExportActionStatus.success)
           TextButton(
             onPressed: isBusy ? null : () => Navigator.of(context).pop(false),
             child: const Text('Abbrechen'),
           ),
 
         // Drucken – nur wenn Vorschau geladen
-        if (state.status == ExportActionStatus.loaded || state.status == ExportActionStatus.progress)
+        if (status == ExportActionStatus.loaded || status == ExportActionStatus.progress)
           TextButton(
             onPressed: isBusy ? null : notifier.print,
             child: const Text('Drucken'),
           ),
 
         // Exportieren – nur wenn Exportdatei generiert wurde
-        if (state.status == ExportActionStatus.loaded || state.status == ExportActionStatus.progress)
+        if (status == ExportActionStatus.loaded || status == ExportActionStatus.progress)
           ElevatedButton(
             onPressed: isBusy ? null : _handleExport,
             child: const Text('Exportieren'),
           ),
 
         // Schließen - nachdem die Exportdatei erfolgreich gespeichert wurde
-        if (state.status == ExportActionStatus.success)
+        if (status == ExportActionStatus.success)
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Schließen'),
