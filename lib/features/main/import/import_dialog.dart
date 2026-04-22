@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_file.dart';
@@ -78,46 +77,31 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(importProvider);
 
-    // // Listener für Status-Änderungen
-    // ref.listen(importProvider.select((s) => s.status), (previous, next) {
-    //   switch (next) {
-    //     case ImportActionStatus.parse:
-    //       break;
-    //
-    //     case ImportActionStatus.import:
-    //       break;
-    //
-    //     default:
-    //       break;
-    //   }
-    // });
-
-    // Listener, der die Controller nur bei Initialladung oder Generierung füllt
-    ref.listen(importProvider, (previous, next) {
-      if (previous == next) return;
-      final file = next.formData.file;
-      if (_pathController.text != file.path) _pathController.text = file.path;
-      // todo Passwort seten?
+    // Listener, der den Pfad-Controller bei Dateiauswahl aktualisiert
+    ref.listen(importProvider.select((s) => s.formData.file), (previous, next) {
+      if (_pathController.text != next.path) _pathController.text = next.path;
     });
 
     // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(importProvider.select((s) => s.isBusy));
-    final status = ref.watch(importProvider.select((s) => s.status));
-    final formData = ref.watch(importProvider.select((s) => s.formData));
-    final fileSelected = ref.watch(importProvider.select((s) => s.formData.file)) != const AppFile.none();
+    final isBusy       = ref.watch(importProvider.select((s) => s.isBusy));
+    final status       = ref.watch(importProvider.select((s) => s.status));
+    final formData     = ref.watch(importProvider.select((s) => s.formData));
+    final fileSelected = formData.file != const AppFile.none();
+    final error        = ref.watch(importProvider.select((s) => s.error));
+    final addedCount   = ref.watch(importProvider.select((s) => s.addedCount));
+    final skippedCount = ref.watch(importProvider.select((s) => s.skippedCount));
 
     // Notifier holen
     final notifier = ref.read(importProvider.notifier);
 
     return AlertDialog(
       title: const Text('Import'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0),
       content: SizedBox(
         width: 450,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(), // scrollen funktioniert auch, wenn Inhalte anfangs passen
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,9 +116,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 const Text('Dateiformat', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<ImportFileFormat>(
-                  initialValue: state.formData.format == ImportFileFormat.none ? null : state.formData.format,
+                  initialValue: formData.format == ImportFileFormat.none ? null : formData.format,
                   decoration: InputDecoration(
-                    errorText: state.error.field == 'format' ? state.error.text : null,
+                    errorText: error.field == 'format' ? error.text : null,
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
@@ -142,8 +126,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                   items: const [
                     DropdownMenuItem(value: ImportFileFormat.privaultZip, child: Text('PriVault ZIP')),
                     DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
-                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)'), ),
-                    DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX'), ),
+                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)')),
+                    DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX')),
                   ],
                   onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
                 ),
@@ -159,22 +143,20 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                   onTap: isBusy ? null : _pickFile,
                   decoration: InputDecoration(
                     hintText: 'Datei auswählen',
-                    errorText: state.error.field == 'path' ? state.error.text : null,
+                    errorText: error.field == 'path' ? error.text : null,
                     prefixIcon: const Icon(Icons.file_open_outlined),
                     suffixIcon: _isPickingFile ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                     ) : IconButton(
                       icon: const Icon(Icons.search),
-                      onPressed: isBusy ? null : _pickFile
+                      onPressed: isBusy ? null : _pickFile,
                     ),
                     border: const OutlineInputBorder(),
                   ),
                 ),
 
                 // --- Verschlüsselung Switch ---
-                // Wird nur angezeigt, wenn das Format Passwörter unterstützt
-                // und eine Datei ausgewählt wurde.
                 if (formData.format.supportsPassword && fileSelected) ...[
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -186,55 +168,59 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ],
 
                 // --- Passwort-Feld ---
-                // Wird nur angezeigt, wenn der Switch aktiviert ist.
                 if (formData.format.supportsPassword && fileSelected && formData.encrypt) ...[
                   const SizedBox(height: 8),
                   PasswordField(
                     controller: _passwordController,
                     label: 'Passwort',
                     prefixIcon: Icons.lock_outline,
-                    errorText: state.error.field == 'password' ? state.error.text : null,
+                    errorText: error.field == 'password' ? error.text : null,
                     onChanged: notifier.setPassword,
                   ),
                 ],
               ],
 
               // --- Fortschrittsanzeige ---
-              if (status == ImportActionStatus.progress && state.totalCount == 0)
-                const Center(
-                  child: Column(
-                    children: [
-                      SizedBox(height: 24),
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Importdatei wird eingelesen...'),
-                    ],
-                  ),
-                ),
+              if (status == ImportActionStatus.progress)
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final totalCount   = ref.watch(importProvider.select((s) => s.totalCount));
+                    final currentCount = ref.watch(importProvider.select((s) => s.currentCount));
+                    final isAborting   = ref.watch(importProvider.select((s) => s.isAborting));
 
-              if (status == ImportActionStatus.progress && state.totalCount > 0)
-                Center(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 24),
+                    if (totalCount == 0) {
+                      return const Center(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 24),
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Importdatei wird eingelesen...'),
+                          ],
+                        ),
+                      );
+                    }
 
-                      // Fortschrittsanzeige
-                      LinearProgressIndicator(value: state.currentCount / state.totalCount),
-                      const SizedBox(height: 16),
-                      Text(
-                        "${state.currentCount} von ${state.totalCount} Einträgen verarbeitet (${(state.currentCount / state.totalCount * 100).toStringAsFixed(0)}%)",
-                        style: Theme.of(context).textTheme.bodySmall,
+                    return Center(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 24),
+                          LinearProgressIndicator(value: currentCount / totalCount),
+                          const SizedBox(height: 16),
+                          Text(
+                            '$currentCount von $totalCount Einträgen verarbeitet (${(currentCount / totalCount * 100).toStringAsFixed(0)}%)',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: isAborting ? null : _handleAbortImport,
+                            icon: const Icon(Icons.stop),
+                            label: const Text('Abbrechen'),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-
-                      // Abbrechen-Button
-                      ElevatedButton.icon(
-                        onPressed: state.isAborting ? null : _handleAbortImport,
-                        icon: const Icon(Icons.stop),
-                        label: const Text('Abbrechen'),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
 
               // --- Erfolgsmeldung ---
@@ -242,7 +228,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.check_outlined, color: Colors.green),
                       const SizedBox(width: 8),
@@ -252,9 +238,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                           children: [
                             const Text('Import abgeschlossen!'),
                             const SizedBox(height: 8),
-                            Text('✳️ Hinzugefügt: ${state.addedCount} ${state.addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
-                            if (state.skippedCount > 0)
-                              Text('⚠️ Übersprungen: ${state.skippedCount} ${state.skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
+                            Text('✳️ Hinzugefügt: $addedCount ${addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
+                            if (skippedCount > 0)
+                              Text('⚠️ Übersprungen: $skippedCount ${skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
                           ],
                         ),
                       ),
@@ -263,17 +249,17 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 ),
 
               // --- Fehleranzeige ---
-              if (status == ImportActionStatus.failure && state.error.field == null)
+              if (status == ImportActionStatus.failure && error.field == null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.error, color: Theme.of(context).colorScheme.error),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          state.error.text,
+                          error.text,
                           softWrap: true,
                           style: TextStyle(color: Theme.of(context).colorScheme.error),
                         ),
@@ -281,8 +267,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                     ],
                   ),
                 ),
-              ],
-
+            ],
           ),
         ),
       ),
@@ -309,7 +294,6 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
             child: const Text('OK'),
           ),
       ],
-
     );
   }
 
