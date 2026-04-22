@@ -53,6 +53,9 @@
 - ✅ Export (ZIP-File)
 - ✅ Drucken (Markdown-Generierung)
 
+- ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
+- ❌ Report über die Passwortstärke und -Alter aller Einträge
+
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 
@@ -67,8 +70,6 @@
 
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
 
-- ❌ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
-- ❌ Report über die Passwortstärke und -Alter aller Einträge
 
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
 
@@ -98,5 +99,4 @@
 - 🐞 Android: Biometrie funktioniert nicht 
 
 !!!!!!!!!!!!!!!!!!!!!!
-- ❌ LogFileDialog schöner machen
 - ❌ LogConfigDialog schöner machen

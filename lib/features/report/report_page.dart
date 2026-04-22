@@ -3,13 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:privault/features/report/report_notifier.dart';
 import 'package:privault/features/report/report_state.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
 
 /// Die [ReportPage] zeigt eine Sicherheitsanalyse des Tresors.
 ///
 /// Sie prüft alle gespeicherten Passwörter gegen die HaveIBeenPwned-Datenbank
-/// und zeigt außerdem die ältesten Passwörter und eine Altersverteilung als
-/// Balkendiagramm an.
+/// und zeigt außerdem die ältesten Passwörter, Einträge ohne bekanntes Passwort-Datum
+/// sowie eine Altersverteilung als Balkendiagramm an.
 class ReportPage extends ConsumerStatefulWidget {
+
   /// Konstruktor
   const ReportPage({super.key});
 
@@ -20,26 +22,46 @@ class ReportPage extends ConsumerStatefulWidget {
 class _ReportPageState extends ConsumerState<ReportPage> {
 
   // ------------------------------------------------------------------------
-  // --- Lifecycle ---
+  // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 
+  /// Initialisiert die Seite und startet die Analyse, sobald der erste Frame gerendert wurde.
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(reportProvider.notifier).load();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final notifier = ref.read(reportProvider.notifier);
+      await notifier.load();
     });
   }
 
   // ------------------------------------------------------------------------
-  // --- Build ---
+  // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
+  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
-    final status  = ref.watch(reportProvider.select((s) => s.status));
-    final isBusy  = ref.watch(reportProvider.select((s) => s.isBusy));
-    final theme   = Theme.of(context);
+
+    // Listener für Status-Änderungen
+    ref.listen(reportProvider.select((s) => s.status), (previous, next) {
+      switch (next) {
+        case ReportActionStatus.aborted:
+          Navigator.of(context).pop();
+          break;
+        default:
+          break;
+      }
+    });
+
+    // Gezielte Watches für maximale Performance
+    final isBusy = ref.watch(reportProvider.select((s) => s.isBusy));
+    final status = ref.watch(reportProvider.select((s) => s.status));
+
+    // Notifier holen
+    final notifier = ref.read(reportProvider.notifier);
+
+    final theme = Theme.of(context);
 
     return Stack(
       children: [
@@ -56,15 +78,20 @@ class _ReportPageState extends ConsumerState<ReportPage> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Neu laden',
-                onPressed: isBusy ? null : () => ref.read(reportProvider.notifier).load(),
+                onPressed: isBusy ? null : notifier.load,
               ),
             ],
           ),
           body: _buildBody(context, status, theme),
         ),
 
-        // Lade-Overlay
-        if (isBusy) _buildLoadingOverlay(context, theme),
+        // // Lade-Overlay (IgnorePointer: Touches sollen den Abbrechen-Button darunter erreichen)
+        // if (isBusy)
+        //   IgnorePointer(
+        //     child: Container(
+        //       color: Colors.black.withValues(alpha: 0.1),
+        //     ),
+        //   ),
       ],
     );
   }
@@ -76,6 +103,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   Widget _buildBody(BuildContext context, ReportActionStatus status, ThemeData theme) {
     switch (status) {
       case ReportActionStatus.idle:
+      case ReportActionStatus.aborted:
         return _buildEmptyHint(theme);
 
       case ReportActionStatus.loading:
@@ -100,7 +128,6 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       builder: (ctx, ref, _) {
         final total   = ref.watch(reportProvider.select((s) => s.totalCount));
         final checked = ref.watch(reportProvider.select((s) => s.checkedCount));
-        final progress = ref.watch(reportProvider.select((s) => s.progress));
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -109,22 +136,27 @@ class _ReportPageState extends ConsumerState<ReportPage> {
               children: [
                 const Icon(Icons.security, size: 48, color: Colors.blueGrey),
                 const SizedBox(height: 24),
-                Text(
-                  'Passwörter werden geprüft…',
-                  style: theme.textTheme.titleMedium,
-                ),
+                Text('Passwörter werden geprüft…', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text(
                   '$checked von $total',
                   style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
-                LinearProgressIndicator(value: total > 0 ? progress : null),
+                LinearProgressIndicator(value: total > 0 ? checked / total : null),
                 const SizedBox(height: 8),
                 Text(
                   'Die HIBP-API wird für jeden Eintrag\neinzeln und anonym abgefragt.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+
+                // Abbrechen-Button
+                ElevatedButton.icon(
+                  onPressed: _handleAbortLoading,
+                  icon: const Icon(Icons.stop),
+                  label: const Text('Abbrechen'),
                 ),
               ],
             ),
@@ -162,12 +194,17 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   // ------------------------------------------------------------------------
 
   Widget _buildReport(BuildContext context, ThemeData theme) {
+    final hasUnknown = ref.watch(reportProvider.select((s) => s.unknownAgeEntries.isNotEmpty));
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _buildPwnedSection(context, theme),
         const SizedBox(height: 24),
         _buildOldestSection(context, theme),
+        if (hasUnknown) ...[
+          const SizedBox(height: 24),
+          _buildUnknownAgeSection(context, theme),
+        ],
         const SizedBox(height: 24),
         _buildAgeChartSection(context, theme),
         const SizedBox(height: 32),
@@ -206,7 +243,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             const SizedBox(height: 8),
             Text(
               'Die Prüfung erfolgt anonym per k-Anonymitäts-Modell (SHA-1-Präfix).\n'
-                  'Das Passwort verlässt das Gerät dabei niemals im Klartext.',
+              'Das Passwort verlässt das Gerät dabei niemals im Klartext.',
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ],
@@ -219,9 +256,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
+        color: Colors.green.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.withOpacity(0.4)),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -250,10 +287,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           backgroundColor: Colors.red,
           child: Icon(Icons.lock_open, color: Colors.white, size: 20),
         ),
-        title: Text(
-          entry.title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
           entry.username.isNotEmpty ? entry.username : 'Kein Benutzername',
           maxLines: 1,
@@ -265,18 +299,12 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           children: [
             Text(
               entry.pwnedCount > 0 ? '${_formatCount(entry.pwnedCount)}×' : '?',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
+              style: theme.textTheme.titleSmall?.copyWith(color: Colors.red, fontWeight: FontWeight.bold),
             ),
-            Text(
-              'gefunden',
-              style: theme.textTheme.bodySmall?.copyWith(color: Colors.red),
-            ),
+            Text('gefunden', style: theme.textTheme.bodySmall?.copyWith(color: Colors.red)),
           ],
         ),
-        onTap: () => Navigator.of(context).pushNamed('/detail', arguments: entry.id),
+        onTap: () => _openDetail(entry.id),
       ),
     );
   }
@@ -303,10 +331,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             ),
             const SizedBox(height: 12),
             if (oldest.isEmpty)
-              Text(
-                'Keine Einträge vorhanden.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-              )
+              Text('Keine Einträge vorhanden.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey))
             else
               ...oldest.asMap().entries.map((e) => _buildOldestCard(e.key + 1, e.value, theme)),
           ],
@@ -316,17 +341,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   Widget _buildOldestCard(int rank, ReportEntry entry, ThemeData theme) {
-    final dateStr = entry.passwordTimestamp != null
-        ? DateFormat('dd.MM.yyyy').format(entry.passwordTimestamp!.toLocal())
-        : 'Unbekannt';
-
-    final age = entry.passwordTimestamp != null
-        ? _formatAge(DateTime.now().difference(entry.passwordTimestamp!).inDays)
-        : null;
-
-    final ageColor = entry.passwordTimestamp != null
-        ? _ageColor(DateTime.now().difference(entry.passwordTimestamp!).inDays)
-        : Colors.grey;
+    final dateStr  = DateFormat('dd.MM.yyyy').format(entry.passwordTimestamp!.toLocal());
+    final days     = DateTime.now().difference(entry.passwordTimestamp!).inDays;
+    final ageColor = _ageColor(days);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -336,54 +353,95 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Text(
             '$rank',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onPrimaryContainer,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer),
           ),
         ),
-        title: Text(
-          entry.title,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Text(
-          'Geändert: $dateStr',
-          style: theme.textTheme.bodySmall,
-        ),
-        trailing: age != null
-            ? Container(
+        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text('Geändert: $dateStr', style: theme.textTheme.bodySmall),
+        trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: ageColor.withOpacity(0.15),
+            color: ageColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ageColor.withOpacity(0.5)),
+            border: Border.all(color: ageColor.withValues(alpha: 0.5)),
           ),
           child: Text(
-            age,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: ageColor,
-              fontWeight: FontWeight.w600,
-            ),
+            _formatAge(days),
+            style: theme.textTheme.bodySmall?.copyWith(color: ageColor, fontWeight: FontWeight.w600),
           ),
-        )
-            : const Icon(Icons.help_outline, color: Colors.grey, size: 18),
-        onTap: () => Navigator.of(context).pushNamed('/detail', arguments: entry.id),
+        ),
+        onTap: () => _openDetail(entry.id),
       ),
     );
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 3: Balkendiagramm Altersverteilung ---
+  // --- Abschnitt 3: Unbekanntes Passwort-Alter ---
+  // ------------------------------------------------------------------------
+
+  Widget _buildUnknownAgeSection(BuildContext context, ThemeData theme) {
+    return Consumer(
+      builder: (ctx, ref, _) {
+        final entries = ref.watch(reportProvider.select((s) => s.unknownAgeEntries));
+        final shown   = entries.take(10).toList();
+        final rest    = entries.length - shown.length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+              icon: Icons.help_outline,
+              iconColor: Colors.grey,
+              title: 'Unbekanntes Passwort-Alter',
+              subtitle: '${entries.length} ${entries.length == 1 ? 'Eintrag' : 'Einträge'} ohne Datum der letzten Passwortänderung',
+              subtitleColor: Colors.grey,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+            ...shown.map((e) => _buildUnknownAgeCard(e, theme)),
+            if (rest > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 4),
+                child: Text(
+                  '… und $rest weitere',
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildUnknownAgeCard(ReportEntry entry, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.grey,
+          child: Icon(Icons.help_outline, color: Colors.white, size: 20),
+        ),
+        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text(
+          entry.username.isNotEmpty ? entry.username : 'Kein Benutzername',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onTap: () => _openDetail(entry.id),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Abschnitt 4: Balkendiagramm Altersverteilung ---
   // ------------------------------------------------------------------------
 
   Widget _buildAgeChartSection(BuildContext context, ThemeData theme) {
     return Consumer(
       builder: (ctx, ref, _) {
-        final buckets = ref.watch(reportProvider.select((s) => s.ageBuckets));
-
-        final maxCount = buckets.isEmpty
-            ? 1
-            : buckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
+        final buckets  = ref.watch(reportProvider.select((s) => s.ageBuckets));
+        final maxCount = buckets.isEmpty ? 1 : buckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,10 +456,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             ),
             const SizedBox(height: 16),
             if (buckets.isEmpty)
-              Text(
-                'Keine Daten vorhanden.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-              )
+              Text('Keine Daten vorhanden.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey))
             else
               _buildBarChart(buckets, maxCount, theme),
           ],
@@ -417,14 +472,14 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
         child: Column(
           children: [
-            // Balken
+            // --- Balken ---
             SizedBox(
               height: 160,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: buckets.map((bucket) {
                   final relHeight = maxCount > 0 ? bucket.count / maxCount : 0.0;
-                  final barColor = _bucketColor(bucket, theme);
+                  final barColor  = _bucketColor(bucket, theme);
 
                   return Expanded(
                     child: Padding(
@@ -454,7 +509,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
                             curve: Curves.easeOut,
                             height: relHeight > 0 ? relHeight * 120 : 4,
                             decoration: BoxDecoration(
-                              color: bucket.count > 0 ? barColor : barColor.withOpacity(0.2),
+                              color: bucket.count > 0 ? barColor : barColor.withValues(alpha: 0.2),
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                             ),
                           ),
@@ -470,16 +525,13 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Beschriftungen
+            // --- Beschriftungen ---
             Row(
               children: buckets.map((bucket) {
                 return Expanded(
                   child: Text(
                     bucket.label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                      fontSize: 10,
-                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600], fontSize: 10),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                   ),
@@ -493,18 +545,34 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Lade-Overlay ---
+  // --- Handler ---
   // ------------------------------------------------------------------------
 
-  Widget _buildLoadingOverlay(BuildContext context, ThemeData theme) {
-    return const AbsorbPointer(
-      absorbing: true,
-      child: SizedBox.expand(),
+  /// Öffnet die Detailseite und prüft den Eintrag nach der Rückkehr erneut.
+  Future<void> _openDetail(int entryId) async {
+    await Navigator.of(context).pushNamed('/detail', arguments: entryId);
+    if (mounted) {
+      ref.read(reportProvider.notifier).recheckEntry(entryId);
+    }
+  }
+
+  /// Bricht nach einer Rückfrage die laufende Analyse ab.
+  Future<void> _handleAbortLoading() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Analyse abbrechen',
+      text: 'Möchtest du die Sicherheitsanalyse wirklich abbrechen?',
+      cancel: 'Nein, fortfahren',
+      ok: 'Ja, abbrechen',
+      autofocus: false,
     );
+    if (mounted && confirmed == true) {
+      ref.read(reportProvider.notifier).abortLoading();
+    }
   }
 
   // ------------------------------------------------------------------------
-  // --- Hilfsmethoden für Widgets ---
+  // --- Hilfsmethoden ---
   // ------------------------------------------------------------------------
 
   Widget _buildSectionHeader({
@@ -524,25 +592,15 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(color: subtitleColor),
-              ),
+              Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: subtitleColor)),
             ],
           ),
         ),
       ],
     );
   }
-
-  // ------------------------------------------------------------------------
-  // --- Hilfsmethoden für Farben und Texte ---
-  // ------------------------------------------------------------------------
 
   /// Farbe passend zum Passwort-Alter (grün = frisch, rot = alt)
   Color _ageColor(int days) {
@@ -554,9 +612,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
 
   /// Farbe für einen Alters-Bucket im Balkendiagramm
   Color _bucketColor(AgeBucket bucket, ThemeData theme) {
-    if (bucket.daysMin < 0)  return Colors.grey;     // Unbekannt
-    if (bucket.daysMin < 30) return Colors.green;
-    if (bucket.daysMin < 90) return Colors.lightGreen;
+    if (bucket.daysMin < 0)   return Colors.grey;
+    if (bucket.daysMin < 30)  return Colors.green;
+    if (bucket.daysMin < 90)  return Colors.lightGreen;
     if (bucket.daysMin < 180) return Colors.orange;
     if (bucket.daysMin < 365) return Colors.deepOrange;
     return Colors.red;
@@ -567,12 +625,12 @@ class _ReportPageState extends ConsumerState<ReportPage> {
     if (days < 1)   return 'heute';
     if (days < 30)  return '${days}d';
     if (days < 365) return '${(days / 30).round()}M';
-    final years = days ~/ 365;
+    final years  = days ~/ 365;
     final months = (days % 365) ~/ 30;
     return months > 0 ? '${years}J ${months}M' : '${years}J';
   }
 
-  /// Formatiert eine große Zahl leserlich (z.B. 3_500_000 → "3,5 Mio.")
+  /// Formatiert eine große Zahl leserlich (z.B. 3.500.000 → "3,5 Mio.")
   String _formatCount(int count) {
     if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)} Mio.';
     if (count >= 1000)    return '${(count / 1000).toStringAsFixed(1)}k';

@@ -5,11 +5,13 @@ enum ReportActionStatus {
   idle,     // Noch nicht gestartet
   loading,  // Wird geladen und geprüft
   loaded,   // Fertig
+  aborted,  // Vom Benutzer abgebrochen
   failure,  // Fehler
 }
 
 /// Repräsentiert einen einzelnen Eintrag im Sicherheitsbericht.
 class ReportEntry {
+
   /// Interne Datenbank-ID
   final int id;
 
@@ -72,11 +74,17 @@ class ReportState {
   /// Anzahl der bisher auf HIBP geprüften Einträge (für Fortschrittsanzeige)
   final int checkedCount;
 
+  /// true, wenn der Benutzer den laufenden Vorgang abbrechen möchte
+  final bool isAborting;
+
   /// Einträge, deren Passwort in mindestens einer Leak-Datenbank gefunden wurde
   final List<ReportEntry> pwnedEntries;
 
-  /// Top 10 Einträge mit den ältesten Passwörtern (aufsteigend nach Datum)
+  /// Top 10 Einträge mit den ältesten Passwörtern (aufsteigend nach Datum, nur mit bekanntem Datum)
   final List<ReportEntry> oldestPasswords;
+
+  /// Einträge ohne bekanntes Passwort-Datum
+  final List<ReportEntry> unknownAgeEntries;
 
   /// Altersverteilung der Passwörter (Buckets für das Balkendiagramm)
   final List<AgeBucket> ageBuckets;
@@ -100,8 +108,10 @@ class ReportState {
     this.error = const AppError.none(),
     this.totalCount = 0,
     this.checkedCount = 0,
+    this.isAborting = false,
     this.pwnedEntries = const [],
     this.oldestPasswords = const [],
+    this.unknownAgeEntries = const [],
     this.ageBuckets = const [],
   });
 
@@ -114,8 +124,10 @@ class ReportState {
     AppError? error,
     int? totalCount,
     int? checkedCount,
+    bool? isAborting,
     List<ReportEntry>? pwnedEntries,
     List<ReportEntry>? oldestPasswords,
+    List<ReportEntry>? unknownAgeEntries,
     List<AgeBucket>? ageBuckets,
   }) {
     return ReportState(
@@ -123,8 +135,10 @@ class ReportState {
       error: error ?? this.error,
       totalCount: totalCount ?? this.totalCount,
       checkedCount: checkedCount ?? this.checkedCount,
+      isAborting: isAborting ?? this.isAborting,
       pwnedEntries: pwnedEntries ?? this.pwnedEntries,
       oldestPasswords: oldestPasswords ?? this.oldestPasswords,
+      unknownAgeEntries: unknownAgeEntries ?? this.unknownAgeEntries,
       ageBuckets: ageBuckets ?? this.ageBuckets,
     );
   }

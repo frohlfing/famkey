@@ -15,6 +15,7 @@ class ConfigService {
   static const String _keyTheme = 'theme';
   static const String _keyLogMinLevel = 'log_min_level';
   static const String _keyLogMaxDays = 'log_max_days';
+  static const String _keyHibpCacheDays = 'hibp_cache_days';
 
   final SharedPreferences _prefs;
 
@@ -59,4 +60,9 @@ class ConfigService {
   int get logMaxDays => _prefs.getInt(_keyLogMaxDays) ?? 7;
 
   set logMaxDays(int value) => _prefs.setInt(_keyLogMaxDays, value);
+
+  /// Anzahl der Tage, die ein HIBP-Prüfergebnis (Darknet-Check) gecacht wird (Standard: 1 Tag)
+  int get hibpCacheDays => _prefs.getInt(_keyHibpCacheDays) ?? 1;
+
+  set hibpCacheDays(int value) => _prefs.setInt(_keyHibpCacheDays, value);
 }

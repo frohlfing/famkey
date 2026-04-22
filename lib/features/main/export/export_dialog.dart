@@ -115,7 +115,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                     // Abbrechen-Button
                     ElevatedButton.icon(
                       onPressed: _handleAbortLoading,
-                      //onPressed: state.isAborting ? null : _handleCancelOperation,
                       icon: const Icon(Icons.stop),
                       label: const Text('Abbrechen'),
                     ),
@@ -157,27 +156,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 ],
               ),
 
-              // // --- Hinweis zur AES-256-Verschlüsselung ---
-              // if (encrypt)
-              //   Padding(
-              //     padding: const EdgeInsets.only(left: 4, bottom: 4),
-              //     child: Row(
-              //       children: [
-              //         Icon(Icons.info_outline, size: 14, color: Theme.of(context).colorScheme.secondary),
-              //         const SizedBox(width: 6),
-              //         Expanded(
-              //           child: Text(
-              //             'Verwendet AES-256. Zum Öffnen wird 7-Zip (kostenlos, empfohlen) '
-              //             'oder WinRAR benötigt – Windows Explorer unterstützt AES-256-ZIP nicht.',
-              //             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              //               color: Theme.of(context).colorScheme.secondary,
-              //             ),
-              //           ),
-              //         ),
-              //       ],
-              //     ),
-              //   ),
-
               // --- Passwort (nur sichtbar wenn Verschlüsselung aktiv) ---
               AnimatedSize(
                 duration: const Duration(milliseconds: 200),
@@ -200,8 +178,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                       )
                     : const SizedBox.shrink(),
               ),
-
-              const SizedBox(height: 16),
             ],
 
             if (state.status == ExportActionStatus.success)

@@ -272,9 +272,15 @@ Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikal
    - Evtl im eingebetteten Webbrowser 
 
 ## 2.16 Report
-- Statistik über Passwortstärke und Passwortalter 
-- Darknet-Check (Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen)
-- Einzelauflistung der schwachen Passwörter (ein Klick öffnet die Detailseite.
+
+Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich in vier Abschnitte:
+
+- **Darknet-Check (HaveIBeenPwned):** Prüfung jedes Passworts per k-Anonymitäts-Modell (SHA-1-Präfix). Das Passwort verlässt das Gerät niemals im Klartext. Einträge mit kompromittierten Passwörtern werden mit Trefferanzahl aufgelistet (ein Klick öffnet die Detailseite).
+- **Top 10 – Älteste Passwörter:** Einträge mit bekanntem Passwort-Datum, sortiert nach Alter. Farbliche Kennzeichnung (grün → rot).
+- **Unbekanntes Passwort-Alter:** Einträge ohne Datum der letzten Passwortänderung (max. 10 angezeigt, Hinweis auf weitere).
+- **Passwort-Altersverteilung:** Balkendiagramm mit Buckets (< 30 T., 30–90 T., 90–180 T., 180 T.–1 J., > 1 Jahr, Unbekannt).
+
+**HIBP-Cache:** API-Antworten werden per SHA-1-Präfix lokal gecacht (Datei `hibp_cache.json` im App-Verzeichnis). Die Cache-Gültigkeit ist konfigurierbar (Standard: 1 Tag, Einstellung `hibp_cache_days` im `ConfigService`).
 
 ### 2.17 Anzeige, Suche und Filterung der Einträge
 

@@ -77,7 +77,6 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
     });
 
     final isBusy = ref.watch(logFileProvider.select((s) => s.isBusy));
-    final notifier = ref.read(logFileProvider.notifier);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -93,19 +92,50 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
             // --- Titelleiste ---
             _buildTitleBar(context),
 
-            const Divider(height: 1),
-
             // --- Logdatei-Inhalt ---
             Expanded(
-              child: isBusy
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildLogContent(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.black26),
+                  ),
+                  child: isBusy
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildLogContent(),
+                ),
+              ),
             ),
 
-            const Divider(height: 1),
-
             // --- Aktionszeile ---
-            _buildActions(context, notifier, isBusy),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: OverflowBar(
+                alignment: MainAxisAlignment.end,
+                children: [
+
+                  // --- Copy-Button ---
+                  Consumer(
+                    builder: (ctx, ref, _) {
+                      final content = ref.watch(logFileProvider.select((s) => s.content));
+                      return TextButton.icon(
+                        onPressed: content.isEmpty ? null : () => _handleCopy(content),
+                        icon: const Icon(Icons.copy, size: 18),
+                        label: const Text('Kopieren'),
+                      );
+                    },
+                  ),
+
+                  // --- Schließen ---
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Schließen'),
+                  ),
+
+                ],
+              ),
+            ),
 
           ],
         ),
@@ -173,38 +203,6 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
           ),
         );
       },
-    );
-  }
-
-   /// Aktionszeile: Copy-Button links, Speichern + Schließen rechts
-  Widget _buildActions(BuildContext context, LogFileNotifier notifier, bool isBusy) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-
-          // --- Copy-Button ---
-          Consumer(
-            builder: (ctx, ref, _) {
-              final content = ref.watch(logFileProvider.select((s) => s.content));
-              return OutlinedButton.icon(
-                onPressed: content.isEmpty ? null : () => _handleCopy(content),
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('Kopieren'),
-              );
-            },
-          ),
-
-          const SizedBox(width: 8),
-
-          // --- Schließen ---
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Schließen'),
-          ),
-
-        ],
-      ),
     );
   }
 
