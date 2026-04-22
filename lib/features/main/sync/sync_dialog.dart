@@ -64,68 +64,62 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(syncProvider);
 
     // Listener für Status-Änderungen
     ref.listen(syncProvider.select((s) => s.status), (previous, next) {
-
-      switch (next) {
-        case SyncStatus.askForAdoption:
-          _showAdoptIdentityDialog();
-          break;
-
-        default:
-          break;
-      }
+      if (next == SyncStatus.askForAdoption) _showAdoptIdentityDialog();
     });
 
     // Gezielte Watches für maximale Performance
-    final status = ref.watch(syncProvider.select((s) => s.status));
+    final status         = ref.watch(syncProvider.select((s) => s.status));
+    final isBusy         = ref.watch(syncProvider.select((s) => s.isBusy));
+    final syncStatistics = ref.watch(syncProvider.select((s) => s.syncStatistics));
+    final error          = ref.watch(syncProvider.select((s) => s.error));
 
     return AlertDialog(
       title: const Text('Synchronisation'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0),
       content: SizedBox(
         width: 320,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          //crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
             if (status == SyncStatus.progress) ...[
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
-              const Text("Daten werden abgeglichen..."),
+              const Text('Daten werden abgeglichen...'),
             ],
-            if (status == SyncStatus.success) ...[
+
+            if (status == SyncStatus.success)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green),
+                    const Icon(Icons.check_circle, color: Colors.green),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Synchronisation erfolgreich abgeschlossen.\n\n${state.syncStatistics}',
+                        'Synchronisation erfolgreich abgeschlossen.\n\n$syncStatistics',
                         softWrap: true,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-            if (status == SyncStatus.failure || status == SyncStatus.askForRekeying) ...[
+
+            if (status == SyncStatus.failure || status == SyncStatus.askForRekeying)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.error, color: Theme.of(context).colorScheme.error),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        state.error.text,
+                        error.text,
                         softWrap: true,
                         style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
@@ -133,18 +127,18 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
                   ],
                 ),
               ),
-            ],
+
           ],
         ),
       ),
 
       // --- Button ---
       actions: [
-        if (state.status != SyncStatus.progress)
+        if (status != SyncStatus.progress)
           ElevatedButton(
             autofocus: true,
-            onPressed: state.isBusy ? null : () => Navigator.of(context).pop(state.status == SyncStatus.success),
-            child: const Text("OK"),
+            onPressed: isBusy ? null : () => Navigator.of(context).pop(status == SyncStatus.success),
+            child: const Text('OK'),
           ),
       ],
     );

@@ -78,40 +78,38 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
     // });
 
     // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(previewProvider.select((s) => s.isBusy));
-
-    // Notifier, State und Renderer holen
+    final isBusy   = ref.watch(previewProvider.select((s) => s.isBusy));
+    final status   = ref.watch(previewProvider.select((s) => s.status));
+    final fileName = ref.watch(previewProvider.select((s) => s.file.name));
+    final bytes    = ref.watch(previewProvider.select((s) => s.bytes));
+    final mime     = ref.watch(previewProvider.select((s) => s.file.mime));
+    final renderer = createRenderer(bytes, mime);
     final notifier = ref.read(previewProvider.notifier);
-    final state = ref.watch(previewProvider);
-    final renderer = createRenderer(state.bytes, state.file.mime);
 
     return AlertDialog(
       title: Row(
         children: [
           Expanded(
             child: Text(
-              state.file.name,
+              fileName,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
-      //insetPadding: const EdgeInsets.all(16.0), // Abstand zum Bildschirmrand überall verringern
-      //insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand links und rechts verringern
-      insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0), // Abstand zum Bildschirmrand verringern
+      insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
       contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(
-        //width: 450,
         width: 600,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child:Stack(
+              child: Stack(
                 children: [
                   // --- Vorschau ---
                   Container(
-                    width: double.infinity, // Stack ausfüllen
+                    width: double.infinity,
                     height: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -121,25 +119,25 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
                   ),
 
                   // --- Ladeanzeige ---
-                  if (state.status == PreviewActionStatus.progress)
+                  if (status == PreviewActionStatus.progress)
                     Container(
-                      color: Colors.white.withValues(alpha: 0.3), // Hintergrund leicht abdunkeln
+                      color: Colors.white.withValues(alpha: 0.3),
                       child: const Center(child: CircularProgressIndicator()),
                     ),
 
                   // --- Fehleranzeige ---
-                  if (state.status == PreviewActionStatus.failure)
+                  if (status == PreviewActionStatus.failure)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start, // Icon oben ausrichten bei Mehrzeilern
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(Icons.error, color: Theme.of(context).colorScheme.error),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                state.error.text,
+                                ref.read(previewProvider).error.text,
                                 softWrap: true,
                                 style: TextStyle(color: Theme.of(context).colorScheme.error),
                               ),
@@ -148,7 +146,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
                         ),
                       ),
                     ),
-                  ],
+                ],
               ),
             ),
 
@@ -161,7 +159,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
       actions: [
         // Download
         TextButton.icon(
-          onPressed: state.isBusy ? null : notifier.download,
+          onPressed: isBusy ? null : notifier.download,
           icon: const Icon(Icons.download_outlined),
           label: const Text('Herunterladen'),
         ),
@@ -169,7 +167,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
         // Drucken
         if (renderer.isPrintable)
           TextButton.icon(
-            onPressed: state.isBusy ? null : notifier.print,
+            onPressed: isBusy ? null : notifier.print,
             icon: const Icon(Icons.print_outlined),
             label: const Text('Drucken'),
           ),

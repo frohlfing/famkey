@@ -175,18 +175,15 @@ class SyncNotifier extends Notifier<SyncState> {
       // 6. Aktualisierte Freundesliste an den Server hochladen
       await _pushFriends();
 
-      // 7. Zeitstempel setzen
+      // 7. Zeitstempel setzen und Session aktualisieren
       final updatedSettings = settings.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
+      _sessionService.setSettings(updatedSettings);
 
       // UI-State aktualisieren
       state = state.copyWith(status: SyncStatus.success);
 
     } on DioException catch (de) { // Exception des HTTP-Clients
-      //final msg = de.response?.statusMessage ?? (de.message ?? 'Netzwerkfehler');
-      //final text = de.response?.statusCode != null ? '$msg (Code ${de.response?.statusCode})' : msg;
-      //Logger().error(text);
-      //state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.networkError, text: text));
       final error = WebService.convertDioError(de);
       Logger().error(error.text);
       state = state.copyWith(status: SyncStatus.failure, error: error);
@@ -438,7 +435,7 @@ class SyncNotifier extends Notifier<SyncState> {
     final localUpdates = await _databaseService.getEntriesSince(lastSyncAt);
     final localDeletes = await _databaseService.getTombstonesSince(lastSyncAt);
     final unsyncedAttachments = await _databaseService.getAttachmentsUnsynced();
-    if (localUpdates.isEmpty && localDeletes.isNotEmpty && unsyncedAttachments.isNotEmpty) {
+    if (localUpdates.isEmpty && localDeletes.isEmpty && unsyncedAttachments.isEmpty) {
       return; // nichts zu tun
     }
 
