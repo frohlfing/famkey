@@ -83,7 +83,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
     // Notifier, State und Renderer holen
     final notifier = ref.read(exportProvider.notifier);
-    final state = ref.watch(exportProvider);
+    final state = ref.watch(exportProvider); // todo watch? Wenn state geändert wird, wird der Komplette Dialog neu gezeichnet?
     final renderer = createRenderer(state.mdBytes, state.mdFile.mime);
     final encrypt = state.formData.encrypt;
 
@@ -137,7 +137,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                       ),
                       child: renderer.buildWidget(),
                     ),
-
                   ],
                 ),
               ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/log_file/log_file_notifier.dart';
-import 'package:privault/features/settings/log_file/log_file_state.dart';
 import 'package:privault/widgets/snack.dart';
 
 /// Modaler Dialog, der den Inhalt der Logdatei anzeigt und
@@ -61,115 +60,64 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
   @override
   Widget build(BuildContext context) {
 
-    // Listener für Statusänderungen
-    ref.listen(logFileProvider.select((s) => s.status), (previous, next) {
-      switch (next) {
-        case LogFileStatus.saved:
-          Snack.show(context, 'Log-Einstellungen gespeichert!', success: true);
-          break;
-        case LogFileStatus.failure:
-          final error = ref.read(logFileProvider).error.text;
-          Snack.show(context, error);
-          break;
-        default:
-          break;
-      }
-    });
-
+    // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(logFileProvider.select((s) => s.isBusy));
 
-    return Dialog(
+    return AlertDialog(
+      title: const Text('Fehlerprotokoll'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 700,
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
+      content: SizedBox(
+        width: 600,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            // --- Titelleiste ---
-            _buildTitleBar(context),
-
-            // --- Logdatei-Inhalt ---
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.black26),
-                  ),
-                  child: isBusy
-                      ? const Center(child: CircularProgressIndicator())
-                      : _buildLogContent(),
-                ),
-              ),
-            ),
-
-            // --- Aktionszeile ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: OverflowBar(
-                alignment: MainAxisAlignment.end,
+              child: Stack(
                 children: [
-
-                  // --- Copy-Button ---
-                  Consumer(
-                    builder: (ctx, ref, _) {
-                      final content = ref.watch(logFileProvider.select((s) => s.content));
-                      return TextButton.icon(
-                        onPressed: content.isEmpty ? null : () => _handleCopy(content),
-                        icon: const Icon(Icons.copy, size: 18),
-                        label: const Text('Kopieren'),
-                      );
-                    },
+                  // --- Logdatei-Inhalt ---
+                  Container(
+                    width: double.infinity, // Stack ausfüllen
+                    height: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.black26),
+                    ),
+                    child: isBusy ? const Center(child: CircularProgressIndicator()) : _buildLogContent(),
                   ),
-
-                  // --- Schließen ---
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Schließen'),
-                  ),
-
                 ],
               ),
             ),
-
           ],
         ),
       ),
+
+      // --- Buttons ---
+      actions: [
+        Consumer(
+          builder: (ctx, ref, _) {
+            final content = ref.watch(logFileProvider.select((s) => s.content));
+            return TextButton.icon(
+              onPressed: content.isEmpty ? null : () => _handleCopy(content),
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Kopieren'),
+            );
+          },
+        ),
+
+        // Schließen
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Schließen'),
+        ),
+      ],
+
     );
   }
 
   // ------------------------------------------------------------------------
   // --- Widgets ---
   // ------------------------------------------------------------------------
-
-  /// Titelleiste mit Titel und Schließen-Button
-  Widget _buildTitleBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
-      child: Row(
-        children: [
-          const Icon(Icons.article_outlined, size: 22),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Logdatei',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Schließen',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Scrollbarer Logdatei-Inhalt mit monospace-Schrift
   Widget _buildLogContent() {
