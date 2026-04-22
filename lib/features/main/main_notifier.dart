@@ -115,7 +115,7 @@ class MainNotifier extends Notifier<MainState> {
   /// Setter für Suchbegriff
   void setSearchQuery(String value) {
     state = state.copyWith(
-      searchQuery: value.toLowerCase(),
+      searchQuery: value,
       groupedEntries: _groupEntries(searchQuery: value),
     );
   }
@@ -132,15 +132,16 @@ class MainNotifier extends Notifier<MainState> {
   Map<String, List<EntryWithIndex>> _groupEntries({String searchQuery = '', bool onlyMyEntries = false}) {
     final Map<String, List<EntryWithIndex>> groups = {};
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
-    final q = searchQuery;
+    final q = searchQuery.toLowerCase();
 
     // Filter anwenden
     final filtered = _allEntries.where((e) {
       final idx = e.index;
       final matchesSearch = q.isEmpty ||
-          idx.title.toLowerCase().contains(q) ||
+          idx.title.toLowerCase().contains(q) || // todo Werte im index bereits in kleinbuchstaben umwandeln
           idx.url.toLowerCase().contains(q) ||
-          idx.notes.toLowerCase().contains(q);
+          idx.notes.toLowerCase().contains(q) ||
+          e.entry.uuid.contains(q);
       final matchesUser = !onlyMyEntries || e.entry.creatorId == _sessionService.user?.id;
       return matchesSearch && matchesUser;
     });
