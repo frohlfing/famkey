@@ -57,7 +57,7 @@
 - ✅ Drucken (Markdown-Generierung)
 
 - ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
-- ❌ Report über die Passwortstärke und -Alter aller Einträge
+- ✅ Report über die Passwortstärke und -Alter aller Einträge
 
 !!!!!!!!!!!!!!!!!!!!!!
 - LogConfigDialog schöner machen

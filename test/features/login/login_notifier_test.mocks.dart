@@ -934,6 +934,23 @@ class MockPasswordService extends _i1.Mock implements _i12.PasswordService {
           as int);
 
   @override
+  ({String crackTime, int guesses, int score}) evaluatePassword(
+    String? password,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#evaluatePassword, [password]),
+            returnValue: (
+              crackTime: _i7.dummyValue<String>(
+                this,
+                Invocation.method(#evaluatePassword, [password]),
+              ),
+              guesses: 0,
+              score: 0,
+            ),
+          )
+          as ({String crackTime, int guesses, int score}));
+
+  @override
   String generatePassword({
     int? length = 20,
     String? specialChars = '!?§\$€%&#@()[]{}<>=_~-+*,;.:/|',
@@ -958,6 +975,44 @@ class MockPasswordService extends _i1.Mock implements _i12.PasswordService {
             ),
           )
           as String);
+
+  @override
+  void startHibpBatch() => super.noSuchMethod(
+    Invocation.method(#startHibpBatch, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void cancelHibpBatch() => super.noSuchMethod(
+    Invocation.method(#cancelHibpBatch, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  _i4.Future<void> loadHibpCache() =>
+      (super.noSuchMethod(
+            Invocation.method(#loadHibpCache, []),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> saveHibpCache() =>
+      (super.noSuchMethod(
+            Invocation.method(#saveHibpCache, []),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<int> checkHibp(String? password, {int? cacheDays = 1}) =>
+      (super.noSuchMethod(
+            Invocation.method(#checkHibp, [password], {#cacheDays: cacheDays}),
+            returnValue: _i4.Future<int>.value(0),
+          )
+          as _i4.Future<int>);
 }
 
 /// A class which mocks [SessionService].

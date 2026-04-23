@@ -199,9 +199,8 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       padding: const EdgeInsets.all(16),
       children: [
         _buildPwnedSection(context, theme),
-
-        // todo "Top 10 - Schwächste Passwörter" und Balkendiagramm einfügen
-
+        const SizedBox(height: 24),
+        _buildStrengthSection(context, theme),
         const SizedBox(height: 24),
         _buildOldestSection(context, theme),
         if (hasUnknown) ...[
@@ -313,7 +312,239 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 2: Älteste Passwörter ---
+  // --- Abschnitt 2: Passwortstärke ---
+  // ------------------------------------------------------------------------
+
+  Widget _buildStrengthSection(BuildContext context, ThemeData theme) {
+    return Consumer(
+      builder: (ctx, ref, _) {
+        final urgent         = ref.watch(reportProvider.select((s) => s.urgentPasswords));
+        final weakest        = ref.watch(reportProvider.select((s) => s.weakestPasswords));
+        final buckets        = ref.watch(reportProvider.select((s) => s.strengthBuckets));
+        final noPasswordCount = ref.watch(reportProvider.select((s) => s.noPasswordCount));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+              icon: Icons.shield_outlined,
+              iconColor: urgent.isEmpty ? Colors.green : Colors.red,
+              title: 'Passwortstärke',
+              subtitle: urgent.isEmpty
+                  ? 'Keine kritisch schwachen Passwörter ✓'
+                  : '${urgent.length} ${urgent.length == 1 ? 'Passwort sollte' : 'Passwörter sollten'} dringend geändert werden!',
+              subtitleColor: urgent.isEmpty ? Colors.green : Colors.red,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+
+            // Stärkeverteilung
+            if (buckets.isNotEmpty) ...[
+              _buildStrengthChart(buckets, theme),
+              const SizedBox(height: 8),
+            ],
+
+            // Hinweis auf ignorierte Einträge
+            if (noPasswordCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '$noPasswordCount ${noPasswordCount == 1 ? 'Eintrag ohne Passwort wurde' : 'Einträge ohne Passwort wurden'} nicht ausgewertet.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+              ),
+
+            // Dringend ändern (Score 0+1)
+            if (urgent.isEmpty)
+              _buildSuccessBanner(theme)
+            else ...[
+              const SizedBox(height: 8),
+              Text('Geschätzte Crack-Zeit', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+              const SizedBox(height: 4),
+              _buildCollapsibleList(
+                context: context,
+                theme: theme,
+                title: 'Dringend ändern',
+                titleColor: Colors.red,
+                initiallyExpanded: true,
+                children: urgent.map((e) => _buildUrgentCard(e, theme)).toList(),
+              ),
+            ],
+
+            // Top 10 schwächste (Score 2+3)
+            if (weakest.isNotEmpty) ...[
+              if (urgent.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Geschätzte Crack-Zeit', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                const SizedBox(height: 4),
+              ],
+              _buildCollapsibleList(
+                context: context,
+                theme: theme,
+                title: 'Top 10 schwächste',
+                titleColor: theme.colorScheme.primary,
+                initiallyExpanded: true,
+                children: weakest.asMap().entries.map((e) => _buildWeakestCard(e.key + 1, e.value, theme)).toList(),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCollapsibleList({
+    required BuildContext context,
+    required ThemeData theme,
+    required String title,
+    required Color titleColor,
+    required bool initiallyExpanded,
+    required List<Widget> children,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        initiallyExpanded: initiallyExpanded,
+        title: Text(title, style: theme.textTheme.labelLarge?.copyWith(color: titleColor, fontWeight: FontWeight.bold)),
+        iconColor: titleColor,
+        collapsedIconColor: titleColor,
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildUrgentCard(ReportEntry entry, ThemeData theme) {
+    final color = entry.strength == 0 ? Colors.red : Colors.orange;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color,
+          child: const Icon(Icons.lock_open, color: Colors.white, size: 20),
+        ),
+        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          entry.username.isNotEmpty ? entry.username : 'Kein Benutzername',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+        onTap: () => _openDetail(entry.id),
+      ),
+    );
+  }
+
+  Widget _buildWeakestCard(int rank, ReportEntry entry, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primaryContainer,
+          child: Text(
+            '$rank',
+            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer),
+          ),
+        ),
+        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text(
+          entry.username.isNotEmpty ? entry.username : 'Kein Benutzername',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+        onTap: () => _openDetail(entry.id),
+      ),
+    );
+  }
+
+  Widget _buildStrengthBadge(int score, String crackTime, ThemeData theme) {
+    return Text(
+      crackTime.isNotEmpty ? crackTime : '–',
+      style: theme.textTheme.bodySmall?.copyWith(color: _strengthColor(score), fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildStrengthChart(List<StrengthBucket> buckets, ThemeData theme) {
+    final maxCount = buckets.isEmpty ? 1 : buckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+        child: Column(
+          children: [
+            // --- Balken ---
+            SizedBox(
+              height: 160,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: buckets.map((bucket) {
+                  final relHeight = maxCount > 0 ? bucket.count / maxCount : 0.0;
+                  final barColor  = _strengthColor(bucket.score);
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (bucket.count > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                '${bucket.count}',
+                                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: barColor),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          else
+                            const SizedBox(height: 18),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeOut,
+                            height: relHeight > 0 ? relHeight * 120 : 4,
+                            decoration: BoxDecoration(
+                              color: bucket.count > 0 ? barColor : barColor.withValues(alpha: 0.2),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            // --- Beschriftungen ---
+            Row(
+              children: buckets.map((bucket) {
+                return Expanded(
+                  child: Text(
+                    bucket.label,
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600], fontSize: 10),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Abschnitt 3: Älteste Passwörter ---
   // ------------------------------------------------------------------------
 
   Widget _buildOldestSection(BuildContext context, ThemeData theme) {
@@ -379,7 +610,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 3: Unbekanntes Passwort-Alter ---
+  // --- Abschnitt 4: Unbekanntes Passwort-Alter ---
   // ------------------------------------------------------------------------
 
   Widget _buildUnknownAgeSection(BuildContext context, ThemeData theme) {
@@ -437,7 +668,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 4: Balkendiagramm Altersverteilung ---
+  // --- Abschnitt 5: Balkendiagramm Altersverteilung ---
   // ------------------------------------------------------------------------
 
   Widget _buildAgeChartSection(BuildContext context, ThemeData theme) {
@@ -603,6 +834,18 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         ),
       ],
     );
+  }
+
+  /// Farbe passend zur Passwortstärke (Score 0–4).
+  /// Farben identisch mit [PasswordStrengthBar]; Score 0 etwas dunkler da noch schlechter als Score 1.
+  Color _strengthColor(int score) {
+    switch (score) {
+      case 1:  return const Color(0xFFDC2626);
+      case 2:  return const Color(0xFFF59E0B);
+      case 3:  return const Color(0xFF84CC16);
+      case 4:  return const Color(0xFF16A34A);
+      default: return const Color(0xFF991B1B); // score 0
+    }
   }
 
   /// Farbe passend zum Passwort-Alter (grün = frisch, rot = alt)

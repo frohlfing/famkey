@@ -24,11 +24,17 @@ class ReportEntry {
   /// Zeitstempel der letzten Passwortänderung (null = unbekannt)
   final DateTime? passwordTimestamp;
 
-  /// Wie oft das Passwort in Leak-Datenbanken gefunden wurde (0 = sicher)
+  /// Wie oft das Passwort in Leak-Datenbanken gefunden wurde (0 = sicher, -1 = nicht prüfbar)
   final int pwnedCount;
 
   /// Passwortstärke nach Zxcvbn (0–4)
   final int strength;
+
+  /// Geschätzte Anzahl Rateversuche nach Zxcvbn (für präzise Sortierung innerhalb eines Scores)
+  final int guesses;
+
+  /// Geschätzte Crack-Zeit im Worst-Case-Szenario (10^10 Versuche/Sek.), z.B. "3 hours", "centuries"
+  final String crackTime;
 
   /// Konstruktor
   const ReportEntry({
@@ -38,6 +44,8 @@ class ReportEntry {
     required this.passwordTimestamp,
     required this.pwnedCount,
     required this.strength,
+    required this.guesses,
+    required this.crackTime,
   });
 }
 
@@ -53,6 +61,19 @@ class AgeBucket {
     required this.count,
     required this.daysMin,
     required this.daysMax,
+  });
+}
+
+/// Stärke-Klassen für das Balkendiagramm (Score 0–4)
+class StrengthBucket {
+  final String label;
+  final int count;
+  final int score; // 0–4
+
+  const StrengthBucket({
+    required this.label,
+    required this.count,
+    required this.score,
   });
 }
 
@@ -80,6 +101,12 @@ class ReportState {
   /// Einträge, deren Passwort in mindestens einer Leak-Datenbank gefunden wurde
   final List<ReportEntry> pwnedEntries;
 
+  /// Alle Einträge mit Score 0 oder 1 – dringend zu ändernde Passwörter, aufsteigend nach Guesses
+  final List<ReportEntry> urgentPasswords;
+
+  /// Top 10 der Einträge mit Score 2 oder 3, aufsteigend nach Guesses
+  final List<ReportEntry> weakestPasswords;
+
   /// Top 10 Einträge mit den ältesten Passwörtern (aufsteigend nach Datum, nur mit bekanntem Datum)
   final List<ReportEntry> oldestPasswords;
 
@@ -88,6 +115,12 @@ class ReportState {
 
   /// Altersverteilung der Passwörter (Buckets für das Balkendiagramm)
   final List<AgeBucket> ageBuckets;
+
+  /// Stärkeverteilung der Passwörter (5 Buckets für Score 0–4)
+  final List<StrengthBucket> strengthBuckets;
+
+  /// Anzahl der Einträge ohne Passwort (wurden nicht ausgewertet)
+  final int noPasswordCount;
 
   // ------------------------------------------------------------------------
   // --- Computed Properties ---
@@ -110,9 +143,13 @@ class ReportState {
     this.checkedCount = 0,
     this.isAborting = false,
     this.pwnedEntries = const [],
+    this.urgentPasswords = const [],
+    this.weakestPasswords = const [],
     this.oldestPasswords = const [],
     this.unknownAgeEntries = const [],
     this.ageBuckets = const [],
+    this.strengthBuckets = const [],
+    this.noPasswordCount = 0,
   });
 
   // ------------------------------------------------------------------------
@@ -126,9 +163,13 @@ class ReportState {
     int? checkedCount,
     bool? isAborting,
     List<ReportEntry>? pwnedEntries,
+    List<ReportEntry>? urgentPasswords,
+    List<ReportEntry>? weakestPasswords,
     List<ReportEntry>? oldestPasswords,
     List<ReportEntry>? unknownAgeEntries,
     List<AgeBucket>? ageBuckets,
+    List<StrengthBucket>? strengthBuckets,
+    int? noPasswordCount,
   }) {
     return ReportState(
       status: status ?? this.status,
@@ -137,9 +178,13 @@ class ReportState {
       checkedCount: checkedCount ?? this.checkedCount,
       isAborting: isAborting ?? this.isAborting,
       pwnedEntries: pwnedEntries ?? this.pwnedEntries,
+      urgentPasswords: urgentPasswords ?? this.urgentPasswords,
+      weakestPasswords: weakestPasswords ?? this.weakestPasswords,
       oldestPasswords: oldestPasswords ?? this.oldestPasswords,
       unknownAgeEntries: unknownAgeEntries ?? this.unknownAgeEntries,
       ageBuckets: ageBuckets ?? this.ageBuckets,
+      strengthBuckets: strengthBuckets ?? this.strengthBuckets,
+      noPasswordCount: noPasswordCount ?? this.noPasswordCount,
     );
   }
 }

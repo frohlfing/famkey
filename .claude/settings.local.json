@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"^\\\\s*```|flutter\")"
+      "Bash(grep -E \"^\\\\s*```|flutter\")",
+      "Bash(flutter analyze *)"
     ]
   }
 }

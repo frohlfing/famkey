@@ -1,13 +1,6 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart' as crypto_hash;
-import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/features/report/report_state.dart';
@@ -42,26 +35,6 @@ class ReportNotifier extends Notifier<ReportState> {
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  /// Separater Dio-Client für die externe HIBP-API
-  final Dio _hibpDio = Dio(
-    BaseOptions(
-      baseUrl: 'https://api.pwnedpasswords.com/',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {
-        'User-Agent': 'PriVault-PasswordManager',
-        'Add-Padding': 'true', // HIBP-Empfehlung: padding gegen Traffic-Analyse
-      },
-    ),
-  );
-
-  /// Cache: SHA-1-Präfix (5 Hex-Zeichen) → API-Antwort + Zeitstempel (Unix-Sekunden)
-  AppFile _hibpCacheFile = const AppFile.none();
-  Map<String, ({String body, int ts})> _hibpCache = {};
-
-  /// CancelToken zum sofortigen Abbruch laufender HIBP-Anfragen
-  CancelToken _hibpCancelToken = CancelToken();
-
   /// Alle Report-Einträge (intern, für Neuberechnungen nach Einzelprüfung)
   List<ReportEntry> _allEntries = [];
 
@@ -84,17 +57,14 @@ class ReportNotifier extends Notifier<ReportState> {
   ///
   /// 1. Alle Einträge aus der DB laden und entschlüsseln
   /// 2. Jeden Passwort-Hash gegen die HIBP-API prüfen (mit Cache)
-  /// 3. Statistiken (Älteste, Altersverteilung) berechnen
+  /// 3. Statistiken (Stärke, Älteste, Altersverteilung) berechnen
   Future<void> load() async {
     if (state.isBusy) return;
 
-    // Zwischenergebnisse für den Report
     final reportEntries = <ReportEntry>[];
+    int noPasswordCount = 0;
 
-    // Neuen CancelToken für diese Analyse-Runde erstellen
-    _hibpCancelToken = CancelToken();
-
-    // 1. Ladeanzeige einblenden
+    // Ladeanzeige einblenden
     state = const ReportState().copyWith(status: ReportActionStatus.loading, error: AppError.none());
     await Future.delayed(const Duration(milliseconds: 50));
 
@@ -106,16 +76,13 @@ class ReportNotifier extends Notifier<ReportState> {
         throw Exception('Der Benutzer liegt nicht in der Session.');
       }
 
-      // Cache von Disk laden
-      await _loadHibpCache();
-
       // 1. Alle Einträge laden
       final entries = await _databaseService.getEntries();
 
       // Gesamtanzahl für die Fortschrittsanzeige im State setzen
       state = state.copyWith(totalCount: entries.length);
 
-      // 2. Einträge durchlaufen, Entschlüsseln und analysieren...
+      // 2. Einträge durchlaufen, entschlüsseln und analysieren
       for (final entry in entries) {
 
         // Eintrag entschlüsseln
@@ -125,11 +92,23 @@ class ReportNotifier extends Notifier<ReportState> {
         final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
 
-        // HIBP-Prüfung (k-Anonymitäts-Modell, mit Cache)
-        final pwnedCount = await _checkHibp(payload.password);
+        // Einträge ohne Passwort ignorieren
+        if (payload.password.isEmpty) {
+          noPasswordCount++;
+          state = state.copyWith(checkedCount: state.checkedCount + 1);
+          await Future.delayed(const Duration(milliseconds: 10));
+          if (state.isAborting) {
+            state = state.copyWith(status: ReportActionStatus.aborted, isAborting: false);
+            return;
+          }
+          continue;
+        }
 
-        // Passwortstärke ermitteln
-        final strength = _passwordService.estimateStrength(payload.password);
+        // HIBP-Prüfung (k-Anonymitäts-Modell, mit Cache)
+        final pwnedCount = await _passwordService.checkHibp(payload.password, cacheDays: _configService.hibpCacheDays);
+
+        // Passwortstärke, Guesses und Crack-Zeit ermitteln
+        final (:score, :guesses, :crackTime) = _passwordService.evaluatePassword(payload.password);
 
         // Zwischenergebnis speichern
         reportEntries.add(ReportEntry(
@@ -138,7 +117,9 @@ class ReportNotifier extends Notifier<ReportState> {
           username: payload.username,
           passwordTimestamp: payload.passwordTimestamp,
           pwnedCount: pwnedCount,
-          strength: strength,
+          strength: score,
+          guesses: guesses,
+          crackTime: crackTime,
         ));
 
         // Fortschritt hochzählen und State aktualisieren
@@ -147,30 +128,24 @@ class ReportNotifier extends Notifier<ReportState> {
 
         // Wurde abgebrochen?
         if (state.isAborting) {
-          await _saveHibpCache();
           state = state.copyWith(status: ReportActionStatus.aborted, isAborting: false);
           return;
         }
       }
 
-      // Cache auf Disk speichern
-      await _saveHibpCache();
-
       // 3. Ergebnisse aufbereiten
       _allEntries = reportEntries;
 
-      final pwnedEntries = reportEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)); // meiste Treffer zuerst
-
-      final oldestPasswords = _buildOldestList(reportEntries);
-      final unknownAgeEntries = _buildUnknownAgeList(reportEntries);
-      final ageBuckets = _buildAgeBuckets(reportEntries);
-
       state = state.copyWith(
         status: ReportActionStatus.loaded,
-        pwnedEntries: pwnedEntries,
-        oldestPasswords: oldestPasswords,
-        unknownAgeEntries: unknownAgeEntries,
-        ageBuckets: ageBuckets,
+        pwnedEntries: reportEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
+        urgentPasswords: _buildUrgentList(reportEntries),
+        weakestPasswords: _buildWeakestList(reportEntries),
+        oldestPasswords: _buildOldestList(reportEntries),
+        unknownAgeEntries: _buildUnknownAgeList(reportEntries),
+        ageBuckets: _buildAgeBuckets(reportEntries),
+        strengthBuckets: _buildStrengthBuckets(reportEntries),
+        noPasswordCount: noPasswordCount,
       );
 
     } catch (e, st) {
@@ -183,108 +158,33 @@ class ReportNotifier extends Notifier<ReportState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- HIBP-Cache ---
+  // --- Passwortstärke ---
   // ------------------------------------------------------------------------
 
-  /// Lädt den HIBP-Cache aus der JSON-Datei im App-Verzeichnis.
-  Future<void> _loadHibpCache() async {
-    try {
-      final path = env.isWeb ? 'hibp_cache.json' : p.join(env.storagePath, 'hibp_cache.json');
-      _hibpCacheFile = createAppFile(path);
-
-      if (!await _hibpCacheFile.exists()) {
-        _hibpCache = {};
-        return;
-      }
-
-      final raw = json.decode(await _hibpCacheFile.readAsString()) as Map<String, dynamic>;
-      _hibpCache = {};
-      for (final e in raw.entries) {
-        final m = e.value as Map<String, dynamic>;
-        _hibpCache[e.key] = (body: m['body'] as String, ts: m['ts'] as int);
-      }
-    } catch (e) {
-      Logger().fatal('HIBP-Cache: Fehler beim Laden: $e');
-      _hibpCache = {};
-    }
+  /// Alle Einträge mit Score 0 oder 1, aufsteigend nach Guesses.
+  List<ReportEntry> _buildUrgentList(List<ReportEntry> entries) {
+    return entries.where((e) => e.strength <= 1).toList()
+      ..sort((a, b) => a.guesses.compareTo(b.guesses));
   }
 
-  /// Speichert den HIBP-Cache als JSON-Datei.
-  Future<void> _saveHibpCache() async {
-    try {
-      final m = _hibpCache.map((k, v) => MapEntry(k, {'body': v.body, 'ts': v.ts}));
-      await _hibpCacheFile.writeAsString(json.encode(m));
-    } catch (e) {
-      Logger().fatal('HIBP-Cache: Fehler beim Speichern: $e');
-    }
+  /// Top 10 der Einträge mit Score 2 oder 3, aufsteigend nach Guesses.
+  List<ReportEntry> _buildWeakestList(List<ReportEntry> entries) {
+    return (entries.where((e) => e.strength == 2 || e.strength == 3).toList()
+      ..sort((a, b) => a.guesses.compareTo(b.guesses)))
+      .take(10).toList();
   }
 
-  int c = 0;
-
-  // ------------------------------------------------------------------------
-  // --- Darknet-Check (HaveIBeenPwned) ---
-  // ------------------------------------------------------------------------
-
-  /// Prüft ein Passwort gegen die HaveIBeenPwned-API.
-  ///
-  /// Nutzt das k-Anonymitäts-Modell:
-  /// - Berechnet SHA-1 des Passworts
-  /// - Sendet nur die ersten 5 Zeichen des Hashes (Präfix)
-  /// - HIBP gibt alle Hashes zurück, die mit diesem Präfix beginnen
-  /// - Lokal wird geprüft, ob der vollständige Hash enthalten ist
-  ///
-  /// API-Antworten werden per Präfix gecacht (Gültigkeit: [ConfigService.hibpCacheDays]).
-  ///
-  /// Gibt die Anzahl der Leak-Vorkommen zurück (0 = nicht gefunden, -1 = Prüfung nicht möglich).
-  Future<int> _checkHibp(String password) async {
-    if (password.isEmpty) return 0;
-
-    try {
-      // SHA-1 des Passworts berechnen
-      final bytes = utf8.encode(password);
-      final sha1Hex = crypto_hash.sha1.convert(bytes).toString().toUpperCase();
-      final prefix = sha1Hex.substring(0, 5);
-      final suffix = sha1Hex.substring(5);
-
-      // Cache prüfen
-      final cacheDays = _configService.hibpCacheDays;
-      final nowTs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final cached = _hibpCache[prefix];
-      String body;
-      if (cached != null && (nowTs - cached.ts) < cacheDays * 86400) {
-        body = cached.body;
-      }
-      else {
-        c = c + 1;
-        // HIBP-API anfragen
-        final response = await _hibpDio.get<String>('range/$prefix', cancelToken: _hibpCancelToken);
-        if (response.data == null) return -1; // Netzwerkfehler
-        body = response.data!;
-        _hibpCache[prefix] = (body: body, ts: nowTs);
-      }
-
-      // Antwort zeilenweise parsen und Suffix im Body suchen: "SUFFIX:COUNT\r\n..."
-      for (final line in body.split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty) continue;
-        final colonIdx = trimmed.indexOf(':');
-        if (colonIdx < 0) continue;
-        final lineSuffix = trimmed.substring(0, colonIdx);
-        if (lineSuffix == suffix) {
-          return int.tryParse(trimmed.substring(colonIdx + 1)) ?? 1;
-        }
-      }
-
-      return 0; // Nicht gefunden → sicher
-
-    } on DioException catch (e) {
-      // Netzwerkfehler: Wir überspringen diesen Eintrag still
-      Logger().fatal('HIBP-Anfrage fehlgeschlagen: ${e.message}');
-      return -1; // -1 = Prüfung nicht möglich (kein Netzwerk o.ä.)
-    } catch (e) {
-      Logger().fatal('HIBP: Unbekannter Fehler: $e');
-      return -1;
+  /// Stärkeverteilung aller Einträge (Score 0–4).
+  List<StrengthBucket> _buildStrengthBuckets(List<ReportEntry> entries) {
+    final counts = List.filled(5, 0);
+    for (final e in entries) {
+      counts[e.strength.clamp(0, 4)]++;
     }
+    const labels = ['Sehr schwach', 'Schwach', 'Mittel', 'Gut', 'Sehr stark'];
+    return [
+      for (var i = 0; i < 5; i++)
+        StrengthBucket(label: labels[i], count: counts[i], score: i),
+    ];
   }
 
   // ------------------------------------------------------------------------
@@ -366,8 +266,8 @@ class ReportNotifier extends Notifier<ReportState> {
         final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
 
-        final pwnedCount = await _checkHibp(payload.password);
-        final strength = _passwordService.estimateStrength(payload.password);
+        final pwnedCount = await _passwordService.checkHibp(payload.password, cacheDays: _configService.hibpCacheDays);
+        final (:score, :guesses, :crackTime) = _passwordService.evaluatePassword(payload.password);
 
         final updated = ReportEntry(
           id: entry.id,
@@ -375,19 +275,23 @@ class ReportNotifier extends Notifier<ReportState> {
           username: payload.username,
           passwordTimestamp: payload.passwordTimestamp,
           pwnedCount: pwnedCount,
-          strength: strength,
+          strength: score,
+          guesses: guesses,
+          crackTime: crackTime,
         );
 
         _allEntries = [for (final e in _allEntries) if (e.id == entryId) updated else e];
       }
 
       // Abgeleitete Listen neu berechnen
-      final pwnedEntries = _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount));
       state = state.copyWith(
-        pwnedEntries: pwnedEntries,
+        pwnedEntries: _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
+        urgentPasswords: _buildUrgentList(_allEntries),
+        weakestPasswords: _buildWeakestList(_allEntries),
         oldestPasswords: _buildOldestList(_allEntries),
         unknownAgeEntries: _buildUnknownAgeList(_allEntries),
         ageBuckets: _buildAgeBuckets(_allEntries),
+        strengthBuckets: _buildStrengthBuckets(_allEntries),
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Neuprüfen des Eintrags $entryId: $e', stack: st);
@@ -399,9 +303,8 @@ class ReportNotifier extends Notifier<ReportState> {
   // ------------------------------------------------------------------------
 
   /// Signalisiert dem laufenden Vorgang, dass er abgebrochen werden soll.
-  /// Bricht außerdem laufende HIBP-API-Anfragen sofort ab.
+  /// Die laufende HIBP-Anfrage wird noch zu Ende geführt, bevor der Abbruch greift.
   void abortLoading() {
-    _hibpCancelToken.cancel();
     state = state.copyWith(isAborting: true);
   }
 }
