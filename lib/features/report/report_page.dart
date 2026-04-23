@@ -4,12 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:privault/features/report/report_notifier.dart';
 import 'package:privault/features/report/report_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Die [ReportPage] zeigt eine Sicherheitsanalyse des Tresors.
 ///
 /// Sie prüft alle gespeicherten Passwörter gegen die HaveIBeenPwned-Datenbank
-/// und zeigt außerdem die ältesten Passwörter, Einträge ohne bekanntes Passwort-Datum
-/// sowie eine Altersverteilung als Balkendiagramm an.
+/// und zeigt außerdem Passwortstärken, Altersverteilung und älteste Passwörter an.
 class ReportPage extends ConsumerStatefulWidget {
 
   /// Konstruktor
@@ -22,22 +22,19 @@ class ReportPage extends ConsumerStatefulWidget {
 class _ReportPageState extends ConsumerState<ReportPage> {
 
   // ------------------------------------------------------------------------
-  // --- Aufklapp-Zustand der Sektionen ---
+  // --- Aufklapp-Zustand der Klapplisten ---
   // ------------------------------------------------------------------------
 
-  bool _pwnedExpanded    = true;
-  bool _strengthExpanded = true;
-  bool _crackExpanded    = true;
-  bool _urgentExpanded   = true;
-  bool _weakestExpanded  = true;
-  bool _oldestExpanded   = true;
-  bool _unknownExpanded  = true;
+  bool _pwnedExpanded   = false;
+  bool _urgentExpanded  = false;
+  bool _weakestExpanded = false;
+  bool _oldestExpanded  = false;
+  bool _unknownExpanded = false;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
 
-  /// Initialisiert die Seite und startet die Analyse, sobald der erste Frame gerendert wurde.
   @override
   void initState() {
     super.initState();
@@ -51,11 +48,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   // --- Benutzeroberfläche ---
   // ------------------------------------------------------------------------
 
-  /// Rendert die Seite (getriggert durch Änderungen im State)
   @override
   Widget build(BuildContext context) {
 
-    // Listener für Status-Änderungen
     ref.listen(reportProvider.select((s) => s.status), (previous, next) {
       switch (next) {
         case ReportActionStatus.aborted:
@@ -66,14 +61,10 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       }
     });
 
-    // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(reportProvider.select((s) => s.isBusy));
-    final status = ref.watch(reportProvider.select((s) => s.status));
-
-    // Notifier holen
+    final isBusy   = ref.watch(reportProvider.select((s) => s.isBusy));
+    final status   = ref.watch(reportProvider.select((s) => s.status));
     final notifier = ref.read(reportProvider.notifier);
-
-    final theme = Theme.of(context);
+    final theme    = Theme.of(context);
 
     return Stack(
       children: [
@@ -190,36 +181,21 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   // ------------------------------------------------------------------------
 
   Widget _buildReport(BuildContext context, ThemeData theme) {
-    final hasUnknown    = ref.watch(reportProvider.select((s) => s.unknownAgeEntries.isNotEmpty));
-    final hasUrgent     = ref.watch(reportProvider.select((s) => s.urgentPasswords.isNotEmpty));
-    final hasWeakest    = ref.watch(reportProvider.select((s) => s.weakestPasswords.isNotEmpty));
-    final hasCrackLists = hasUrgent || hasWeakest;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _buildPwnedSection(context, theme),
-        const SizedBox(height: 16),
+        const SizedBox(height: 48),
         _buildStrengthSection(context, theme),
-        if (hasCrackLists) ...[
-          const SizedBox(height: 16),
-          _buildCrackTimeSection(context, theme),
-        ],
-        const SizedBox(height: 16),
-        _buildOldestSection(context, theme),
-        if (hasUnknown) ...[
-          const SizedBox(height: 16),
-          _buildUnknownAgeSection(context, theme),
-        ],
-        const SizedBox(height: 16),
-        _buildAgeChartSection(context, theme),
+        const SizedBox(height: 48),
+        _buildAgeSection(context, theme),
         const SizedBox(height: 32),
       ],
     );
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 1: HIBP-Treffer ---
+  // --- Abschnitt 1: Kompromittierte Passwörter ---
   // ------------------------------------------------------------------------
 
   Widget _buildPwnedSection(BuildContext context, ThemeData theme) {
@@ -231,14 +207,34 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCollapsibleHeader(
-              theme: theme,
+            _buildSectionHeader(
               icon: Icons.warning_amber_rounded,
               iconColor: pwned.isEmpty ? Colors.green : Colors.red,
-              title: 'Darknet-Check (HaveIBeenPwned)',
+              title: 'Kompromittierte Passwörter',
+              subtitle: 'Passwörter, die in bekannten Datenlecks aufgetaucht sind',
+              subtitleColor: Colors.grey,
+              theme: theme,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Es wird geprüft, ob ein Passwort in einer öffentlich bekannten Datenbank '
+              'geleakter Zugangsdaten vorkommt. Die Prüfung erfolgt anonym per '
+              'k-Anonymitäts-Modell – das Passwort verlässt das Gerät niemals im Klartext.',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 6),
+            _buildHibpAttribution(theme),
+            const SizedBox(height: 12),
+            _buildCollapsibleHeader(
+              theme: theme,
+              icon: pwned.isEmpty ? Icons.check_circle_outline : Icons.lock_open,
+              iconColor: pwned.isEmpty ? Colors.green : Colors.red,
+              title: pwned.isEmpty
+                  ? 'Kein Passwort in Leaks gefunden ✓'
+                  : '${pwned.length} von $total Passwörtern kompromittiert!',
               subtitle: pwned.isEmpty
-                  ? 'Kein Passwort in bekannten Leaks gefunden ✓'
-                  : '${pwned.length} von $total Passwörtern sind kompromittiert!',
+                  ? 'Alle geprüften Passwörter sind sicher'
+                  : '${pwned.length} ${pwned.length == 1 ? 'Passwort sollte' : 'Passwörter sollten'} sofort geändert werden',
               subtitleColor: pwned.isEmpty ? Colors.green : Colors.red,
               isExpanded: _pwnedExpanded,
               onToggle: () => setState(() => _pwnedExpanded = !_pwnedExpanded),
@@ -249,16 +245,46 @@ class _ReportPageState extends ConsumerState<ReportPage> {
                 _buildSuccessBanner(theme)
               else
                 ...pwned.map((e) => _buildPwnedCard(e, theme)),
-              const SizedBox(height: 8),
-              Text(
-                'Die Prüfung erfolgt anonym per k-Anonymitäts-Modell (SHA-1-Präfix).\n'
-                'Das Passwort verlässt das Gerät dabei niemals im Klartext.',
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-              ),
             ],
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHibpAttribution(ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Icons.info_outline, size: 14, color: Colors.grey[500]),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Datenquelle: ',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
+              GestureDetector(
+                onTap: () => launchUrl(Uri.parse('https://haveibeenpwned.com'), mode: LaunchMode.externalApplication),
+                child: Text(
+                  'Have I Been Pwned',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+              Text(
+                ' von Troy Hunt.',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -317,115 +343,75 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 2: Passwortstärke (Chart) ---
+  // --- Abschnitt 2: Passwortstärke ---
   // ------------------------------------------------------------------------
 
   Widget _buildStrengthSection(BuildContext context, ThemeData theme) {
     return Consumer(
       builder: (ctx, ref, _) {
-        final urgent         = ref.watch(reportProvider.select((s) => s.urgentPasswords));
-        final buckets        = ref.watch(reportProvider.select((s) => s.strengthBuckets));
+        final urgent          = ref.watch(reportProvider.select((s) => s.urgentPasswords));
+        final weakest         = ref.watch(reportProvider.select((s) => s.weakestPasswords));
+        final buckets         = ref.watch(reportProvider.select((s) => s.strengthBuckets));
         final noPasswordCount = ref.watch(reportProvider.select((s) => s.noPasswordCount));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCollapsibleHeader(
-              theme: theme,
+            _buildSectionHeader(
               icon: Icons.shield_outlined,
               iconColor: urgent.isEmpty ? Colors.green : Colors.red,
               title: 'Passwortstärke',
-              subtitle: urgent.isEmpty
-                  ? 'Keine kritisch schwachen Passwörter ✓'
-                  : '${urgent.length} ${urgent.length == 1 ? 'Passwort sollte' : 'Passwörter sollten'} dringend geändert werden!',
-              subtitleColor: urgent.isEmpty ? Colors.green : Colors.red,
-              isExpanded: _strengthExpanded,
-              onToggle: () => setState(() => _strengthExpanded = !_strengthExpanded),
-            ),
-            if (_strengthExpanded) ...[
-              const SizedBox(height: 12),
-              if (buckets.isNotEmpty) _buildStrengthChart(buckets, theme),
-              if (noPasswordCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '$noPasswordCount ${noPasswordCount == 1 ? 'Eintrag ohne Passwort wurde' : 'Einträge ohne Passwort wurden'} nicht ausgewertet.',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                  ),
-                ),
-              if (urgent.isEmpty) ...[
-                const SizedBox(height: 12),
-                _buildSuccessBanner(theme),
-              ],
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Abschnitt 3: Geschätzte Crack-Zeit ---
-  // ------------------------------------------------------------------------
-
-  Widget _buildCrackTimeSection(BuildContext context, ThemeData theme) {
-    return Consumer(
-      builder: (ctx, ref, _) {
-        final urgent  = ref.watch(reportProvider.select((s) => s.urgentPasswords));
-        final weakest = ref.watch(reportProvider.select((s) => s.weakestPasswords));
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCollapsibleHeader(
-              theme: theme,
-              icon: Icons.timer_outlined,
-              iconColor: theme.colorScheme.primary,
-              title: 'Geschätzte Crack-Zeit',
               subtitle: 'Geschätzte Zeit zum Knacken bei 10¹⁰ Versuchen/Sek. (GPU-Cracking)',
               subtitleColor: Colors.grey,
-              isExpanded: _crackExpanded,
-              onToggle: () => setState(() => _crackExpanded = !_crackExpanded),
+              theme: theme,
             ),
-            if (_crackExpanded) ...[
-              const SizedBox(height: 8),
-
-              // Dringend ändern (Score 0+1)
-              if (urgent.isNotEmpty) ...[
-                _buildCollapsibleHeader(
-                  theme: theme,
-                  icon: Icons.lock_open,
-                  iconColor: Colors.red,
-                  title: 'Dringend ändern',
-                  subtitle: '${urgent.length} ${urgent.length == 1 ? 'Passwort' : 'Passwörter'} mit Score 0 oder 1',
-                  subtitleColor: Colors.red,
-                  isExpanded: _urgentExpanded,
-                  onToggle: () => setState(() => _urgentExpanded = !_urgentExpanded),
+            const SizedBox(height: 12),
+            if (buckets.isNotEmpty) _buildStrengthChart(buckets, theme),
+            if (noPasswordCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '$noPasswordCount ${noPasswordCount == 1 ? 'Eintrag ohne Passwort wurde' : 'Einträge ohne Passwort wurden'} nicht ausgewertet.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
-                if (_urgentExpanded) ...[
-                  const SizedBox(height: 8),
-                  ...urgent.map((e) => _buildUrgentCard(e, theme)),
-                ],
+              ),
+            const SizedBox(height: 12),
+            if (urgent.isNotEmpty) ...[
+              _buildCollapsibleHeader(
+                theme: theme,
+                icon: Icons.lock_open,
+                iconColor: Colors.red,
+                title: 'Dringend ändern',
+                subtitle: '${urgent.length} ${urgent.length == 1 ? 'Passwort' : 'Passwörter'} mit Score 0 (Sehr schwach) oder 1 (Schwach)',
+                subtitleColor: Colors.red,
+                isExpanded: _urgentExpanded,
+                onToggle: () => setState(() => _urgentExpanded = !_urgentExpanded),
+              ),
+              if (_urgentExpanded) ...[
                 const SizedBox(height: 8),
+                ...urgent.map((e) => _buildUrgentCard(e, theme)),
               ],
-
-              // Top 10 schwächste (Score 2+3)
-              if (weakest.isNotEmpty) ...[
-                _buildCollapsibleHeader(
-                  theme: theme,
-                  icon: Icons.format_list_numbered,
-                  iconColor: theme.colorScheme.primary,
-                  title: 'Top 10 schwächste',
-                  subtitle: 'Die ${weakest.length} schwächsten Passwörter mit Score 2 oder 3',
-                  subtitleColor: Colors.grey,
-                  isExpanded: _weakestExpanded,
-                  onToggle: () => setState(() => _weakestExpanded = !_weakestExpanded),
-                ),
-                if (_weakestExpanded) ...[
-                  const SizedBox(height: 8),
-                  ...weakest.asMap().entries.map((e) => _buildWeakestCard(e.key + 1, e.value, theme)),
-                ],
+              const SizedBox(height: 8),
+            ],
+            if (weakest.isNotEmpty) ...[
+              _buildCollapsibleHeader(
+                theme: theme,
+                icon: Icons.format_list_numbered,
+                iconColor: theme.colorScheme.primary,
+                title: 'Top 10 der schwächsten Passwörter',
+                subtitle: 'Die ${weakest.length} schwächsten Passwörter mit Score 2 (Mittel) oder besser',
+                subtitleColor: Colors.grey,
+                isExpanded: _weakestExpanded,
+                onToggle: () => setState(() => _weakestExpanded = !_weakestExpanded),
+              ),
+              if (_weakestExpanded) ...[
+                const SizedBox(height: 8),
+                ...weakest.asMap().entries.map((e) => _buildWeakestCard(e.key + 1, e.value, theme)),
               ],
+            ],
+            if (urgent.isEmpty && weakest.isEmpty) ...[
+              const SizedBox(height: 4),
+              _buildSuccessBanner(theme),
             ],
           ],
         );
@@ -558,22 +544,39 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Abschnitt 4: Älteste Passwörter ---
+  // --- Abschnitt 3: Passwortalter ---
   // ------------------------------------------------------------------------
 
-  Widget _buildOldestSection(BuildContext context, ThemeData theme) {
+  Widget _buildAgeSection(BuildContext context, ThemeData theme) {
     return Consumer(
       builder: (ctx, ref, _) {
-        final oldest = ref.watch(reportProvider.select((s) => s.oldestPasswords));
+        final ageBuckets = ref.watch(reportProvider.select((s) => s.ageBuckets));
+        final oldest     = ref.watch(reportProvider.select((s) => s.oldestPasswords));
+        final unknown    = ref.watch(reportProvider.select((s) => s.unknownAgeEntries));
+        final maxCount   = ageBuckets.isEmpty ? 1 : ageBuckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildSectionHeader(
+              icon: Icons.calendar_today_outlined,
+              iconColor: theme.colorScheme.tertiary,
+              title: 'Passwortalter',
+              subtitle: 'Wie lange wurde ein Passwort nicht geändert?',
+              subtitleColor: Colors.grey,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+            if (ageBuckets.isEmpty)
+              Text('Keine Daten vorhanden.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey))
+            else
+              _buildBarChart(ageBuckets, maxCount, theme),
+            const SizedBox(height: 12),
             _buildCollapsibleHeader(
               theme: theme,
               icon: Icons.history,
               iconColor: theme.colorScheme.primary,
-              title: 'Top 10 – Älteste Passwörter',
+              title: 'Top 10 der ältesten Passwörter',
               subtitle: 'Passwörter, die am längsten nicht geändert wurden',
               subtitleColor: Colors.grey,
               isExpanded: _oldestExpanded,
@@ -585,6 +588,31 @@ class _ReportPageState extends ConsumerState<ReportPage> {
                 Text('Keine Einträge vorhanden.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey))
               else
                 ...oldest.asMap().entries.map((e) => _buildOldestCard(e.key + 1, e.value, theme)),
+            ],
+            if (unknown.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildCollapsibleHeader(
+                theme: theme,
+                icon: Icons.help_outline,
+                iconColor: Colors.grey,
+                title: 'Unbekanntes Passwortalter',
+                subtitle: '${unknown.length} ${unknown.length == 1 ? 'Eintrag' : 'Einträge'} ohne Datum der letzten Passwortänderung',
+                subtitleColor: Colors.grey,
+                isExpanded: _unknownExpanded,
+                onToggle: () => setState(() => _unknownExpanded = !_unknownExpanded),
+              ),
+              if (_unknownExpanded) ...[
+                const SizedBox(height: 12),
+                ...unknown.take(10).map((e) => _buildUnknownAgeCard(e, theme)),
+                if (unknown.length > 10)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Text(
+                      '… und ${unknown.length - 10} weitere',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ),
+              ],
             ],
           ],
         );
@@ -627,48 +655,6 @@ class _ReportPageState extends ConsumerState<ReportPage> {
     );
   }
 
-  // ------------------------------------------------------------------------
-  // --- Abschnitt 5: Unbekanntes Passwort-Alter ---
-  // ------------------------------------------------------------------------
-
-  Widget _buildUnknownAgeSection(BuildContext context, ThemeData theme) {
-    return Consumer(
-      builder: (ctx, ref, _) {
-        final entries = ref.watch(reportProvider.select((s) => s.unknownAgeEntries));
-        final shown   = entries.take(10).toList();
-        final rest    = entries.length - shown.length;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCollapsibleHeader(
-              theme: theme,
-              icon: Icons.help_outline,
-              iconColor: Colors.grey,
-              title: 'Unbekanntes Passwort-Alter',
-              subtitle: '${entries.length} ${entries.length == 1 ? 'Eintrag' : 'Einträge'} ohne Datum der letzten Passwortänderung',
-              subtitleColor: Colors.grey,
-              isExpanded: _unknownExpanded,
-              onToggle: () => setState(() => _unknownExpanded = !_unknownExpanded),
-            ),
-            if (_unknownExpanded) ...[
-              const SizedBox(height: 12),
-              ...shown.map((e) => _buildUnknownAgeCard(e, theme)),
-              if (rest > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Text(
-                    '… und $rest weitere',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                  ),
-                ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildUnknownAgeCard(ReportEntry entry, ThemeData theme) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -686,38 +672,6 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         ),
         onTap: () => _openDetail(entry.id),
       ),
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // --- Abschnitt 6: Balkendiagramm Altersverteilung ---
-  // ------------------------------------------------------------------------
-
-  Widget _buildAgeChartSection(BuildContext context, ThemeData theme) {
-    return Consumer(
-      builder: (ctx, ref, _) {
-        final buckets  = ref.watch(reportProvider.select((s) => s.ageBuckets));
-        final maxCount = buckets.isEmpty ? 1 : buckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader(
-              icon: Icons.bar_chart,
-              iconColor: theme.colorScheme.tertiary,
-              title: 'Passwort-Altersverteilung',
-              subtitle: 'Wie lange wurde ein Passwort nicht geändert?',
-              subtitleColor: Colors.grey,
-              theme: theme,
-            ),
-            const SizedBox(height: 16),
-            if (buckets.isEmpty)
-              Text('Keine Daten vorhanden.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey))
-            else
-              _buildBarChart(buckets, maxCount, theme),
-          ],
-        );
-      },
     );
   }
 
@@ -844,7 +798,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
     );
   }
 
-  /// Statischer Abschnitts-Header (nicht aufklappbar), z.B. für Diagramme.
+  /// Statischer Abschnitts-Header (nicht aufklappbar).
   Widget _buildSectionHeader({
     required IconData icon,
     required Color iconColor,
@@ -862,9 +816,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: subtitleColor)),
+              Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: subtitleColor)),
             ],
           ),
         ),

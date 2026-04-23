@@ -60,7 +60,7 @@ class PasswordService {
   /// - 1: Zu erraten in < 10^6 Versuchen (Schwach)
   /// - 2: Zu erraten in < 10^8 Versuchen (Mittel)
   /// - 3: Zu erraten in < 10^10 Versuchen (Gut)
-  /// - 4: Starkes, unerratbares Passwort (Sehr stark)
+  /// - 4: Starkes, unerratbares Passwort (Stark)
   int estimateStrength(String password) {
     if (password.isEmpty) return 0;
 

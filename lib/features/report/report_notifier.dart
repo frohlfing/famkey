@@ -161,15 +161,15 @@ class ReportNotifier extends Notifier<ReportState> {
   // --- Passwortstärke ---
   // ------------------------------------------------------------------------
 
-  /// Alle Einträge mit Score 0 oder 1, aufsteigend nach Guesses.
+  /// Alle Einträge mit Score 0 (Sehr schwach) oder 1 (Schwach), aufsteigend nach Guesses.
   List<ReportEntry> _buildUrgentList(List<ReportEntry> entries) {
     return entries.where((e) => e.strength <= 1).toList()
       ..sort((a, b) => a.guesses.compareTo(b.guesses));
   }
 
-  /// Top 10 der Einträge mit Score 2 oder 3, aufsteigend nach Guesses.
+  /// Top 10 der Einträge mit Score ab 2 (Mittel, Gut, Stark), aufsteigend nach Guesses.
   List<ReportEntry> _buildWeakestList(List<ReportEntry> entries) {
-    return (entries.where((e) => e.strength == 2 || e.strength == 3).toList()
+    return (entries.where((e) => e.strength >= 2).toList()
       ..sort((a, b) => a.guesses.compareTo(b.guesses)))
       .take(10).toList();
   }
@@ -180,7 +180,7 @@ class ReportNotifier extends Notifier<ReportState> {
     for (final e in entries) {
       counts[e.strength.clamp(0, 4)]++;
     }
-    const labels = ['Sehr schwach', 'Schwach', 'Mittel', 'Gut', 'Sehr stark'];
+    const labels = ['Sehr schwach', 'Schwach', 'Mittel', 'Gut', 'Stark'];
     return [
       for (var i = 0; i < 5; i++)
         StrengthBucket(label: labels[i], count: counts[i], score: i),
