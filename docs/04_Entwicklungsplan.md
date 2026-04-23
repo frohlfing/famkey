@@ -32,11 +32,7 @@
 - ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
 - ✅ Tresor umbenennen
 - ✅ Benutzer umbenennen
-
-!!!!!!!!!!!!!!!!!!!!!!
-- ❌ Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) 
-  -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
-!!!!!!!!!!!!!!!!!!!!!!
+- ✅ Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) 
  
 ### 1.3 Meilenstein 3: Tests
 - ✅ Test-Umgebung einrichten

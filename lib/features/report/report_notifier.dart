@@ -256,13 +256,11 @@ class ReportNotifier extends Notifier<ReportState> {
       }
       else {
         c = c + 1;
-        debugPrint('HIBP-Anfragen: $c');
         // HIBP-API anfragen
         final response = await _hibpDio.get<String>('range/$prefix', cancelToken: _hibpCancelToken);
         if (response.data == null) return -1; // Netzwerkfehler
         body = response.data!;
         _hibpCache[prefix] = (body: body, ts: nowTs);
-        //await _saveHibpCache(); // Cache nach jeder erfolgreichen Anfrage sofort sichern
       }
 
       // Antwort zeilenweise parsen und Suffix im Body suchen: "SUFFIX:COUNT\r\n..."

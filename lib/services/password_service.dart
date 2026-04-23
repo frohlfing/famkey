@@ -38,7 +38,19 @@ class PasswordService {
   int estimateStrength(String password) {
     if (password.isEmpty) return 0;
 
-    // Evaluate prüft auf Wörterbücher, Tastaturmuster und Leetspeak.
+    // Was der Algorithmus intern prüft:
+    // 1. Wörterbücher — vergleicht gegen Listen mit häufigen Passwörtern (password123), Vornamen, Städtenamen usw.
+    // 2. Tastaturmuster — erkennt Sequenzen wie qwerty, asdf, 12345
+    // 3. Leet-Speak — erkennt Substitutionen wie p@ssw0rd
+    // 4. Wiederholungen & Sequenzen — z.B. aaaa oder abcabc
+    // 5. Datumsangaben — z.B. 12.04.1990
+
+    // Das Ergebnis (result) enthält u.a.:
+    // - result.score — ganzzahl 0–4
+    // - result.guesses — geschätzte Anzahl an Rateversuchen
+    // - result.crackTime* — geschätzte Crack-Zeit in verschiedenen Szenarien
+    // - result.feedback — konkrete Hinweise wie "Verwende kein häufiges Wort"
+
     final result = _zxcvbn.evaluate(password);
 
     return (result.score ?? 0).toInt();
