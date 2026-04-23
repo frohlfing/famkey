@@ -149,7 +149,7 @@ Dateianhänge werden mit dem Entry-Key verschlüsselt und separat hochgeladen. B
 3. **Antwort Ja:** Server liefert `User-UUID`, `Salt` und `EncryptedPrivateKey`.
 4. **Benutzer-UUID übernehmen:** 
     - Falls die lokale `User-UUID` von der des Servers abweicht, aktualisiert die App die Lokale.
-4. **RSA-Key übernehmen:**
+5. **RSA-Key übernehmen:**
     - App fordert Master-Passwort.
     - App berechnet `MasterKey` (mit dem Salt vom Server!).
     - App versucht, `EncryptedPrivateKey` zu entschlüsseln.
@@ -252,7 +252,7 @@ Der Auto-Fill-Prozess läuft isoliert vom Haupt-UI ab und erfordert native Schni
 ### 2.14 Selbstzerstörung
 Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikalisch vom Gerät.
 
-## 2.15 Backup, Import & Export
+### 2.15 Backup, Import & Export
 - **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
     - PriVault ZIP
    - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
@@ -271,7 +271,7 @@ Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikal
    (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
    - Evtl im eingebetteten Webbrowser 
 
-## 2.16 Report
+### 2.16 Report
 
 Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich in vier Abschnitte:
 
@@ -282,7 +282,7 @@ Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich i
 
 **HIBP-Cache:** API-Antworten werden per SHA-1-Präfix lokal gecacht (Datei `hibp_cache.json` im App-Verzeichnis). Die Cache-Gültigkeit ist konfigurierbar (Standard: 1 Tag, Einstellung `hibp_cache_days` im `ConfigService`).
 
-### 2.17 Anzeige, Suche und Filterung der Einträge
+### 2.17 Anzeigen, Suche und Filterung der Einträge
 
 Die Hauptseite listet alle Einträge des Tresors auf und ermöglicht eine Volltextsuche über
 Kategorie, Titel, URL und Notizen. Da die SQLite-Datenbank der Web-Appliance technisch bedingt
@@ -316,31 +316,83 @@ Eigenschaften von `encryptedIndex`:
 
 Beim Öffnen des Tresors werden alle `encryptedIndex`-Felder entschlüsselt und die extrahierten
 Daten im RAM gehalten (`MainNotifier._allEntries`). Suche und Filterung finden ausschließlich im
-Code statt, nicht per SQL. Für die zu erwartenden Tresorgrössen (typischerweise unter 1.000
+Code statt, nicht per SQL. Für die zu erwartenden Tresorgrössen (typischerweise unter 1000
 Einträge) ist das performant.
+
+
+### 2.18 Tresor löschen
+
+Der Benutzer hat drei Löschoptionen, wählbar über einen Dialog in den Einstellungen:
+
+- **Nur auf dem Server löschen:** Die Serverdaten werden gelöscht, `lastSyncAt` wird auf den Epoch-Wert zurückgesetzt (entspricht "noch nie synchronisiert"). Beim nächsten Sync wird der Tresor unter dem aktuellen lokalen Namen neu auf dem Server registriert. Nützlich, um die Serverseite zu bereinigen, ohne lokale Daten zu verlieren.
+- **Nur auf diesem Gerät löschen:** Die lokale Datenbankdatei wird gelöscht. Die Daten auf dem Server bleiben erhalten.
+- **Server und Gerät löschen:** Beides wird entfernt.
+
+**Server-Löschlogik (Mandantentrennung):**
+Wenn der Benutzer Serverdaten löscht, muss unterschieden werden, ob er der einzige Benutzer im Tresor ist:
+- **Letzter Benutzer im Tresor:** Der gesamte Tresor wird gelöscht (kaskadierend: alle Einträge, Permissions, Anhänge, Tombstones).
+- **Nicht der letzte Benutzer:** Nur der eigene Benutzer-Datensatz wird gelöscht. Der Tresor und die Daten der anderen Benutzer bleiben erhalten. Geteilte Einträge, auf die der Benutzer Zugriff hatte, verlieren lediglich seine Permission.
+
+### 2.19 Tresor umbenennen
+
+**Verhalten:** Eine Tresor-Umbenennung ist eine rein lokale Operation. Die Datenbankdatei und der Config-Eintrag werden umbenannt. Der Server erfährt zunächst nichts davon.
+
+**Was beim nächsten Sync passiert:**
+Beim nächsten Sync sucht der Client den Benutzer unter dem neuen Tresornamen auf dem Server (`findUser(newVaultName, userName)`). Der Server kennt diesen Namen noch nicht → der Client registriert den Benutzer unter dem neuen Tresornamen neu. Auf dem Server entsteht ein neuer, leerer Tresor. Alle Einträge werden beim folgenden Push vollständig hochgeladen.
+
+**Was mit den alten Serverdaten passiert:**
+Die Daten unter dem alten Tresornamen bleiben auf dem Server unverändert erhalten. Der Benutzer muss sie explizit löschen (Option "Nur auf dem Server löschen" in 2.18), wenn er das möchte.
+
+**Hinweis-Dialog bei der Umbenennung:**
+Wurde der Tresor bereits synchronisiert (`lastSyncAt > Epoch`), erhält der Benutzer beim Umbenennen einen Hinweis: *"Die Daten auf dem Server verbleiben unter dem bisherigen Tresornamen. Wenn du sie löschen möchtest, nutze vorher die Option 'Nur auf dem Server löschen' in den Einstellungen."*
+
+**Warum dieser Ansatz statt eines `PATCH /vaults/name`-Endpunkts?**
+Ein Rename-Endpunkt würde einen neuen RSA-geschützten Endpunkt, eine Schemaänderung (Rename-Erkennung auf dem Server) und komplexe Zweitgerät-Koordination erfordern. Der gewählte Ansatz ist einfacher und transparent: Der Tresorname ist dem Server ohnehin nur als anonymer Hash bekannt — für den Server ist der "neue" Tresor einfach ein neuer Mandant.
+
+**Konsequenz für Zweites Gerät:**
+Gerät 2 synct weiterhin mit dem alten Tresornamen, solange es nicht lokal umbenannt wird. Beide Geräte sind damit nach einer einseitigen Umbenennung auf verschiedenen Servermandanten. Das ist bewusst: Der Benutzer muss Gerät 2 selbst umbenennen, wenn er beide vereinheitlichen will.
+
+### 2.20 Benutzernamen ändern
+
+**Verhalten:** Anders als beim Tresornamen ist der Benutzername öffentlich sichtbar — Freunde sehen ihn. Eine Änderung muss daher auf dem Server propagiert werden.
+
+**Ablauf:** Die Namensänderung wird lokal gespeichert. Beim nächsten Sync erkennt der Client, dass der lokale Name vom gesyncten Namen abweicht, und sendet den neuen Hash per `PATCH /users/{userUuid}/name` an den Server. Freunde sehen den neuen Namen nach ihrem nächsten Sync.
+
+**Warum nicht den Namen einfrieren (wie beim Tresornamen)?**
+Beim Tresornamen gibt es keine andere Person, die den Namen sieht — er ist rein lokal relevant. Der Benutzername hingegen ist der einzige Bezeichner, unter dem andere Benutzer eine Person auf dem Server suchen und finden können. Eine unsichtbare Umbenennung wäre für Freunde verwirrend und würde das Hinzufügen-per-Name funktional brechen.
+
+**`syncedName` in der Users-Tabelle:**
+Dieses Feld speichert den Benutzernamen, unter dem diese Person auf dem Server aktuell bekannt ist*.
+- Für den Besitzer (`id == 1`): wird diese Information benötigt, um zu wissen, ob beim Sync der neue Name übermittelt werden muss (`name != syncedName` → `patchUserName` aufrufen).
+- Für Freunde (`id > 1`): Um in der UI ein entsprechender Hinweis in der Freundeliste anzuzeigen (`name != syncedName` → "Bobby (ehemals Bob)".
+
+---
 
 ## 3. Versionierung
 
-### App-Version
+### 3.1 App-Version
 Wird in  `pubspec.yaml` gespeichert.
 - Format `MAJOR.MINOR.PATCH` gemaß dem **Semantic Versioning-Schema** [SemVer](https://semver.org/):
    - MAJOR: Wird mit einem Redesign oder bei einem Migrations-Bruch erhöht.
    - MINOR: Wird mit einer Funktionsänderung erhöht und mit einer neuen Hauptversion auf 0 zurückgesetzt.
    - PATCH: Wird mit einer Fehlerbehebung (Bugfix) erhöht und mit einer neuen Nebenversion auf 0 zurückgesetzt.
-- Buildnummer: Wird (theoretisch) mit jedem Build erhöht. Sie wird niemals zurückgesetzt. Dies ist auch der `versionCode` für den Google-Store. 
+- Buildnummer: Wird (theoretisch) mit jedem Build erhöht. Sie wird niemals zurückgesetzt. Dies ist auch der `versionCode` 
+  für den Google-Store. 
 
 Angezeigte App-Version inkl. Buildnummer (aber ohne Patch-Nummer): z.B. "1.0+42")
  
-### Datenbank-Schema-Version
+### 3.2 Datenbank-Schema-Version
 - DB-Schema des Servers: Wird auf dem Server in der Tabelle `verions` gespeichert (ein Integer).
 - DB-Schema des Tresors: Flutter nutzt zur Speicherung der Datenbank-Schema-Version den Standard-Mechanismus von SQLite: 
    Jede SQLite-Datenbankdatei hat einen Header-Bereich, in dem Metadaten gespeichert werden. 
-   Eines dieser Felder ist die `user_version`, eine 32-Bit-Ganzzahl, die für genau diesen Zweck vorgesehen ist: die Version des Anwendungsschemas zu speichern.
+   Eines dieser Felder ist die `user_version`, eine 32-Bit-Ganzzahl, die für genau diesen Zweck vorgesehen ist: 
+   Die Version des Anwendungsschemas zu speichern.
 
 Sollte die App eine ältere DB-Schema-Version öffnen, wird die DB automatisch aktualisiert.
-Sollte die App eine neuere Datenbank öffnen, wird ein Hinweis mit der Bitte um Upgrade der App angezeigt und die DB sofort wieder geschlossen.
+Sollte die App eine neuere Datenbank öffnen, wird ein Hinweis mit der Bitte um Upgrade der App angezeigt und die DB 
+sofort wieder geschlossen.
 
-### Sync‑Protokollversion
+### 3.3 Sync‑Protokollversion
 - Sync‑Protokollversion des Servers: Wird auf dem Server in `config.php` gespeichert.
 - Kleinste vom Server unterstützte Protokollversion: Wird auf dem Server in `config.php` gespeichert.
 - Sync‑Protokollversion der App: Wird im Code gespeichert. 
@@ -349,6 +401,100 @@ Vor der Synchronisation wird die Protokollversion der App mit der Protokollversi
    - Wenn client.syncProtocolVersion < server.minSupportedSyncProtocol → App zu alt
    - Wenn client.syncProtocolVersion > server.currentSyncProtocol → Server zu alt
 
-## 4. Host-URLs
+### 3.3 Host-URLs
 - https://privault.frank-rohling.de/api (für MAJOR = 1)
 - https://privault{MAJOR}.frank-rohling.de/api (für MAJOR > 1)
+
+---
+
+## 4. Identifikatoren: UUIDs und Hashes
+
+Dieses Kapitel beschreibt, wie Tresore, Benutzer und Einträge eindeutig identifiziert werden. 
+
+---
+
+### 4.1 Wozu Hashwerte?
+
+Tresorname und Benutzername sind Klarnamen. Der Sync-Server soll diese Klarnamen **nie** erfahren — er darf ausschließlich kryptografische Hashwerte speichern und vergleichen.
+
+- `vaultHash = SHA256(vaultName)`
+- `userHash = SHA256(userName)`
+
+Da SHA256 eine Einwegfunktion ist, kann der Server aus dem Hash den Klarnamen nicht rekonstruieren. Trotzdem kann er prüfen, ob ein Tresor oder Benutzer bereits registriert ist, und Suchanfragen wie "Gibt es Benutzer X in Tresor Y?" beantworten.
+
+Der Client berechnet die Hashes lokal und schickt sie an den Server. Der Server speichert und vergleicht nur Hashes. Klarnamen verlassen das Gerät nie.
+
+---
+
+### 4.2 Vault-UUID
+
+**Wer erzeugt sie:** Der Server, beim ersten `registerUser`-Aufruf, wenn der Tresor noch nicht existiert.
+
+**Warum der Server, nicht der Client?**
+Der Client kommuniziert mit dem Server ausschließlich über `vaultHash` als Tresor-Identifikator. Die `vaultUuid` ist ein reines Server-Interna-Konzept: Sie ist der Primärschlüssel für die Mandantentrennung in der Serverdatenbank (`entries`, `users`, `permissions`, `tombstones` sind alle über `vault_uuid` partitioniert). Der Client kennt und braucht sie nicht — er routet immer über seinen `userUuid`, aus der der Server die `vault_uuid` ableitet.
+
+**Mandantentrennung:**
+Zwei Tresore sehen sich gegenseitig nie. Jede Datenbankabfrage auf dem Server filtert auf `vault_uuid`. Das ist der Kern der Mandantenisolation.
+
+**Stabilität:**
+Die `vaultUuid` ändert sich nie — auch nicht bei Umbenennung des Tresors (s. 2.19). Deshalb ist sie der geeignete Primärschlüssel auf dem Server: stabil, unabhängig vom Namen.
+
+---
+
+### 4.3 User-UUID
+
+**Wer erzeugt sie:** Der Client, zufällig (UUID v4), beim Anlegen des Tresors — noch vor dem ersten Serverkontakt (Offline-first).
+
+**Eindeutigkeit:** Die `userUuid` ist eindeutig pro Tresor-Benutzer-Kombination. Legt ein Benutzer zwei Tresore an, hat er zwei verschiedene `userUuid`s.
+
+**Warum nicht deterministisch aus dem Benutzernamen?**
+Ein deterministischer Ansatz (`userUuid = f(userName)`) würde bedeuten: wenn der Benutzer seinen Namen ändert, ändert sich die UUID. Da aber Freunde und Zweitgeräte die UUID als stabilen Fremdschlüssel verwenden (in `permissions`, im `FriendPayload`), würde eine UUID-Änderung alle diese Verknüpfungen zerreißen. Stabilität und Namensänderbarkeit lassen sich mit einem deterministischen Ansatz nicht gleichzeitig erfüllen.
+
+**Warum nicht tresorübergreifend eindeutig (eine UUID für alle Tresore eines Benutzers)?**
+Analysiert und verworfen: Es gibt keinen praktischen Vorteil für den Benutzer. Im Gegenteil entsteht ein Sicherheitsnachteil — eine globale UUID wäre eine Korrelations-ID, mit der ein Angreifer mit Zugriff auf zwei Tresore erkennen könnte, dass dieselbe Person in beiden aktiv ist. Das verletzt das Mandantentrennungsprinzip. Zusätzlich wäre ein neuer Auth-Header (`X-Vault-Hash`) und eine komplexere Server-Architektur nötig — ohne messbaren Mehrwert für den Nutzer.
+
+**Zweitgerät (Adoption):**
+Das Zweitgerät erzeugt beim Tresor-Anlegen ebenfalls eine zufällige `userUuid`. Beim ersten Sync findet der Server denselben `userHash` in demselben Tresor und liefert die bereits registrierte `userUuid` zurück. Das Zweitgerät übernimmt diese UUID (Adoption, s. 2.5). Danach sind beide Geräte unter derselben UUID bekannt.
+
+---
+
+### 4.4 Entry-UUID
+
+**Wer erzeugt sie:** Der Client, zufällig (UUID v4), beim Erstellen eines neuen Eintrags.
+
+**Bei Import aus Fremdformaten** (Bitwarden, KeePass, 1Password, CSV): Die UUID wird, sofern im Quellformat vorhanden, vom Quellsystem übernommen. Andernfalls wird sie deterministisch generiert oder neu vergeben.
+
+**Bei Import aus dem PriVault-eigenen ZIP-Format** (Backup/Recovery): Die UUID aus der Exportdatei wird beibehalten. Das ermöglicht einen verlustfreien Round-Trip: Export → Import erzeugt denselben Datenbestand, und ein zweiter Import desselben Backups erzeugt Updates statt Duplikate (Last-Write-Wins greift auf denselben Schlüssel).
+
+**Warum auch beim PriVault-Import keine neue UUID vergeben?**
+Wenn beim Import immer neue UUIDs vergeben würden, wäre das Backup/Recovery-Szenario (Tresor exportieren → Tresor importieren) nicht idempotent. Jeder Import würde die Einträge duplizieren. Das ist für einen Passwort-Manager inakzeptabel.
+
+**Konsequenz: entryUuid ist nur innerhalb eines Tresors eindeutig.**
+Da dasselbe Backup in zwei verschiedene Tresore importiert werden kann, kann dieselbe `entryUuid` auf dem Server in zwei verschiedenen Tresoren vorkommen. Der Unique-Constraint auf dem Server lautet daher `UNIQUE(entry_uuid, vault_uuid)` — nicht global auf `entry_uuid` allein. Ein globaler Unique-Constraint würde beim Sync des zweiten Tresors mit 403 scheitern, obwohl die Operation korrekt ist.
+
+---
+
+### 5.5 Warum zusammengesetzter Primärschlüssel statt Auto-Inc-IDs?
+
+**Ausgangslage:**
+Durch die vault-scoped Eindeutigkeit der `entryUuid` (s. 4.4) entstehen auf dem Server mehrere zusammengesetzte Primärschlüssel:
+
+- `entries`: PK `(uuid, vault_uuid)`
+- `permissions`: PK `(entry_uuid, user_uuid, vault_uuid)`
+- `tombstones`: PK `(entry_uuid, vault_uuid)`
+
+Die Frage stellt sich, ob es sauberer wäre, stattdessen interne Auto-Inc-IDs (`id BIGINT AUTO_INCREMENT`) als PKs einzuführen.
+
+**Argument für Auto-Inc-ID (Surrogate ID):**
+Einspaltiger FK überall — kleiner, schneller, auf den ersten Blick einfacher. Standard-Muster in vielen relationalen Systemen. Integer-PKs benötigen weniger Speicher als VARCHAR(36)-Composites (8 Bytes vs. 72+ Bytes).
+
+**Warum ein zusammengesetzter Primärschlüssel (Composite Key) die richtige Wahl ist:**
+
+Auto-Inc-IDs lösen das Problem nicht — sie verlagern es nur. Ein `id`-Feld auf `entries` würde den UNIQUE-Constraint `(uuid, vault_uuid)` nicht ersetzen, sondern ergänzen: Die Geschäftsregel (*eine UUID darf pro Tresor nur einmal vorkommen*) muss trotzdem als separater Unique-Constraint im Schema abgebildet werden. Das Ergebnis wäre ein technischer PK *und* ein fachlicher Composite-Unique — mehr Komplexität, nicht weniger.
+
+Hinzu kommt: `vault_uuid` müsste in `permissions` trotzdem erhalten bleiben, weil der Server bei jeder Operation den Tresor-Kontext kennen muss. Würde man `vault_uuid` aus `permissions` entfernen, bräuchte jede Query einen zusätzlichen JOIN durch `entries`, nur um die `vault_uuid` zu ermitteln.
+
+Die Composite Keys sind also keine Notlösung, sondern die direkte Abbildung der fachlichen Invariante im Schema. Sie transportieren die Geschäftslogik in die Datenbankstruktur und machen fehlerhafte Queries — die z.B. nur auf `entry_uuid` ohne `vault_uuid` filtern — strukturell unmöglich.
+
+**Maßstab:**
+PriVault ist kein Hochlast-System. Ein typischer Tresor hat 100–2000 Einträge. Der Performanceunterschied zwischen einem 72-Byte-Composite-FK und einem 8-Byte-Integer-FK ist bei dieser Datenmenge vollständig irrelevant.

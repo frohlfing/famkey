@@ -24,7 +24,7 @@ class SettingsState {
   /// Speicherort der Tresore
   final String vaultStoragePath;
 
-  /// Der Tresorname.
+  /// Der aktuelle (lokale) Tresorname.
   final String vaultName;
 
   // --- Login ---

@@ -49,13 +49,13 @@ void main() {
 
   EntryPayload createTestPayload({String password = 'p'}) {
     return EntryPayload(
-      category: 'C', title: 'T', username: 'u', password: password,
-      url: 'u', notes: 'n', passwordTimestamp: DateTime(2024), favicon: ''
+        category: 'C', title: 'T', username: 'u', password: password,
+        url: 'u', notes: 'n', passwordTimestamp: DateTime(2024), favicon: ''
     );
   }
 
   group('EditNotifier Tests', () {
-    
+
     test('1.1.1 load (New): Initialisiert leeres Formular', () async {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
 
@@ -92,9 +92,9 @@ void main() {
     test('2.1.1 save: Validiert Pflichtfelder', () async {
       final notifier = container.read(editProvider.notifier);
       await notifier.load(null);
-      
+
       // Titel leer lassen
-      notifier.setTitle('  '); 
+      notifier.setTitle('  ');
       await notifier.save();
 
       expect(container.read(editProvider).error.code, equals(ErrorCode.valueRequired));
@@ -102,7 +102,8 @@ void main() {
     });
 
     test('2.2.1 save (Create): Verschlüsselt und speichert neuen Eintrag', () async {
-      final user = UserEntity(id: 1, uuid: 'u', name: 'A', publicKey: 'PUB', isVerified: true, isHidden: false, updatedAt: DateTime.now());
+      final user = UserEntity(id: 1, uuid: 'u', name: 'A', publicKey: 'PUB', isVerified: true, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockSession.user).thenReturn(user);
 
@@ -146,9 +147,9 @@ void main() {
 
     test('4.1.1 generatePassword: Nutzt Einstellungen aus der Session', () {
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
-        host: 'h', apiToken: 't', lastSyncAt: DateTime.now(), useBiometric: false,
-        pwLength: 25, pwSpecialChars: '?!', pwAvoidIlO0: true, categoryPlaceholder: ''
+          id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+          host: 'h', apiToken: 't', lastSyncAt: DateTime.now(), useBiometric: false,
+          pwLength: 25, pwSpecialChars: '?!', pwAvoidIlO0: true, categoryPlaceholder: ''
       );
       when(mockSession.settings).thenReturn(settings);
       when(mockPw.generatePassword(length: 25, specialChars: '?!', withUmlauts: true, avoidIlO0: true)).thenReturn('GENERATED_PW');

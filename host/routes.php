@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 use App\Controller\AttachmentController;
-use App\Controller\FaviconController;
 use App\Controller\SyncController;
 use App\Controller\VaultController;
 use App\Controller\UserController;
@@ -34,11 +33,6 @@ function registerRoutes(Router $router): void
 
     $router->get('/version', [VersionController::class, 'version'], protected: false);
 
-    // --- Resource Favicon ---
-
-    // Favicon-Proxy: Umgeht CORS-Beschränkungen im Browser.
-    $router->get('/favicon', [FaviconController::class, 'get'], protected: false);
-
     // --- Resource User ---
 
     // Liefert die Benutzerdaten anhand seiner UUID.
@@ -53,8 +47,8 @@ function registerRoutes(Router $router): void
     // Aktualisiert Salt und Private Key nach Änderung des Master-Passworts.
     $router->put('/users/{user_uuid}/password', [UserController::class, 'changePassword'], protected: true);
 
-    // Aktualisiert Salt und Private Key nach Änderung des Master-Passworts.
-    $router->put('/users/{user_uuid}/password', [UserController::class, 'changePassword'], protected: true);
+    // Ändert den Benutzernamen (Hash) auf dem Server.
+    $router->patch('/users/{user_uuid}/name', [UserController::class, 'patchUserName'], protected: true);
 
     // Speichert die verschlüsselte Freundesliste des Benutzers.
     $router->put('/users/{user_uuid}/friends', [UserController::class, 'saveFriends'], protected: true);
@@ -82,4 +76,7 @@ function registerRoutes(Router $router): void
 
     // Löscht einen Test-Tresor und bereinigt veraltete Test-Tresore.
     $router->delete('/vaults', [VaultController::class, 'deleteTestVaultIfExists'], protected: false);
+
+    // Löscht den Tresor des Benutzers serverseitig (RSA-geschützt).
+    $router->delete('/users/{user_uuid}/vault', [VaultController::class, 'deleteVault'], protected: true);
 }

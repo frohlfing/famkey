@@ -996,6 +996,15 @@ class MockWebService extends _i1.Mock implements _i12.WebService {
           as _i8.Future<void>);
 
   @override
+  _i8.Future<void> patchUserName(String? userUuid, String? userName) =>
+      (super.noSuchMethod(
+            Invocation.method(#patchUserName, [userUuid, userName]),
+            returnValue: _i8.Future<void>.value(),
+            returnValueForMissingStub: _i8.Future<void>.value(),
+          )
+          as _i8.Future<void>);
+
+  @override
   _i8.Future<_i5.SyncPullResponse> pullSync(
     String? userUuid,
     DateTime? since,
@@ -1057,6 +1066,15 @@ class MockWebService extends _i1.Mock implements _i12.WebService {
             returnValueForMissingStub: _i8.Future<void>.value(),
           )
           as _i8.Future<void>);
+
+  @override
+  _i8.Future<void> deleteVault(String? userUuid) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteVault, [userUuid]),
+            returnValue: _i8.Future<void>.value(),
+            returnValueForMissingStub: _i8.Future<void>.value(),
+          )
+          as _i8.Future<void>);
 }
 
 /// A class which mocks [ConfigService].
@@ -1105,6 +1123,11 @@ class MockConfigService extends _i1.Mock implements _i13.ConfigService {
           as int);
 
   @override
+  int get hibpCacheDays =>
+      (super.noSuchMethod(Invocation.getter(#hibpCacheDays), returnValue: 0)
+          as int);
+
+  @override
   set lastVaultName(String? value) => super.noSuchMethod(
     Invocation.setter(#lastVaultName, value),
     returnValueForMissingStub: null,
@@ -1131,6 +1154,12 @@ class MockConfigService extends _i1.Mock implements _i13.ConfigService {
   @override
   set logMaxDays(int? value) => super.noSuchMethod(
     Invocation.setter(#logMaxDays, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set hibpCacheDays(int? value) => super.noSuchMethod(
+    Invocation.setter(#hibpCacheDays, value),
     returnValueForMissingStub: null,
   );
 }

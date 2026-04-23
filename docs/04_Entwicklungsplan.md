@@ -30,7 +30,14 @@
 - ✅ Automatische Referenzseite bauen
 - ✅ Landingpage der Webseite erstellen
 - ✅ Versionierungs- & Migrationsstrategie entwerfen und implementieren
+- ✅ Tresor umbenennen
+- ✅ Benutzer umbenennen
 
+!!!!!!!!!!!!!!!!!!!!!!
+- ❌ Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) 
+  -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
+!!!!!!!!!!!!!!!!!!!!!!
+ 
 ### 1.3 Meilenstein 3: Tests
 - ✅ Test-Umgebung einrichten
 - ✅ Tests für Services bauen
@@ -56,6 +63,13 @@
 - ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
 - ❌ Report über die Passwortstärke und -Alter aller Einträge
 
+!!!!!!!!!!!!!!!!!!!!!!
+- LogConfigDialog schöner machen
+- Detailansicht: Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
+- Detailansicht: "Geteilt mit" nur anzeigen, wenn in Einstellungen mindestens ein Freund eingefügt wurde
+  !!!!!!!!!!!!!!!!!!!!!!
+
+
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 
@@ -70,16 +84,16 @@
 
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
 
-
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
 
 - ❌ Dialog, um den Passwortgenerator aus der Bearbeitungsseite einstellen zu können
+- 
 - ❌ Sicheres Passwortfeld (direkt als byte array speichern), siehe https://copilot.microsoft.com/shares/gk2UA94MU96n6LiRoyyB1
  
 ### 1.5 Meilenstein 5: Androide App
 - ✅ Emulator installieren
 - ✅ Layout anpassen
-- ❌ App Store-Bereitstellung
+- ❌ PlayStore-Bereitstellung
 
 ### 1.6 Meilenstein 6: WebAssembly (WASM)
 - ✅ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr).
@@ -87,16 +101,9 @@
 
 ## 2. Todos / Feinschliff
 - todos erledigten
-- Tresor umbenennen, ohne den Server zu tangieren (vault_uuid)
-- Benutzer umbenennen, ohne den Server zu tangieren (bei Freunde umbenennen?)
-- Tresor löschen (Optionen: a) nur lokal, b) nur auf dem Server, c) lokal + auf dem Server) -> User auf dem Server löschen, wenn es der letzte ist, Tresor löschen
-- Detailansicht: Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
-- Detailansicht: "Geteilt mit" nur anzeigen, wenn in Einstellungen mindestens ein Freund eingefügt wurde
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
 - 🐞 Android: Systembutton funktionieren nicht
 - 🐞 Android: Biometrie funktioniert nicht 
 
-!!!!!!!!!!!!!!!!!!!!!!
-- ❌ LogConfigDialog schöner machen

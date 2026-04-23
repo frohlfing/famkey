@@ -97,13 +97,47 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
 
     return AlertDialog(
       title: const Text('Tresorname ändern'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0),
       content: SizedBox(
         width: 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
+            // --- Hinweis bei bereits synchronisiertem Tresor ---
+            Consumer(
+              builder: (ctx, ref, _) {
+                final isSynced = ref.watch(vaultNameProvider.select((s) => s.isSynced));
+                if (!isSynced) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: Colors.orange.shade800),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Die Daten auf dem Server verbleiben unter dem bisherigen Tresornamen. '
+                            'Wenn du sie löschen möchtest, nutze vorher die Option '
+                            '"Nur auf dem Server löschen" in den Einstellungen.',
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
 
             // --- Tresorname ---
             Consumer(

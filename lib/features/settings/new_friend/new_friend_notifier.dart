@@ -101,6 +101,8 @@ class NewFriendNotifier extends Notifier<NewFriendState> {
       }
 
       // 6. Person als Freund in die Datenbank einfügen
+      // syncedName wird auf den gesuchten Namen gesetzt und bleibt unveränderlich.
+      // Bei Freunden (id > 1) dient syncedName als Original-Name zur Anzeige bei Umbenennung.
       await _databaseService.saveUser(UserEntity(
         id: 0,
         uuid: userResponse.userUuid,
@@ -108,6 +110,7 @@ class NewFriendNotifier extends Notifier<NewFriendState> {
         publicKey: userResponse.publicKey,
         isVerified: false,
         isHidden: false,
+        syncedName: userName,
         updatedAt: DateTime.now().toUtc(),
       ));
 

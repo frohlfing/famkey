@@ -193,9 +193,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   builder: (ctx, ref, _) {
                     final useBiometric = ref.watch(settingsProvider.select((state) => state.useBiometric));
                     return SwitchListTile(
+                      secondary: const Icon(Icons.fingerprint_outlined),
                       title: const Text('Biometrie verwenden'),
                       subtitle: const Text('Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.'),
-                      contentPadding: EdgeInsets.zero,
                       value: useBiometric,
                       onChanged: isBusy ? null : notifier.saveBiometricSettings,
                     );
@@ -257,7 +257,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     children: friends.map((friend) => Card(
                       key: ValueKey('friend_${friend.uuid}'),
                       child: ListTile(
-                        title: Text(friend.name),
+                        title: Row(
+                          children: [
+                            Text(friend.name),
+                            // Hinweis anzeigen, wenn der Freund seinen Namen geändert hat
+                            if (friend.syncedName.isNotEmpty && friend.name != friend.syncedName)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: Text(
+                                  '(ehemals ${friend.syncedName})',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -459,17 +476,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // --- Footer ---
                 // ------------------------------------------------------------------------
 
-                // --- Button für Löschen ---
+                // --- Buttons für Löschen ---
                 Center(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade800,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    ),
-                    onPressed: _showDeleteVaultDialog,
-                    icon: const Icon(Icons.delete_outlined),
-                    label: const Text('Tresor lokal löschen'),
+                  child: Consumer(
+                    builder: (ctx, ref, _) {
+                      final isRegistered = ref.watch(settingsProvider.select((s) => s.isRegistered));
+                      return ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade800,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        ),
+                        onPressed: () => _showDeleteVaultDialog(isRegistered),
+                        icon: const Icon(Icons.delete_outlined),
+                        label: const Text('Tresor löschen'),
+                      );
+                    },
                   ),
                 ),
 
@@ -576,18 +598,115 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Zeigt eine Sicherheitsabfrage an, bevor der lokale Tresor gelöscht wird.
-  Future<void> _showDeleteVaultDialog() async {
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Tresor lokal löschen',
-      text: 'Bist du sicher? Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.',
-      ok: 'Ja, löschen',
-    );
-    if (mounted && confirmed == true) {
-      final notifier = ref.read(settingsProvider.notifier);
-      notifier.deleteVault();
+  /// Zeigt einen Dialog mit drei Löschvarianten.
+  Future<void> _showDeleteVaultDialog(bool isRegistered) async {
+    final notifier = ref.read(settingsProvider.notifier);
+
+    if (!isRegistered) {
+      // Noch nicht gesynct → nur lokales Löschen sinnvoll
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Tresor löschen'),
+          content: const Text('Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Löschen'),
+            ),
+          ],
+        ),
+      );
+      if (mounted && confirmed == true) notifier.deleteVaultLocal();
+      return;
     }
+
+    // Bereits gesynct → drei Optionen
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tresor löschen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dieser Tresor wurde bereits synchronisiert. '
+              'Bitte wähle, was gelöscht werden soll:',
+            ),
+            const SizedBox(height: 20),
+            _buildDeleteOption(
+              ctx,
+              icon: Icons.cloud_off_outlined,
+              label: 'Nur auf dem Server löschen',
+              description: 'Lokale Daten bleiben erhalten. Beim nächsten Sync wird der Tresor neu registriert.',
+              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultServer(); },
+            ),
+            const SizedBox(height: 12),
+            _buildDeleteOption(
+              ctx,
+              icon: Icons.phone_android_outlined,
+              label: 'Nur auf diesem Gerät löschen',
+              description: 'Die Daten auf dem Server bleiben erhalten.',
+              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultLocal(); },
+            ),
+            const SizedBox(height: 12),
+            _buildDeleteOption(
+              ctx,
+              icon: Icons.delete_forever_outlined,
+              label: 'Server und Gerät löschen',
+              description: 'Alle Daten werden unwiderruflich entfernt.',
+              isDestructive: true,
+              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultBoth(); },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+        ],
+      ),
+    );
+  }
+
+  /// Hilfsmethode: Baut eine einzelne Lösch-Option im Dialog.
+  Widget _buildDeleteOption(BuildContext ctx, {
+    required IconData icon,
+    required String label,
+    required String description,
+    required VoidCallback onPressed,
+    bool isDestructive = false,
+  }) {
+    final color = isDestructive ? Colors.red.shade800 : Colors.blueGrey.shade700;
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                  const SizedBox(height: 2),
+                  Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Ändert das Master-Passwort.

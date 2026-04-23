@@ -39,6 +39,18 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncedNameMeta = const VerificationMeta(
+    'syncedName',
+  );
+  @override
+  late final GeneratedColumn<String> syncedName = GeneratedColumn<String>(
+    'synced_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _publicKeyMeta = const VerificationMeta(
     'publicKey',
   );
@@ -94,6 +106,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
     id,
     uuid,
     name,
+    syncedName,
     publicKey,
     isVerified,
     isHidden,
@@ -129,6 +142,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('synced_name')) {
+      context.handle(
+        _syncedNameMeta,
+        syncedName.isAcceptableOrUnknown(data['synced_name']!, _syncedNameMeta),
+      );
     }
     if (data.containsKey('public_key')) {
       context.handle(
@@ -183,6 +202,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      syncedName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}synced_name'],
+      )!,
       publicKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}public_key'],
@@ -220,6 +243,19 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
   /// Der Name des Benutzers (eindeutig pro Tresor).
   final String name;
 
+  /// Der Benutzername, unter dem diese Person auf dem Sync-Server aktuell bekannt ist.
+  ///
+  /// Leer = noch nie gesynct.
+  ///
+  /// Verwendung je nach Rolle:
+  /// - **Besitzer (id = 1):** Wird beim ersten Sync gesetzt und nach jedem erfolgreichen
+  ///   Rename auf den neuen Namen aktualisiert. Dient zur Erkennung ausstehender Umbenennungen:
+  ///   `name != syncedName` → `patchUserName` beim nächsten Sync aufrufen.
+  /// - **Freunde (id > 1):** Wird beim Hinzufügen gesetzt und danach nicht mehr verändert.
+  ///   Dient zur Anzeige von Umbenennungen in der Freundesliste:
+  ///   `name != syncedName` → Hinweis "Bobby (ehemals Bob)".
+  final String syncedName;
+
   /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
   final String publicKey;
 
@@ -235,6 +271,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
     required this.id,
     required this.uuid,
     required this.name,
+    required this.syncedName,
     required this.publicKey,
     required this.isVerified,
     required this.isHidden,
@@ -246,6 +283,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
     map['id'] = Variable<int>(id);
     map['uuid'] = Variable<String>(uuid);
     map['name'] = Variable<String>(name);
+    map['synced_name'] = Variable<String>(syncedName);
     map['public_key'] = Variable<String>(publicKey);
     map['is_verified'] = Variable<bool>(isVerified);
     map['is_hidden'] = Variable<bool>(isHidden);
@@ -258,6 +296,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       id: Value(id),
       uuid: Value(uuid),
       name: Value(name),
+      syncedName: Value(syncedName),
       publicKey: Value(publicKey),
       isVerified: Value(isVerified),
       isHidden: Value(isHidden),
@@ -274,6 +313,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       id: serializer.fromJson<int>(json['id']),
       uuid: serializer.fromJson<String>(json['uuid']),
       name: serializer.fromJson<String>(json['name']),
+      syncedName: serializer.fromJson<String>(json['syncedName']),
       publicKey: serializer.fromJson<String>(json['publicKey']),
       isVerified: serializer.fromJson<bool>(json['isVerified']),
       isHidden: serializer.fromJson<bool>(json['isHidden']),
@@ -287,6 +327,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       'id': serializer.toJson<int>(id),
       'uuid': serializer.toJson<String>(uuid),
       'name': serializer.toJson<String>(name),
+      'syncedName': serializer.toJson<String>(syncedName),
       'publicKey': serializer.toJson<String>(publicKey),
       'isVerified': serializer.toJson<bool>(isVerified),
       'isHidden': serializer.toJson<bool>(isHidden),
@@ -298,6 +339,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
     int? id,
     String? uuid,
     String? name,
+    String? syncedName,
     String? publicKey,
     bool? isVerified,
     bool? isHidden,
@@ -306,6 +348,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
     id: id ?? this.id,
     uuid: uuid ?? this.uuid,
     name: name ?? this.name,
+    syncedName: syncedName ?? this.syncedName,
     publicKey: publicKey ?? this.publicKey,
     isVerified: isVerified ?? this.isVerified,
     isHidden: isHidden ?? this.isHidden,
@@ -316,6 +359,9 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       id: data.id.present ? data.id.value : this.id,
       uuid: data.uuid.present ? data.uuid.value : this.uuid,
       name: data.name.present ? data.name.value : this.name,
+      syncedName: data.syncedName.present
+          ? data.syncedName.value
+          : this.syncedName,
       publicKey: data.publicKey.present ? data.publicKey.value : this.publicKey,
       isVerified: data.isVerified.present
           ? data.isVerified.value
@@ -331,6 +377,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
           ..write('name: $name, ')
+          ..write('syncedName: $syncedName, ')
           ..write('publicKey: $publicKey, ')
           ..write('isVerified: $isVerified, ')
           ..write('isHidden: $isHidden, ')
@@ -340,8 +387,16 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, uuid, name, publicKey, isVerified, isHidden, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    uuid,
+    name,
+    syncedName,
+    publicKey,
+    isVerified,
+    isHidden,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -349,6 +404,7 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
           other.id == this.id &&
           other.uuid == this.uuid &&
           other.name == this.name &&
+          other.syncedName == this.syncedName &&
           other.publicKey == this.publicKey &&
           other.isVerified == this.isVerified &&
           other.isHidden == this.isHidden &&
@@ -359,6 +415,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
   final Value<int> id;
   final Value<String> uuid;
   final Value<String> name;
+  final Value<String> syncedName;
   final Value<String> publicKey;
   final Value<bool> isVerified;
   final Value<bool> isHidden;
@@ -367,6 +424,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     this.id = const Value.absent(),
     this.uuid = const Value.absent(),
     this.name = const Value.absent(),
+    this.syncedName = const Value.absent(),
     this.publicKey = const Value.absent(),
     this.isVerified = const Value.absent(),
     this.isHidden = const Value.absent(),
@@ -376,6 +434,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     this.id = const Value.absent(),
     required String uuid,
     required String name,
+    this.syncedName = const Value.absent(),
     required String publicKey,
     required bool isVerified,
     required bool isHidden,
@@ -390,6 +449,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     Expression<int>? id,
     Expression<String>? uuid,
     Expression<String>? name,
+    Expression<String>? syncedName,
     Expression<String>? publicKey,
     Expression<bool>? isVerified,
     Expression<bool>? isHidden,
@@ -399,6 +459,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
       if (id != null) 'id': id,
       if (uuid != null) 'uuid': uuid,
       if (name != null) 'name': name,
+      if (syncedName != null) 'synced_name': syncedName,
       if (publicKey != null) 'public_key': publicKey,
       if (isVerified != null) 'is_verified': isVerified,
       if (isHidden != null) 'is_hidden': isHidden,
@@ -410,6 +471,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     Value<int>? id,
     Value<String>? uuid,
     Value<String>? name,
+    Value<String>? syncedName,
     Value<String>? publicKey,
     Value<bool>? isVerified,
     Value<bool>? isHidden,
@@ -419,6 +481,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
       id: id ?? this.id,
       uuid: uuid ?? this.uuid,
       name: name ?? this.name,
+      syncedName: syncedName ?? this.syncedName,
       publicKey: publicKey ?? this.publicKey,
       isVerified: isVerified ?? this.isVerified,
       isHidden: isHidden ?? this.isHidden,
@@ -437,6 +500,9 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (syncedName.present) {
+      map['synced_name'] = Variable<String>(syncedName.value);
     }
     if (publicKey.present) {
       map['public_key'] = Variable<String>(publicKey.value);
@@ -459,6 +525,7 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
           ..write('id: $id, ')
           ..write('uuid: $uuid, ')
           ..write('name: $name, ')
+          ..write('syncedName: $syncedName, ')
           ..write('publicKey: $publicKey, ')
           ..write('isVerified: $isVerified, ')
           ..write('isHidden: $isHidden, ')
@@ -2865,6 +2932,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<int> id,
       required String uuid,
       required String name,
+      Value<String> syncedName,
       required String publicKey,
       required bool isVerified,
       required bool isHidden,
@@ -2875,6 +2943,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> uuid,
       Value<String> name,
+      Value<String> syncedName,
       Value<String> publicKey,
       Value<bool> isVerified,
       Value<bool> isHidden,
@@ -2901,6 +2970,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncedName => $composableBuilder(
+    column: $table.syncedName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2949,6 +3023,11 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncedName => $composableBuilder(
+    column: $table.syncedName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get publicKey => $composableBuilder(
     column: $table.publicKey,
     builder: (column) => ColumnOrderings(column),
@@ -2987,6 +3066,11 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get syncedName => $composableBuilder(
+    column: $table.syncedName,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get publicKey =>
       $composableBuilder(column: $table.publicKey, builder: (column) => column);
@@ -3034,6 +3118,7 @@ class $$UsersTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> uuid = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> syncedName = const Value.absent(),
                 Value<String> publicKey = const Value.absent(),
                 Value<bool> isVerified = const Value.absent(),
                 Value<bool> isHidden = const Value.absent(),
@@ -3042,6 +3127,7 @@ class $$UsersTableTableManager
                 id: id,
                 uuid: uuid,
                 name: name,
+                syncedName: syncedName,
                 publicKey: publicKey,
                 isVerified: isVerified,
                 isHidden: isHidden,
@@ -3052,6 +3138,7 @@ class $$UsersTableTableManager
                 Value<int> id = const Value.absent(),
                 required String uuid,
                 required String name,
+                Value<String> syncedName = const Value.absent(),
                 required String publicKey,
                 required bool isVerified,
                 required bool isHidden,
@@ -3060,6 +3147,7 @@ class $$UsersTableTableManager
                 id: id,
                 uuid: uuid,
                 name: name,
+                syncedName: syncedName,
                 publicKey: publicKey,
                 isVerified: isVerified,
                 isHidden: isHidden,

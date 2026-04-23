@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:privault/core/app_error.dart';
+import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
@@ -14,6 +16,7 @@ import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:privault/services/web_service.dart';
 
 import 'settings_notifier_test.mocks.dart';
 
@@ -24,34 +27,46 @@ import 'settings_notifier_test.mocks.dart';
   CryptoService,
   DatabaseService,
   SessionService,
+  WebService,
 ])
 void main() {
   late ProviderContainer container;
   late MockAutofillService mockAutofill;
   late MockBiometricService mockBio;
+  late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
   late MockSessionService mockSession;
+  late MockWebService mockWeb;
 
   setUp(() {
     mockAutofill = MockAutofillService();
     mockBio = MockBiometricService();
+    mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockSession = MockSessionService();
+    mockWeb = MockWebService();
 
     getIt.reset();
     getIt.registerSingleton<AutofillService>(mockAutofill);
     getIt.registerSingleton<BiometricService>(mockBio);
+    getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<SessionService>(mockSession);
+    getIt.registerSingleton<WebService>(mockWeb);
 
     // Standard-Stubs für load(), damit es in jedem Test funktioniert
     when(mockDb.getNotHiddenFriends()).thenAnswer((_) async => []);
     when(mockDb.getUserIdsWithEmptyEntryKeys()).thenAnswer((_) async => []);
     when(mockSession.vaultName).thenReturn('MyVault');
     when(mockSession.user).thenReturn(null);
+    // ConfigService-Stubs (werden in load() und setThemeMode() benötigt)
+    when(mockConfig.themeMode).thenReturn(ThemeMode.system);
+    when(mockConfig.logMinLevel).thenReturn(LogLevel.info);
+    when(mockConfig.logMaxDays).thenReturn(7);
+    when(mockConfig.lastVaultName).thenReturn('MyVault');
 
     container = ProviderContainer();
   });
@@ -61,16 +76,17 @@ void main() {
   });
 
   group('SettingsNotifier Tests', () {
-    
+
     test('1.1.1 load: Lädt Einstellungen und Freunde korrekt', () async {
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
-        host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
-        useBiometric: true, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
-        categoryPlaceholder: 'Work'
+          id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+          host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
+          useBiometric: true, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
+          categoryPlaceholder: 'Work'
       );
       final friends = [
-        UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: false, isHidden: false, updatedAt: DateTime.now())
+        UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: false, isHidden: false,
+            syncedName: '', updatedAt: DateTime.now())
       ];
 
       when(mockDb.getSettings()).thenAnswer((_) async => settings);
@@ -84,7 +100,7 @@ void main() {
       expect(state.status, equals(SettingsActionStatus.loaded));
       expect(state.vaultName, equals('MyVault'));
       expect(state.friends.length, equals(1));
-      
+
       // Fingerprint-Check: Berücksichtigt den Zero Width Space (\u200B) nach den Doppelpunkten
       expect(state.fingerprints[2], equals('AA:\u200BBB:\u200BCC'));
       verify(mockCrypto.fingerprint('pub')).called(1);
@@ -92,18 +108,18 @@ void main() {
 
     test('2.1.1 saveBiometricSettings: Deaktivierung löscht Secure-Store Key', () async {
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
-        host: 'h', apiToken: 't', lastSyncAt: DateTime.now(),
-        useBiometric: true, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
-        categoryPlaceholder: ''
+          id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+          host: 'h', apiToken: 't', lastSyncAt: DateTime.now(),
+          useBiometric: true, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
+          categoryPlaceholder: ''
       );
-      
+
       when(mockDb.getSettings()).thenAnswer((_) async => settings);
       when(mockDb.saveSettings(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
       when(mockBio.removeMasterKey(any)).thenAnswer((_) async => {});
 
       final notifier = container.read(settingsProvider.notifier);
-      await notifier.load(); 
+      await notifier.load();
 
       await notifier.saveBiometricSettings(false);
 
@@ -114,14 +130,15 @@ void main() {
 
     test('3.1.1 setThemeMode: Persistiert Auswahl im ConfigService', () {
       final notifier = container.read(settingsProvider.notifier);
-      
+
       notifier.setThemeMode(ThemeMode.dark);
 
       expect(container.read(settingsProvider).themeMode, equals(ThemeMode.dark));
     });
 
     test('4.1.1 toggleVerification: Rekeying bei Verifizierung', () async {
-      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'friend-pub', isVerified: false, isHidden: false, updatedAt: DateTime.now());
+      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'friend-pub', isVerified: false, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
       final myPerm = PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'my-enc-key', accessLevel: 3);
       final friendPerm = PermissionEntity(id: 2, entryId: 10, userId: 2, encryptedKey: '', accessLevel: 1);
 
@@ -130,25 +147,24 @@ void main() {
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => myPerm);
       when(mockDb.savePermission(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
       when(mockDb.saveUser(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
-      
+
       when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
       when(mockCrypto.encryptRsa(any, any)).thenAnswer((_) async => 'new-friend-enc-key');
 
       final notifier = container.read(settingsProvider.notifier);
-      
+
       await notifier.toggleVerification(friend);
 
       verify(mockDb.savePermission(argThat(predicate<PermissionEntity>((p) => p.encryptedKey == 'new-friend-enc-key')))).called(1);
       verify(mockDb.saveUser(argThat(predicate<UserEntity>((u) => u.isVerified == true)))).called(1);
     });
 
-    test('5.1.1 deleteVault: Bereinigt alle lokalen Daten', () async {
+    test('5.1.1 deleteVaultLocal: Bereinigt alle lokalen Daten', () async {
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
 
-
       final notifier = container.read(settingsProvider.notifier);
-      await notifier.deleteVault();
+      await notifier.deleteVaultLocal();
 
       expect(container.read(settingsProvider).status, equals(SettingsActionStatus.deleted));
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
@@ -156,9 +172,72 @@ void main() {
       verify(mockSession.clearSession()).called(1);
     });
 
+    test('5.2.1 deleteVaultServer: Löscht Tresor auf dem Server und setzt lastSyncAt zurück', () async {
+      final settings = SettingsEntity(
+        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+        host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
+        useBiometric: false, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
+        categoryPlaceholder: '',
+      );
+      final user = UserEntity(
+        id: 1, uuid: 'u1', name: 'Alice', publicKey: 'pub',
+        isVerified: true, isHidden: false, syncedName: 'Alice', updatedAt: DateTime.now(),
+      );
+
+      when(mockDb.getSettings()).thenAnswer((_) async => settings);
+      when(mockSession.user).thenReturn(user);
+      when(mockSession.settings).thenReturn(settings);
+      when(mockSession.privateKey).thenReturn(Uint8List(32));
+      when(mockWeb.deleteVault('u1')).thenAnswer((_) async => {});
+      when(mockDb.saveSettings(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
+
+      final notifier = container.read(settingsProvider.notifier);
+      await notifier.load(); // setzt _settings
+      await notifier.deleteVaultServer();
+
+      verify(mockWeb.deleteVault('u1')).called(1);
+      // lastSyncAt muss auf Epoch zurückgesetzt worden sein
+      verify(mockDb.saveSettings(argThat(predicate<SettingsEntity>(
+              (s) => s.lastSyncAt.millisecondsSinceEpoch == 0)))).called(1);
+      expect(container.read(settingsProvider).isRegistered, isFalse);
+      expect(container.read(settingsProvider).status, equals(SettingsActionStatus.saved));
+    });
+
+    test('5.3.1 deleteVaultBoth: Löscht Server und Gerät', () async {
+      final settings = SettingsEntity(
+        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+        host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
+        useBiometric: false, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
+        categoryPlaceholder: '',
+      );
+      final user = UserEntity(
+        id: 1, uuid: 'u1', name: 'Alice', publicKey: 'pub',
+        isVerified: true, isHidden: false, syncedName: 'Alice', updatedAt: DateTime.now(),
+      );
+
+      when(mockDb.getSettings()).thenAnswer((_) async => settings);
+      when(mockSession.user).thenReturn(user);
+      when(mockSession.settings).thenReturn(settings);
+      when(mockSession.privateKey).thenReturn(Uint8List(32));
+      when(mockWeb.deleteVault('u1')).thenAnswer((_) async => {});
+      when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
+      when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
+
+      final notifier = container.read(settingsProvider.notifier);
+      await notifier.load();
+      await notifier.deleteVaultBoth();
+
+      verify(mockWeb.deleteVault('u1')).called(1);
+      verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
+      verify(mockBio.removeMasterKey('MyVault')).called(1);
+      verify(mockSession.clearSession()).called(1);
+      expect(container.read(settingsProvider).status, equals(SettingsActionStatus.deleted));
+    });
+
     test('6.1.1 deleteFriend: Löscht Freund physisch, wenn keine Verknüpfungen existieren', () async {
-      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: true, isHidden: false, updatedAt: DateTime.now());
-      
+      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: true, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
+
       // Keine Berechtigungen für diesen Freund gefunden
       when(mockDb.getPermissionsByUserId(2)).thenAnswer((_) async => []);
       when(mockDb.deleteUser(2)).thenAnswer((_) async => {});
@@ -172,9 +251,10 @@ void main() {
     });
 
     test('6.1.2 deleteFriend: Versteckt Freund nur, wenn noch Verknüpfungen existieren', () async {
-      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: true, isHidden: false, updatedAt: DateTime.now());
+      final friend = UserEntity(id: 2, uuid: 'f1', name: 'Bob', publicKey: 'pub', isVerified: true, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
       final perm = PermissionEntity(id: 5, entryId: 10, userId: 2, encryptedKey: 'k', accessLevel: 1);
-      
+
       // Berechtigung existiert -> darf nicht physisch gelöscht werden
       when(mockDb.getPermissionsByUserId(2)).thenAnswer((_) async => [perm]);
       when(mockDb.hideUser(2)).thenAnswer((_) async => {});

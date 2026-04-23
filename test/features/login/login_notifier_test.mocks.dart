@@ -167,6 +167,11 @@ class MockConfigService extends _i1.Mock implements _i6.ConfigService {
           as int);
 
   @override
+  int get hibpCacheDays =>
+      (super.noSuchMethod(Invocation.getter(#hibpCacheDays), returnValue: 0)
+          as int);
+
+  @override
   set lastVaultName(String? value) => super.noSuchMethod(
     Invocation.setter(#lastVaultName, value),
     returnValueForMissingStub: null,
@@ -193,6 +198,12 @@ class MockConfigService extends _i1.Mock implements _i6.ConfigService {
   @override
   set logMaxDays(int? value) => super.noSuchMethod(
     Invocation.setter(#logMaxDays, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set hibpCacheDays(int? value) => super.noSuchMethod(
+    Invocation.setter(#hibpCacheDays, value),
     returnValueForMissingStub: null,
   );
 }

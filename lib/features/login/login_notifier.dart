@@ -189,7 +189,7 @@ class LoginNotifier extends Notifier<LoginState> {
       SettingsEntity? settings;
 
       // 8. Datenbank öffnen bzw. anlegen
-      await _databaseService.initialize(vaultName, masterKey!);
+      await _databaseService.initialize(vaultName, masterKey);
       if (state.isExists) {
         // Tresor soll geöffnet werden
 
@@ -240,6 +240,7 @@ class LoginNotifier extends Notifier<LoginState> {
             id: 0,
             uuid: const Uuid().v4(),
             name: env.username,
+            syncedName: '', // wird beim ersten Sync eingefroren
             publicKey: pubKey,
             isVerified: true,
             isHidden: false,

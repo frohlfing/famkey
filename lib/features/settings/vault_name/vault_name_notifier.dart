@@ -54,11 +54,13 @@ class VaultNameNotifier extends Notifier<VaultNameState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
-    // UI-State zurücksetzen
+    final settings = await _databaseService.getSettings();
     final formData = VaultNameFormData(vaultName: _sessionService.vaultName);
     state = const VaultNameState().copyWith(
       formData: formData,
       originalFormData: formData,
+      // isSynced: true wenn bereits mindestens einmal synchronisiert wurde
+      isSynced: settings != null && settings.lastSyncAt.year > 1970,
       status: VaultNameActionStatus.loaded,
     );
   }

@@ -75,4 +75,81 @@ final class VaultController
         // Antwort generieren (204 No Content)
         return Response::empty();
     }
+
+    /**
+     * Löscht den Tresor des authentifizierten Benutzers serverseitig.
+     *
+     * Endpunkt: <code>DELETE /users/{user_uuid}/vault</code>
+     *
+     * Header:
+     * <code>
+     * Authorization: Bearer {api_token}
+     * X-User-Uuid: {user_uuid}
+     * X-Timestamp: {unix_timestamp_utc}
+     * X-Signature: {base64_signature}
+     * </code>
+     *
+     * Query: -
+     *
+     * Body: -
+     *
+     * Antwort (204 No Content): -
+     *
+     * Antwort (401, 403, 404, 422, 500):
+     * <code>
+     * { "error": "{Fehlermeldung}" }
+     * </code>
+     *
+     * Mögliche Statuscodes:
+     * - 204 No Content
+     * - 401 Unauthorized: API-Token fehlt/ungültig oder RSA-Header/Signatur fehlt/ungültig
+     * - 403 Forbidden: user_uuid stimmt nicht mit der RSA-identifizierten UUID überein
+     * - 404 Not Found: Benutzer oder Tresor nicht gefunden
+     * - 422 Unprocessable Entity: Pflichtfeld user_uuid fehlt/ist leer
+     * - 500 Internal Server Error
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function deleteVault(Request $request): Response
+    {
+        // Parameter holen
+        $request->ensureHas(['user_uuid']);
+        $userUuid = $request->string('user_uuid');
+
+        // Sicherstellen, dass der angegebene Benutzer der authentifizierte Benutzer ist.
+        if ($userUuid !== $request->authUserUuid()) {
+            return Response::error(403);
+        }
+
+        // Tresor des Benutzers ermitteln
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare('SELECT vault_uuid FROM users WHERE uuid = ?');
+        $stmt->execute([$userUuid]);
+        $vaultUuid = $stmt->fetchColumn();
+        if (!$vaultUuid) {
+            return Response::error(404, 'Benutzer oder Tresor nicht gefunden');
+        }
+
+        // Prüfen, ob der Benutzer der letzte im Tresor ist.
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE vault_uuid = ?');
+        $stmt->execute([$vaultUuid]);
+        $userCount = (int)$stmt->fetchColumn();
+
+        if ($userCount <= 1) {
+            // Letzter Benutzer → gesamten Tresor löschen (Kaskadierung entfernt
+            // entries, permissions, tombstones, attachments, users)
+            $stmt = $pdo->prepare('DELETE FROM vaults WHERE uuid = ?');
+            $stmt->execute([$vaultUuid]);
+        } else {
+            // Nicht der letzte Benutzer → nur eigenen Datensatz entfernen.
+            // Der Tresor und die Daten der anderen Benutzer bleiben erhalten.
+            // Permissions des Benutzers werden durch FK-Kaskadierung automatisch gelöscht.
+            $stmt = $pdo->prepare('DELETE FROM users WHERE uuid = ?');
+            $stmt->execute([$userUuid]);
+        }
+
+        // Antwort generieren (204 No Content)
+        return Response::empty();
+    }
 }

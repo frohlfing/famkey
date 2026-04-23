@@ -517,4 +517,80 @@ final class UserController
         // Antwort generieren
         return Response::json($publicKeys);
     }
+
+    /**
+     * Ändert den Benutzernamen (Hash-Name) eines Benutzers.
+     *
+     * Endpunkt: <code>PATCH /users/{user_uuid}/name</code>
+     *
+     * Header:
+     * <code>
+     * Authorization: Bearer {api_token}
+     * X-User-Uuid: {user_uuid}
+     * X-Timestamp: {unix_timestamp_utc}
+     * X-Signature: {base64_signature}
+     * </code>
+     *
+     * Query: -
+     *
+     * Body:
+     * <code>
+     * { "user_hash": "{user_hash}" }
+     * </code>
+     *
+     * Antwort (204 No Content): -
+     *
+     * Antwort (401, 403, 404, 409, 422, 500):
+     * <code>
+     * { "error": "{Fehlermeldung}" }
+     * </code>
+     *
+     * Mögliche Statuscodes:
+     * - 204 No Content
+     * - 401 Unauthorized: API-Token fehlt/ungültig oder RSA-Header/Signatur fehlt/ungültig
+     * - 403 Forbidden: user_uuid in der Route stimmt nicht mit der RSA-identifizierten UUID überein
+     * - 404 Not Found: Benutzer nicht gefunden
+     * - 409 Conflict: Neuer Benutzername ist im Tresor bereits vergeben
+     * - 422 Unprocessable Entity: Pflichtfeld fehlt
+     * - 500 Internal Server Error
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function patchUserName(Request $request): Response
+    {
+        // Parameter holen
+        $request->ensureHas(['user_uuid', 'user_hash']);
+        $userUuid = $request->string('user_uuid');
+        $userHash = $request->string('user_hash');
+
+        // Sicherstellen, dass der angegebene Benutzer der authentifizierte Benutzer ist.
+        if ($userUuid !== $request->authUserUuid()) {
+            return Response::error(403);
+        }
+
+        $pdo = Database::pdo();
+
+        // Tresor des Benutzers ermitteln
+        $stmt = $pdo->prepare('SELECT vault_uuid FROM users WHERE uuid = ?');
+        $stmt->execute([$userUuid]);
+        $vaultUuid = $stmt->fetchColumn();
+        if (!$vaultUuid) {
+            return Response::error(404, 'Benutzer nicht gefunden');
+        }
+
+        // Prüfen, ob der neue Name im Tresor bereits vergeben ist (anderer Benutzer)
+        $stmt = $pdo->prepare('SELECT uuid FROM users WHERE vault_uuid = ? AND hash_name = ? AND uuid != ?');
+        $stmt->execute([$vaultUuid, $userHash, $userUuid]);
+        if ($stmt->fetch()) {
+            return Response::error(409, 'Benutzername ist im Tresor bereits vergeben');
+        }
+
+        // Name aktualisieren
+        $stmt = $pdo->prepare('UPDATE users SET hash_name = ? WHERE uuid = ?');
+        $stmt->execute([$userHash, $userUuid]);
+
+        // Antwort generieren (204 No Content)
+        return Response::empty();
+    }
 }

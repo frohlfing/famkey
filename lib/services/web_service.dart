@@ -195,6 +195,18 @@ class WebService {
     await _dio.put('users/$userUuid/friends', data: {'encrypted_friends': encryptedFriends});
   }
 
+  /// Ändert den Benutzernamen auf dem Server.
+  ///
+  /// Wird beim Sync aufgerufen, wenn [user.name] != [user.syncedName].
+  Future<void> patchUserName(String userUuid, String userName) async {
+    await _dio.patch(
+      'users/$userUuid/name',
+      data: {
+        'user_hash': _cryptoService.computeHash(userName),
+      },
+    );
+  }
+
   // ------------------------------------------------------------------------
   // --- Methoden bzgl. Bulk-Aktion Sync ---
   // ------------------------------------------------------------------------
@@ -249,6 +261,13 @@ class WebService {
   Future<void> cleanTest(String vaultName) async {
     final vaultHash = _cryptoService.computeHash(vaultName);
     await _dio.delete('vaults', queryParameters: {'vault_hash': vaultHash});
+  }
+
+  /// Löscht den Tresor des Benutzers serverseitig (RSA-geschützt).
+  ///
+  /// Entspricht der Option "Nur auf dem Server löschen" im Einstellungen-Dialog.
+  Future<void> deleteVault(String userUuid) async {
+    await _dio.delete('users/$userUuid/vault');
   }
 
   // ------------------------------------------------------------------------

@@ -37,6 +37,19 @@ class Users extends Table {
   /// Der Name des Benutzers (eindeutig pro Tresor).
   TextColumn get name => text()();
 
+  /// Der Benutzername, unter dem diese Person auf dem Sync-Server aktuell bekannt ist.
+  ///
+  /// Leer = noch nie gesynct.
+  ///
+  /// Verwendung je nach Rolle:
+  /// - **Besitzer (id = 1):** Wird beim ersten Sync gesetzt und nach jedem erfolgreichen
+  ///   Rename auf den neuen Namen aktualisiert. Dient zur Erkennung ausstehender Umbenennungen:
+  ///   `name != syncedName` → `patchUserName` beim nächsten Sync aufrufen.
+  /// - **Freunde (id > 1):** Wird beim Hinzufügen gesetzt und danach nicht mehr verändert.
+  ///   Dient zur Anzeige von Umbenennungen in der Freundesliste:
+  ///   `name != syncedName` → Hinweis "Bobby (ehemals Bob)".
+  TextColumn get syncedName => text().withDefault(const Constant(''))();
+
   /// Der öffentliche RSA-Schlüssel des Benutzers (Base64-kodierter SPKI-String).
   TextColumn get publicKey => text()();
 

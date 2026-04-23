@@ -35,10 +35,10 @@ void main() {
       if (getIt.isRegistered<ConfigService>()) {
         await getIt.unregister<ConfigService>();
       }
-      
+
       mockConfigService = MockConfigService();
       getIt.registerSingleton<ConfigService>(mockConfigService);
-      
+
       // 2. Temporäres Verzeichnis
       tempDir = await Directory.systemTemp.createTemp('privault_test_');
 
@@ -73,18 +73,18 @@ void main() {
     test('1.3.1 Backup-Roundtrip', () async {
       const vaultName = "VaultZ";
       await sut.initialize(vaultName, validKey());
-      
+
       // WICHTIG: Einen Zugriff erzwingen, damit Drift die Datei physisch erstellt
-      await sut.getSettings(); 
-      
+      await sut.getSettings();
+
       final dbPath = sut.getDatabasePath(vaultName);
       final backupPath = '$dbPath.bak';
-      
+
       expect(File(dbPath).existsSync(), isTrue, reason: 'DB Datei sollte existieren');
-      
+
       await sut.createBackup();
       expect(File(backupPath).existsSync(), isTrue, reason: 'Backup Datei sollte nach createBackup existieren');
-      
+
       await sut.close();
       await sut.restoreBackup();
       expect(File(backupPath).existsSync(), isFalse);
@@ -92,7 +92,7 @@ void main() {
 
     test('2.1.1 User-Roundtrip: Speichern und Abfragen', () async {
       await sut.initialize("VaultU", validKey());
-      
+
       final user = UserEntity(
         id: 0,
         uuid: 'u-alice',
@@ -100,19 +100,41 @@ void main() {
         publicKey: 'pub',
         isVerified: true,
         isHidden: false,
+        syncedName: '',
         updatedAt: DateTime.now(),
       );
-      
+
       final savedUser = await sut.saveUser(user);
       expect(savedUser.id, greaterThan(0));
-      
+
       final got = await sut.getUserByUuid('u-alice');
       expect(got?.name, equals('Alice'));
     });
 
+    test('2.1.2 User-Roundtrip: syncedName wird gespeichert und geladen', () async {
+      await sut.initialize("VaultSyncedName", validKey());
+
+      // Freund wurde unter 'Bobby' hinzugefügt, hat sich in 'Bob' umbenannt
+      final user = UserEntity(
+        id: 0,
+        uuid: 'u-bob',
+        name: 'Bob',
+        syncedName: 'Bobby',
+        publicKey: 'pub',
+        isVerified: false,
+        isHidden: false,
+        updatedAt: DateTime.now(),
+      );
+
+      await sut.saveUser(user);
+      final got = await sut.getUserByUuid('u-bob');
+      expect(got?.syncedName, equals('Bobby'));
+      expect(got?.name, equals('Bob'));
+    });
+
     test('7.1.1 Settings-Roundtrip: Einstellungen speichern und abrufen', () async {
       await sut.initialize("VaultS", validKey());
-      
+
       final settings = SettingsEntity(
         id: 1,
         salt: 'salt',
@@ -127,10 +149,10 @@ void main() {
         pwAvoidIlO0: true,
         categoryPlaceholder: 'General',
       );
-      
+
       await sut.saveSettings(settings);
       final loaded = await sut.getSettings();
-      
+
       expect(loaded?.apiToken, equals('token'));
       expect(loaded?.pwSpecialChars, equals("!@#\$"));
     });

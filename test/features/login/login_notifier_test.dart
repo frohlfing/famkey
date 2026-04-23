@@ -64,12 +64,12 @@ void main() {
   });
 
   group('LoginNotifier Tests', () {
-    
+
     test('1.1.1 setVaultName: Ungültige Zeichen im Tresornamen werden ersetzt', () {
       final notifier = container.read(loginProvider.notifier);
-      
+
       notifier.setVaultName('Mein/Tresor?');
-      
+
       expect(container.read(loginProvider).vaultName, equals('Mein_Tresor_'));
     });
 
@@ -78,12 +78,13 @@ void main() {
       final masterKey = Uint8List(32);
       final privateKey = Uint8List(32);
       final salt = Uint8List(16);
-      
-      final user = UserEntity(id: 1, uuid: 'u', name: 'N', publicKey: 'p', isVerified: true, isHidden: false, updatedAt: DateTime.now());
+
+      final user = UserEntity(id: 1, uuid: 'u', name: 'N', publicKey: 'p', isVerified: true, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'enc', masterKeyTimestamp: DateTime.now(), 
-        host: 'h', apiToken: 't', lastSyncAt: DateTime.now(), useBiometric: false, 
-        pwLength: 20, pwSpecialChars: '!', pwAvoidIlO0: true, categoryPlaceholder: ''
+          id: 1, salt: 's', encryptedPrivateKey: 'enc', masterKeyTimestamp: DateTime.now(),
+          host: 'h', apiToken: 't', lastSyncAt: DateTime.now(), useBiometric: false,
+          pwLength: 20, pwSpecialChars: '!', pwAvoidIlO0: true, categoryPlaceholder: ''
       );
 
       // 1. Initialisieren (lädt vorhandene Tresore)
@@ -93,7 +94,7 @@ void main() {
       // 2. Benutzereingabe simulieren
       notifier.setVaultName('Safe');
       notifier.setPassword('Secret');
-      
+
       // Mocks für den Login-Flow
       when(mockDb.close()).thenAnswer((_) async => {});
       when(mockDb.getSalt('Safe')).thenAnswer((_) async => salt);
@@ -109,10 +110,10 @@ void main() {
       expect(container.read(loginProvider).status, equals(LoginActionStatus.success));
       verify(mockDb.initialize('Safe', masterKey)).called(1);
       (await verify(mockSession.setSession(
-        user: user, 
-        privateKey: privateKey, 
-        vaultName: 'Safe', 
-        settings: settings
+          user: user,
+          privateKey: privateKey,
+          vaultName: 'Safe',
+          settings: settings
       ))).called(1);
     });
 
@@ -129,12 +130,12 @@ void main() {
       // 2. Benutzereingabe simulieren
       notifier.setVaultName('Safe');
       notifier.setPassword('Wrong');
-      
+
       // Mocks vorbereiten
       when(mockDb.close()).thenAnswer((_) async => {});
       when(mockDb.getSalt('Safe')).thenAnswer((_) async => salt);
       when(mockCrypto.deriveKey('Wrong', salt)).thenAnswer((_) async => masterKey);
-      
+
       // SQLite Fehler simulieren
       when(mockDb.initialize('Safe', masterKey)).thenThrow(Exception('authentication failed'));
 
@@ -147,7 +148,7 @@ void main() {
 
     test('2.3.1 login: Nicht existierender Tresor fragt nach Neuanlage', () async {
       final notifier = container.read(loginProvider.notifier);
-      
+
       // 1. Initialisieren (Liste ist leer)
       when(mockDb.getExistingVaults()).thenAnswer((_) async => []);
       await notifier.load();
@@ -155,7 +156,7 @@ void main() {
       // 2. Namen eingeben, der nicht existiert
       notifier.setVaultName('NewVault');
       notifier.setPassword('Pass');
-      
+
       // 3. Login versuchen
       await notifier.login();
 

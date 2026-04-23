@@ -33,6 +33,7 @@ void main() {
         publicKey: 'pub-key',
         isVerified: true,
         isHidden: false,
+        syncedName: '',
         updatedAt: DateTime.now(),
       );
     }
@@ -59,7 +60,7 @@ void main() {
       final user = createTestUser();
       sut.setUser(user);
       await sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
-      
+
       expect(sut.user, equals(user));
       expect(sut.privateKey, isNotNull);
       expect(sut.privateKey!.length, equals(3));
@@ -68,9 +69,9 @@ void main() {
     test('2.1.1 clearSession: Sensible Daten werden beim Logout physisch aus dem RAM gelöscht', () async {
       final secret = Uint8List.fromList([0xAA, 0xBB, 0xCC]);
       await sut.setPrivateKey(secret);
-      
+
       sut.clearSession();
-      
+
       // Verifiziert, dass wipeKey auf dem Secret aufgerufen wurde
       verify(mockCryptoService.wipeKey(secret)).called(1);       // privateKey
       // Der indexKey wird ebenfalls gewipet, aber sein Wert ist Uint8List(32) aus dem Stub
@@ -83,9 +84,9 @@ void main() {
       await sut.setPrivateKey(Uint8List.fromList([1, 2, 3]));
       sut.setVaultName('MyVault');
       sut.setSettings(createTestSettings());
-      
+
       sut.clearSession();
-      
+
       expect(sut.user, isNull);
       expect(sut.privateKey, isNull);
       expect(sut.indexKey, isNull);
@@ -97,14 +98,14 @@ void main() {
       final user = createTestUser();
       final key = Uint8List.fromList([1, 2, 3]);
       final settings = createTestSettings();
-      
+
       await sut.setSession(
-        user: user, 
-        privateKey: key, 
-        vaultName: 'TestVault', 
-        settings: settings
+          user: user,
+          privateKey: key,
+          vaultName: 'TestVault',
+          settings: settings
       );
-      
+
       expect(sut.user, equals(user));
       expect(sut.privateKey, equals(key));
       expect(sut.vaultName, equals('TestVault'));

@@ -82,13 +82,14 @@ void main() {
       when(mockCrypto.decrypt('ENC_DATA', entryKey)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(payloadJson)));
       when(mockPw.estimateStrength('pw')).thenReturn(4);
       when(mockDb.getUser(1)).thenAnswer((_) async => UserEntity(
-        id: 1,
-        uuid: 'u',
-        name: 'Alice',
-        publicKey: 'p',
-        isVerified: true,
-        isHidden: false,
-        updatedAt: DateTime.now()),
+          id: 1,
+          uuid: 'u',
+          name: 'Alice',
+          publicKey: 'p',
+          isVerified: true,
+          isHidden: false,
+          syncedName: '',
+          updatedAt: DateTime.now()),
       );
       when(mockDb.getAttachmentsByEntryId(10)).thenAnswer((_) async => []);
       when(mockDb.getNotHiddenFriendsWithAccessLevel(10)).thenAnswer((_) async => []);
@@ -114,7 +115,7 @@ void main() {
         updatedAt: DateTime.now(),
         encryptedData: 'D',
         encryptedIndex: '',
-    );
+      );
       final friend = UserEntity(
         id: 2,
         uuid: 'f1',
@@ -122,6 +123,7 @@ void main() {
         publicKey: 'FRIEND_PUB',
         isVerified: true,
         isHidden: false,
+        syncedName: '',
         updatedAt: DateTime.now(),
       );
 
@@ -137,13 +139,14 @@ void main() {
       when(mockDb.getAttachmentsByEntryId(any)).thenAnswer((_) async => []);
       when(mockDb.getNotHiddenFriendsWithAccessLevel(any)).thenAnswer((_) async => []);
       when(mockDb.getUser(any)).thenAnswer((_) async => UserEntity(
-        id: 1,
-        uuid: 'u',
-        name: 'A',
-        publicKey: 'p',
-        isVerified: true,
-        isHidden: false,
-        updatedAt: DateTime.now()),
+          id: 1,
+          uuid: 'u',
+          name: 'A',
+          publicKey: 'p',
+          isVerified: true,
+          isHidden: false,
+          syncedName: '',
+          updatedAt: DateTime.now()),
       );
 
       final notifier = container.read(detailProvider.notifier);
@@ -160,13 +163,13 @@ void main() {
       // Verifizieren, dass der Key für den Freund verschlüsselt wurde
       verify(mockCrypto.encryptRsa(entryKey, 'FRIEND_PUB')).called(1);
       verify(mockDb.savePermission(argThat(predicate<PermissionEntity>(
-          (p) => p.userId == 2 && p.encryptedKey == 'ENC_KEY_FOR_FRIEND')))).called(1);
+              (p) => p.userId == 2 && p.encryptedKey == 'ENC_KEY_FOR_FRIEND')))).called(1);
     });
 
     test('3.1.1 deleteAttachment: Löscht Anhang und aktualisiert UI', () async {
       // Setup: Geladener Eintrag
       final attachment =
-          AttachmentEntity(id: 100, uuid: 'a1', entryId: 10, encryptedMeta: 'M', encryptedContent: 'C', isSynced: true);
+      AttachmentEntity(id: 100, uuid: 'a1', entryId: 10, encryptedMeta: 'M', encryptedContent: 'C', isSynced: true);
 
       // Mocks für load() ...
       when(mockDb.getEntry(10)).thenAnswer((_) async => EntryEntity(

@@ -115,7 +115,7 @@ final class SyncController
             SELECT e.uuid, e.encrypted_data, p.encrypted_key, p.access_level, e.creator_uuid, e.updater_uuid,
                    DATE_FORMAT(e.updated_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS updated_at 
             FROM entries e
-            JOIN permissions p ON e.uuid = p.entry_uuid
+            JOIN permissions p ON e.uuid = p.entry_uuid AND e.vault_uuid = p.vault_uuid
             WHERE e.vault_uuid = ? AND p.user_uuid = ? AND e.updated_at > ?
             ORDER BY e.updated_at, e.uuid
             ");
@@ -127,10 +127,17 @@ final class SyncController
             $stmtPerm = $pdo->prepare("
                 SELECT user_uuid, encrypted_key, access_level
                 FROM permissions 
-                WHERE entry_uuid = ? AND user_uuid != ?
+                WHERE entry_uuid = ? AND vault_uuid = ? AND user_uuid != ?
                 ");
-            $stmtPerm->execute([$row['uuid'], $userUuid]);
+            $stmtPerm->execute([$row['uuid'], $vaultUuid, $userUuid]);
             $friends = $stmtPerm->fetchAll();
+
+            // Anhänge laden
+            $stmtAtt = $pdo->prepare("
+                SELECT uuid FROM attachments WHERE entry_uuid = ? AND vault_uuid = ?
+                ");
+            $stmtAtt->execute([$row['uuid'], $vaultUuid]);
+            $attachmentUuids = array_column($stmtAtt->fetchAll(), 'uuid');
 
             // Eintrag für die Antwort merken
             $updates[] = [
@@ -138,6 +145,7 @@ final class SyncController
                 'encrypted_data' => $row['encrypted_data'],
                 'encrypted_key' => $row['encrypted_key'],
                 'access_level' => (int)$row['access_level'],
+                'attachment_uuids' => $attachmentUuids,
                 'friends' => $friends,
                 'creator_uuid' => $row['creator_uuid'],
                 'updater_uuid' => $row['updater_uuid'],
@@ -223,6 +231,11 @@ final class SyncController
      * Zeitformat:
      * - UTC ISO 8601 (z.B. 2026-01-14T17:13:41.542Z)
      *
+     * Hinweis zur entry_uuid:
+     * - entry_uuid ist nur innerhalb eines Tresors eindeutig. Dieselbe entry_uuid kann in mehreren
+     *   Tresoren vorkommen (z.B. nach einem Import aus einem Backup). Alle Abfragen filtern daher
+     *   stets auf (entry_uuid, vault_uuid).
+     *
      * @param Request $request
      * @return Response
      * @throws Throwable
@@ -284,15 +297,16 @@ final class SyncController
                     return Response::error(422, '"updated_at" muss ein gültiger ISO-Zeitstempel sein');
                 }
 
-                // Eintrag suchen und aktualisieren
+                // Eintrag suchen und aktualisieren.
+                // WICHTIG: Filter auf (uuid, vault_uuid), da entry_uuid nur innerhalb eines Tresors eindeutig ist.
                 $wasChanged = false;
-                $stmt = $pdo->prepare('SELECT updated_at FROM entries WHERE uuid = ?');
-                $stmt->execute([$entryUuid]);
+                $stmt = $pdo->prepare('SELECT updated_at FROM entries WHERE uuid = ? AND vault_uuid = ?');
+                $stmt->execute([$entryUuid, $vaultUuid]);
                 $currUpdatedAt = $stmt->fetchColumn();
                 if ($currUpdatedAt) {
                     // Eintrag gefunden → UPDATE: Der Bearbeiter muss Schreibrecht haben.
-                    $stmt = $pdo->prepare('SELECT access_level FROM permissions WHERE entry_uuid = ? AND user_uuid = ?');
-                    $stmt->execute([$entryUuid, $userUuid]);
+                    $stmt = $pdo->prepare('SELECT access_level FROM permissions WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
+                    $stmt->execute([$entryUuid, $userUuid, $vaultUuid]);
                     $accessLevel = (int)$stmt->fetchColumn();
                     if ($accessLevel < 2) {
                         $pdo->rollBack();
@@ -300,10 +314,10 @@ final class SyncController
                     }
                     // Update, wenn veraltet
                     if ($currUpdatedAt < $updatedAt) {
-                        $stmt = $pdo->prepare('UPDATE entries SET encrypted_data = ?, updater_uuid = ?, updated_at = ? WHERE uuid = ?');
-                        $stmt->execute([$encryptedData, $userUuid, $updatedAt, $entryUuid]);
-                        $stmt = $pdo->prepare('UPDATE permissions SET encrypted_key = ?, access_level = ? WHERE entry_uuid = ? AND user_uuid = ?');
-                        $stmt->execute([$encryptedKey, $accessLevel, $entryUuid, $userUuid]);
+                        $stmt = $pdo->prepare('UPDATE entries SET encrypted_data = ?, updater_uuid = ?, updated_at = ? WHERE uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$encryptedData, $userUuid, $updatedAt, $entryUuid, $vaultUuid]);
+                        $stmt = $pdo->prepare('UPDATE permissions SET encrypted_key = ?, access_level = ? WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$encryptedKey, $accessLevel, $entryUuid, $userUuid, $vaultUuid]);
                         $wasChanged = true;
                     }
                 } else {
@@ -334,31 +348,31 @@ final class SyncController
                             return Response::error(422, 'access_level muss eine Ganzzahl (Integer) sein');
                         }
 
-                        // Prüfen, ob der User überhaupt existiert
-                        $stmtCheckUser = $pdo->prepare('SELECT uuid FROM users WHERE uuid = ?');
-                        $stmtCheckUser->execute([$friendUuid]);
+                        // Prüfen, ob der User überhaupt existiert (im selben Tresor)
+                        $stmtCheckUser = $pdo->prepare('SELECT uuid FROM users WHERE uuid = ? AND vault_uuid = ?');
+                        $stmtCheckUser->execute([$friendUuid, $vaultUuid]);
                         if (!$stmtCheckUser->fetch()) {
                             continue;
                         }
 
                         $existingUserUuids[] = $friendUuid;
 
-                        // Permission upsert
-                        $stmt = $pdo->prepare('SELECT vault_uuid FROM permissions WHERE entry_uuid = ? AND user_uuid = ?');
-                        $stmt->execute([$entryUuid, $friendUuid]);
+                        // Permission upsert (vault_uuid-scoped)
+                        $stmt = $pdo->prepare('SELECT 1 FROM permissions WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$entryUuid, $friendUuid, $vaultUuid]);
                         if ($stmt->fetch()) {
-                            $stmt = $pdo->prepare('UPDATE permissions SET encrypted_key = ?, access_level = ? WHERE entry_uuid = ? AND user_uuid = ?');
-                            $stmt->execute([$friendEncryptedKey, $friendAccessLevel, $entryUuid, $friendUuid]);
+                            $stmt = $pdo->prepare('UPDATE permissions SET encrypted_key = ?, access_level = ? WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
+                            $stmt->execute([$friendEncryptedKey, $friendAccessLevel, $entryUuid, $friendUuid, $vaultUuid]);
                         } else {
                             $stmt = $pdo->prepare('INSERT INTO permissions (entry_uuid, user_uuid, vault_uuid, encrypted_key, access_level) VALUES (?, ?, ?, ?, ?)');
                             $stmt->execute([$entryUuid, $friendUuid, $vaultUuid, $friendEncryptedKey, $friendAccessLevel]);
                         }
                     }
 
-                    // Freunde löschen, die nicht in friends enthalten sind
+                    // Freunde löschen, die nicht in friends enthalten sind (vault_uuid-scoped)
                     $placeholders = implode(',', array_fill(0, count($existingUserUuids), '?'));
-                    $stmt = $pdo->prepare("DELETE FROM permissions WHERE entry_uuid = ? AND user_uuid NOT IN ($placeholders)");
-                    $stmt->execute(array_merge([$entryUuid], $existingUserUuids));
+                    $stmt = $pdo->prepare("DELETE FROM permissions WHERE entry_uuid = ? AND vault_uuid = ? AND user_uuid NOT IN ($placeholders)");
+                    $stmt->execute(array_merge([$entryUuid, $vaultUuid], $existingUserUuids));
                 }
             }
 
@@ -377,32 +391,32 @@ final class SyncController
                     return Response::error(422, '"deleted_at" muss ein gültiger ISO-Zeitstempel sein');
                 }
 
-                // Muss Vollzugriff (Level 3) haben zum Löschen
-                $stmt = $pdo->prepare('SELECT access_level FROM permissions WHERE entry_uuid = ? AND user_uuid = ?');
-                $stmt->execute([$entryUuid, $userUuid]);
+                // Muss Vollzugriff (Level 3) haben zum Löschen (vault_uuid-scoped)
+                $stmt = $pdo->prepare('SELECT access_level FROM permissions WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
+                $stmt->execute([$entryUuid, $userUuid, $vaultUuid]);
                 $accessLevel = (int)$stmt->fetchColumn();
                 if ($accessLevel < 3) {
                     $pdo->rollBack();
                     return Response::error(403, "Kein Recht zum Löschen des Eintrags $entryUuid");
                 }
 
-                // Tombstone erstellen/aktualisieren
-                $stmt = $pdo->prepare('SELECT deleted_at FROM tombstones WHERE entry_uuid = ?');
-                $stmt->execute([$entryUuid]);
+                // Tombstone erstellen/aktualisieren (vault_uuid-scoped)
+                $stmt = $pdo->prepare('SELECT deleted_at FROM tombstones WHERE entry_uuid = ? AND vault_uuid = ?');
+                $stmt->execute([$entryUuid, $vaultUuid]);
                 $currDeletedAt = $stmt->fetchColumn();
                 if ($currDeletedAt) {
                     if ($currDeletedAt < $deletedAt) {
-                        $stmt = $pdo->prepare('UPDATE tombstones SET deleted_at = ? WHERE entry_uuid = ?');
-                        $stmt->execute([$deletedAt, $entryUuid]);
+                        $stmt = $pdo->prepare('UPDATE tombstones SET deleted_at = ? WHERE entry_uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$deletedAt, $entryUuid, $vaultUuid]);
                     }
                 } else {
                     $stmt = $pdo->prepare('INSERT INTO tombstones (entry_uuid, vault_uuid, deleted_at) VALUES (?, ?, ?)');
                     $stmt->execute([$entryUuid, $vaultUuid, $deletedAt]);
                 }
 
-                // Entry löschen
-                $stmt = $pdo->prepare('DELETE FROM entries WHERE uuid = ?');
-                $stmt->execute([$entryUuid]);
+                // Entry löschen (vault_uuid-scoped)
+                $stmt = $pdo->prepare('DELETE FROM entries WHERE uuid = ? AND vault_uuid = ?');
+                $stmt->execute([$entryUuid, $vaultUuid]);
             }
 
             // Änderungen committen
@@ -412,7 +426,7 @@ final class SyncController
             return Response::empty();
 
         } catch (Throwable $e) {
-            $pdo->rollBack(); // todo kann man eine Transaction nicht generell über Application anlegen? Oder besser für jeden Controller einfügen?
+            $pdo->rollBack();
             throw $e;
         }
     }

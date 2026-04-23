@@ -273,6 +273,7 @@ class ImportNotifier extends Notifier<ImportState> {
                   id:         0,
                   uuid:       friend.uuid,
                   name:       friend.username,
+                  syncedName: friend.username, // eingefrorener Name beim Import; dient zur Anzeige bei späteren Umbenennungen
                   publicKey:  friend.publicKey,
                   isVerified: false,    // muss nach Sync manuell verifiziert werden
                   isHidden:   false,

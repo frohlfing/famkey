@@ -61,14 +61,22 @@ final class AttachmentController
         $request->ensureHas(['attachment_uuid']);
         $attachmentUuid = $request->string('attachment_uuid');
 
-        // Daten aus Datenbank holen
+        // Tresor des authentifizierten Benutzers ermitteln
         $pdo = Database::pdo();
+        $stmt = $pdo->prepare('SELECT vault_uuid FROM users WHERE uuid = ?');
+        $stmt->execute([$request->authUserUuid()]);
+        $vaultUuid = $stmt->fetchColumn();
+        if (!$vaultUuid) {
+            return Response::error(403);
+        }
+
+        // Daten aus Datenbank holen
         $stmt = $pdo->prepare("
             SELECT entry_uuid, encrypted_meta, encrypted_content
             FROM attachments
-            WHERE uuid = ?
+            WHERE uuid = ? AND vault_uuid = ?
             ");
-        $stmt->execute([$attachmentUuid]);
+        $stmt->execute([$attachmentUuid, $vaultUuid]);
         $row = $stmt->fetch();
         if (!$row) {
             return Response::error(404, 'Attachment nicht gefunden');
@@ -78,7 +86,7 @@ final class AttachmentController
         $encryptedContent = $row['encrypted_content'] ?? '';
 
         // Sicherstellen, dass der authentifizierte Benutzer Zugriff auf den Eintrag hat.
-        $access = $this->requireEntryAccess($request->authUserUuid(), $entryUuid);
+        $access = $this->requireEntryAccess($request->authUserUuid(), $entryUuid, $vaultUuid);
         if (!$access) {
             return Response::error(403); // Nicht autorisiert
         }
@@ -155,8 +163,17 @@ final class AttachmentController
             return Response::error(413, 'Attachment zu groß (max ' . (int)MAX_ATTACHMENT_BYTES . ' Bytes)');
         }
 
+        // Tresor des authentifizierten Benutzers ermitteln
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare('SELECT vault_uuid FROM users WHERE uuid = ?');
+        $stmt->execute([$request->authUserUuid()]);
+        $vaultUuid = $stmt->fetchColumn();
+        if (!$vaultUuid) {
+            return Response::error(403);
+        }
+
         // Sicherstellen, dass der authentifizierte Benutzer Zugriff auf den Eintrag hat.
-        $access = $this->requireEntryAccess($request->authUserUuid(), $entryUuid);
+        $access = $this->requireEntryAccess($request->authUserUuid(), $entryUuid, $vaultUuid);
         if (!$access) {
             return Response::error(403); // Nicht autorisiert
         }
@@ -164,21 +181,16 @@ final class AttachmentController
             return Response::error(403, 'Schreibrechte erforderlich');
         }
 
-        // Prüfen, ob UUID bereits existiert
-        $pdo = Database::pdo();
-        $check = $pdo->prepare('SELECT COUNT(*) FROM attachments WHERE uuid = ?');
-        $check->execute([$attachmentUuid]);
+        // Prüfen, ob UUID bereits existiert (vault_uuid-scoped)
+        $check = $pdo->prepare('SELECT COUNT(*) FROM attachments WHERE uuid = ? AND vault_uuid = ?');
+        $check->execute([$attachmentUuid, $vaultUuid]);
         $exists = (int)$check->fetchColumn() > 0;
         if ($exists) { // Anhang existiert bereits
             // Anhang aktualisieren
-            $stmt = $pdo->prepare('UPDATE attachments SET encrypted_meta = ?, encrypted_content = ? WHERE uuid = ?');
-            $stmt->execute([$metaBinary, $contentBinary, $attachmentUuid]);
+            $stmt = $pdo->prepare('UPDATE attachments SET encrypted_meta = ?, encrypted_content = ? WHERE uuid = ? AND vault_uuid = ?');
+            $stmt->execute([$metaBinary, $contentBinary, $attachmentUuid, $vaultUuid]);
         }
         else { // Anhang existiert nicht
-            // Zugehörigen Tresor über den Eintrag ermitteln
-            $stmt = $pdo->prepare('SELECT vault_uuid FROM entries WHERE uuid = ?');
-            $stmt->execute([$entryUuid]);
-            $vaultUuid = $stmt->fetchColumn();
             // Anhang hinzufügen
             $stmt = $pdo->prepare('INSERT INTO attachments (uuid, entry_uuid, vault_uuid, encrypted_meta, encrypted_content) VALUES (?, ?, ?, ?, ?)');
             $stmt->execute([$attachmentUuid, $entryUuid, $vaultUuid, $metaBinary, $contentBinary]);
@@ -193,18 +205,19 @@ final class AttachmentController
      *
      * @param string $userUuid
      * @param string $entryUuid
+     * @param string $vaultUuid
      * @return array{access_level:int,vault_uuid:string}|null
      */
-    private function requireEntryAccess(string $userUuid, string $entryUuid): ?array
+    private function requireEntryAccess(string $userUuid, string $entryUuid, string $vaultUuid): ?array
     {
         $pdo = Database::pdo();
         $stmt = $pdo->prepare('
             SELECT p.access_level, e.vault_uuid
             FROM permissions p
-            JOIN entries e ON e.uuid = p.entry_uuid
-            WHERE p.user_uuid = ? AND p.entry_uuid = ? AND p.access_level > 0 
+            JOIN entries e ON e.uuid = p.entry_uuid AND e.vault_uuid = p.vault_uuid
+            WHERE p.user_uuid = ? AND p.entry_uuid = ? AND p.vault_uuid = ? AND p.access_level > 0
         ');
-        $stmt->execute([$userUuid, $entryUuid]);
+        $stmt->execute([$userUuid, $entryUuid, $vaultUuid]);
         $row = $stmt->fetch();
 
         return $row ? ['access_level' => (int)$row['access_level'], 'vault_uuid' => $row['vault_uuid']] : null;

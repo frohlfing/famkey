@@ -50,7 +50,7 @@ void main() {
   });
 
   group('MainNotifier Tests', () {
-    
+
     List<EntryEntity> createTestEntries() {
       return [
         EntryEntity(id: 1, uuid: 'e1', encryptedData: '', encryptedIndex: 'IDX_1', creatorId: 1, updaterId: 1, updatedAt: DateTime.now()),
@@ -87,7 +87,7 @@ void main() {
 
       // Suche nach "slack"
       notifier.setSearchQuery('slack');
-      
+
       var state = container.read(mainProvider);
       expect(state.groupedEntries['Work']!.length, equals(1));
       expect(state.groupedEntries['Work']!.first.index.title, equals('Slack'));
@@ -103,9 +103,10 @@ void main() {
     test('3.1.1 filter: "Nur Meine" zeigt nur eigene Einträge', () async {
       final entries = createTestEntries();
       when(mockDb.getEntries()).thenAnswer((_) async => entries);
-      
+
       // Stub für den User (ID 1)
-      final alice = UserEntity(id: 1, uuid: 'u1', name: 'Alice', publicKey: 'p', isVerified: true, isHidden: false, updatedAt: DateTime.now());
+      final alice = UserEntity(id: 1, uuid: 'u1', name: 'Alice', publicKey: 'p', isVerified: true, isHidden: false,
+          syncedName: '', updatedAt: DateTime.now());
       when(mockSession.user).thenReturn(alice);
 
       when(mockCrypto.decrypt('IDX_1', any)).thenAnswer((_) async => indexBytes('Work',  'Mail',    'm.de', ''));
@@ -124,7 +125,7 @@ void main() {
 
     test('4.1.1 toggleCategory: Merkt sich eingeklappte Gruppen', () {
       final notifier = container.read(mainProvider.notifier);
-      
+
       notifier.toggleCategory('Work');
       expect(container.read(mainProvider).collapsedCategories, contains('Work'));
 
@@ -135,7 +136,7 @@ void main() {
     test('5.1.1 logout: Bereinigt Session und schließt DB', () {
       final notifier = container.read(mainProvider.notifier);
       when(mockDb.close()).thenAnswer((_) async => {});
-      
+
       notifier.logout();
 
       verify(mockDb.close()).called(1);

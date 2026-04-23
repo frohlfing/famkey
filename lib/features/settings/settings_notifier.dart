@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
+import 'package:privault/services/web_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(() {
@@ -32,6 +34,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
+  late final WebService _webService;
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen (nicht reaktiv, nicht UI‑relevant) ---
@@ -57,6 +60,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
     _sessionService = getIt<SessionService>();
+    _webService = getIt<WebService>();
 
     // Initialer State
     return SettingsState();
@@ -110,8 +114,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Tresor löschen ---
   // ------------------------------------------------------------------------
 
-  /// Löscht den aktuellen Tresor lokal vom Gerät.
-  Future<void> deleteVault() async {
+  /// Löscht den Tresor nur lokal vom Gerät.
+  /// Die Daten auf dem Server bleiben erhalten.
+  Future<void> deleteVaultLocal() async {
     if (state.isBusy) return;
 
     // 1. UI-State aktualisieren
@@ -132,14 +137,90 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
       // 5. Session zurücksetzen
       _sessionService.clearSession();
-
-      // 6. UI-State zurücksetzen
-      state = SettingsState().copyWith(
-        status: SettingsActionStatus.deleted,
-      );
-
+      state = SettingsState().copyWith(status: SettingsActionStatus.deleted);
     } catch (e, st) {
-      Logger().fatal('Fehler beim Löschen des Tresors: $e', stack: st);
+      Logger().fatal('Fehler beim lokalen Löschen des Tresors: $e', stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
+    }
+  }
+
+  /// Löscht den Tresor nur auf dem Server.
+  /// Die lokalen Daten bleiben erhalten. lastSyncAt wird zurückgesetzt,
+  /// damit der nächste Sync den Tresor unter dem aktuellen Namen neu registriert.
+  ///
+  /// Falls der Benutzer der letzte im Tresor ist, wird der gesamte Tresor gelöscht.
+  /// Andernfalls wird nur der eigene Benutzer-Datensatz entfernt.
+  Future<void> deleteVaultServer() async {
+    if (state.isBusy) return;
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    try {
+      if (_sessionService.user == null || _sessionService.settings == null) {
+        throw Exception('Session nicht initialisiert.');
+      }
+      final settings = _sessionService.settings!;
+      final user = _sessionService.user!;
+
+      // WebService konfigurieren
+      _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
+      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
+
+      // Tresor serverseitig löschen (Server entscheidet: letzter User → Tresor löschen, sonst nur User)
+      await _webService.deleteVault(user.uuid);
+
+      // lastSyncAt zurücksetzen → nächster Sync registriert Tresor unter aktuellem Namen neu
+      if (_settings == null) throw Exception('Settings nicht geladen.');
+      final updatedSettings = _settings!.copyWith(
+        lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      );
+      _settings = await _databaseService.saveSettings(updatedSettings);
+      _sessionService.setSettings(_settings!);
+
+      state = state.copyWith(
+        isRegistered: false,
+        status: SettingsActionStatus.saved,
+      );
+    } on DioException catch (de) {
+      final error = WebService.convertDioError(de);
+      Logger().error(error.text);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: error);
+    } catch (e, st) {
+      Logger().fatal('Fehler beim serverseitigen Löschen des Tresors: $e', stack: st);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
+    }
+  }
+
+  /// Löscht den Tresor sowohl auf dem Server als auch lokal.
+  Future<void> deleteVaultBoth() async {
+    if (state.isBusy) return;
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    try {
+      if (_sessionService.user == null || _sessionService.settings == null) {
+        throw Exception('Session nicht initialisiert.');
+      }
+      final settings = _sessionService.settings!;
+      final user = _sessionService.user!;
+
+      // WebService konfigurieren
+      _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
+      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
+
+      // Tresor serverseitig löschen
+      await _webService.deleteVault(user.uuid);
+
+      // Lokal löschen
+      await _databaseService.deleteCurrentDatabaseAndSaltFile();
+      await _biometricService.removeMasterKey(_sessionService.vaultName);
+      if (_configService.lastVaultName == _sessionService.vaultName) {
+        _configService.lastVaultName = '';
+      }
+      _sessionService.clearSession();
+      state = SettingsState().copyWith(status: SettingsActionStatus.deleted);
+    } on DioException catch (de) {
+      final error = WebService.convertDioError(de);
+      Logger().error(error.text);
+      state = state.copyWith(status: SettingsActionStatus.failure, error: error);
+    } catch (e, st) {
+      Logger().fatal('Fehler beim vollständigen Löschen des Tresors: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

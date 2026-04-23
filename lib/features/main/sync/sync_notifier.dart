@@ -101,16 +101,17 @@ class SyncNotifier extends Notifier<SyncState> {
       }
 
       // 2. Benutzer prüfen
-      // Benutzer registrieren, wenn sein Name nicht auf dem Server im angegebenen Tresor existiert.
-      // Ansonsten sicherstellen, dass die UUID und die Schlüssel des Benutzers passen.
-      var userResponse = await _webService.findUser(_sessionService.vaultName, user.name);
-      if (userResponse == null) {
-        // Benutzer existiert noch nicht
+      // Der Sync verwendet immer den aktuellen lokalen Tresornamen und syncedName als stabilen
+      // Server-Identifikator für den Benutzernamen. Bei einer Tresor-Umbenennung entsteht auf dem
+      // Server ein neuer Mandant — die alten Serverdaten bleiben unter dem bisherigen Namen erhalten.
+      final syncedUserName = user.syncedName.isNotEmpty ? user.syncedName : user.name;
 
-        // Jetzt registrieren.
+      var userResponse = await _webService.findUser(_sessionService.vaultName, syncedUserName);
+      if (userResponse == null) {
+        // Benutzer existiert noch nicht → Erstregistrierung (auch nach Tresor-Umbenennung)
         userResponse = await _webService.registerUser(
           vaultName: _sessionService.vaultName,
-          userName: user.name,
+          userName: syncedUserName,
           userUuid: user.uuid,
           salt: settings.salt,
           publicKey: user.publicKey,
@@ -121,6 +122,11 @@ class SyncNotifier extends Notifier<SyncState> {
         // Die UUID des Benutzers muss gleich sein!
         if (userResponse.userUuid != user.uuid) throw Exception("Die vom Server erhaltene UUID entspricht nicht dem lokalen Benutzer.");
 
+        // syncedName beim ersten Sync einfrieren
+        final updatedUser = user.copyWith(syncedName: syncedUserName);
+        await _databaseService.saveUser(updatedUser);
+        _sessionService.setUser(updatedUser);
+
       } else {
         // Der Name des Benutzers existiert auf dem Server.
 
@@ -128,10 +134,10 @@ class SyncNotifier extends Notifier<SyncState> {
         // In diesem Fall wird die UUID des Benutzers, das Salt und das RSA-Schlüsselpaar des anderen Gerätes übernommen.
         final isOnboarding = userResponse.userUuid != user.uuid;
 
-        // Falls das Master-Passwort geändert wurde, ist der private RSA-Schlüssel anders verpackt (und Salt wurde neu generiert). todo ist ein neuer Salt notwendig?
+        // Falls das Master-Passwort geändert wurde, ist der private RSA-Schlüssel anders verpackt (und Salt wurde neu generiert).
         // In diesem Fall entscheidet der Zeitstempel des Master-Keys, ob die Schlüssel auf dem Server oder auf dem lokalen Gerät aktualisiert werden.
-        final isKeyConflict = userResponse.encryptedPrivateKey != settings.encryptedPrivateKey || userResponse.salt != settings.salt;
-        final isServerNewer = userResponse.masterKeyTimestamp.isAfter(settings.masterKeyTimestamp); // der Server ist aktueller
+        final isKeyConflict  = userResponse.encryptedPrivateKey != settings.encryptedPrivateKey || userResponse.salt != settings.salt;
+        final isServerNewer  = userResponse.masterKeyTimestamp.isAfter(settings.masterKeyTimestamp);
 
         if (isOnboarding || (isKeyConflict && isServerNewer)) {
           // Der Server ist aktueller -> Dialog für die Identitätsübernahme öffnen
@@ -150,6 +156,23 @@ class SyncNotifier extends Notifier<SyncState> {
           // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
           Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
           await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
+        }
+
+        // syncedName einfrieren, falls noch nicht geschehen (Migration bestehender Tresore)
+        if (user.syncedName.isEmpty) {
+          final updatedUser = user.copyWith(syncedName: syncedUserName);
+          await _databaseService.saveUser(updatedUser);
+          _sessionService.setUser(updatedUser);
+        }
+
+        // Benutzernamen-Rename propagieren: wenn lokaler Name vom syncedName abweicht
+        final freshUser = _sessionService.user!;
+        if (freshUser.syncedName.isNotEmpty && freshUser.name != freshUser.syncedName) {
+          Logger().info('Benutzername wurde umbenannt. Propagiere neuen Namen zum Server.');
+          await _webService.patchUserName(freshUser.uuid, freshUser.name);
+          final renamedUser = freshUser.copyWith(syncedName: freshUser.name);
+          await _databaseService.saveUser(renamedUser);
+          _sessionService.setUser(renamedUser);
         }
       }
 
@@ -257,6 +280,7 @@ class SyncNotifier extends Notifier<SyncState> {
       var localMatch = localUsers.where((u) => u.uuid == remoteFriend.uuid).firstOrNull;
       if (localMatch == null) {
         // Freund lokal hinzufügen
+        // syncedName aus dem FriendPayload übernehmen (unveränderlich nach dem ersten Hinzufügen)
         await _databaseService.saveUser(UserEntity(
           id: 0,
           uuid: remoteFriend.uuid,
@@ -264,6 +288,7 @@ class SyncNotifier extends Notifier<SyncState> {
           publicKey: publicKey,
           isVerified: remoteFriend.isVerified,
           isHidden: remoteFriend.isHidden,
+          syncedName: remoteFriend.syncedName,
           updatedAt: remoteFriend.updatedAt,
         ));
       } else {
@@ -273,6 +298,7 @@ class SyncNotifier extends Notifier<SyncState> {
             name: remoteFriend.name,
             isVerified: remoteFriend.isVerified,
             isHidden: remoteFriend.isHidden,
+            // syncedName wird NICHT überschrieben — er ist unveränderlich nach dem ersten Setzen
             updatedAt: remoteFriend.updatedAt,
           );
           await _databaseService.saveUser(localMatch);
@@ -530,6 +556,7 @@ class SyncNotifier extends Notifier<SyncState> {
         .map((u) => FriendPayload(
           uuid: u.uuid,
           name: u.name,
+          syncedName: u.syncedName.isNotEmpty ? u.syncedName : u.name,
           isVerified: u.isVerified,
           isHidden: u.isHidden,
           updatedAt: u.updatedAt,
