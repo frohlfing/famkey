@@ -269,14 +269,17 @@ class _ReportPageState extends ConsumerState<ReportPage> {
                 'Datenquelle: ',
                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               ),
-              GestureDetector(
-                onTap: () => launchUrl(Uri.parse('https://haveibeenpwned.com'), mode: LaunchMode.externalApplication),
-                child: Text(
-                  'Have I Been Pwned',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    decoration: TextDecoration.underline,
-                    decorationColor: theme.colorScheme.primary,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('https://haveibeenpwned.com'), mode: LaunchMode.externalApplication),
+                  child: Text(
+                    'Have I Been Pwned',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: theme.colorScheme.primary,
+                    ),
                   ),
                 ),
               ),
@@ -716,25 +719,28 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: () => setState(() => _excludedExpanded = !_excludedExpanded),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.disabled_visible_outlined, size: 15, color: Colors.grey[500]),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Ausgeschlossene Einträge (${excluded.length})',
-                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      _excludedExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      size: 15,
-                      color: Colors.grey[500],
-                    ),
-                  ],
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => setState(() => _excludedExpanded = !_excludedExpanded),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.disabled_visible_outlined, size: 15, color: Colors.grey[500]),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Ausgeschlossene Einträge (${excluded.length})',
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _excludedExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        size: 15,
+                        color: Colors.grey[500],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
