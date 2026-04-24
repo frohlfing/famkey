@@ -25,11 +25,12 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   // --- Aufklapp-Zustand der Klapplisten ---
   // ------------------------------------------------------------------------
 
-  bool _pwnedExpanded   = false;
-  bool _urgentExpanded  = false;
-  bool _weakestExpanded = false;
-  bool _oldestExpanded  = false;
-  bool _unknownExpanded = false;
+  bool _pwnedExpanded    = false;
+  bool _urgentExpanded   = false;
+  bool _weakestExpanded  = false;
+  bool _oldestExpanded   = false;
+  bool _unknownExpanded  = false;
+  bool _excludedExpanded = false;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -189,6 +190,8 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         _buildStrengthSection(context, theme),
         const SizedBox(height: 48),
         _buildAgeSection(context, theme),
+        const SizedBox(height: 24),
+        _buildExcludedSection(context, theme),
         const SizedBox(height: 32),
       ],
     );
@@ -695,6 +698,76 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: _buildExcludeButton(entry.id),
+        onTap: () => _openDetail(entry.id),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Abschnitt 4: Ausgeschlossene Einträge ---
+  // ------------------------------------------------------------------------
+
+  Widget _buildExcludedSection(BuildContext context, ThemeData theme) {
+    return Consumer(
+      builder: (ctx, ref, _) {
+        final excluded = ref.watch(reportProvider.select((s) => s.excludedEntries));
+        if (excluded.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _excludedExpanded = !_excludedExpanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.disabled_visible_outlined, size: 15, color: Colors.grey[500]),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Ausgeschlossene Einträge (${excluded.length})',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _excludedExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 15,
+                      color: Colors.grey[500],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_excludedExpanded) ...[
+              const SizedBox(height: 8),
+              ...excluded.map((e) => _buildExcludedCard(e, theme)),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExcludedCard(ReportEntry entry, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        dense: true,
+        leading: Icon(Icons.disabled_visible_outlined, color: Colors.grey[400], size: 20),
+        title: Text(entry.title, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
+        subtitle: entry.username.isNotEmpty
+            ? Text(entry.username, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis)
+            : null,
+        trailing: IconButton(
+          icon: const Icon(Icons.undo),
+          iconSize: 18,
+          color: Colors.grey[500],
+          tooltip: 'Wieder in den Bericht aufnehmen',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          onPressed: () => ref.read(reportProvider.notifier).toggleReportExcluded(entry.id),
+        ),
         onTap: () => _openDetail(entry.id),
       ),
     );

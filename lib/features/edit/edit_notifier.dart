@@ -187,8 +187,10 @@ class EditNotifier extends Notifier<EditState> {
         return;
       }
 
-      // 4. Zeitstempel des Passworts aktualisieren, falls Passwort geändert wurde.
-      final passwordTimestamp = (formData.password != state.originalFormData.password || _passwordTimestamp == null) ? DateTime.now().toUtc() : _passwordTimestamp!;
+      // 4. Zeitstempel des Passworts aktualisieren und Report-Ausschluss zurücksetzen, falls Passwort geändert wurde.
+      final passwordChanged   = formData.password != state.originalFormData.password || _passwordTimestamp == null;
+      final passwordTimestamp = passwordChanged ? DateTime.now().toUtc() : _passwordTimestamp!;
+      final reportExcluded    = passwordChanged ? false : _reportExcluded;
 
       // 5. Favicon herunterladen, falls URL geändert wurde
       final favicon = (formData.url.isNotEmpty && formData.url != state.originalFormData.url ? await downloadFavicon(formData.url) : _favicon) ?? '';
@@ -207,7 +209,7 @@ class EditNotifier extends Notifier<EditState> {
         url: formData.url,
         notes: formData.notes,
         favicon: favicon,
-        reportExcluded: _reportExcluded,
+        reportExcluded: reportExcluded,
       );
       final entryBytes = Uint8List.fromList(utf8.encode(json.encode(entryPayload.toJson())));
       final encryptedData = await _cryptoService.encrypt(entryBytes, _entryKey!);

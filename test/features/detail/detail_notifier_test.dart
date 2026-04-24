@@ -53,6 +53,7 @@ void main() {
       notes: 'n',
       passwordTimestamp: DateTime.now(),
       favicon: '',
+      reportExcluded: false,
     );
   }
 

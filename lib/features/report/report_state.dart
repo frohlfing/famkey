@@ -122,6 +122,9 @@ class ReportState {
   /// Anzahl der Einträge ohne Passwort (wurden nicht ausgewertet)
   final int noPasswordCount;
 
+  /// Einträge, die manuell vom Bericht ausgeschlossen wurden
+  final List<ReportEntry> excludedEntries;
+
   // ------------------------------------------------------------------------
   // --- Computed Properties ---
   // ------------------------------------------------------------------------
@@ -150,6 +153,7 @@ class ReportState {
     this.ageBuckets = const [],
     this.strengthBuckets = const [],
     this.noPasswordCount = 0,
+    this.excludedEntries = const [],
   });
 
   // ------------------------------------------------------------------------
@@ -170,6 +174,7 @@ class ReportState {
     List<AgeBucket>? ageBuckets,
     List<StrengthBucket>? strengthBuckets,
     int? noPasswordCount,
+    List<ReportEntry>? excludedEntries,
   }) {
     return ReportState(
       status: status ?? this.status,
@@ -185,6 +190,7 @@ class ReportState {
       ageBuckets: ageBuckets ?? this.ageBuckets,
       strengthBuckets: strengthBuckets ?? this.strengthBuckets,
       noPasswordCount: noPasswordCount ?? this.noPasswordCount,
+      excludedEntries: excludedEntries ?? this.excludedEntries,
     );
   }
 }

@@ -49,8 +49,14 @@ void main() {
 
   EntryPayload createTestPayload({String password = 'p'}) {
     return EntryPayload(
-        category: 'C', title: 'T', username: 'u', password: password,
-        url: 'u', notes: 'n', passwordTimestamp: DateTime(2024), favicon: ''
+      category: 'C',
+      title: 'T',
+      username: 'u',
+      password: password,
+      url: 'u', notes: 'n',
+      passwordTimestamp: DateTime(2024),
+      favicon: '',
+      reportExcluded: false,
     );
   }
 

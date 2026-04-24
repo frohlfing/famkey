@@ -36,8 +36,11 @@ class ReportNotifier extends Notifier<ReportState> {
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  /// Alle Report-Einträge (intern, für Neuberechnungen nach Einzelprüfung)
+  /// Alle analysierten Report-Einträge (intern, für Neuberechnungen nach Einzelprüfung)
   List<ReportEntry> _allEntries = [];
+
+  /// Vom Bericht ausgeschlossene Einträge (nur id/title/username, nicht analysiert)
+  List<ReportEntry> _excludedEntries = [];
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -62,8 +65,9 @@ class ReportNotifier extends Notifier<ReportState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
-    final reportEntries = <ReportEntry>[];
-    int noPasswordCount = 0;
+    final reportEntries  = <ReportEntry>[];
+    final excludedList   = <ReportEntry>[];
+    int noPasswordCount  = 0;
 
     // Ladeanzeige einblenden
     state = const ReportState().copyWith(status: ReportActionStatus.loading, error: AppError.none());
@@ -93,9 +97,30 @@ class ReportNotifier extends Notifier<ReportState> {
         final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
 
-        // Einträge ohne Passwort oder vom Bericht ausgeschlossene Einträge ignorieren
-        if (payload.password.isEmpty || payload.reportExcluded) {
-          if (payload.password.isEmpty) noPasswordCount++;
+        // Einträge ohne Passwort ignorieren
+        if (payload.password.isEmpty) {
+          noPasswordCount++;
+          state = state.copyWith(checkedCount: state.checkedCount + 1);
+          await Future.delayed(const Duration(milliseconds: 10));
+          if (state.isAborting) {
+            state = state.copyWith(status: ReportActionStatus.aborted, isAborting: false);
+            return;
+          }
+          continue;
+        }
+
+        // Vom Bericht ausgeschlossene Einträge nur minimal erfassen
+        if (payload.reportExcluded) {
+          excludedList.add(ReportEntry(
+            id: entry.id,
+            title: payload.title,
+            username: payload.username,
+            passwordTimestamp: null,
+            pwnedCount: 0,
+            strength: 0,
+            guesses: 0,
+            crackTime: '',
+          ));
           state = state.copyWith(checkedCount: state.checkedCount + 1);
           await Future.delayed(const Duration(milliseconds: 10));
           if (state.isAborting) {
@@ -135,7 +160,8 @@ class ReportNotifier extends Notifier<ReportState> {
       }
 
       // 3. Ergebnisse aufbereiten
-      _allEntries = reportEntries;
+      _allEntries      = reportEntries;
+      _excludedEntries = excludedList;
 
       state = state.copyWith(
         status: ReportActionStatus.loaded,
@@ -147,6 +173,7 @@ class ReportNotifier extends Notifier<ReportState> {
         ageBuckets: _buildAgeBuckets(reportEntries),
         strengthBuckets: _buildStrengthBuckets(reportEntries),
         noPasswordCount: noPasswordCount,
+        excludedEntries: excludedList,
       );
 
     } catch (e, st) {
@@ -251,14 +278,15 @@ class ReportNotifier extends Notifier<ReportState> {
   /// Wird nach der Rückkehr von der Detailseite aufgerufen, damit geänderte
   /// Passwörter sofort aus der Rot-Liste verschwinden (oder dort verbleiben).
   Future<void> recheckEntry(int entryId) async {
-    if (state.status != ReportActionStatus.loaded || _allEntries.isEmpty) return;
+    if (state.status != ReportActionStatus.loaded) return;
 
     try {
       final entry = await _databaseService.getEntry(entryId);
 
       if (entry == null) {
         // Eintrag wurde gelöscht → aus allen Listen entfernen
-        _allEntries = _allEntries.where((e) => e.id != entryId).toList();
+        _allEntries      = _allEntries.where((e) => e.id != entryId).toList();
+        _excludedEntries = _excludedEntries.where((e) => e.id != entryId).toList();
       } else {
         // Eintrag entschlüsseln
         final perm = await _databaseService.getPermissionByEntryIdAndUserId(entry.id, _sessionService.user!.id);
@@ -267,32 +295,41 @@ class ReportNotifier extends Notifier<ReportState> {
         final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
 
-        final pwnedCount = await _passwordService.checkHibp(payload.password, cacheDays: _configService.hibpCacheDays);
-        final (:score, :guesses, :crackTime) = _passwordService.evaluatePassword(payload.password);
-
-        final updated = ReportEntry(
-          id: entry.id,
-          title: payload.title,
-          username: payload.username,
-          passwordTimestamp: payload.passwordTimestamp,
-          pwnedCount: pwnedCount,
-          strength: score,
-          guesses: guesses,
-          crackTime: crackTime,
-        );
-
-        _allEntries = [for (final e in _allEntries) if (e.id == entryId) updated else e];
+        if (_allEntries.any((e) => e.id == entryId)) {
+          final pwnedCount = await _passwordService.checkHibp(payload.password, cacheDays: _configService.hibpCacheDays);
+          final (:score, :guesses, :crackTime) = _passwordService.evaluatePassword(payload.password);
+          final updated = ReportEntry(
+            id: entry.id,
+            title: payload.title,
+            username: payload.username,
+            passwordTimestamp: payload.passwordTimestamp,
+            pwnedCount: pwnedCount,
+            strength: score,
+            guesses: guesses,
+            crackTime: crackTime,
+          );
+          _allEntries = [for (final e in _allEntries) if (e.id == entryId) updated else e];
+        } else if (_excludedEntries.any((e) => e.id == entryId)) {
+          // Nur Titel/Benutzername aktualisieren (kein HIBP)
+          _excludedEntries = [
+            for (final e in _excludedEntries)
+              if (e.id == entryId)
+                ReportEntry(id: e.id, title: payload.title, username: payload.username, passwordTimestamp: null, pwnedCount: 0, strength: 0, guesses: 0, crackTime: '')
+              else
+                e,
+          ];
+        }
       }
 
-      // Abgeleitete Listen neu berechnen
       state = state.copyWith(
-        pwnedEntries: _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
-        urgentPasswords: _buildUrgentList(_allEntries),
+        pwnedEntries:     _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
+        urgentPasswords:  _buildUrgentList(_allEntries),
         weakestPasswords: _buildWeakestList(_allEntries),
-        oldestPasswords: _buildOldestList(_allEntries),
+        oldestPasswords:  _buildOldestList(_allEntries),
         unknownAgeEntries: _buildUnknownAgeList(_allEntries),
-        ageBuckets: _buildAgeBuckets(_allEntries),
-        strengthBuckets: _buildStrengthBuckets(_allEntries),
+        ageBuckets:       _buildAgeBuckets(_allEntries),
+        strengthBuckets:  _buildStrengthBuckets(_allEntries),
+        excludedEntries:  _excludedEntries,
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Neuprüfen des Eintrags $entryId: $e', stack: st);
@@ -342,17 +379,42 @@ class ReportNotifier extends Notifier<ReportState> {
         updatedAt: DateTime.now().toUtc(),
       ));
 
-      // Eintrag sofort aus allen Listen entfernen (erscheint erst wieder nach Reload)
-      _allEntries = _allEntries.where((e) => e.id != entryId).toList();
+      if (updatedPayload.reportExcluded) {
+        // Ausschließen: aus _allEntries entfernen, in _excludedEntries aufnehmen
+        final source = _allEntries.firstWhere((e) => e.id == entryId, orElse: () => ReportEntry(id: entryId, title: payload.title, username: payload.username, passwordTimestamp: null, pwnedCount: 0, strength: 0, guesses: 0, crackTime: ''));
+        _allEntries      = _allEntries.where((e) => e.id != entryId).toList();
+        _excludedEntries = [..._excludedEntries, ReportEntry(id: entryId, title: source.title, username: source.username, passwordTimestamp: null, pwnedCount: 0, strength: 0, guesses: 0, crackTime: '')];
+      } else {
+        // Wieder einschließen: aus _excludedEntries entfernen, neu analysieren
+        _excludedEntries = _excludedEntries.where((e) => e.id != entryId).toList();
+        if (payload.password.isNotEmpty) {
+          final pwnedCount = await _passwordService.checkHibp(payload.password, cacheDays: _configService.hibpCacheDays);
+          final (:score, :guesses, :crackTime) = _passwordService.evaluatePassword(payload.password);
+          _allEntries = [
+            ..._allEntries,
+            ReportEntry(
+              id: entryId,
+              title: payload.title,
+              username: payload.username,
+              passwordTimestamp: payload.passwordTimestamp,
+              pwnedCount: pwnedCount,
+              strength: score,
+              guesses: guesses,
+              crackTime: crackTime,
+            ),
+          ];
+        }
+      }
 
       state = state.copyWith(
-        pwnedEntries:    _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
-        urgentPasswords: _buildUrgentList(_allEntries),
+        pwnedEntries:     _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
+        urgentPasswords:  _buildUrgentList(_allEntries),
         weakestPasswords: _buildWeakestList(_allEntries),
-        oldestPasswords: _buildOldestList(_allEntries),
+        oldestPasswords:  _buildOldestList(_allEntries),
         unknownAgeEntries: _buildUnknownAgeList(_allEntries),
-        ageBuckets:      _buildAgeBuckets(_allEntries),
-        strengthBuckets: _buildStrengthBuckets(_allEntries),
+        ageBuckets:       _buildAgeBuckets(_allEntries),
+        strengthBuckets:  _buildStrengthBuckets(_allEntries),
+        excludedEntries:  _excludedEntries,
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Umschalten von reportExcluded für Eintrag $entryId: $e', stack: st);
