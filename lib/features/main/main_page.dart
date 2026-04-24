@@ -83,7 +83,6 @@ class _MainPageState extends ConsumerState<MainPage> {
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(mainProvider.select((s) => s.isBusy));
-    //final vaultName = ref.watch(mainProvider.select((s) => s.vaultName));
     final groupedEntries = ref.watch(mainProvider.select((s) => s.groupedEntries));
 
     return Stack(

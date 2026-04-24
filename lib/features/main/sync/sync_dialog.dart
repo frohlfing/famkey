@@ -71,10 +71,8 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
     });
 
     // Gezielte Watches für maximale Performance
-    final status         = ref.watch(syncProvider.select((s) => s.status));
-    final isBusy         = ref.watch(syncProvider.select((s) => s.isBusy));
-    final syncStatistics = ref.watch(syncProvider.select((s) => s.syncStatistics));
-    final error          = ref.watch(syncProvider.select((s) => s.error));
+    // Hier kann der komplette State beobachtet werde. Wenn sich irgendwas ändert, muss der gesamte Dialog neu gezeichnet werden.
+    final state = ref.watch(syncProvider);
 
     return AlertDialog(
       title: const Text('Synchronisation'),
@@ -85,13 +83,13 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
 
-            if (status == SyncStatus.progress) ...[
+            if (state.status == SyncStatus.progress) ...[
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
               const Text('Daten werden abgeglichen...'),
             ],
 
-            if (status == SyncStatus.success)
+            if (state.status == SyncStatus.success)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Row(
@@ -101,7 +99,7 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Synchronisation erfolgreich abgeschlossen.\n\n$syncStatistics',
+                        'Synchronisation erfolgreich abgeschlossen.\n\n${state.syncStatistics}',
                         softWrap: true,
                       ),
                     ),
@@ -109,7 +107,7 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
                 ),
               ),
 
-            if (status == SyncStatus.failure || status == SyncStatus.askForRekeying)
+            if (state.status == SyncStatus.failure || state.status == SyncStatus.askForRekeying)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Row(
@@ -119,7 +117,7 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        error.text,
+                        state.error.text,
                         softWrap: true,
                         style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
@@ -134,10 +132,10 @@ class _SyncDialogState extends ConsumerState<SyncDialog> {
 
       // --- Button ---
       actions: [
-        if (status != SyncStatus.progress)
+        if (state.status != SyncStatus.progress)
           ElevatedButton(
             autofocus: true,
-            onPressed: isBusy ? null : () => Navigator.of(context).pop(status == SyncStatus.success),
+            onPressed: state.isBusy ? null : () => Navigator.of(context).pop(state.status == SyncStatus.success),
             child: const Text('OK'),
           ),
       ],

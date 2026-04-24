@@ -39,9 +39,12 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
   /// LädtKonfiguration der Log-Datei.
   Future<void> load() async {
     if (state.isBusy) return;
+
+    // UI-State zurücksetzen
     state = const LogConfigState().copyWith(status: LogConfigStatus.progress);
 
     try {
+      // UI-State aktualisieren
       final formData = LogConfigFormData(
         minLevel: _configService.logMinLevel,
         maxDays: _configService.logMaxDays,
@@ -55,10 +58,7 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
 
     catch (e, st) {
       Logger().error('Fehler beim Laden der Konfiguration: $e', context: {'stack': st.toString()});
-      state = state.copyWith(
-        status: LogConfigStatus.failure,
-        error: AppError(ErrorCode.unknown, text: 'Konfiguration für die Log-Datei konnte nicht gelesen werden.'),
-      );
+      state = state.copyWith(status: LogConfigStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -93,5 +93,15 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
   void setMaxDays(int value) {
     final formData = state.formData.copyWith(maxDays: value);
     state = state.copyWith(formData: formData, status: LogConfigStatus.loaded);
+  }
+
+  /// Verringert die maximale Aufbewahrungsdauer um einen Tag.
+  void decrementMaxDays() {
+    setMaxDays(state.formData.maxDays - 1);
+  }
+
+  /// Erhöht die maximale Aufbewahrungsdauer um einen Tag.
+  void incrementMaxDays() {
+    setMaxDays(state.formData.maxDays + 1);
   }
 }

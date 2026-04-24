@@ -31,15 +31,17 @@ class WebService {
   // ------------------------------------------------------------------------
 
   /// Konstruktor.
+  ///
+  /// [host] ist die Serveradresse ohne "/api".
   /// [dio] kann für Unit-Tests übergeben werden, um Header oder Mocks zu injizieren.
-  WebService(this._cryptoService, {String? baseUrl, String? apiToken, Dio? dio})
+  WebService(this._cryptoService, {String? host, String? apiToken, Dio? dio})
       : _dio = dio ?? Dio() {
 
     _apiToken = apiToken ?? '';
 
     // Falls dio von außen kommt, stellen wir sicher, dass die BaseUrl passt
-    if (baseUrl != null && baseUrl.isNotEmpty) {
-      _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    if (host != null && host.isNotEmpty) {
+      _dio.options.baseUrl = host.endsWith('/') ? '${host}api/' : '$host/api/';
     }
 
     // Default Headers (API Token & Debug Cookie)
@@ -104,9 +106,10 @@ class WebService {
   // --- Konfiguration ---
 
   /// Aktualisiert die Konfiguration des WebServices.
+  /// [host] ist die Serveradresse ohne "/api".
   void updateConfig({required String host, required String apiToken}) {
     if (host.isNotEmpty) {
-      _dio.options.baseUrl = host.endsWith('/') ? host : '$host/';
+      _dio.options.baseUrl = host.endsWith('/') ? '${host}api/' : '$host/api/';
     }
     _apiToken = apiToken;
   }

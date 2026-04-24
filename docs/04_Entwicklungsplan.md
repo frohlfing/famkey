@@ -60,7 +60,6 @@
 - ✅ Report über die Passwortstärke und -Alter aller Einträge
 
 !!!!!!!!!!!!!!!!!!!!!!
-- LogConfigDialog schöner machen
 - Detailansicht: Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
 - Detailansicht: "Geteilt mit" nur anzeigen, wenn in Einstellungen mindestens ein Freund eingefügt wurde
   !!!!!!!!!!!!!!!!!!!!!!

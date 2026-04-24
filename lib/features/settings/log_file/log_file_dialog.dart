@@ -32,7 +32,7 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  final ScrollController _scrollController = ScrollController();
+  final _scrollController = ScrollController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---

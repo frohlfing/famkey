@@ -420,17 +420,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // const SizedBox(height: 16),
 
                 _buildText(
-                  'Minimaler Log-Level, der geschrieben wird',
-                  (state) => state.logMinLevel.toString(),
-                  icon: Icons.emoji_symbols_outlined,
+                  'Log-Level',
+                  (state) => state.logMinLevel.name.toUpperCase(),
+                  icon: Icons.edit_notifications_outlined,
                   onPressed: _showLogConfigDialog,
                   tooltip: 'Fehlerprotokoll konfigurieren',
                 ),
 
                 _buildText(
-                  'Maximale Aufbewahrungsdauer der Logeinträge in Tagen',
-                  (state) => state.logMaxDays.toString(),
-                  icon: Icons.onetwothree_outlined,
+                  'Maximale Aufbewahrungsdauer der Logeinträge',
+                  (state) => '${state.logMaxDays == 1 ? '1 Tag' : state.logMaxDays.toString()} Tage',
+                  icon: Icons.timelapse_outlined,
                 ),
 
                 _buildSystemButton(
@@ -804,9 +804,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Öffnet den Dialog zum Anzeigen der Logdatei.
+  /// Öffnet den Dialog zum Anzeigen der Log-Konfiguration.
   Future<void> _showLogConfigDialog() async {
-    await LogConfigDialog.show(context);
+    final ok = await LogConfigDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
+    }
   }
 
   /// Öffnet den Dialog zum Anzeigen der Logdatei.

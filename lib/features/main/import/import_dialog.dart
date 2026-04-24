@@ -84,13 +84,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     });
 
     // Gezielte Watches für maximale Performance
-    final isBusy       = ref.watch(importProvider.select((s) => s.isBusy));
-    final status       = ref.watch(importProvider.select((s) => s.status));
-    final formData     = ref.watch(importProvider.select((s) => s.formData));
-    final fileSelected = formData.file != const AppFile.none();
-    final error        = ref.watch(importProvider.select((s) => s.error));
-    final addedCount   = ref.watch(importProvider.select((s) => s.addedCount));
-    final skippedCount = ref.watch(importProvider.select((s) => s.skippedCount));
+    final isBusy = ref.watch(importProvider.select((s) => s.isBusy));
+    final status = ref.watch(importProvider.select((s) => s.status));
 
     // Notifier holen
     final notifier = ref.read(importProvider.notifier);
@@ -113,71 +108,98 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 const SizedBox(height: 24),
 
                 // --- Format-Auswahl ---
-                const Text('Dateiformat', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<ImportFileFormat>(
-                  initialValue: formData.format == ImportFileFormat.none ? null : formData.format,
-                  decoration: InputDecoration(
-                    errorText: error.field == 'format' ? error.text : null,
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  hint: const Text('Format wählen'),
-                  items: const [
-                    DropdownMenuItem(value: ImportFileFormat.privaultZip, child: Text('PriVault ZIP')),
-                    DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
-                    DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)')),
-                    DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX')),
-                  ],
-                  onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final errorText = ref.watch(importProvider.select((state) => state.error.field == 'format' ? state.error.text : null));
+                    final format = ref.watch(importProvider.select((s) => s.formData.format));
+                    return DropdownButtonFormField<ImportFileFormat>(
+                      initialValue: format == ImportFileFormat.none ? null : format,
+                      decoration: InputDecoration(
+                        labelText: 'Dateiformat',
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      hint: const Text('Format wählen'),
+                      items: const [
+                        DropdownMenuItem(value: ImportFileFormat.privaultZip, child: Text('PriVault ZIP')),
+                        DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
+                        DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)')),
+                        DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX')),
+                      ],
+                      onChanged: isBusy ? null : (val) => notifier.setFormat(val ?? ImportFileFormat.none),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 16),
 
                 // --- Dateiauswahl ---
-                const Text('Importdatei', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _pathController,
-                  readOnly: true,
-                  onTap: isBusy ? null : _pickFile,
-                  decoration: InputDecoration(
-                    hintText: 'Datei auswählen',
-                    errorText: error.field == 'path' ? error.text : null,
-                    prefixIcon: const Icon(Icons.file_open_outlined),
-                    suffixIcon: _isPickingFile ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    ) : IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: isBusy ? null : _pickFile,
-                    ),
-                    border: const OutlineInputBorder(),
-                  ),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final errorText = ref.watch(importProvider.select((state) => state.error.field == 'path' ? state.error.text : null));
+                    return TextField(
+                      controller: _pathController,
+                      readOnly: true,
+                      onTap: isBusy ? null : _pickFile,
+                      decoration: InputDecoration(
+                        labelText: 'Importdatei',
+                        errorText: errorText,
+                        prefixIcon: const Icon(Icons.file_open_outlined),
+                        suffixIcon: _isPickingFile ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        ) : IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: isBusy ? null : _pickFile,
+                        ),
+                        border: const OutlineInputBorder(),
+                      ),
+                    );
+                  },
                 ),
 
-                // --- Verschlüsselung Switch ---
-                if (formData.format.supportsPassword && fileSelected) ...[
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    value: formData.encrypt,
-                    onChanged: isBusy ? null : notifier.setEncrypt,
-                    title: const Text('Die Datei ist verschlüsselt'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
+                // --- Verschlüsselung & Passwort Sektion ---
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final format = ref.watch(importProvider.select((s) => s.formData.format));
+                    final fileSelected = ref.watch(importProvider.select((s) => s.formData.file != const AppFile.none()));
 
-                // --- Passwort-Feld ---
-                if (formData.format.supportsPassword && fileSelected && formData.encrypt) ...[
-                  const SizedBox(height: 8),
-                  PasswordField(
-                    controller: _passwordController,
-                    label: 'Passwort',
-                    prefixIcon: Icons.lock_outline,
-                    errorText: error.field == 'password' ? error.text : null,
-                    onChanged: notifier.setPassword,
-                  ),
-                ],
+                    // Wenn das Format keine Passwörter unterstützt oder keine Datei gewählt ist, zeigen wir nichts
+                    if (!format.supportsPassword || !fileSelected) return const SizedBox.shrink();
+
+                    final encrypt = ref.watch(importProvider.select((s) => s.formData.encrypt));
+
+                    return Column(
+                      children: [
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          value: encrypt,
+                          onChanged: isBusy ? null : notifier.setEncrypt,
+                          title: const Text('Die Datei ist verschlüsselt'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+
+                        // Passwort-Feld einblenden, wenn Verschlüsselung aktiv ist
+                        if (encrypt) ...[
+                          const SizedBox(height: 8),
+                          Consumer(
+                            builder: (ctx, ref, _) {
+                              final errorText = ref.watch(importProvider.select((state) => state.error.field == 'password' ? state.error.text : null));
+                              return PasswordField(
+                                controller: _passwordController,
+                                label: 'Passwort',
+                                prefixIcon: Icons.lock_outline,
+                                errorText: errorText,
+                                onChanged: notifier.setPassword,
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
               ],
 
               // --- Fortschrittsanzeige ---
@@ -225,48 +247,63 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
 
               // --- Erfolgsmeldung ---
               if (status == ImportActionStatus.success)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.check_outlined, color: Colors.green),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Import abgeschlossen!'),
-                            const SizedBox(height: 8),
-                            Text('✳️ Hinzugefügt: $addedCount ${addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
-                            if (skippedCount > 0)
-                              Text('⚠️ Übersprungen: $skippedCount ${skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
-                          ],
-                        ),
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final addedCount = ref.watch(importProvider.select((s) => s.addedCount));
+                    final skippedCount = ref.watch(importProvider.select((s) => s.skippedCount));
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.check_outlined, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Import abgeschlossen!',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text('✳️ Hinzugefügt: $addedCount ${addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
+                                if (skippedCount > 0)
+                                  Text('⚠️ Übersprungen: $skippedCount ${skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
 
               // --- Fehleranzeige ---
-              if (status == ImportActionStatus.failure && error.field == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.error, color: Theme.of(context).colorScheme.error),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          error.text,
-                          softWrap: true,
-                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+              Consumer(
+                builder: (context, ref, _) {
+                  final error = ref.watch(importProvider.select((s) => s.error));
+                  if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();
+                  return  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.error, color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            error.text,
+                            softWrap: true,
+                            style: TextStyle(color: Theme.of(context).colorScheme.error),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
             ],
           ),
         ),

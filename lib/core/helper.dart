@@ -24,10 +24,8 @@ Future<String?> downloadFavicon(String url) async {
   if (kIsWeb) {
     // Sync-Server als CORS-Proxy verwenden.
     final sessionService = getIt<SessionService>();
-    final host = sessionService.settings?.host ?? ''; // enthält die API-URL (z.B. "https://privault.test/api")
-    final apiUrl = host.endsWith('/') ? host.substring(0, host.length - 1) : host; // Slash am Ende entfernen, falls vorhanden
-    final baseUrl = apiUrl.endsWith('/api') ? apiUrl.substring(0, apiUrl.length - 4) : 'https://privault.frank-rohlfing.de'; // "/api"-Suffix entfernen.
-    faviconUrl = '$baseUrl/favicons.php?domain=$domain';
+    final host = sessionService.settings?.host ?? 'https://privault.frank-rohlfing.de'; // ist bereits normalisiert (ohne Slash am Ende, z.B. "https://privault.test")
+    faviconUrl = '$host/favicons.php?domain=$domain';
   } else {
     // Nativ: direkt ohne Proxy
     faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=64';

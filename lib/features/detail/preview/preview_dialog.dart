@@ -58,32 +58,12 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
   @override
   Widget build(BuildContext context) {
 
-    // // Listener für Status-Änderungen
-    // ref.listen(previewProvider.select((s) => s.status), (previous, next) {
-    //   switch (next) {
-    //     case PreviewActionStatus.saved:
-    //       Navigator.of(context).pop(true); // Zurück zur Detailseite
-    //       break;
-    //
-    //     default:
-    //       break;
-    //   }
-    // });
-
-    // // Listener, der die Controller nur bei Initialladung oder Generierung füllt
-    // ref.listen(previewProvider, (previous, next) {
-    //   if (previous == next) return;
-    //   final formData = next.formData;
-    //   if (_passwordController.text != formData.password) _passwordController.text = formData.password;
-    // });
-
     // Gezielte Watches für maximale Performance
-    final isBusy   = ref.watch(previewProvider.select((s) => s.isBusy));
-    final status   = ref.watch(previewProvider.select((s) => s.status));
-    final fileName = ref.watch(previewProvider.select((s) => s.file.name));
-    final bytes    = ref.watch(previewProvider.select((s) => s.bytes));
-    final mime     = ref.watch(previewProvider.select((s) => s.file.mime));
-    final renderer = createRenderer(bytes, mime);
+    // Hier kann der komplette State beobachtet werde. Wenn sich irgendwas ändert, muss der gesamte Dialog neu gezeichnet werden.
+    final state = ref.watch(previewProvider);
+    final renderer = createRenderer(state.bytes, state.file.mime);
+
+    // Notifier holen
     final notifier = ref.read(previewProvider.notifier);
 
     return AlertDialog(
@@ -91,7 +71,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
         children: [
           Expanded(
             child: Text(
-              fileName,
+              state.file.name,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -119,14 +99,14 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
                   ),
 
                   // --- Ladeanzeige ---
-                  if (status == PreviewActionStatus.progress)
+                  if (state.status == PreviewActionStatus.progress)
                     Container(
                       color: Colors.white.withValues(alpha: 0.3),
                       child: const Center(child: CircularProgressIndicator()),
                     ),
 
                   // --- Fehleranzeige ---
-                  if (status == PreviewActionStatus.failure)
+                  if (state.status == PreviewActionStatus.failure)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -159,7 +139,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
       actions: [
         // Download
         TextButton.icon(
-          onPressed: isBusy ? null : notifier.download,
+          onPressed: state.isBusy ? null : notifier.download,
           icon: const Icon(Icons.download_outlined),
           label: const Text('Herunterladen'),
         ),
@@ -167,7 +147,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
         // Drucken
         if (renderer.isPrintable)
           TextButton.icon(
-            onPressed: isBusy ? null : notifier.print,
+            onPressed: state.isBusy ? null : notifier.print,
             icon: const Icon(Icons.print_outlined),
             label: const Text('Drucken'),
           ),
@@ -175,7 +155,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
         // Schließen
         ElevatedButton(
           autofocus: true,
-          onPressed: isBusy ? null : () => Navigator.of(context).pop(false),
+          onPressed: state.isBusy ? null : () => Navigator.of(context).pop(false),
           child: const Text('Schließen'),
         ),
       ],

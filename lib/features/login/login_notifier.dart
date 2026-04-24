@@ -255,7 +255,7 @@ class LoginNotifier extends Notifier<LoginState> {
             salt: base64.encode(salt),
             encryptedPrivateKey: encryptedPrivKey,
             masterKeyTimestamp: DateTime.now().toUtc(),
-            host: kDebugMode ? 'https://privault.test/api' : '', // todo später wieder auskommentieren!!!!
+            host: kDebugMode ? 'https://privault.test' : '', // todo später wieder auskommentieren!!!!
             apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
             lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // 1970‑01‑01 00:00:00 UTC
             useBiometric: false,

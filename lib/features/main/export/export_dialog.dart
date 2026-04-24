@@ -71,7 +71,8 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     // Gezielte Watches für maximale Performance
     final isBusy   = ref.watch(exportProvider.select((s) => s.isBusy));
     final status   = ref.watch(exportProvider.select((s) => s.status));
-    final encrypt  = ref.watch(exportProvider.select((s) => s.formData.encrypt));
+
+    // Notifier holen
     final notifier = ref.read(exportProvider.notifier);
 
     return AlertDialog(
@@ -140,39 +141,52 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
               const SizedBox(height: 12),
 
-              // --- ZIP verschlüsseln ---
-              Row(
-                children: [
-                  Switch(
-                    value: encrypt,
-                    onChanged: isBusy ? null : notifier.setEncrypt,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Exportdatei verschlüsseln'),
-                ],
-              ),
+              // --- Bereich Verschlüsselung ---
+              Consumer(
+                builder: (ctx, ref, _) {
+                  // Gezielter Watch nur für das encrypt-Feld
+                  final encrypt = ref.watch(exportProvider.select((s) => s.formData.encrypt));
 
-              // --- Passwort (nur sichtbar wenn Verschlüsselung aktiv) ---
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                child: encrypt
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 4),
-                        child: TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          enabled: !isBusy,
-                          decoration: const InputDecoration(
-                            labelText: 'Passwort',
-                            hintText: 'Passwort für die Exportdatei',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.lock_outline),
-                            isDense: true,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- ZIP verschlüsseln Switch ---
+                      Row(
+                        children: [
+                          Switch(
+                            value: encrypt,
+                            onChanged: isBusy ? null : notifier.setEncrypt,
                           ),
-                          onChanged: notifier.setPassword,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                          const SizedBox(width: 8),
+                          const Text('Exportdatei verschlüsseln'),
+                        ],
+                      ),
+
+                      // --- Passwort (nur sichtbar wenn Verschlüsselung aktiv) ---
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        child: encrypt
+                            ? Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 4),
+                          child: TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            enabled: !isBusy, // isBusy kommt weiterhin vom äußeren Build-Kontext
+                            decoration: const InputDecoration(
+                              labelText: 'Passwort',
+                              hintText: 'Passwort für die Exportdatei',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.lock_outline),
+                              isDense: true,
+                            ),
+                            onChanged: notifier.setPassword,
+                          ),
+                        )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
 
