@@ -33,6 +33,9 @@ class EntryPayload {
   /// Der binäre Dateninhalt des Website-Icons (Favicon) als Base64-String.
   final String favicon;
 
+  /// Wenn `true`, wird dieser Eintrag im Sicherheitsbericht nicht ausgewertet.
+  final bool reportExcluded;
+
   /// Konstruktor
   EntryPayload({
     required this.category,
@@ -43,6 +46,7 @@ class EntryPayload {
     required this.url,
     required this.notes,
     required this.favicon,
+    required this.reportExcluded,
   });
 
   /// Erstellt eine [EntryPayload] aus einer JSON-Map.
@@ -56,6 +60,7 @@ class EntryPayload {
       url: json['url'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       favicon: json['favicon'] as String? ?? '',
+      reportExcluded: json['report_excluded'] as bool? ?? false,
     );
   }
 
@@ -70,6 +75,7 @@ class EntryPayload {
       'url': url,
       'notes': notes,
       'favicon': favicon,
+      'report_excluded': reportExcluded,
     };
   }
 }

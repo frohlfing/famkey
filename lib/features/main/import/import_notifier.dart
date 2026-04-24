@@ -182,6 +182,7 @@ class ImportNotifier extends Notifier<ImportState> {
           url: url,
           notes: parsedEntry.notes ?? '',
           favicon: favicon,
+          reportExcluded: parsedEntry.reportExcluded ?? false,
         );
         final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload.toJson())));
         final encryptedData = await _cryptoService.encrypt(payloadBytes, entryKey);

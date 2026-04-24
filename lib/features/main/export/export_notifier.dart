@@ -29,15 +29,32 @@ typedef ExportFriend = ({String uuid, String username, int accessLevel, String p
 
 /// Der Notifier für den Export-Prozess.
 ///
-/// Die Exportdatei ist ein Zip-Archiv mit folgenden Inhalt:
+/// Die Exportdatei ist ein Zip-Archiv, optional mit AES-256 (AE-1) verschlüsselt.
+///
+/// Archivstruktur:
+/// ```
 /// zip-file/
-///   ├── files/       # Dateianhänge
-///   ├── export.csv/  # CSV-Datei mit den Einträgen (RFC-4180-konform)
-///   └── export.md/   # Markdown-Datei mit den Einträgen (zum Ausdrucken geeignet)
+///   ├── files/{entry_uuid}/{filename}  # Dateianhänge
+///   ├── export.csv                     # CSV-Datei (RFC-4180-konform)
+///   └── export.md                      # Markdown-Datei (zum Ausdrucken geeignet)
+/// ```
 ///
 /// CSV-Spalten (Kopfzeile):
-///   uuid, category, title, username, password, password_timestamp, url, notes, favicon, attachments, shared_with, updated_at
-///
+/// ```
+///   0  uuid
+///   1  category
+///   2  title
+///   3  username
+///   4  password
+///   5  password_timestamp
+///   6  url
+///   7  notes
+///   8  favicon
+///   9  updated_at
+///   10 attachments  → Sub-Format: {att_uuid};{filename};{timestamp}|...
+///   11 shared_with  → Sub-Format: {user_uuid};{username};{access_level};{public_key}|...
+///   12 report_excluded
+/// ```
 /// CSV-Spezifikation RFC-4180:
 /// - Feldtrenner (Field Separation): Komma.
 /// - Feldbegrenzer (Quoting): `"` (wird gesetzt, wenn der Wert Komma, Quote oder Zeilenumbruch enthält).
@@ -108,8 +125,9 @@ class ExportNotifier extends Notifier<ExportState> {
     //   9  updated_at
     //   10 attachments
     //   11 shared_with
+    //   12 report_excluded
     final csvRows = <List<String>>[
-      ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'favicon', 'updated_at', 'attachments', 'shared_with']
+      ['uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'favicon', 'updated_at', 'attachments', 'shared_with', 'report_excluded']
     ];
 
     // 1. Ladeanzeige einblenden
@@ -183,6 +201,7 @@ class ExportNotifier extends Notifier<ExportState> {
           _csvEscape(updatedAt),
           _csvEscape(attachments.map((a) => '${a.uuid};${_csvSubEscape(a.filename)};${a.timestamp.toIso8601String()}').join('|')),
           _csvEscape(sharedWith.map((f) => '${f.uuid};${_csvSubEscape(f.username)};${f.accessLevel}').join('|')),
+          payload.reportExcluded ? '1' : '',
         ]);
 
         // Eintrag der Kategorie zuordnen (für Markdown-Datei)

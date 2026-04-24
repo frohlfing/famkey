@@ -54,6 +54,9 @@ class EditNotifier extends Notifier<EditState> {
   /// Der Favicon als Base64-String im Data-Payload.
   String? _favicon;
 
+  /// Ob der Eintrag vom Sicherheitsbericht ausgeschlossen ist. Wird beim Laden gesetzt.
+  bool _reportExcluded = false;
+
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -121,6 +124,7 @@ class EditNotifier extends Notifier<EditState> {
         // brauchen wir später beim Speichern des neuen Payloads
         _passwordTimestamp = payload.passwordTimestamp;
         _favicon = payload.favicon;
+        _reportExcluded = payload.reportExcluded;
 
         // UI-State aktualisieren
         state = state.copyWith(
@@ -203,6 +207,7 @@ class EditNotifier extends Notifier<EditState> {
         url: formData.url,
         notes: formData.notes,
         favicon: favicon,
+        reportExcluded: _reportExcluded,
       );
       final entryBytes = Uint8List.fromList(utf8.encode(json.encode(entryPayload.toJson())));
       final encryptedData = await _cryptoService.encrypt(entryBytes, _entryKey!);

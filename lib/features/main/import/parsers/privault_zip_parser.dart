@@ -32,6 +32,7 @@ import '../parser.dart';
 ///   9  updated_at
 ///   10 attachments  → Sub-Format: {att_uuid};{filename};{timestamp}|...
 ///   11 shared_with  → Sub-Format: {user_uuid};{username};{access_level};{public_key}|...
+///   12 report_excluded
 /// ```
 ///
 /// Sub-Escaping: `\` → `\\`, `|` → `\|`, `;` → `\;`
@@ -96,7 +97,7 @@ class PrivaultZipParser implements Parser {
 
     // 6. Header validieren
     const expectedHeader = [
-      'uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'favicon', 'updated_at', 'attachments', 'shared_with',
+      'uuid', 'category', 'title', 'username', 'password', 'password_timestamp', 'url', 'notes', 'favicon', 'updated_at', 'attachments', 'shared_with', 'report_excluded',
     ];
     if (!_headersMatch(rows.first, expectedHeader)) {
       throw ParserError('Die PriVault-Exportdatei ist ungültig. `export.csv` hat einen unbekannten Header.',
@@ -113,18 +114,19 @@ class PrivaultZipParser implements Parser {
         throw ParserError(msg, path: _file.path, lineNumber: i + 1);
       }
 
-      final uuid           = row[0];
-      final category       = row[1];
-      final title          = row[2];
-      final username       = row[3];
-      final password       = row[4];
-      final pwTimestampRaw = row[5];
-      final url            = row[6];
-      final notes          = row[7];
-      final favicon        = row[8];
-      final updatedAtRaw   = row[9];
-      final attachmentsRaw = row[10];
-      final sharedWithRaw  = row[11];
+      final uuid              = row[0];
+      final category          = row[1];
+      final title             = row[2];
+      final username          = row[3];
+      final password          = row[4];
+      final pwTimestampRaw    = row[5];
+      final url               = row[6];
+      final notes             = row[7];
+      final favicon           = row[8];
+      final updatedAtRaw      = row[9];
+      final attachmentsRaw    = row[10];
+      final sharedWithRaw     = row[11];
+      final reportExcludedRaw = row[12];
 
       entries.add(ParsedEntry(
         uuid,
@@ -139,6 +141,7 @@ class PrivaultZipParser implements Parser {
         updatedAt: updatedAtRaw.isNotEmpty ? DateTime.tryParse(updatedAtRaw)?.toUtc() : null,
         attachments: _parseAttachments(attachmentsRaw, uuid, archive),
         sharedWith: _parseSharedWith(sharedWithRaw),
+        reportExcluded: reportExcludedRaw == '1',
         lineNumber: i + 1,
       ));
     }

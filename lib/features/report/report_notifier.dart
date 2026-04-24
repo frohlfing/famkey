@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
@@ -92,9 +93,9 @@ class ReportNotifier extends Notifier<ReportState> {
         final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
         final payload = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
 
-        // Einträge ohne Passwort ignorieren
-        if (payload.password.isEmpty) {
-          noPasswordCount++;
+        // Einträge ohne Passwort oder vom Bericht ausgeschlossene Einträge ignorieren
+        if (payload.password.isEmpty || payload.reportExcluded) {
+          if (payload.password.isEmpty) noPasswordCount++;
           state = state.copyWith(checkedCount: state.checkedCount + 1);
           await Future.delayed(const Duration(milliseconds: 10));
           if (state.isAborting) {
@@ -295,6 +296,66 @@ class ReportNotifier extends Notifier<ReportState> {
       );
     } catch (e, st) {
       Logger().fatal('Fehler beim Neuprüfen des Eintrags $entryId: $e', stack: st);
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Bericht-Ausschluss ---
+  // ------------------------------------------------------------------------
+
+  /// Schließt einen Eintrag vom Sicherheitsbericht aus (oder schließt ihn wieder ein).
+  ///
+  /// Entschlüsselt den Eintrag, schaltet [EntryPayload.reportExcluded] um,
+  /// verschlüsselt ihn neu und speichert ihn in der Datenbank. Danach wird
+  /// der Eintrag sofort aus allen Report-Listen entfernt.
+  Future<void> toggleReportExcluded(int entryId) async {
+    if (state.status != ReportActionStatus.loaded) return;
+
+    try {
+      final entry = await _databaseService.getEntry(entryId);
+      if (entry == null) return;
+
+      final perm = await _databaseService.getPermissionByEntryIdAndUserId(entry.id, _sessionService.user!.id);
+      if (perm == null) return;
+
+      final entryKey  = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
+      final decrypted = await _cryptoService.decrypt(entry.encryptedData, entryKey);
+      final payload   = EntryPayload.fromJson(json.decode(utf8.decode(decrypted)));
+
+      final updatedPayload = EntryPayload(
+        category:          payload.category,
+        title:             payload.title,
+        username:          payload.username,
+        password:          payload.password,
+        passwordTimestamp: payload.passwordTimestamp,
+        url:               payload.url,
+        notes:             payload.notes,
+        favicon:           payload.favicon,
+        reportExcluded:    !payload.reportExcluded,
+      );
+
+      final updatedBytes     = Uint8List.fromList(utf8.encode(json.encode(updatedPayload.toJson())));
+      final updatedEncrypted = await _cryptoService.encrypt(updatedBytes, entryKey);
+
+      await _databaseService.saveEntry(entry.copyWith(
+        encryptedData: updatedEncrypted,
+        updatedAt: DateTime.now().toUtc(),
+      ));
+
+      // Eintrag sofort aus allen Listen entfernen (erscheint erst wieder nach Reload)
+      _allEntries = _allEntries.where((e) => e.id != entryId).toList();
+
+      state = state.copyWith(
+        pwnedEntries:    _allEntries.where((e) => e.pwnedCount > 0).toList()..sort((a, b) => b.pwnedCount.compareTo(a.pwnedCount)),
+        urgentPasswords: _buildUrgentList(_allEntries),
+        weakestPasswords: _buildWeakestList(_allEntries),
+        oldestPasswords: _buildOldestList(_allEntries),
+        unknownAgeEntries: _buildUnknownAgeList(_allEntries),
+        ageBuckets:      _buildAgeBuckets(_allEntries),
+        strengthBuckets: _buildStrengthBuckets(_allEntries),
+      );
+    } catch (e, st) {
+      Logger().fatal('Fehler beim Umschalten von reportExcluded für Eintrag $entryId: $e', stack: st);
     }
   }
 

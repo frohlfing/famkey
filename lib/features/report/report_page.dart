@@ -326,15 +326,21 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              entry.pwnedCount > 0 ? '${_formatCount(entry.pwnedCount)}×' : '?',
-              style: theme.textTheme.titleSmall?.copyWith(color: Colors.red, fontWeight: FontWeight.bold),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  entry.pwnedCount > 0 ? '${_formatCount(entry.pwnedCount)}×' : '?',
+                  style: theme.textTheme.titleSmall?.copyWith(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                Text('gefunden', style: theme.textTheme.bodySmall?.copyWith(color: Colors.red)),
+              ],
             ),
-            Text('gefunden', style: theme.textTheme.bodySmall?.copyWith(color: Colors.red)),
+            _buildExcludeButton(entry.id),
           ],
         ),
         onTap: () => _openDetail(entry.id),
@@ -435,7 +441,13 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+            _buildExcludeButton(entry.id),
+          ],
+        ),
         onTap: () => _openDetail(entry.id),
       ),
     );
@@ -447,10 +459,10 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundColor: _strengthColor(entry.strength),
           child: Text(
             '$rank',
-            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
         title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -459,7 +471,13 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildStrengthBadge(entry.strength, entry.crackTime, theme),
+            _buildExcludeButton(entry.id),
+          ],
+        ),
         onTap: () => _openDetail(entry.id),
       ),
     );
@@ -638,17 +656,23 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         ),
         title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text('Geändert: $dateStr', style: theme.textTheme.bodySmall),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: ageColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ageColor.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            _formatAge(days),
-            style: theme.textTheme.bodySmall?.copyWith(color: ageColor, fontWeight: FontWeight.w600),
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: ageColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ageColor.withValues(alpha: 0.5)),
+              ),
+              child: Text(
+                _formatAge(days),
+                style: theme.textTheme.bodySmall?.copyWith(color: ageColor, fontWeight: FontWeight.w600),
+              ),
+            ),
+            _buildExcludeButton(entry.id),
+          ],
         ),
         onTap: () => _openDetail(entry.id),
       ),
@@ -670,6 +694,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        trailing: _buildExcludeButton(entry.id),
         onTap: () => _openDetail(entry.id),
       ),
     );
@@ -774,6 +799,19 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   // ------------------------------------------------------------------------
   // --- Hilfsmethoden ---
   // ------------------------------------------------------------------------
+
+  /// Schaltfläche zum Ausschließen eines Eintrags aus dem Bericht.
+  Widget _buildExcludeButton(int entryId) {
+    return IconButton(
+      icon: const Icon(Icons.do_not_disturb_on_outlined),
+      iconSize: 20,
+      color: Colors.grey[400],
+      tooltip: 'Vom Bericht ausschließen',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      onPressed: () => ref.read(reportProvider.notifier).toggleReportExcluded(entryId),
+    );
+  }
 
   /// Aufklappbarer Abschnitts-Header im Stil der Hauptliste.
   Widget _buildCollapsibleHeader({

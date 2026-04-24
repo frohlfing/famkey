@@ -115,6 +115,9 @@ class ParsedEntry {
   /// Freigaben – nur beim PriVault-Import befüllt, bei anderen Formaten `null`.
   final List<ParsedSharedUser>? sharedWith;
 
+  /// Vom Sicherheitsbericht ausgeschlossen – nur beim PriVault-Import befüllt.
+  final bool? reportExcluded;
+
   /// Zeilennummer in der Importdatei (1-basiert)
   final int? lineNumber;
 
@@ -131,6 +134,7 @@ class ParsedEntry {
     this.updatedAt,
     this.attachments,
     this.sharedWith,
+    this.reportExcluded,
     this.lineNumber,
   });
 }
