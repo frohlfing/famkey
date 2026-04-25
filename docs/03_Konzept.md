@@ -76,8 +76,9 @@ Ausnahme sind Ja/Nein-Optionen. Diese können direkt auf der Seite durch einen S
   - **Login:**
       - Button "Master-Passwort ändern": Kritische Operation, weil eine Umschlüsselung der SQLite-Datei erfolgt. Erfordert bisheriges Passwort.
       - Switch "Biometrie verwenden": Erlaubt das Entsperren des Tresors via FIngerprint oder Gesichtserkennung.
-      - Auto-Logout: z.B. "Nach 60 Sekunden Inaktivität"
-      - Selbstzerstörung: z.B. "Lösche lokale Datenbank nach 10 Fehlversuchen".
+  - **Timeouts:**
+      - Automatische Sperre: z.B. "Nach 3 Minuten Inaktivität" (Optionen: Sofort, 1, 2, 3, 4, 5, 10 Minuten, Nie)
+      - Zwischenablage leeren: z.B. "Nach 30 Sekunden" (Optionen: 10 s, 30 s, 60 s, 90 s, Nie)
   - **Sync-Server:**
       - Benutzername: Dieser Name wird bei Freunden in der Freundesliste angezeigt. 
       - Serveradresse: Der zugehörige Dialog hat auch ein Button zum Testen der Verbindung. Hier muss auch der API-Token angegeben werden. 
@@ -249,10 +250,66 @@ Der Auto-Fill-Prozess läuft isoliert vom Haupt-UI ab und erfordert native Schni
 - **Login:** App lädt `Biometric-Blob` und bittet Keystore um Entschlüsselung. Keystore fordert Fingerabdruck an. Bei
   Erfolg wird der `Master-Key` in den RAM zurückgegeben.
 
-### 2.14 Selbstzerstörung
-Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikalisch vom Gerät.
+### 2.14 Selbstzerstörung – Warum PriVault diese Funktion nicht umsetzt
 
-### 2.15 Backup, Import & Export
+Viele Passwortmanager (z. B. mSecure) bieten an, die lokale Datenbank nach einer bestimmten Anzahl fehlgeschlagener 
+Login-Versuche zu löschen. PriVault implementiert diese Funktion bewusst nicht, weil sie keinen echten Sicherheitsgewinn
+bietet.
+
+**Das strukturelle Problem**
+
+Der Fehlversuchszähler muss lesbar sein, bevor das Passwort bekannt ist – denn genau dann soll er greifen. Was aber 
+ohne Passwort lesbar ist, ist ohne Passwort auch **schreibbar**. Der Zähler würde in einer unverschlüsselten 
+Konfigurationsdatei (SharedPreferences / Registrierung) liegen. Jeder mit physischem Gerätezugriff kann ihn in Sekunden 
+zurücksetzen.
+
+**Die Datenbankdatei kann kopiert werden**
+
+Ein Angreifer mit etwas technischem Verstand kopiert die SQLite-Datei, bevor er den ersten Versuch unternimmt. Die 
+Selbstzerstörung löscht nur das Original – die Kopie bleibt erhalten. Danach kann er offline und unbegrenzt Passwörter 
+durchprobieren, ohne dass eine App-seitige Schutzfunktion greift.
+
+**Die echte Schutzlinie ist kryptografisch**
+
+PriVault nutzt Argon2id mit 64 MB Arbeitsspeicher, 4 Iterationen und 4-facher Parallelisierung als 
+Key-Derivation-Funktion. Jeder Passwortversuch dauert auf einem normalen Rechner mehrere Sekunden; auf einer GPU-Farm 
+ist der Angriff wegen der Speicheranforderung (memory-hard) ebenfalls sehr kostspielig. Ein starkes Master-Passwort 
+macht Brute-Force praktisch unmöglich – unabhängig davon, ob eine Selbstzerstörungsfunktion existiert.
+
+**Fazit**
+
+Die Selbstzerstörung schützt ausschließlich gegen technisch unerfahrene Angreifer, die direkt in der laufenden App 
+tippen, ohne vorher die Datenbankdatei zu sichern. Gegen jeden anderen Angreifer ist sie wirkungslos und vermittelt 
+ein falsches Sicherheitsgefühl. PriVault setzt stattdessen auf die Auto-Sperre (Abschnitt 2.16), die den häufigeren 
+Angriff – ein unbeaufsichtigtes, entsperrtes Gerät – tatsächlich adressiert.
+
+### 2.15 Timeouts (Auto-Sperre und Zwischenablage leeren)
+
+PriVault bietet zwei gerätespezifische Timeout-Einstellungen, die unabhängig vom Tresor im `ConfigService` (SharedPreferences) gespeichert werden. Da es sich um Geräte-Präferenzen handelt – ein Desktop-Nutzer wählt typischerweise längere Zeitspannen als ein Smartphone-Nutzer – wäre eine Speicherung in der verschlüsselten Tresor-Datenbank falsch: Sie würden beim Sync das Verhalten des anderen Geräts überschreiben.
+
+**Auto-Sperre**
+
+Nach einer konfigurierbaren Inaktivitätsdauer wird der Tresor automatisch gesperrt: Die Session wird gecleart und die App navigiert zur Login-Seite. "Inaktivität" bedeutet, dass der Nutzer keine Pointer- oder Tastaturinteraktion vorgenommen hat.
+
+Technische Umsetzung: Ein `AutoLockService` (GetIt-Singleton) hält einen `Timer`. Ein `Listener`-Widget im Root der App ruft `resetTimer()` bei jeder Benutzeraktion auf. Läuft der Timer ab, werden Session gecleart und per `GlobalKey<NavigatorState>` zur Login-Seite navigiert.
+
+Optionen: Sofort, 1, 2, 3, 4, 5, 10 Minuten, Nie. Default: Nie.
+
+**Zwischenablage leeren**
+
+Nach dem Kopieren eines Passworts oder Benutzernamens wird die Zwischenablage nach einer konfigurierbaren Zeit automatisch geleert. Dies schützt vor passivem Auslesen durch andere Apps (Clipboard-Manager, Sync-Dienste).
+
+Technische Umsetzung: Ein `Timer` im `copyToClipboard()`-Aufruf, der nach der eingestellten Dauer `Clipboard.setData(ClipboardData(text: ''))` aufruft. Bei Tresor-Sperre oder Logout wird ein laufender Timer sofort abgebrochen und die Zwischenablage sofort geleert.
+
+Optionen: 10 s, 30 s, 60 s, 90 s, Nie. Default: 30 s.
+
+**Warum nicht "Sperren bei Sitzungssperre / Deckel zugeklappt"**
+
+Flutter's `AppLifecycleState` unterscheidet nicht zwischen "App minimiert" und "Bildschirmsperre" — beide Ereignisse liefern denselben Lifecycle-State. Um echte Sitzungssperren gezielt zu erkennen, wären native Platform-Channels nötig: auf Android ein `BroadcastReceiver` für `Intent.ACTION_SCREEN_OFF`, auf Windows ein Win32-Hook auf `WM_WTSSESSION_CHANGE`. Der Implementierungsaufwand ist auf beiden Plattformen erheblich.
+
+Entscheidend ist aber ein Usability-Argument: Das Sperren bei jedem Hintergrundwechsel ist auf dem Smartphone störend — ein kurzer App-Wechsel (z. B. um einen Benutzernamen in einer anderen App nachzuschlagen) würde die Sitzung sofort beenden. Die Auto-Sperre mit frei wählbarer Inaktivitätsdauer deckt den praktisch relevanten Anwendungsfall besser ab, ohne den normalen Nutzungsfluss zu unterbrechen.
+
+### 2.16 Backup, Import & Export
 - **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
     - PriVault ZIP
    - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
@@ -271,7 +328,7 @@ Nach X Fehlversuchen (einstellbar) löscht die App die lokale Datenbank physikal
    (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
    - Evtl im eingebetteten Webbrowser 
 
-### 2.16 Report
+### 2.17 Report
 
 Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich in vier Abschnitte:
 
@@ -282,7 +339,7 @@ Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich i
 
 **HIBP-Cache:** API-Antworten werden per SHA-1-Präfix lokal gecacht (Datei `hibp_cache.json` im App-Verzeichnis). Die Cache-Gültigkeit ist konfigurierbar (Standard: 1 Tag, Einstellung `hibp_cache_days` im `ConfigService`).
 
-### 2.17 Anzeigen, Suche und Filterung der Einträge
+### 2.18 Anzeigen, Suche und Filterung der Einträge
 
 Die Hauptseite listet alle Einträge des Tresors auf und ermöglicht eine Volltextsuche über
 Kategorie, Titel, URL und Notizen. Da die SQLite-Datenbank der Web-Appliance technisch bedingt
@@ -320,7 +377,7 @@ Code statt, nicht per SQL. Für die zu erwartenden Tresorgrössen (typischerweis
 Einträge) ist das performant.
 
 
-### 2.18 Tresor löschen
+### 2.19 Tresor löschen
 
 Der Benutzer hat drei Löschoptionen, wählbar über einen Dialog in den Einstellungen:
 
@@ -333,7 +390,7 @@ Wenn der Benutzer Serverdaten löscht, muss unterschieden werden, ob er der einz
 - **Letzter Benutzer im Tresor:** Der gesamte Tresor wird gelöscht (kaskadierend: alle Einträge, Permissions, Anhänge, Tombstones).
 - **Nicht der letzte Benutzer:** Nur der eigene Benutzer-Datensatz wird gelöscht. Der Tresor und die Daten der anderen Benutzer bleiben erhalten. Geteilte Einträge, auf die der Benutzer Zugriff hatte, verlieren lediglich seine Permission.
 
-### 2.19 Tresor umbenennen
+### 2.20 Tresor umbenennen
 
 **Verhalten:** Eine Tresor-Umbenennung ist eine rein lokale Operation. Die Datenbankdatei und der Config-Eintrag werden umbenannt. Der Server erfährt zunächst nichts davon.
 
@@ -341,10 +398,10 @@ Wenn der Benutzer Serverdaten löscht, muss unterschieden werden, ob er der einz
 Beim nächsten Sync sucht der Client den Benutzer unter dem neuen Tresornamen auf dem Server (`findUser(newVaultName, userName)`). Der Server kennt diesen Namen noch nicht → der Client registriert den Benutzer unter dem neuen Tresornamen neu. Auf dem Server entsteht ein neuer, leerer Tresor. Alle Einträge werden beim folgenden Push vollständig hochgeladen.
 
 **Was mit den alten Serverdaten passiert:**
-Die Daten unter dem alten Tresornamen bleiben auf dem Server unverändert erhalten. Der Benutzer muss sie explizit löschen (Option "Nur auf dem Server löschen" in 2.18), wenn er das möchte.
+Die Daten unter dem alten Tresornamen bleiben auf dem Server unverändert erhalten. Der Benutzer muss sie explizit löschen (Option "Nur auf dem Server löschen" in 2.19), wenn er das möchte.
 
 **Hinweis-Dialog bei der Umbenennung:**
-Wurde der Tresor bereits synchronisiert (`lastSyncAt > Epoch`), erhält der Benutzer beim Umbenennen einen Hinweis: *"Die Daten auf dem Server verbleiben unter dem bisherigen Tresornamen. Wenn du sie löschen möchtest, nutze vorher die Option 'Nur auf dem Server löschen' in den Einstellungen."*
+Wurde der Tresor bereits synchronisiert (`lastSyncAt > Epoch`), erhält der Benutzer beim Umbenennen einen Hinweis: *"Die Daten auf dem Server verbleiben unter dem bisherigen Tresornamen. Wenn du sie löschen möchtest, nutze vorher die Option 'Nur auf dem Server löschen' in den Einstellungen (s. 2.19)."*
 
 **Warum dieser Ansatz statt eines `PATCH /vaults/name`-Endpunkts?**
 Ein Rename-Endpunkt würde einen neuen RSA-geschützten Endpunkt, eine Schemaänderung (Rename-Erkennung auf dem Server) und komplexe Zweitgerät-Koordination erfordern. Der gewählte Ansatz ist einfacher und transparent: Der Tresorname ist dem Server ohnehin nur als anonymer Hash bekannt — für den Server ist der "neue" Tresor einfach ein neuer Mandant.
@@ -352,7 +409,7 @@ Ein Rename-Endpunkt würde einen neuen RSA-geschützten Endpunkt, eine Schemaän
 **Konsequenz für Zweites Gerät:**
 Gerät 2 synct weiterhin mit dem alten Tresornamen, solange es nicht lokal umbenannt wird. Beide Geräte sind damit nach einer einseitigen Umbenennung auf verschiedenen Servermandanten. Das ist bewusst: Der Benutzer muss Gerät 2 selbst umbenennen, wenn er beide vereinheitlichen will.
 
-### 2.20 Benutzernamen ändern
+### 2.21 Benutzernamen ändern
 
 **Verhalten:** Anders als beim Tresornamen ist der Benutzername öffentlich sichtbar — Freunde sehen ihn. Eine Änderung muss daher auf dem Server propagiert werden.
 

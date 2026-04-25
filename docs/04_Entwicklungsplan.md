@@ -63,7 +63,7 @@
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 
 - ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
-- ❌ Selbstzerstörung (Daten löschen beim x. Fehlversuch)
+- ❌ Zwischenablage nach x Sekunden leeren
 
 - ❌ Notfall-Reset
 
