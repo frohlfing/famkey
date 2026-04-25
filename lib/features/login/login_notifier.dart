@@ -8,6 +8,7 @@ import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/login/login_state.dart';
+import 'package:privault/services/auto_lock_service.dart';
 import 'package:privault/services/biometric_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -26,6 +27,7 @@ class LoginNotifier extends Notifier<LoginState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
+  late final AutoLockService _autoLockService;
   late final BiometricService _biometricService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
@@ -44,6 +46,7 @@ class LoginNotifier extends Notifier<LoginState> {
   @override
   LoginState build() {
     // Dienste aus getIt holen
+    _autoLockService = getIt();
     _biometricService = getIt();
     _configService = getIt();
     _cryptoService = getIt();
@@ -277,6 +280,9 @@ class LoginNotifier extends Notifier<LoginState> {
         vaultName: vaultName,
         settings: settings,
       );
+
+      // 10a. Auto-Sperre konfigurieren
+      _autoLockService.configure(_configService.autoLockMinutes);
 
       // 11. Status ermitteln
       // Falls mit Passwort eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen, ob Biometrie aktiviert werden soll

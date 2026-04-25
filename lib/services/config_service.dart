@@ -16,6 +16,8 @@ class ConfigService {
   static const String _keyLogMinLevel = 'log_min_level';
   static const String _keyLogMaxDays = 'log_max_days';
   static const String _keyHibpCacheDays = 'hibp_cache_days';
+  static const String _keyAutoLockMinutes = 'auto_lock_minutes';
+  static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
 
   final SharedPreferences _prefs;
 
@@ -65,4 +67,20 @@ class ConfigService {
   int get hibpCacheDays => _prefs.getInt(_keyHibpCacheDays) ?? 1;
 
   set hibpCacheDays(int value) => _prefs.setInt(_keyHibpCacheDays, value);
+
+  /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie (Standard).
+  int? get autoLockMinutes {
+    final val = _prefs.getInt(_keyAutoLockMinutes) ?? 0;
+    return val == 0 ? null : val;
+  }
+
+  set autoLockMinutes(int? value) => _prefs.setInt(_keyAutoLockMinutes, value ?? 0);
+
+  /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie. Standard: 30 s.
+  int? get clipboardClearSeconds {
+    final val = _prefs.getInt(_keyClipboardClearSeconds) ?? 30;
+    return val == 0 ? null : val;
+  }
+
+  set clipboardClearSeconds(int? value) => _prefs.setInt(_keyClipboardClearSeconds, value ?? 0);
 }

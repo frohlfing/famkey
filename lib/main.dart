@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
+import 'package:privault/core/navigator_key.dart';
 import 'package:privault/core/service_locator.dart';
+import 'package:privault/services/auto_lock_service.dart';
 import 'package:privault/features/report/report_page.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/features/detail/detail_page.dart';
@@ -75,6 +77,7 @@ class PriVaultApp extends ConsumerWidget {
     return MaterialApp(
       title: 'PriVault',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
 
       // ThemeMode über SettingsNotifier-State holen
       themeMode: settings.themeMode,
@@ -99,7 +102,10 @@ class PriVaultApp extends ConsumerWidget {
       ),
 
       builder: (context, child) {
-        return Stack(
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => getIt<AutoLockService>().resetTimer(),
+          child: Stack(
           children: [
             child!,
             if (kDebugMode)
@@ -129,6 +135,7 @@ class PriVaultApp extends ConsumerWidget {
                 ),
               ),
           ],
+          ),
         );
       },
 

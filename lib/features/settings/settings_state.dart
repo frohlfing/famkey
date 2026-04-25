@@ -73,6 +73,14 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
+  // --- Timeouts ---
+
+  /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie.
+  final int? autoLockMinutes;
+
+  /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie.
+  final int? clipboardClearSeconds;
+
   // --- Logging ---
 
   /// Minimaler Log-Level, der geschrieben wird.
@@ -90,6 +98,10 @@ class SettingsState {
   final AppError error;
 
   // --- Getter ---
+
+  String get autoLockLabel => autoLockMinutes == null ? 'Nie' : 'Nach ${autoLockMinutes == 1 ? '1 Minute' : '$autoLockMinutes Minuten'}';
+
+  String get clipboardClearLabel => clipboardClearSeconds == null ? 'Nie' : 'Nach $clipboardClearSeconds Sekunden';
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
@@ -117,13 +129,16 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
+    this.autoLockMinutes,
+    this.clipboardClearSeconds,
     this.logMinLevel = LogLevel.info,
     this.logMaxDays = 7,
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
 
-  /// Status aktualisieren (immutable)
+  /// Status aktualisieren (immutable).
+  /// Für nullable int-Felder (autoLockMinutes, clipboardClearSeconds) mit clearAutoLockMinutes/clearClipboardClearSeconds auf null setzen.
   SettingsState copyWith({
     String? vaultStoragePath,
     String? vaultName,
@@ -139,6 +154,8 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
+    Object? autoLockMinutes = _keep,
+    Object? clipboardClearSeconds = _keep,
     LogLevel? logMinLevel,
     int? logMaxDays,
     SettingsActionStatus? status,
@@ -159,6 +176,8 @@ class SettingsState {
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
+      autoLockMinutes: autoLockMinutes == _keep ? this.autoLockMinutes : autoLockMinutes as int?,
+      clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,
       logMaxDays: logMaxDays ?? this.logMaxDays,
       logMinLevel: logMinLevel ?? this.logMinLevel,
       status: status ?? this.status,
@@ -166,3 +185,5 @@ class SettingsState {
     );
   }
 }
+
+const _keep = Object();

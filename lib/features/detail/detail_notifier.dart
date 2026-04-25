@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
@@ -12,6 +12,7 @@ import 'package:privault/features/detail/detail_state.dart';
 import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
+import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/password_service.dart';
@@ -33,6 +34,7 @@ class DetailNotifier extends Notifier<DetailState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
+  late final ClipboardService _clipboardService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final PasswordService _passwordService;
@@ -60,6 +62,7 @@ class DetailNotifier extends Notifier<DetailState> {
   @override
   DetailState build() {
     // Dienste aus getIt holen
+    _clipboardService = getIt<ClipboardService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
     _sessionService = getIt<SessionService>();
@@ -172,9 +175,9 @@ class DetailNotifier extends Notifier<DetailState> {
     return 'Geändert am $dateStr (vor $years Jahren und $month Monaten).';
   }
 
-  /// Kopiert den Text in die Zwischenablage.
+  /// Kopiert den Text in die Zwischenablage und startet den Clear-Timer.
   void copyToClipboard(String text) {
-    Clipboard.setData(ClipboardData(text: text));
+    _clipboardService.copy(text);
   }
 
   /// Öffnet die URL in einem neuen Browser-Tab.

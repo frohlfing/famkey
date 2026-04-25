@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/env.dart';
 import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
 import 'package:privault/features/settings/log_config/log_config_dialog.dart';
+import 'package:privault/features/settings/timeouts/auto_lock_dialog.dart';
+import 'package:privault/features/settings/timeouts/clipboard_clear_dialog.dart';
 import 'package:privault/features/settings/log_file/log_file_dialog.dart';
 import 'package:privault/features/settings/master_password/master_password_dialog.dart';
 import 'package:privault/features/settings/new_friend/new_friend_dialog.dart';
@@ -201,6 +204,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     );
                   },
                 ),
+
+                const Divider(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Timeouts ---
+                // ------------------------------------------------------------------------
+
+                _buildSectionTitle('Timeouts'),
+
+                // --- Auto-Sperre ---
+                _buildText(
+                  'Automatische Sperre',
+                  (state) => state.autoLockLabel,
+                  icon: Icons.lock_clock_outlined,
+                  onPressed: _showAutoLockDialog,
+                  tooltip: 'Automatische Sperre ändern',
+                ),
+
+                // --- Zwischenablage leeren ---
+                if (!env.isWeb) // der Browser erlaubt den Clipboard-Write ohne User-Gesture nicht
+                  _buildText(
+                    'Zwischenablage leeren',
+                    (state) => state.clipboardClearLabel,
+                    icon: Icons.content_paste_off_outlined,
+                    onPressed: _showClipboardClearDialog,
+                    tooltip: 'Zwischenablage-Timeout ändern',
+                  ),
 
                 const Divider(height: 32),
 
@@ -446,31 +476,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // --- Systemeinstellungen ---
                 // ------------------------------------------------------------------------
 
-                _buildSectionTitle('Systemeinstellungen'),
-                const SizedBox(height: 16),
+                if (!env.isWeb) ...[ // im Browser nicht verfügbar
+                  _buildSectionTitle('Systemeinstellungen'),
+                  const SizedBox(height: 16),
 
-                _buildSystemButton(
-                  Icons.fingerprint_outlined,
-                  'Biometrie',
-                  'Systemeinstellungen für Biometrie öffnen',
-                  notifier.openBiometricSettings,
-                ),
+                  _buildSystemButton(
+                    Icons.fingerprint_outlined,
+                    'Biometrie',
+                    'Systemeinstellungen für Biometrie öffnen',
+                    notifier.openBiometricSettings,
+                  ),
 
-                _buildSystemButton(
-                  Icons.text_fields_outlined,
-                  'Autofill',
-                  'Hilfeseite für das automatische Ausfüllen öffnen',
-                  notifier.openAutofillSettings,
-                ),
+                  _buildSystemButton(
+                    Icons.text_fields_outlined,
+                    'Autofill',
+                    'Hilfeseite für das automatische Ausfüllen öffnen',
+                    notifier.openAutofillSettings,
+                  ),
 
-                _buildSystemButton(
-                  Icons.info_outline,
-                  'App-Info',
-                  'Systemdetails dieser App anzeigen',
-                  notifier.openAppSettings,
-                ),
+                  _buildSystemButton(
+                    Icons.info_outline,
+                    'App-Info',
+                    'Systemdetails dieser App anzeigen',
+                    notifier.openAppSettings,
+                  ),
 
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
+                ],
 
                 // ------------------------------------------------------------------------
                 // --- Footer ---
@@ -819,5 +851,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// Öffnet den Dialog zum Anzeigen der Logdatei.
   Future<void> _showLogFileDialog() async {
     await LogFileDialog.show(context);
+  }
+
+  /// Öffnet den Dialog zum Ändern der Auto-Sperre.
+  Future<void> _showAutoLockDialog() async {
+    final current = ref.read(settingsProvider).autoLockMinutes;
+    final result = await AutoLockDialog.show(context, initialValue: current);
+    if (result == null || !mounted) return;
+    ref.read(settingsProvider.notifier).saveAutoLockMinutes(result == 0 ? null : result);
+  }
+
+  /// Öffnet den Dialog zum Ändern des Zwischenablage-Timeouts.
+  Future<void> _showClipboardClearDialog() async {
+    final current = ref.read(settingsProvider).clipboardClearSeconds;
+    final result = await ClipboardClearDialog.show(context, initialValue: current);
+    if (result == null || !mounted) return;
+    ref.read(settingsProvider.notifier).saveClipboardClearSeconds(result == 0 ? null : result);
   }
 }

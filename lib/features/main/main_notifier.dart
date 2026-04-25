@@ -7,6 +7,8 @@ import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/main/main_state.dart';
 import 'package:privault/models/payloads/index_payload.dart';
+import 'package:privault/services/auto_lock_service.dart';
+import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
@@ -29,6 +31,8 @@ class MainNotifier extends Notifier<MainState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
+  late final AutoLockService _autoLockService;
+  late final ClipboardService _clipboardService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
@@ -51,6 +55,8 @@ class MainNotifier extends Notifier<MainState> {
   @override
   MainState build() {
     // Dienste aus getIt holen
+    _autoLockService = getIt();
+    _clipboardService = getIt();
     _cryptoService = getIt();
     _databaseService = getIt();
     _sessionService = getIt();
@@ -102,6 +108,10 @@ class MainNotifier extends Notifier<MainState> {
   /// Meldet den Benutzer ab und bereinigt die Sitzungsdaten im RAM.
   void logout() {
     _allEntries = [];
+
+    // Timeout-Services stoppen
+    _autoLockService.stop();
+    _clipboardService.cancelAndClear();
 
     // Datenbankverbindung kappen
     _databaseService.close();

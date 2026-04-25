@@ -59,11 +59,11 @@
 - ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
 - ✅ Report über die Passwortstärke und -Alter aller Einträge
 
+- ✅ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
+- ✅ Zwischenablage nach x Sekunden leeren
+
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
-
-- ❌ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
-- ❌ Zwischenablage nach x Sekunden leeren
 
 - ❌ Notfall-Reset
 
@@ -76,8 +76,6 @@
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
 
 - ❌ Dialog, um den Passwortgenerator aus der Bearbeitungsseite einstellen zu können
-- 
-- ❌ Sicheres Passwortfeld (direkt als byte array speichern), siehe https://copilot.microsoft.com/shares/gk2UA94MU96n6LiRoyyB1
  
 ### 1.5 Meilenstein 5: Androide App
 - ✅ Emulator installieren

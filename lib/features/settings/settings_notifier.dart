@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/app_error.dart';
@@ -9,8 +8,10 @@ import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/settings/settings_state.dart';
+import 'package:privault/services/auto_lock_service.dart';
 import 'package:privault/services/autofill_service.dart';
 import 'package:privault/services/biometric_service.dart';
+import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
@@ -28,8 +29,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
+  late final AutoLockService _autoLockService;
   late final AutofillService _autofillService;
   late final BiometricService _biometricService;
+  late final ClipboardService _clipboardService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
@@ -54,8 +57,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
   @override
   SettingsState build() {
     // Dienste aus getIt holen
+    _autoLockService = getIt<AutoLockService>();
     _autofillService = getIt<AutofillService>();
     _biometricService = getIt<BiometricService>();
+    _clipboardService = getIt<ClipboardService>();
     _configService = getIt<ConfigService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
@@ -99,6 +104,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
         friendNeedsRekeying: friendNeedsRekeying,
         themeMode: _configService.themeMode,
         categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+        autoLockMinutes: _configService.autoLockMinutes,
+        clipboardClearSeconds: _configService.clipboardClearSeconds,
         logMinLevel: _configService.logMinLevel,
         logMaxDays: _configService.logMaxDays,
         status: SettingsActionStatus.loaded,
@@ -273,6 +280,28 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   // ------------------------------------------------------------------------
+  // --- Timeouts ---
+  // ------------------------------------------------------------------------
+
+  /// Speichert die Auto-Sperre-Einstellung (null = nie).
+  void saveAutoLockMinutes(int? minutes) {
+    _configService.autoLockMinutes = minutes;
+    _autoLockService.configure(minutes);
+    state = state.copyWith(autoLockMinutes: minutes, status: SettingsActionStatus.saved);
+  }
+
+  /// Speichert die Zwischenablage-Timeout-Einstellung (null = nie).
+  void saveClipboardClearSeconds(int? seconds) {
+    _configService.clipboardClearSeconds = seconds;
+    state = state.copyWith(clipboardClearSeconds: seconds, status: SettingsActionStatus.saved);
+  }
+
+  /// Kopiert den Text in die Zwischenablage und startet den Clear-Timer.
+  void copyToClipboard(String text) {
+    _clipboardService.copy(text);
+  }
+
+  // ------------------------------------------------------------------------
   // --- Freunde verwalten ---
   // ------------------------------------------------------------------------
 
@@ -360,11 +389,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
       perm = perm.copyWith(encryptedKey: encryptedKey);
       await _databaseService.savePermission(perm);
     }
-  }
-
-  /// Kopiert den Text in die Zwischenablage.
-  void copyToClipboard(String text) {
-    Clipboard.setData(ClipboardData(text: text));
   }
 
   /// Entfernt einen Freund aus der Liste.
