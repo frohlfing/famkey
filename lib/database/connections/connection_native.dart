@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:privault/core/app_version.dart';
-import '../../core/env.dart';
+import 'package:privault/core/env.dart';
 
 /// Baut eine Datenbankverbindung zu SQLite für eine Desktop- oder Mobile-Platform auf.
 QueryExecutor openConnection(String name, String password) {

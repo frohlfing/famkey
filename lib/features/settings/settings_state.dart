@@ -73,6 +73,22 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
+  // --- Autofill ---
+
+  /// Gibt an, ob der Nutzer Autofill verwenden möchte (ConfigService-Einstellung, beide Plattformen).
+  final bool autofillEnabled;
+
+  /// Gibt an, ob PriVault aktuell als Autofill-Anbieter im Android-System aktiv ist.
+  /// Wird über MethodChannel abgefragt und spiegelt den Systemzustand wider.
+  final bool isAutofillEnabled;
+
+  /// Gibt an, ob der Tresor nach einem Autofill-Vorgang wieder gesperrt werden soll,
+  /// wenn er zuvor gesperrt war.
+  final bool autofillRelockAfterFill;
+
+  /// Das Tastenkürzel für Auto-Type (nur Windows).
+  final String autofillHotkey;
+
   // --- Timeouts ---
 
   /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie.
@@ -129,6 +145,10 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
+    this.autofillEnabled = true,
+    this.isAutofillEnabled = false,
+    this.autofillRelockAfterFill = false,
+    this.autofillHotkey = 'Strg+Shift+A',
     this.autoLockMinutes,
     this.clipboardClearSeconds,
     this.logMinLevel = LogLevel.info,
@@ -154,6 +174,10 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
+    bool? autofillEnabled,
+    bool? isAutofillEnabled,
+    bool? autofillRelockAfterFill,
+    String? autofillHotkey,
     Object? autoLockMinutes = _keep,
     Object? clipboardClearSeconds = _keep,
     LogLevel? logMinLevel,
@@ -176,6 +200,10 @@ class SettingsState {
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
+      autofillEnabled: autofillEnabled ?? this.autofillEnabled,
+      isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
+      autofillRelockAfterFill: autofillRelockAfterFill ?? this.autofillRelockAfterFill,
+      autofillHotkey: autofillHotkey ?? this.autofillHotkey,
       autoLockMinutes: autoLockMinutes == _keep ? this.autoLockMinutes : autoLockMinutes as int?,
       clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,
       logMaxDays: logMaxDays ?? this.logMaxDays,

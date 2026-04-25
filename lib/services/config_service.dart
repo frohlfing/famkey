@@ -18,6 +18,9 @@ class ConfigService {
   static const String _keyHibpCacheDays = 'hibp_cache_days';
   static const String _keyAutoLockMinutes = 'auto_lock_minutes';
   static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
+  static const String _keyAutofillEnabled = 'autofill_enabled';
+  static const String _keyAutofillRelockAfterFill = 'autofill_relock_after_fill';
+  static const String _keyAutofillHotkey = 'autofill_hotkey';
 
   final SharedPreferences _prefs;
 
@@ -83,4 +86,20 @@ class ConfigService {
   }
 
   set clipboardClearSeconds(int? value) => _prefs.setInt(_keyClipboardClearSeconds, value ?? 0);
+
+  /// Gibt an, ob Autofill (Auto-Type auf Windows, Autofill-Provider auf Android) aktiviert ist.
+  bool get autofillEnabled => _prefs.getBool(_keyAutofillEnabled) ?? true;
+
+  set autofillEnabled(bool value) => _prefs.setBool(_keyAutofillEnabled, value);
+
+  /// Gibt an, ob der Tresor nach einem Autofill-Vorgang wieder gesperrt werden soll,
+  /// wenn er zuvor gesperrt war.
+  bool get autofillRelockAfterFill => _prefs.getBool(_keyAutofillRelockAfterFill) ?? false;
+
+  set autofillRelockAfterFill(bool value) => _prefs.setBool(_keyAutofillRelockAfterFill, value);
+
+  /// Das Tastenkürzel für Auto-Type (nur Windows). Standard: Strg+Shift+A.
+  String get autofillHotkey => _prefs.getString(_keyAutofillHotkey) ?? 'Strg+Shift+A';
+
+  set autofillHotkey(String value) => _prefs.setString(_keyAutofillHotkey, value);
 }

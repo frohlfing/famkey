@@ -88,6 +88,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final fingerprints = _getFingerprints(friends);
       final friendNeedsRekeying = await _getFriendNeedsRekeying(friends);
 
+      // Autofill-Status abfragen (Android: Systemzustand via MethodChannel)
+      final isAutofillEnabled = await _autofillService.isAutofillEnabled();
+
       // UI-State aktualisieren
       state = state.copyWith(
         vaultStoragePath: env.vaultStoragePath,
@@ -104,6 +107,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
         friendNeedsRekeying: friendNeedsRekeying,
         themeMode: _configService.themeMode,
         categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+        autofillEnabled: _configService.autofillEnabled,
+        isAutofillEnabled: isAutofillEnabled,
+        autofillRelockAfterFill: _configService.autofillRelockAfterFill,
+        autofillHotkey: _configService.autofillHotkey,
         autoLockMinutes: _configService.autoLockMinutes,
         clipboardClearSeconds: _configService.clipboardClearSeconds,
         logMinLevel: _configService.logMinLevel,
@@ -285,6 +292,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// Speichert die Auto-Sperre-Einstellung (null = nie).
   void saveAutoLockMinutes(int? minutes) {
+    if (state.isBusy) return;
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     _configService.autoLockMinutes = minutes;
     _autoLockService.configure(minutes);
     state = state.copyWith(autoLockMinutes: minutes, status: SettingsActionStatus.saved);
@@ -292,6 +301,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// Speichert die Zwischenablage-Timeout-Einstellung (null = nie).
   void saveClipboardClearSeconds(int? seconds) {
+    if (state.isBusy) return;
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     _configService.clipboardClearSeconds = seconds;
     state = state.copyWith(clipboardClearSeconds: seconds, status: SettingsActionStatus.saved);
   }
@@ -299,6 +310,38 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Kopiert den Text in die Zwischenablage und startet den Clear-Timer.
   void copyToClipboard(String text) {
     _clipboardService.copy(text);
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Autofill ---
+  // ------------------------------------------------------------------------
+
+  /// Schaltet Autofill ein oder aus und speichert die Einstellung.
+  void toggleAutofill(bool value) {
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    _configService.autofillEnabled = value;
+    state = state.copyWith(autofillEnabled: value, status: SettingsActionStatus.saved);
+  }
+
+  /// Aktualisiert den Android-Systemzustand von Autofill (nach Rückkehr aus Systemeinstellungen).
+  Future<void> refreshAutofillStatus() async {
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    final isEnabled = await _autofillService.isAutofillEnabled();
+    state = state.copyWith(isAutofillEnabled: isEnabled, status: SettingsActionStatus.saved);
+  }
+
+  /// Speichert das Tastenkürzel für Auto-Type in der Konfiguration (nur Windows).
+  void setAutofillHotkey(String value) {
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    _configService.autofillHotkey = value;
+    state = state.copyWith(autofillHotkey: value, status: SettingsActionStatus.saved);
+  }
+
+  /// Speichert die Einstellung "Tresor nach Autofill wieder sperren" in der Konfiguration.
+  void setAutofillRelockAfterFill(bool value) {
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    _configService.autofillRelockAfterFill = value;
+    state = state.copyWith(autofillRelockAfterFill: value, status: SettingsActionStatus.saved);
   }
 
   // ------------------------------------------------------------------------
@@ -453,7 +496,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await _biometricService.openSystemSettings();
   }
 
-  /// Öffnet die Systemeinstellungen (oder eine Hilfeseite) für den Autofill-Dienst.
+  /// Öffnet die Android-Systemeinstellungen für den Autofill-Anbieter.
   Future<void> openAutofillSettings() async {
     await _autofillService.openSystemSettings();
   }

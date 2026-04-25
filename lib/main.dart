@@ -14,8 +14,10 @@ import 'package:privault/features/detail/detail_page.dart';
 import 'package:privault/features/edit/edit_page.dart';
 import 'package:privault/features/login/login_page.dart';
 import 'package:privault/features/main/main_page.dart';
+import 'package:privault/features/autofill/autofill_picker_page.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_page.dart';
+import 'package:privault/services/autofill_service.dart';
 
 // @formatter:off
 void main() async {
@@ -58,6 +60,11 @@ void main() async {
         child: PriVaultApp(),
       ),
     );
+
+    // AutofillService initialisieren (nach runApp, damit der MethodChannel bereit ist)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await getIt<AutofillService>().init();
+    });
 
   }, (error, stack) async {
     await Logger().fatal('Zone Error: $error', stack: stack);
@@ -156,6 +163,7 @@ class PriVaultApp extends ConsumerWidget {
       routes: {
         '/': (context) => const LoginPage(),
         '/main': (context) => const MainPage(),
+        '/autofill-picker': (context) => const AutofillPickerPage(),
         '/report': (context) => const ReportPage(),
         '/settings': (context) => const SettingsPage(),
       },

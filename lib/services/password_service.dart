@@ -145,7 +145,7 @@ class PasswordService {
   /// Lädt den HIBP-Cache beim ersten Aufruf aus der JSON-Datei im App-Verzeichnis.
   Future<void> _loadHibpCache() async {
     try {
-      final path = env.isWeb ? 'hibp_cache.json' : p.join(env.storagePath, 'hibp_cache.json');
+      final path = p.join(env.storagePath, 'hibp_cache.json');
       _hibpCacheFile = createAppFile(path);
 
       if (!await _hibpCacheFile.exists()) {

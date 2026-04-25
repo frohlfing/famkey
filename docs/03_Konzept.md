@@ -221,36 +221,57 @@ Bei Verlust eines Geräts oder Verdacht auf Passwort-Diebstahl:
    - Alle für Tinka verschlüsselten Entry-Keys werden lokal gelöscht (da nutzlos).
 4. **Behebung:** Frank muss Tinka manuell neu verifizieren. Dabei werden die Entry-Keys der geteilten Einträge mit Tinka's neuem Public-Key neu verschlüsselt.
 
-### 2.11 Auto-Fill (Mobile & Desktop)
-Der Auto-Fill-Prozess läuft isoliert vom Haupt-UI ab und erfordert native Schnittstellen.
+### 2.11 Autofill
 
-**Mobile (Android & iOS):**
-   1. **Trigger:** Das Betriebssystem (OS) erkennt ein Login-Formular in einer anderen App oder im Browser.
-   2. **Anfrage:** Das OS weckt den `SecureVault AutofillService` (Android) bzw. die `CredentialProviderExtension` (iOS) auf und übermittelt die **Domain** (z.B. "paypal.com") oder die **App-ID** (z.B. "com.paypal.android").
-   3. **Lookup:**
-      - Der Service öffnet die verschlüsselte lokale DB (benötigt Zugriff auf den *Shared Key* via Keystore).
-      - Er sucht in der Tabelle `entries` nach Einträgen, wo die URL zur Domain passt.
-   4. **Authentifizierung:** Falls die DB gesperrt ist, fordert der Service über das OS eine Biometrie-Prüfung an.
-   5. **Response:** Der Service entschlüsselt die passenden Credentials und gibt sie strukturiert an das OS zurück. Das OS füllt die Felder.
+Der Autofill-Prozess ist plattformspezifisch und läuft isoliert vom Haupt-UI ab.
 
-**Windows/macOS:**
-   - **V1 (Browser Extension):** Eine separate Chrome/Edge-Extension kommuniziert via "Native Messaging Host" mit der laufenden SecureVault-App, um Credentials für die aktuelle URL abzufragen.
-   - **V2 (Auto-Type Legacy):** Der User klickt in SecureVault auf "Einfügen". Die App wechselt den Fokus zum letzten Fenster und simuliert Tastaturanschläge (`Username` -> `TAB` -> `Passwort` -> `ENTER`).
+#### Android
 
-### 2.12 Browser-Extension (Desktop)
-**Szenario:** Login auf einer Webseite am PC.
-1. Eine schlanke Extension kommuniziert via **Native Messaging** mit der laufenden PriVault-App.
-2. Die App liefert nach Freigabe die passenden Daten an die Extension.
-3. **Fallback (Auto-Type):** Falls keine Extension möglich ist, simuliert die App Tastaturanschläge (`User -> TAB -> PW -> ENTER`).
+Der Benutzer aktiviert PriVault als Autofill-Anbieter einmalig in den Android-Systemeinstellungen (Einstellungen → Passwörter & Konten → Autofill-Dienst). PriVault zeigt in den App-Einstellungen einen Button, der direkt dorthin führt.
 
-### 2.13 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
+1. **Trigger:** Android erkennt ein Login-Formular in einer anderen App oder im Browser und ruft PriVaults `AutofillService` auf. Android übergibt die **App-ID** (z.B. `com.paypal.android`) oder die **Domain** (z.B. `paypal.com`).
+2. **Lookup:** Der Service extrahiert Domain bzw. Package-Name und sucht in der lokalen Datenbank nach Einträgen, deren URL passt.
+3. **Authentifizierung:** Ist der Tresor gesperrt (kein aktiver Session-Key im RAM), startet der Service eine Authentifizierungs-Activity. Der Nutzer entsperrt per Biometrie oder Master-Passwort.
+4. **Response:** Der Service entschlüsselt die passenden Einträge und gibt strukturierte `Dataset`-Objekte an Android zurück. Android zeigt diese als Vorschläge im Dropdown über dem Formular an und befüllt bei Auswahl die Felder.
+
+iOS wird nicht unterstützt, da PriVault ausschließlich für Android, Windows und Web entwickelt wird.
+
+#### Windows
+
+Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager. Es gibt zwei Ansätze, die sich nicht ausschließen:
+
+- **Auto-Type:** Wird z.B. bei KeePass verwendet. Der Benutzer wählt in PriVault einen Eintrag aus und klickt auf „Einfügen". Die App wechselt den Fokus auf das zuletzt aktive Fenster und simuliert Tastaturanschläge (`Benutzername` → `TAB` → `Passwort` → `ENTER`). Keine Browserintegration nötig – funktioniert in jeder Anwendung.
+- **Browser-Extension (V2):** Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
+
+**Sicherheitsbedenken Auto-Type:**
+
+Das Hauptrisiko ist falsches Zielfenster: Liegt der Fokus auf einer Chat-App statt dem Login-Formular, wird das   
+Passwort im Klartext in den Chat getippt. Das ist praktisch der einzige ernsthafte Angriff, der in der Praxis     
+vorkommt.
+
+Weitere Risiken: Tastaturanschläge per SendInput laufen durch die normale Windows-Eingabepipeline und können von
+Keyloggern mitgelesen werden – aber das ist nicht schlimmer als manuelles Tippen. Bildschirmrecorder könnten das
+Passwort beim Eintippen erfassen.
+
+Pflicht-Gegenmaßnahme: Immer einen Bestätigungsdialog zeigen, der den Titel des Ziel-Fensters anzeigt. So erkennt
+der Nutzer sofort, wenn das falsche Fenster aktiv ist.
+
+#### Web (Browser-Appliance)
+
+Die PriVault-Web-App läuft selbst im Browser und kann keine Felder in anderen Tabs oder Anwendungen befüllen. Autofill im Web-Kontext erfordert daher dieselbe **Browser-Extension** wie für Windows.
+
+Die Extension erkennt Login-Formulare auf anderen Webseiten. Ist die PriVault-Web-App im selben Browser geöffnet, kommuniziert die Extension mit ihr über die Extension-Message-API (`chrome.tabs.sendMessage`), um Credentials abzufragen. Ist die Web-App nicht geöffnet, leitet die Extension zum Öffnen weiter.
+
+Für Web-Nutzer ist die Browser-Extension keine optionale Komfortfunktion, sondern die **einzige** Möglichkeit für automatisches Ausfüllen. Ohne Extension bleibt nur das manuelle Kopieren über den Copy-Button in der Detailansicht.
+
+### 2.12 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - **Ziel:** Login ohne Tippen, aber kryptografisch sicher.
 - **Aktivierung:** App bittet den System-Keystore, den `Master-Key` (der im RAM liegt) mit einem hardware-gebundenen
   Schlüssel zu verschlüsseln (Wrap). Das Ergebnis (`Biometric-Blob`) wird lokal gespeichert.
 - **Login:** App lädt `Biometric-Blob` und bittet Keystore um Entschlüsselung. Keystore fordert Fingerabdruck an. Bei
   Erfolg wird der `Master-Key` in den RAM zurückgegeben.
 
-### 2.14 Selbstzerstörung – Warum PriVault diese Funktion nicht umsetzt
+### 2.13 Selbstzerstörung – Warum PriVault diese Funktion nicht umsetzt
 
 Viele Passwortmanager (z. B. mSecure) bieten an, die lokale Datenbank nach einer bestimmten Anzahl fehlgeschlagener 
 Login-Versuche zu löschen. PriVault implementiert diese Funktion bewusst nicht, weil sie keinen echten Sicherheitsgewinn
@@ -283,7 +304,7 @@ tippen, ohne vorher die Datenbankdatei zu sichern. Gegen jeden anderen Angreifer
 ein falsches Sicherheitsgefühl. PriVault setzt stattdessen auf die Auto-Sperre (Abschnitt 2.16), die den häufigeren 
 Angriff – ein unbeaufsichtigtes, entsperrtes Gerät – tatsächlich adressiert.
 
-### 2.15 Timeouts (Auto-Sperre und Zwischenablage leeren)
+### 2.14 Timeouts (Auto-Sperre und Zwischenablage leeren)
 
 PriVault bietet zwei gerätespezifische Timeout-Einstellungen, die unabhängig vom Tresor im `ConfigService` (SharedPreferences) gespeichert werden. Da es sich um Geräte-Präferenzen handelt – ein Desktop-Nutzer wählt typischerweise längere Zeitspannen als ein Smartphone-Nutzer – wäre eine Speicherung in der verschlüsselten Tresor-Datenbank falsch: Sie würden beim Sync das Verhalten des anderen Geräts überschreiben.
 
@@ -309,7 +330,7 @@ Flutter's `AppLifecycleState` unterscheidet nicht zwischen "App minimiert" und "
 
 Entscheidend ist aber ein Usability-Argument: Das Sperren bei jedem Hintergrundwechsel ist auf dem Smartphone störend — ein kurzer App-Wechsel (z. B. um einen Benutzernamen in einer anderen App nachzuschlagen) würde die Sitzung sofort beenden. Die Auto-Sperre mit frei wählbarer Inaktivitätsdauer deckt den praktisch relevanten Anwendungsfall besser ab, ohne den normalen Nutzungsfluss zu unterbrechen.
 
-### 2.16 Backup, Import & Export
+### 2.15 Backup, Import & Export
 - **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
     - PriVault ZIP
    - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
@@ -328,7 +349,7 @@ Entscheidend ist aber ein Usability-Argument: Das Sperren bei jedem Hintergrundw
    (als Platzhalter zum Ausfüllen) zum physischen Ausdruck. Siehe KeePaxxXC, Exportieren -> HTML-Datei.
    - Evtl im eingebetteten Webbrowser 
 
-### 2.17 Report
+### 2.16 Report
 
 Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich in vier Abschnitte:
 
@@ -339,7 +360,7 @@ Der Sicherheitsbericht analysiert alle Einträge des Tresors und gliedert sich i
 
 **HIBP-Cache:** API-Antworten werden per SHA-1-Präfix lokal gecacht (Datei `hibp_cache.json` im App-Verzeichnis). Die Cache-Gültigkeit ist konfigurierbar (Standard: 1 Tag, Einstellung `hibp_cache_days` im `ConfigService`).
 
-### 2.18 Anzeigen, Suche und Filterung der Einträge
+### 2.17 Anzeigen, Suche und Filterung der Einträge
 
 Die Hauptseite listet alle Einträge des Tresors auf und ermöglicht eine Volltextsuche über
 Kategorie, Titel, URL und Notizen. Da die SQLite-Datenbank der Web-Appliance technisch bedingt
@@ -377,7 +398,7 @@ Code statt, nicht per SQL. Für die zu erwartenden Tresorgrössen (typischerweis
 Einträge) ist das performant.
 
 
-### 2.19 Tresor löschen
+### 2.18 Tresor löschen
 
 Der Benutzer hat drei Löschoptionen, wählbar über einen Dialog in den Einstellungen:
 
@@ -390,7 +411,7 @@ Wenn der Benutzer Serverdaten löscht, muss unterschieden werden, ob er der einz
 - **Letzter Benutzer im Tresor:** Der gesamte Tresor wird gelöscht (kaskadierend: alle Einträge, Permissions, Anhänge, Tombstones).
 - **Nicht der letzte Benutzer:** Nur der eigene Benutzer-Datensatz wird gelöscht. Der Tresor und die Daten der anderen Benutzer bleiben erhalten. Geteilte Einträge, auf die der Benutzer Zugriff hatte, verlieren lediglich seine Permission.
 
-### 2.20 Tresor umbenennen
+### 2.19 Tresor umbenennen
 
 **Verhalten:** Eine Tresor-Umbenennung ist eine rein lokale Operation. Die Datenbankdatei und der Config-Eintrag werden umbenannt. Der Server erfährt zunächst nichts davon.
 
@@ -409,7 +430,7 @@ Ein Rename-Endpunkt würde einen neuen RSA-geschützten Endpunkt, eine Schemaän
 **Konsequenz für Zweites Gerät:**
 Gerät 2 synct weiterhin mit dem alten Tresornamen, solange es nicht lokal umbenannt wird. Beide Geräte sind damit nach einer einseitigen Umbenennung auf verschiedenen Servermandanten. Das ist bewusst: Der Benutzer muss Gerät 2 selbst umbenennen, wenn er beide vereinheitlichen will.
 
-### 2.21 Benutzernamen ändern
+### 2.20 Benutzernamen ändern
 
 **Verhalten:** Anders als beim Tresornamen ist der Benutzername öffentlich sichtbar — Freunde sehen ihn. Eine Änderung muss daher auf dem Server propagiert werden.
 

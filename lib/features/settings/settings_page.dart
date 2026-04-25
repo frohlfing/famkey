@@ -33,7 +33,7 @@ class SettingsPage extends ConsumerStatefulWidget {
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends ConsumerState<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBindingObserver {
 
   // ------------------------------------------------------------------------
   // --- Interne Variablen ---
@@ -56,6 +56,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Daten laden
@@ -67,8 +68,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// Gibt Ressourcen frei.
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _categoryPlaceholderController.dispose();
     super.dispose();
+  }
+
+  /// Aktualisiert den Autofill-Status, wenn die App aus dem Hintergrund zurückkehrt
+  /// (z.B. nach dem Öffnen der Systemeinstellungen).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(settingsProvider.notifier).refreshAutofillStatus();
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -87,7 +98,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       switch (next) {
         case SettingsActionStatus.saved:
           _hasChanged = true;
-          Snack.show(context, 'Gespeichert!', success: true);
+          //Snack.show(context, 'Gespeichert!', success: true);
           break;
 
         case SettingsActionStatus.deleted:
@@ -96,18 +107,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           break;
 
         case SettingsActionStatus.friendAdded:
+          _hasChanged = true;
           Snack.show(context, 'Freund wurde hinzugefügt. Verifiziere zur Sicherheit den Fingerprint.', success: true);
           break;
 
         case SettingsActionStatus.friendVerified:
+          _hasChanged = true;
           Snack.show(context, 'Verifizierungsstatus geändert', success: true);
           break;
 
         case SettingsActionStatus.friendDeleted:
+          _hasChanged = true;
           Snack.show(context, 'Freund gelöscht', success: true);
           break;
 
         case SettingsActionStatus.failure:
+          _hasChanged = true;
           Snack.show(context, state.error.text);
           break;
 
@@ -195,12 +210,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 Consumer(
                   builder: (ctx, ref, _) {
                     final useBiometric = ref.watch(settingsProvider.select((state) => state.useBiometric));
-                    return SwitchListTile(
-                      secondary: const Icon(Icons.fingerprint_outlined),
-                      title: const Text('Biometrie verwenden'),
-                      subtitle: const Text('Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.'),
-                      value: useBiometric,
-                      onChanged: isBusy ? null : notifier.saveBiometricSettings,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile(
+                          secondary: const Icon(Icons.fingerprint_outlined),
+                          title: const Text('Biometrie verwenden'),
+                          subtitle: const Text('Erlaubt das Entsperren des Tresors via Fingerabdruck oder Gesichtserkennung.'),
+                          value: useBiometric,
+                          onChanged: isBusy ? null : notifier.saveBiometricSettings,
+                        ),
+                        if (useBiometric && !env.isWeb) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 48, top: 12, bottom: 12),
+                            child: _buildSystemButton(
+                              Icons.fingerprint_outlined,
+                              'Systemeinstellung für Biometrie',
+                              null, //'Fingerabdruck oder Gesichtserkennung im System einrichten.',
+                              notifier.openBiometricSettings,
+                              width: 280,
+                            ),
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
@@ -233,6 +265,121 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
 
                 const Divider(height: 32),
+
+                // ------------------------------------------------------------------------
+                // --- Autofill (nur für Android und Windows) ---
+                // ------------------------------------------------------------------------
+
+                if (env.isAndroid) ...[
+                  _buildSectionTitle('Autofill'),
+                  Consumer(
+                    builder: (ctx, ref, _) {
+                      final autofillEnabled = ref.watch(settingsProvider.select((s) => s.autofillEnabled));
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SwitchListTile(
+                            secondary: const Icon(Icons.text_fields_outlined),
+                            title: const Text('Autofill'),
+                            subtitle: Text('PriVault als Autofill-Anbieter für andere Apps verwenden.'),
+                            value: autofillEnabled,
+                            onChanged: notifier.toggleAutofill,
+                          ),
+                          if (autofillEnabled) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 48, top: 12),
+                              child: _buildSystemButton(
+                                Icons.settings_outlined,
+                                'Android-Autofill einrichten',
+                                'PriVault muss einmalig in den Android-Systemeinstellungen als Autofill-Anbieter ausgewählt werden.',
+                                notifier.openAutofillSettings,
+                                width: 280,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 32),
+                              child: Consumer(
+                                builder: (ctx, ref, _) {
+                                  final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
+                                  return SwitchListTile(
+                                    secondary: const Icon(Icons.lock_reset_outlined),
+                                    title: const Text('Tresor nach Autofill wieder sperren'),
+                                    subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
+                                    value: relock,
+                                    onChanged: notifier.setAutofillRelockAfterFill,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(height: 32),
+                ],
+
+                if (env.isWindows) ...[
+                  _buildSectionTitle('Autofill'),
+                  Consumer(
+                    builder: (ctx, ref, _) {
+                      final autofillEnabled = ref.watch(settingsProvider.select((s) => s.autofillEnabled));
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SwitchListTile(
+                            secondary: const Icon(Icons.text_fields_outlined),
+                            title: const Text('Auto-Type verwenden'),
+                            subtitle: Text('Benutzername und Passwort per Tastenkürzel in beliebige Fenster einfügen.'),
+                            value: autofillEnabled,
+                            onChanged: notifier.toggleAutofill,
+                          ),
+                          if (autofillEnabled) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 32),
+                              child: Consumer(
+                                builder: (ctx, ref, _) {
+                                  final hotkey = ref.watch(settingsProvider.select((s) => s.autofillHotkey));
+                                  return _buildText(
+                                    'Tastenkürzel',
+                                    (state) => state.autofillHotkey,
+                                    icon: Icons.keyboard_outlined,
+                                    onPressed: () => _showHotkeyDialog(hotkey),
+                                    tooltip: 'Tastenkürzel ändern',
+                                  );
+                                },
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 48),
+                              child: Text(
+                                'Drücke das Tastenkürzel in einer beliebigen Anwendung, um PriVault im Hintergrund zu aktivieren und Credentials automatisch einzufügen.',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 32, top: 4),
+                              child: Consumer(
+                                builder: (ctx, ref, _) {
+                                  final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
+                                  return SwitchListTile(
+                                    secondary: const Icon(Icons.lock_reset_outlined),
+                                    title: const Text('Tresor nach Autofill wieder sperren'),
+                                    subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
+                                    value: relock,
+                                    onChanged: notifier.setAutofillRelockAfterFill,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+
+                  const Divider(height: 32),
+                ],
 
                 // ------------------------------------------------------------------------
                 // --- Sync-Server ---
@@ -481,23 +628,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   const SizedBox(height: 16),
 
                   _buildSystemButton(
-                    Icons.fingerprint_outlined,
-                    'Biometrie',
-                    'Systemeinstellungen für Biometrie öffnen',
-                    notifier.openBiometricSettings,
-                  ),
-
-                  _buildSystemButton(
-                    Icons.text_fields_outlined,
-                    'Autofill',
-                    'Hilfeseite für das automatische Ausfüllen öffnen',
-                    notifier.openAutofillSettings,
-                  ),
-
-                  _buildSystemButton(
                     Icons.info_outline,
                     'App-Info',
-                    'Systemdetails dieser App anzeigen',
+                    'Systemdetails dieser App anzeigen.',
                     notifier.openAppSettings,
                   ),
 
@@ -594,17 +727,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// Erstellt eine einheitliche Schaltfläche inklusive Icon und Hilfetext für Systemeinstellungen.
-  Widget _buildSystemButton(IconData icon, String label, String help, VoidCallback onPressed) {
+  Widget _buildSystemButton(IconData icon, String label, String? help, VoidCallback onPressed, {double width=220}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 220,
+            width: width,
             child: ElevatedButton.icon(onPressed: onPressed, icon: Icon(icon), label: Text(label)),
           ),
-          if (help.isNotEmpty)
+          if (help != null && help.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 8, top: 4),
               child: Text(help, style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -867,5 +1000,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final result = await ClipboardClearDialog.show(context, initialValue: current);
     if (result == null || !mounted) return;
     ref.read(settingsProvider.notifier).saveClipboardClearSeconds(result == 0 ? null : result);
+  }
+
+  /// Öffnet den Dialog zum Ändern des Auto-Type-Tastenkürzels.
+  Future<void> _showHotkeyDialog(String current) async {
+    final controller = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tastenkürzel'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'z.B. Strg+Shift+A',
+            helperText: 'Kombinationen mit Strg, Alt, Shift und einem Buchstaben.',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Übernehmen'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || result.isEmpty || !mounted) return;
+    ref.read(settingsProvider.notifier).setAutofillHotkey(result);
   }
 }

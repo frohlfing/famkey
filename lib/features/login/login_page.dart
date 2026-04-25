@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:privault/core/service_locator.dart';
 import 'package:privault/features/login/login_notifier.dart';
 import 'package:privault/features/login/login_state.dart';
+import 'package:privault/services/autofill_service.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/password_field.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
@@ -97,7 +99,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       switch (next) {
         case LoginActionStatus.success:
           _passwordController.clear();
-          Navigator.of(context).pushReplacementNamed('/main');
+          final autofillService = getIt<AutofillService>();
+          if (autofillService.hasAutofillRequest) {
+            Navigator.of(context).pushReplacementNamed('/autofill-picker');
+          } else {
+            Navigator.of(context).pushReplacementNamed('/main');
+          }
           break;
 
         case LoginActionStatus.askToCreateVault:

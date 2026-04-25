@@ -41,42 +41,23 @@
 - ✅ Tests für ViewModels bauen
  
 ### 1.4 Meilenstein 4: Advanced Features
-- ✅ Multi-Themes
+- ✅ Theme-Unterstützung (System/Dark/Light)
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
-
-- ✅ Fehler in Datei loggen
-- ✅ Unter Settings ein Button zum Anzeigen/Löschen der Logdatei
-- ✅ Logdatei automatisch klein halten
-- ❌ Bei AppError.unknown auf Logfile hinweisen (beim Import, in der Snackbar, ...).
-
-- ✅ Keepass-XML-Import
-- ✅ Bitwarden-JSON-Import
-- ✅ 1Password-Import
-- ✅ PriVault-ZIP-Import
-- ✅ Export (ZIP-File)
+- ✅ Loggen (in Datei; Logdatei automatisch klein halten); unter Settings ein Button zum Anzeigen der Logdatei
+- ❌ Maximale Größe der Logdatei in Setting änderbar machen (Config-Eintrag)
 - ✅ Drucken (Markdown-Generierung)
-
-- ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
-- ✅ Report über die Passwortstärke und -Alter aller Einträge
-
-- ✅ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
+- ✅ Export (ZIP-File)
+- ✅ Import: PriVault, Keepass, Bitwarden, 1Password-Import
+- ✅ Report (Darknet-Check https://haveibeenpwned.com/, Passwortstärke und -Alter)
+- ✅ Auto-Sperre nach x Sekunden
 - ✅ Zwischenablage nach x Sekunden leeren
-
 - ✅ Notfall-Reset
-
+- ✅ Auto-Fill (unter Android per Systemfunktion, unter Windows per Auto-Type, für Web keine Unterstützung)
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
-
-- !!!!!! Import funktioniert nicht unter Web 
-
-- ❌ Auto-Fill
-
 - ❌ Skripte zum Deployen, siehe https://copilot.microsoft.com/shares/hAWk4uv75JWVbYepVZiCg
-
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
-
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
-
 - ❌ Dialog, um den Passwortgenerator aus der Bearbeitungsseite einstellen zu können
  
 ### 1.5 Meilenstein 5: Androide App
@@ -95,4 +76,5 @@
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
 - 🐞 Android: Systembutton funktionieren nicht
 - 🐞 Android: Biometrie funktioniert nicht 
+- 🐞 Web: Import funktioniert nicht unter Web 
 
