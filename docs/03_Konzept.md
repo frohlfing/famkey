@@ -240,7 +240,17 @@ iOS wird nicht unterstützt, da PriVault ausschließlich für Android, Windows u
 
 Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager. Es gibt zwei Ansätze, die sich nicht ausschließen:
 
-- **Auto-Type:** Wird z.B. bei KeePass verwendet. Der Benutzer wählt in PriVault einen Eintrag aus und klickt auf „Einfügen". Die App wechselt den Fokus auf das zuletzt aktive Fenster und simuliert Tastaturanschläge (`Benutzername` → `TAB` → `Passwort` → `ENTER`). Keine Browserintegration nötig – funktioniert in jeder Anwendung.
+- **Auto-Type:** Wird z.B. bei KeePass verwendet. 
+  - **Szenario A:** 
+  Der Benutzer wählt in PriVault in der Detailansicht einen Eintrag aus und klickt auf "Einfügen". 
+  Die App wechselt den Fokus auf das zuletzt aktive Fenster und simuliert Tastaturanschläge (`Benutzername` → `TAB` → `Passwort` → `ENTER`).
+  - **Szenario B:**
+  Der Benutzer steht im Login-Formular einer beliebigen App und drückt `Strg+Shift+A`.
+  Falls der Benutzer noch nicht in PriVault eingeloggt ist, öffnet sich PriVault und der Benutzer muss sich einloggen.
+  Ansonsten wird PriVault im Hintergrund aktiv. Anhand der URL wird der Eintrag gesucht. Wenn eindeutig gefunden (exakt 1 Treffer),
+  wird Benutzername und Passwort in das zuletzt aktive Fenster eingetragen (wie bei Szenario A). 
+  Ansonsten werden die Treffer in der Hauptansicht gefiltert.
+
 - **Browser-Extension (V2):** Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
 
 **Sicherheitsbedenken Auto-Type:**

@@ -1014,6 +1014,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
           decoration: const InputDecoration(
             hintText: 'z.B. Strg+Shift+A',
             helperText: 'Kombinationen mit Strg, Alt, Shift und einem Buchstaben.',
+            border: OutlineInputBorder(),
           ),
           autofocus: true,
         ),
