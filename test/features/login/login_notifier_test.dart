@@ -113,7 +113,7 @@ void main() {
           user: user,
           privateKey: privateKey,
           vaultName: 'Safe',
-          settings: settings
+          settings: settings,
       ))).called(1);
     });
 

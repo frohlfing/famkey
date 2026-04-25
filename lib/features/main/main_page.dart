@@ -83,6 +83,7 @@ class _MainPageState extends ConsumerState<MainPage> {
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(mainProvider.select((s) => s.isBusy));
+    final hasFriends = ref.watch(mainProvider.select((s) => s.hasFriends));
     final groupedEntries = ref.watch(mainProvider.select((s) => s.groupedEntries));
 
     return Stack(
@@ -213,23 +214,25 @@ class _MainPageState extends ConsumerState<MainPage> {
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
-                    Consumer(
-                      builder: (ctx, ref, _) {
-                        // Dieser Consumer lauscht NUR auf onlyMyEntries.
-                        final onlyMyEntries = ref.watch(mainProvider.select((s) => s.onlyMyEntries));
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Nur meine Einträge anzeigen', style: TextStyle(fontSize: 13)),
-                            Switch(
-                                value: onlyMyEntries,
-                                onChanged: notifier.setOnlyMyEntries,
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                    if (hasFriends) ...[
+                      const SizedBox(height: 8),
+                      Consumer(
+                        builder: (ctx, ref, _) {
+                          // Dieser Consumer lauscht NUR auf onlyMyEntries.
+                          final onlyMyEntries = ref.watch(mainProvider.select((s) => s.onlyMyEntries));
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Nur meine Einträge anzeigen', style: TextStyle(fontSize: 13)),
+                              Switch(
+                                  value: onlyMyEntries,
+                                  onChanged: notifier.setOnlyMyEntries,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),

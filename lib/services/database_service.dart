@@ -242,6 +242,18 @@ class DatabaseService {
     return (_db!.select(_db!.users)..where((u) => u.id.isBiggerThanValue(1) & u.isHidden.equals(false))).get();
   }
 
+  /// Prüft, ob mindestens ein Freund existiert (User mit ID > 1 und nicht versteckt).
+  Future<bool> hasFriends() async {
+    _ensureDbInitialized();
+    final countExp = _db!.users.id.count();
+    final query = _db!.selectOnly(_db!.users)
+      ..addColumns([countExp])
+      ..where(_db!.users.id.isBiggerThanValue(1) & _db!.users.isHidden.equals(false));
+
+    final result = await query.map((row) => row.read(countExp)).getSingleOrNull();
+    return (result ?? 0) > 0;
+  }
+
   /// Lädt alle Freunde, die nicht ausgeblendet sind zusammen mit den Zugriffsrechten auf den gegebenen Eintrag.
   Future<List<({UserEntity user, int accessLevel})>> getNotHiddenFriendsWithAccessLevel(int entryId) async {
     _ensureDbInitialized();

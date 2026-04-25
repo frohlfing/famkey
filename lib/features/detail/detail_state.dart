@@ -61,6 +61,9 @@ class DetailState {
 
   // --- Teilen mit ---
 
+  /// Gibt an, ob unter Einstellungen Freunde eingepflegt sind.
+  final bool canShare;
+
   /// Alle sichtbaren Freunde zusammen mit den Zugriffsrechten auf diesen Eintrag.
   final List<({UserEntity user, int accessLevel})> friends;
 
@@ -118,6 +121,7 @@ class DetailState {
     this.auditHint = '',
     this.attachments = const [],
     this.previewFile = const AppFile.none(),
+    this.canShare = false,
     this.friends = const [],
     this.myAccessLevel = 1,
     this.status = DetailActionStatus.initial,
@@ -138,6 +142,7 @@ class DetailState {
     String? auditHint,
     List<({AttachmentEntity attachment, AttachmentMetaPayload meta})>? attachments,
     AppFile? previewFile,
+    bool? canShare,
     List<({UserEntity user, int accessLevel})>? friends,
     int? myAccessLevel,
     DetailActionStatus? status,
@@ -156,6 +161,7 @@ class DetailState {
       auditHint: auditHint ?? this.auditHint,
       attachments: attachments ?? this.attachments,
       previewFile: previewFile ?? this.previewFile,
+      canShare: canShare ?? this.canShare,
       friends: friends ?? this.friends,
       myAccessLevel: myAccessLevel ?? this.myAccessLevel,
       status: status ?? this.status,

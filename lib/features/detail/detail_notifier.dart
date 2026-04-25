@@ -9,6 +9,7 @@ import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/detail/detail_state.dart';
+import 'package:privault/features/main/main_notifier.dart';
 import 'package:privault/models/payloads/attachment_meta_payload.dart';
 import 'package:privault/models/payloads/entry_payload.dart';
 import 'package:privault/services/crypto_service.dart';
@@ -103,6 +104,7 @@ class DetailNotifier extends Notifier<DetailState> {
       final attachments = await _loadAttachmentsWithMetas(_entry!.id);
 
       // 7. Freunde und Berechtigungen laden
+      final canShare = ref.read(mainProvider).hasFriends;
       final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(_entry!.id);
 
       // 8. Alles zusammen in den State schreiben
@@ -118,6 +120,7 @@ class DetailNotifier extends Notifier<DetailState> {
         favicon: payload.favicon,
         auditHint: auditHint,
         attachments: attachments,
+        canShare: canShare,
         friends: friends,
         myAccessLevel: myAccessLevel,
         status: DetailActionStatus.loaded,

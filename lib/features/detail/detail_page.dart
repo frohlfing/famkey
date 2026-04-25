@@ -109,6 +109,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(detailProvider.select((s) => s.isBusy));
+    final canShare = ref.watch(detailProvider.select((s) => s.canShare));
     final canEdit = ref.watch(detailProvider.select((s) => s.canEdit));
 
     // Notifier holen
@@ -257,11 +258,21 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                         ListTile(
                           title: const Text('URL'),
                           subtitle: Text(url),
-                          trailing: url.isNotEmpty ? IconButton(
-                            icon: const Icon(Icons.open_in_new),
-                            onPressed: notifier.openUrl,
-                            tooltip: 'URL öffnen',
-                          ) : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: url.isNotEmpty ? [
+                              IconButton(
+                                icon: const Icon(Icons.open_in_new),
+                                onPressed: notifier.openUrl,
+                                tooltip: 'URL öffnen',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy),
+                                onPressed: () => _handleCopyToClipboard(url, 'URL'),
+                                tooltip: 'URL kopieren',
+                              ),
+                            ] : [],
+                          ),
                         ),
                         const Divider(),
                       ],
@@ -274,11 +285,33 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   builder: (ctx, ref, _) {
                     final notes = ref.watch(detailProvider.select((s) => s.notes));
                     if (notes.isEmpty) return const SizedBox.shrink();
+
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ListTile(
                           title: const Text('Notizen'),
-                          subtitle: Text(notes),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 0),
+                            child: TextFormField(
+                              initialValue: notes,
+                              readOnly: true,
+                              maxLines: null, // Erlaubt mehrzeiligen Text
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          trailing: notes.isNotEmpty ? IconButton(
+                            icon: const Icon(Icons.copy),
+                            onPressed: () => _handleCopyToClipboard(notes, 'Notizen'),
+                            tooltip: 'Notizen kopieren',
+                          ) : null,
                         ),
                         const Divider(),
                       ],
@@ -346,88 +379,90 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 // ------------------------------------------------------------------------
                 // Geteilt mit
                 // ------------------------------------------------------------------------
-                Consumer(
-                  builder: (ctx, ref, _) {
-                    final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
-                    final sharedFriends = ref.watch(detailProvider.select((s) => s.sharedFriends));
-                    if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (canManageShares)
-                          _buildSectionHeaderWithAction(
-                            'Geteilt mit',
-                            const Icon(Icons.person_add_alt_1_outlined),
-                            'Freigabe hinzufügen',
-                            _handleAddFriend,
-                          )
-                        else
-                          _buildSectionTitle('Geteilt mit'),
-                        const SizedBox(height: 4),
-                        if (sharedFriends.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
-                            child: Text('Dieser Eintrag ist noch nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
-                          )
-                        else
-                          ...sharedFriends.map((friend) {
-                            final isWritable = friend.accessLevel == 2; // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
-                            Widget leadingIcon = Stack(
-                              alignment: Alignment.bottomRight,
-                              children: [
-                                const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
-                                if (!friend.user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
-                              ],
-                            );
+                if (canShare) ...[
+                  Consumer(
+                    builder: (ctx, ref, _) {
+                      final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
+                      final sharedFriends = ref.watch(detailProvider.select((s) => s.sharedFriends));
+                      if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (canManageShares)
+                            _buildSectionHeaderWithAction(
+                              'Geteilt mit',
+                              const Icon(Icons.person_add_alt_1_outlined),
+                              'Freigabe hinzufügen',
+                              _handleAddFriend,
+                            )
+                          else
+                            _buildSectionTitle('Geteilt mit'),
+                          const SizedBox(height: 4),
+                          if (sharedFriends.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 0, bottom: 8, left: 16, right: 16),
+                              child: Text('Dieser Eintrag ist noch nicht geteilt.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                            )
+                          else
+                            ...sharedFriends.map((friend) {
+                              final isWritable = friend.accessLevel == 2; // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
+                              Widget leadingIcon = Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  const Icon(Icons.person_outline, size: 40, color: Colors.blueGrey),
+                                  if (!friend.user.isVerified) const Icon(Icons.warning, size: 18, color: Colors.amber),
+                                ],
+                              );
 
-                            if (!friend.user.isVerified) {
-                              leadingIcon = MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    await Navigator.pushNamed(ctx, '/settings', arguments: {'focus_user_uuid': friend.user.uuid});
-                                    if (mounted) notifier.load(widget.entryId);
-                                  },
-                                  child: Tooltip(message: 'Person ist nicht verifiziert!', child: leadingIcon),
+                              if (!friend.user.isVerified) {
+                                leadingIcon = MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      await Navigator.pushNamed(ctx, '/settings', arguments: {'focus_user_uuid': friend.user.uuid});
+                                      if (mounted) notifier.load(widget.entryId);
+                                    },
+                                    child: Tooltip(message: 'Person ist nicht verifiziert!', child: leadingIcon),
+                                  ),
+                                );
+                              }
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: leadingIcon,
+                                  title: Text(friend.user.name),
+                                  trailing: canManageShares ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('Schreibrechte', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                      Transform.scale(
+                                        scale: 0.75,
+                                        child: Switch(
+                                          value: isWritable,
+                                          onChanged: (bool value) => notifier.updateAccessLevel(friend.user, value ? 2 : 1),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        tooltip: 'Zugriff entziehen',
+                                        onPressed: () => _handleDeleteFriend(friend.user),
+                                      ),
+                                    ],
+                                  ) : (isWritable
+                                      ? const Text('Schreibrechte', style: TextStyle(color: Colors.grey))
+                                      : const Text('Nur Leserechte', style: TextStyle(color: Colors.grey))
+                                    ),
                                 ),
                               );
-                            }
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: leadingIcon,
-                                title: Text(friend.user.name),
-                                trailing: canManageShares ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text('Schreibrechte', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                                    Transform.scale(
-                                      scale: 0.75,
-                                      child: Switch(
-                                        value: isWritable,
-                                        onChanged: (bool value) => notifier.updateAccessLevel(friend.user, value ? 2 : 1),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      tooltip: 'Zugriff entziehen',
-                                      onPressed: () => _handleDeleteFriend(friend.user),
-                                    ),
-                                  ],
-                                ) : (isWritable
-                                    ? const Text('Schreibrechte', style: TextStyle(color: Colors.grey))
-                                    : const Text('Nur Leserechte', style: TextStyle(color: Colors.grey))
-                                  ),
-                              ),
-                            );
-                          }),
-                        const Divider(),
-                      ],
-                    );
-                  },
-                ),
+                            }),
+                          const Divider(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
 
                 // --- Audit-Hinweis ---
                 Consumer(

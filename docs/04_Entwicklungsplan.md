@@ -59,12 +59,6 @@
 - ✅ Darknet-Check: Prüfung, ob die Passwörter in Passwort-Leak-Datenbanken auftauchen (https://haveibeenpwned.com/)
 - ✅ Report über die Passwortstärke und -Alter aller Einträge
 
-!!!!!!!!!!!!!!!!!!!!!!
-- Detailansicht: Notiz muss ein Editierfeld sein, damit man den Text markieren und kopieren kann
-- Detailansicht: "Geteilt mit" nur anzeigen, wenn in Einstellungen mindestens ein Freund eingefügt wurde
-  !!!!!!!!!!!!!!!!!!!!!!
-
-
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 

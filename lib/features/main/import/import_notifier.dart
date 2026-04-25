@@ -255,10 +255,10 @@ class ImportNotifier extends Notifier<ImportState> {
         //
         // Ablauf pro Freund:
         //   a) User lokal per UUID suchen.
-        //   b) Nicht vorhanden → neu anlegen (isVerified = false).
+        //      Nicht vorhanden → neu anlegen (isVerified = false).
         //      Der Fingerprint muss nach dem nächsten Sync manuell verifiziert werden.
-        //   c) Entry-Key mit dem Public-Key des Freundes RSA-verschlüsseln.
-        //   d) Permission in die Liste aufnehmen.
+        //   b) Entry-Key mit dem Public-Key des Freundes RSA-verschlüsseln.
+        //   c) Permission in die Liste aufnehmen.
         //
         // Hinweis: Ist der Freund dem Sync-Server unbekannt, löscht _pullFriends() ihn beim
         // nächsten Sync wieder (kaskadierend). Das ist das erwartete Verhalten.
@@ -266,7 +266,7 @@ class ImportNotifier extends Notifier<ImportState> {
         if (parsedEntry.sharedWith != null) {
           for (final friend in parsedEntry.sharedWith!) {
 
-            // a/b: User lokal suchen oder anlegen
+            // a: User lokal suchen oder anlegen
             UserEntity? localUser = await _databaseService.getUserByUuid(friend.uuid);
             if (localUser == null) {
               try {
@@ -285,17 +285,8 @@ class ImportNotifier extends Notifier<ImportState> {
                 continue;
               }
             }
-            // else if (localUser.publicKey != friend.publicKey) {
-            //   // Public Key weicht ab – wir vertrauen dem lokalen (bereits verifizierten)
-            //   // Key und überspringen diese Freigabe sicherheitshalber.
-            //   Logger().warn(
-            //     'Import: Public Key von ${friend.uuid} weicht vom lokalen ab – Freigabe übersprungen.',
-            //     context: {'uuid': friend.uuid},
-            //   );
-            //   continue;
-            // }
 
-            // c: Entry-Key für den Freund verschlüsseln
+            // b: Entry-Key für den Freund verschlüsseln
             final String encryptedFriendKey;
             try {
               encryptedFriendKey = await _cryptoService.encryptRsa(entryKey, localUser.publicKey);
@@ -304,7 +295,7 @@ class ImportNotifier extends Notifier<ImportState> {
               continue;
             }
 
-            // d: Permission aufnehmen
+            // c: Permission aufnehmen
             friendPermissions.add((
             userId:       localUser.id,
             encryptedKey: encryptedFriendKey,

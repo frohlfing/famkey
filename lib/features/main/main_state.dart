@@ -17,7 +17,10 @@ class MainState {
   /// Der Suchbegriff.
   final String searchQuery;
 
-  /// Gibt an, ob nur die eigenen Einträge angezeigt werden.
+  /// Gibt an, ob der Nutzer Freunde in der Liste hat.
+  final bool hasFriends;
+
+  /// Gibt an, ob nur die eigenen Einträge angezeigt werden (nur relevant, wenn es Freunde gibt).
   final bool onlyMyEntries;
 
   /// Anzuzeigende Einträge gruppiert nach Kategorien
@@ -44,6 +47,7 @@ class MainState {
   const MainState({
     this.vaultName = '',
     this.searchQuery = '',
+    this.hasFriends = false,
     this.onlyMyEntries = false,
     this.groupedEntries = const {},
     this.collapsedCategories = const {},
@@ -55,19 +59,20 @@ class MainState {
   MainState copyWith({
     String? vaultName,
     String? searchQuery,
+    bool? hasFriends,
     bool? onlyMyEntries,
     Map<String, List<EntryWithIndex>>? groupedEntries,
     Set<String>? collapsedCategories,
     MainActionStatus? status,
     AppError? error,
   }) {
-
     return MainState(
-      groupedEntries: groupedEntries ?? this.groupedEntries,
-      collapsedCategories: collapsedCategories ?? this.collapsedCategories,
       vaultName: vaultName ?? this.vaultName,
       searchQuery: searchQuery ?? this.searchQuery,
+      hasFriends: hasFriends ?? this.hasFriends,
       onlyMyEntries: onlyMyEntries ?? this.onlyMyEntries,
+      groupedEntries: groupedEntries ?? this.groupedEntries,
+      collapsedCategories: collapsedCategories ?? this.collapsedCategories,
       status: status ?? this.status,
       error: error ?? this.error,
     );

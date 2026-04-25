@@ -67,7 +67,7 @@ void main() {
 
       sut = WebService(
         mockCrypto,
-        baseUrl: testHost,
+        host: testHost,
         apiToken: apiToken,
         dio: dio,
       );

@@ -67,6 +67,8 @@ class MainNotifier extends Notifier<MainState> {
     state = const MainState(status: MainActionStatus.progress, error: AppError.none());
 
     try {
+
+      // Daten abfragen
       final entries = await _databaseService.getEntries();
       final indexKey = _sessionService.indexKey!;
 
@@ -81,10 +83,13 @@ class MainNotifier extends Notifier<MainState> {
         }
       }));
 
+      final hasFriends = await _databaseService.hasFriends();
+
       // UI-State aktualisieren
       state = state.copyWith(
         groupedEntries: _groupEntries(),
         vaultName: _sessionService.vaultName,
+        hasFriends: hasFriends,
         status: MainActionStatus.loaded,
       );
 
@@ -142,8 +147,8 @@ class MainNotifier extends Notifier<MainState> {
           idx.url.toLowerCase().contains(q) ||
           idx.notes.toLowerCase().contains(q) ||
           e.entry.uuid.contains(q);
-      final matchesUser = !onlyMyEntries || e.entry.creatorId == _sessionService.user?.id;
-      return matchesSearch && matchesUser;
+      if (!onlyMyEntries) return matchesSearch;
+      return matchesSearch && e.entry.creatorId == _sessionService.user?.id;
     });
 
     // Gruppieren

@@ -103,7 +103,7 @@ void main() {
           user: user,
           privateKey: key,
           vaultName: 'TestVault',
-          settings: settings
+          settings: settings,
       );
 
       expect(sut.user, equals(user));
