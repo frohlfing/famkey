@@ -316,7 +316,7 @@ final class UserController
     }
 
     /**
-     * Aktualisiert Salt und encrypted_private_key eines Benutzers nach Passwortwechsel.
+     * Aktualisiert Salt und RSA-Key eines Benutzers nach Passwortwechsel.
      *
      * Endpunkt: <code>PUT /users/{user_uuid}/password</code>
      *
@@ -334,6 +334,7 @@ final class UserController
      * <code>
      * {
      *   "salt": "{salt}",
+     *   "public_key": "{public_key}",
      *   "encrypted_private_key": "{encrypted_private_key}",
      *   "master_key_timestamp": "{master_key_timestamp}",
      * }
@@ -359,9 +360,10 @@ final class UserController
     public function changePassword(Request $request): Response
     {
         // Parameter holen
-        $request->ensureHas(['user_uuid', 'salt', 'encrypted_private_key', 'master_key_timestamp']);
+        $request->ensureHas(['user_uuid', 'salt', 'public_key', 'encrypted_private_key', 'master_key_timestamp']);
         $userUuid = $request->string('user_uuid');
         $salt = $request->string('salt');
+        $publicKey = $request->string('public_key');
         $encryptedPrivateKey = $request->string('encrypted_private_key');
         $masterKeyTimestamp = Time::iso8601ToMysql($request->date('master_key_timestamp'));
 
@@ -372,8 +374,8 @@ final class UserController
 
         // Passwort ändern
         $pdo = Database::pdo();
-        $stmt = $pdo->prepare('UPDATE users SET salt = ?, encrypted_private_key = ?, master_key_timestamp = ? WHERE uuid = ?');
-        $stmt->execute([$salt, $encryptedPrivateKey, $masterKeyTimestamp, $userUuid]);
+        $stmt = $pdo->prepare('UPDATE users SET salt = ?, public_key = ?, encrypted_private_key = ?, master_key_timestamp = ? WHERE uuid = ?');
+        $stmt->execute([$salt, $publicKey, $encryptedPrivateKey, $masterKeyTimestamp, $userUuid]);
 
         // Antwort generieren (204 No Content)
         return Response::empty();

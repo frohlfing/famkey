@@ -155,7 +155,7 @@ class SyncNotifier extends Notifier<SyncState> {
         } else if (isKeyConflict && !isServerNewer) {
           // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
           Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
-          await _webService.changePassword(user.uuid, settings.salt, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
+          await _webService.changePassword(user.uuid, settings.salt, user.publicKey, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
         }
 
         // syncedName einfrieren, falls noch nicht geschehen (Migration bestehender Tresore)

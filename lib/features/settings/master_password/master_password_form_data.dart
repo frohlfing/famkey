@@ -7,20 +7,26 @@ class MasterPasswordFormData {
   /// Das aktuelle Master-Passwort.
   final String password;
 
+  /// Ob ein neues RSA-Schlüsselpaar generiert werden soll (Notfall-Reset / Key Rotation).
+  final bool regenerateKeyPair;
+
   /// Konstruktor
   const MasterPasswordFormData({
     this.newPassword = '',
     this.password = '',
+    this.regenerateKeyPair = false,
   });
 
   /// Daten aktualisieren (immutable)
   MasterPasswordFormData copyWith({
     String? newPassword,
     String? password,
+    bool? regenerateKeyPair,
   }) {
     return MasterPasswordFormData(
       newPassword: newPassword ?? this.newPassword,
       password: password ?? this.password,
+      regenerateKeyPair: regenerateKeyPair ?? this.regenerateKeyPair,
     );
   }
 
@@ -32,7 +38,8 @@ class MasterPasswordFormData {
       other is MasterPasswordFormData && (
         runtimeType == other.runtimeType &&
           newPassword == other.newPassword &&
-          password == other.password
+          password == other.password &&
+          regenerateKeyPair == other.regenerateKeyPair
         );
 
   /// Liefert den HashCode für das Objekt
@@ -40,6 +47,7 @@ class MasterPasswordFormData {
   @override
   int get hashCode =>
     newPassword.hashCode ^
-    password.hashCode;
+    password.hashCode ^
+    regenerateKeyPair.hashCode;
 // @formatter:on
 }

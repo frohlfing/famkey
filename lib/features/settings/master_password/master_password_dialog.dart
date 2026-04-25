@@ -166,6 +166,53 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
               );
             }),
 
+            // --- Schlüsselpaar neu generieren (Notfall-Reset) ---
+            const SizedBox(height: 16),
+            Consumer(
+              builder: (ctx, ref, _) {
+                final regenerateKeyPair = ref.watch(masterPasswordProvider.select((s) => s.formData.regenerateKeyPair));
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      value: regenerateKeyPair,
+                      onChanged: isBusy ? null : notifier.setRegenerateKeyPair,
+                      title: const Text('Neues RSA-Schlüsselpaar erzeugen'),
+                      subtitle: const Text('Notfall-Reset'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    if (regenerateKeyPair)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_outlined, size: 18, color: Colors.orange.shade800),
+                                    const SizedBox(width: 6),
+                                    const Text('Konsequenzen:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                const Text('• Alle Freundschaften werden als unverifiziert markiert (⚠ Fingerprint-Warnung).'),
+                                const Text('• Freigegebene Einträge sind für Freunde gesperrt, bis sie deinen neuen Fingerprint bestätigen.'),
+                                const SizedBox(height: 8),
+                                const Text('Im Normalfall ist kein neues Schlüsselpaar erforderlich. Verwende die Option nur bei Verlust des Gerätes oder Verdacht auf kompromittierten Schlüssel.'),
+                                const SizedBox(height: 8),
+                                const Text('Synchronisier baldmöglichst, damit die neue Identität überall wirksam wird.'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+
           ],
         ),
       ),

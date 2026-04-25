@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
+import 'package:privault/database/database.dart';
 import 'package:privault/features/settings/master_password/master_password_form_data.dart';
 import 'package:privault/features/settings/master_password/master_password_state.dart';
 import 'package:privault/services/biometric_service.dart';
@@ -61,7 +62,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
-  /// Generiert ein neuen Salt, verschlüsselt die sqLite-Datei mit dem neuen Master-Schlüssel und aktualisiert die Salt-Datei.
+  /// Ändert das Master-Passwort und führt optional eine RSA-Schlüsselpaar-Rotation (Notfall-Reset) durch.
   Future<void> save() async {
     if (state.isBusy) return;
     Uint8List? masterKey; // bisheriger Master-Key
@@ -83,84 +84,164 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
         return;
       }
 
-      // 3. Datenbank und Salt-Datei umbenennen, Session aktualisieren
-      if (formData.newPassword != state.formData.password) {
+      final passwordChanged = formData.newPassword != formData.password;
 
-        // 3.1 Kurze Pause für Lade-Indikator, bevor Argon2 blockiert
-        await Future.delayed(const Duration(milliseconds: 50));
-
-        // 3.2 MasterKey ableiten (Argon2id)
-        if (_sessionService.settings == null) throw Exception('Die Einstellungen sind nicht in der Session abgelegt.');
-        final salt = base64Decode(_sessionService.settings!.salt);
-        masterKey = await _cryptoService.deriveKey(formData.password, salt);
-
-        // 3.3. Passwort validieren
-        try {
-          await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
-        } catch (_) {
-          state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.wrongPassword, field: 'password'));
-          return;
-        }
-
-        // 3.4. Physisches Datenbank-Backup erstellen
-        await _databaseService.createBackup();
-
-        try {
-          // --- Start Kritische Logik ---
-
-          // 3.5. Neues Salt generieren, neuen Master-Key ableiten und damit den Private-Key neu verschlüsseln
-          final newSalt = _cryptoService.generateSalt(); // todo erhöht ein neuer Salt die Sicherheit? salt ist ja kein Geheimnis. wenn nicht, brauchen webservice.changePassword kein salt-Parameter
-          newMasterKey = await _cryptoService.deriveKey(formData.newPassword, newSalt);
-          final newEncryptedPrivKey = await _cryptoService.encrypt(_sessionService.privateKey!, newMasterKey);
-
-          // 3.6. Datenbankdatei mit dem neuen Master-Key umschlüsseln
-          await _databaseService.rekey(newMasterKey);
-
-          // 3.7. Salt-Datei aktualisieren
-          await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
-
-          // 3.8. Master-Key im SecureStore aktualisieren
-          if (_sessionService.settings!.useBiometric) {
-            await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
-          }
-
-          // 3.9. Datenbank und Session aktualisieren
-          final updatedSettings = _sessionService.settings!.copyWith(
-            salt: base64Encode(newSalt),
-            encryptedPrivateKey: newEncryptedPrivKey,
-            masterKeyTimestamp: DateTime.now().toUtc(),
-          );
-          final settings = await _databaseService.saveSettings(updatedSettings);
-          _sessionService.setSettings(settings);
-
-          // --- Ende Kritische Logik ---
-
-          // 3.10. Erfolg: Backup löschen
-          await _databaseService.removeBackup();
-
-        } catch (_) {
-          // Fehler während der Operation -> Rollback
-          try {
-            await _databaseService.close();
-            await _databaseService.restoreBackup();
-            await _databaseService.initialize(_sessionService.vaultName, masterKey);
-          } catch (_) {}
-          rethrow;
-        }
+      // 3. Noop wenn weder Passwort noch Schlüsselpaar geändert werden soll
+      if (!passwordChanged && !formData.regenerateKeyPair) {
+        state = state.copyWith(formData: MasterPasswordFormData(), status: MasterPasswordActionStatus.saved);
+        return;
       }
 
-      // 5. State aktualisieren
+      // 3a. Notfall-Reset erfordert zwingend ein neues Master-Passwort
+      if (formData.regenerateKeyPair && !passwordChanged) {
+        state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.equalPassword, text: 'Für den Notfall-Reset ist ein neues Master-Passwort erforderlich.'));
+        return;
+      }
+
+      // 4. Kurze Pause für Lade-Indikator, dann bisherigen Master-Key ableiten (Argon2id)
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (_sessionService.settings == null) throw Exception('Die Einstellungen sind nicht in der Session abgelegt.');
+      final currentSaltBytes = base64Decode(_sessionService.settings!.salt);
+      masterKey = await _cryptoService.deriveKey(formData.password, currentSaltBytes);
+
+      // 5. Passwort verifizieren
+      try {
+        await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
+      } catch (_) {
+        state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.wrongPassword, field: 'password'));
+        return;
+      }
+
+      // 6. Physisches Datenbank-Backup erstellen
+      await _databaseService.createBackup();
+
+      try {
+        // --- Start Kritische Logik ---
+
+        // 7. Salt + Master-Key bestimmen
+        final Uint8List newSalt;
+        if (passwordChanged) {
+          newSalt = _cryptoService.generateSalt();
+          newMasterKey = await _cryptoService.deriveKey(formData.newPassword, newSalt);
+        } else {
+          // Kein Passwortwechsel: bestehenden Salt + Key wiederverwenden
+          newSalt = currentSaltBytes;
+          newMasterKey = masterKey;
+          masterKey = null; // Verhindert doppeltes Löschen in finally (selbes Array)
+        }
+
+        // 8. Neues RSA-Schlüsselpaar generieren (falls Notfall-Reset aktiviert)
+        String? newPublicKey;
+        Uint8List? newPrivateKeyBytes;
+        if (formData.regenerateKeyPair) {
+          (newPublicKey, newPrivateKeyBytes) = await _cryptoService.generateRsaKeyPair();
+        }
+        final privateKeyToEncrypt = newPrivateKeyBytes ?? _sessionService.privateKey!;
+
+        // 9. Private-Key (neu oder bestehend) mit dem (neuen) Master-Key verschlüsseln
+        final newEncryptedPrivKey = await _cryptoService.encrypt(privateKeyToEncrypt, newMasterKey);
+
+        // 10. Datenbankdatei mit dem neuen Master-Key umschlüsseln (nur bei Passwortwechsel)
+        if (passwordChanged) {
+          await _databaseService.rekey(newMasterKey);
+        }
+
+        // 11. Salt-Datei aktualisieren (nur bei Passwortwechsel)
+        if (passwordChanged) {
+          await _databaseService.saveSalt(_sessionService.vaultName, newSalt);
+        }
+
+        // 12. Master-Key im SecureStore aktualisieren (nur bei Passwortwechsel mit Biometrie)
+        if (passwordChanged && _sessionService.settings!.useBiometric) {
+          await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
+        }
+
+        // 13. Schlüsselpaar-Rotation: alle Permissions und encryptedIndex-Felder umschlüsseln
+        if (formData.regenerateKeyPair && newPrivateKeyBytes != null && newPublicKey != null) {
+
+          // 13a. Permissions mit dem neuen Public-Key verschlüsseln
+          final allPermissions = await _databaseService.getPermissions();
+          final updatedPermissions = <PermissionEntity>[];
+          for (final perm in allPermissions) {
+            if (perm.encryptedKey.isNotEmpty) {
+              try {
+                final entryKey = await _cryptoService.decryptRsa(perm.encryptedKey, _sessionService.privateKey!);
+                final newEncryptedKey = await _cryptoService.encryptRsa(entryKey, newPublicKey);
+                updatedPermissions.add(perm.copyWith(encryptedKey: newEncryptedKey));
+              } catch (e) {
+                throw Exception('Fehler beim Umschlüsseln der Permission ${perm.id}: $e');
+              }
+            }
+          }
+          if (updatedPermissions.isNotEmpty) {
+            await _databaseService.updatePermissions(updatedPermissions);
+          }
+
+          // 13b. encryptedIndex-Felder mit dem neuen indexKey neu verschlüsseln
+          final oldIndexKey = _sessionService.indexKey!;
+          final newIndexKey = await _cryptoService.deriveKeyFromKey(newPrivateKeyBytes, null, 'entry-index-encryption');
+          try {
+            final allEntries = await _databaseService.getEntries();
+            for (final entry in allEntries) {
+              if (entry.encryptedIndex.isEmpty) continue;
+              try {
+                final decrypted = await _cryptoService.decrypt(entry.encryptedIndex, oldIndexKey);
+                final reEncrypted = await _cryptoService.encrypt(decrypted, newIndexKey);
+                await _databaseService.saveEntry(entry.copyWith(encryptedIndex: reEncrypted));
+              } catch (e) {
+                throw Exception('Fehler beim Verschlüsseln des Indexes für Eintrag ${entry.id}: $e');
+              }
+            }
+          } finally {
+            _cryptoService.wipeKey(newIndexKey);
+          }
+
+          // 13c. User in der Datenbank mit dem neuen Public-Key aktualisieren
+          if (_sessionService.user == null) throw Exception('Der Benutzer liegt nicht in der Session.');
+          final updatedUser = _sessionService.user!.copyWith(publicKey: newPublicKey);
+          final savedUser = await _databaseService.saveUser(updatedUser);
+          _sessionService.setUser(savedUser);
+
+          // 13d. Session: neuen Private-Key setzen (aktualisiert auch den abgeleiteten indexKey)
+          await _sessionService.setPrivateKey(newPrivateKeyBytes);
+        }
+
+        // 14. Datenbank und Session aktualisieren
+        final updatedSettings = _sessionService.settings!.copyWith(
+          salt: base64Encode(newSalt),
+          encryptedPrivateKey: newEncryptedPrivKey,
+          masterKeyTimestamp: DateTime.now().toUtc(),
+        );
+        final settings = await _databaseService.saveSettings(updatedSettings);
+        _sessionService.setSettings(settings);
+
+        // --- Ende Kritische Logik ---
+
+        // 15. Erfolg: Backup löschen
+        await _databaseService.removeBackup();
+
+      } catch (_) {
+        // Fehler während der Operation -> Rollback
+        try {
+          await _databaseService.close();
+          await _databaseService.restoreBackup();
+          await _databaseService.initialize(_sessionService.vaultName, masterKey!);
+        } catch (_) {}
+        rethrow;
+      }
+
+      // 16. State aktualisieren
       state = state.copyWith(
-        formData: MasterPasswordFormData(), // Passwortfelder leeren
+        formData: MasterPasswordFormData(), // Felder leeren
         status: MasterPasswordActionStatus.saved,
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      Logger().fatal('Fehler beim Speichern: $e', stack: st);
       state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
-      // Master-Key aus dem RAM löschen
+      // Master-Keys aus dem RAM löschen
       if (masterKey != null) _cryptoService.wipeKey(masterKey);
       if (newMasterKey != null) _cryptoService.wipeKey(newMasterKey);
     }
@@ -186,5 +267,11 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
     final error = state.error.field == 'password' ? AppError.none() : null;
     final formData = state.formData.copyWith(password: value);
     state = state.copyWith(formData: formData, error: error);
+  }
+
+  /// Setter für Schlüsselpaar-Rotation
+  void setRegenerateKeyPair(bool value) {
+    final formData = state.formData.copyWith(regenerateKeyPair: value);
+    state = state.copyWith(formData: formData);
   }
 }

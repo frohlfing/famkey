@@ -175,12 +175,13 @@ class WebService {
     return UserResponse.fromJson(response.data);
   }
 
-  /// Überträgt eine Passwortänderung (neues Salt und verschlüsselter Private Key) zum Server.
-  Future<void> changePassword(String userUuid, String salt, String encryptedPrivateKey, DateTime masterKeyTimestamp) async {
+  /// Überträgt eine Passwortänderung (neues Salt und RSA-Key) zum Server.
+  Future<void> changePassword(String userUuid, String salt, String publicKey, String encryptedPrivateKey, DateTime masterKeyTimestamp) async {
     await _dio.put(
       'users/$userUuid/password',
       data: {
         'salt': salt,
+        'public_key': publicKey,
         'encrypted_private_key': encryptedPrivateKey,
         'master_key_timestamp': masterKeyTimestamp.toUtc().toIso8601String(),
       },

@@ -62,10 +62,12 @@
 - ✅ Auto-Sperre (Ja/Nein, wenn Ja: nach x Sekunden)
 - ✅ Zwischenablage nach x Sekunden leeren
 
+- ✅ Notfall-Reset
+
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 
-- ❌ Notfall-Reset
+- !!!!!! Import funktioniert nicht unter Web 
 
 - ❌ Auto-Fill
 

@@ -1136,6 +1136,7 @@ class MockWebService extends _i1.Mock implements _i17.WebService {
   _i7.Future<void> changePassword(
     String? userUuid,
     String? salt,
+    String? publicKey,
     String? encryptedPrivateKey,
     DateTime? masterKeyTimestamp,
   ) =>
