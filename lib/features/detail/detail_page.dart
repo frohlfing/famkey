@@ -293,19 +293,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                           title: const Text('Notizen'),
                           subtitle: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 0),
-                            child: TextFormField(
-                              initialValue: notes,
-                              readOnly: true,
-                              maxLines: null, // Erlaubt mehrzeiligen Text
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
+                            child: SelectableText(notes),
                           ),
                           trailing: notes.isNotEmpty ? IconButton(
                             icon: const Icon(Icons.copy),

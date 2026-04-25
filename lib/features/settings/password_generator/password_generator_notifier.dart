@@ -81,7 +81,7 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
-  /// Speichert Einstellungen für den Passwort-Generator.
+  /// Speichert Einstellungen für den Passwortgenerator.
   Future<void> save() async {
     if (state.isBusy) return;
 

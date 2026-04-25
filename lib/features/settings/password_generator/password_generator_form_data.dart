@@ -1,6 +1,6 @@
 import 'package:privault/services/password_service.dart';
 
-/// Alle Daten des Passwort-Generators, die der Benutzer ändern kann.
+/// Alle Daten des Passwortgenerators, die der Benutzer ändern kann.
 class PasswordGeneratorFormData {
 
   /// Eingestellte Länge für den Passwortgenerator.

@@ -90,7 +90,7 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
     final notifier = ref.read(logConfigProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Logparameter'),
+      title: const Text('Logging'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,

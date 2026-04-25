@@ -4,7 +4,7 @@ import 'package:privault/features/settings/password_generator/password_generator
 import 'package:privault/features/settings/password_generator/password_generator_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 
-/// Ein modaler Dialog zum Konfigurieren des Passwort-Generators.
+/// Ein modaler Dialog zum Konfigurieren des Passwortgenerators.
 class PasswordGeneratorDialog extends ConsumerStatefulWidget {
   /// Initiale Parameter
   // (keine)
@@ -94,7 +94,7 @@ class _PasswordGeneratorDialogState extends ConsumerState<PasswordGeneratorDialo
     final notifier = ref.read(passwordGeneratorProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Passwort-Generator'),
+      title: const Text('Passwortgenerator'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,

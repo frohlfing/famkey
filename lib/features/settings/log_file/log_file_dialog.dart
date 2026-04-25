@@ -29,6 +29,12 @@ class LogFileDialog extends ConsumerStatefulWidget {
 class _LogFileDialogState extends ConsumerState<LogFileDialog> {
 
   // ------------------------------------------------------------------------
+  // --- Konstanten ---
+  // ------------------------------------------------------------------------
+
+  static const _isTerminalStyle = true;
+
+  // ------------------------------------------------------------------------
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
@@ -64,7 +70,7 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
     final isBusy = ref.watch(logFileProvider.select((s) => s.isBusy));
 
     return AlertDialog(
-      title: const Text('Fehlerprotokoll'),
+      title: const Text('Logdatei'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       content: SizedBox(
         width: 600,
@@ -75,15 +81,18 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
             Expanded(
               child: Stack(
                 children: [
-                  // --- Logdatei-Inhalt ---
+                  // --- Terminal ---
                   Container(
                     width: double.infinity, // Stack ausfüllen
                     height: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.black26),
+                      color: _isTerminalStyle ? Color(0xFF0D0D0D) : Colors.white,
+                      border: _isTerminalStyle ? Border.all(color: Color(0xFF2A2A2A)) : Border.all(color: Colors.black26),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    child: isBusy ? const Center(child: CircularProgressIndicator()) : _buildLogContent(),
+                    child: isBusy
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildLogContent(),
                   ),
                 ],
               ),
@@ -129,12 +138,12 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
           return const Center(
             child: Text(
               '(Keine Logeinträge vorhanden)',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: _isTerminalStyle ? Color(0xFF666666) : Colors.grey),
             ),
           );
         }
 
-        return Scrollbar(
+        final scrollbar = Scrollbar(
           controller: _scrollController,
           thumbVisibility: true,
           child: SingleChildScrollView(
@@ -142,13 +151,21 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
             padding: const EdgeInsets.all(12),
             child: SelectableText(
               content,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                height: 1.5,
-              ),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4, color: _isTerminalStyle ? Color(0xFFCCCCCC) : null),
             ),
           ),
+        );
+
+        if (!_isTerminalStyle) return scrollbar;
+
+        return ScrollbarTheme(
+          data: ScrollbarThemeData(
+            // Farbe der Scrollbar für den Terminal-Stil anpassen (sonst sieht man sie nicht)
+            thumbColor: WidgetStateProperty.all(Color(0xFF555555)),
+            trackColor: WidgetStateProperty.all(Colors.transparent),
+            trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+          ),
+          child: scrollbar,
         );
       },
     );

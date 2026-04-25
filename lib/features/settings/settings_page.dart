@@ -20,7 +20,7 @@ import 'package:privault/widgets/snack.dart';
 /// * **Identität:** Ändern des Master-Passworts und Verwaltung des Tresornamens.
 /// * **Synchronisation:** Konfiguration der Server-Verbindung (URL & API-Token).
 /// * **Sicherheit:** Verwaltung von vertrauenswürdigen Kontakten ("Freunde") und Biometrie-Optionen.
-/// * **Generator:** Standardwerte für den integrierten Passwort-Generator festlegen.
+/// * **Generator:** Standardwerte für den integrierten Passwortgenerator festlegen.
 /// * **System:** Schneller Zugriff auf Android-Systemeinstellungen für Autofill und App-Infos.
 class SettingsPage extends ConsumerStatefulWidget {
   /// Konstruktor
@@ -337,7 +337,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const Divider(height: 32),
 
                 // ------------------------------------------------------------------------
-                // --- Passwort-Generator ---
+                // --- Passwortgenerator ---
                 // ------------------------------------------------------------------------
 
                 _buildSectionTitle('Passwortgenerator'),
@@ -416,7 +416,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 // --- Logging ---
                 // ------------------------------------------------------------------------
 
-                _buildSectionTitle('Fehlerprotokoll'),
+                _buildSectionTitle('Logging'),
                 // const SizedBox(height: 16),
 
                 _buildText(
@@ -424,7 +424,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   (state) => state.logMinLevel.name.toUpperCase(),
                   icon: Icons.edit_notifications_outlined,
                   onPressed: _showLogConfigDialog,
-                  tooltip: 'Fehlerprotokoll konfigurieren',
+                  tooltip: 'Logging konfigurieren',
                 ),
 
                 _buildText(
@@ -780,7 +780,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// Öffnet den Dialog zum Ändern der Passwort-Generators.
+  /// Öffnet den Dialog zum Ändern der Passwortgenerators.
   Future<void> _showPasswordGeneratorDialog() async {
     final ok = await PasswordGeneratorDialog.show(context);
     if (ok == true) {

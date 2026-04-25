@@ -11,7 +11,7 @@ import 'package:privault/widgets/snack.dart';
 ///
 /// Die Ansicht validiert Eingaben in Echtzeit und bietet folgende Hilfsmittel:
 /// * Zuweisung zu neuen oder bereits existierenden Kategorien.
-/// * Integrierter Passwort-Generator für hochsichere Zufallspasswörter.
+/// * Integrierter Passwortgenerator für hochsichere Zufallspasswörter.
 /// * Visuelle Anzeige der Passwortstärke während der Eingabe.
 /// * Möglichkeit, bestehende Einträge endgültig aus dem Tresor zu löschen.
 class EditPage extends ConsumerStatefulWidget {

@@ -216,7 +216,7 @@ class Settings extends Table {
   /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
   BoolColumn get useBiometric => boolean()();
 
-  // --- Passwort-Generator ---
+  // --- Passwortgenerator ---
 
   /// Die vom Passwortgenerator verwendete Passwortlänge.
   IntColumn get pwLength => integer()();
