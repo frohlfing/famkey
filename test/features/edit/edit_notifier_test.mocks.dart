@@ -364,6 +364,14 @@ class MockDatabaseService extends _i1.Mock implements _i7.DatabaseService {
           as _i5.Future<List<_i2.UserEntity>>);
 
   @override
+  _i5.Future<bool> hasFriends() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasFriends, []),
+            returnValue: _i5.Future<bool>.value(false),
+          )
+          as _i5.Future<bool>);
+
+  @override
   _i5.Future<List<({int accessLevel, _i2.UserEntity user})>>
   getNotHiddenFriendsWithAccessLevel(int? entryId) =>
       (super.noSuchMethod(
@@ -824,36 +832,6 @@ class MockPasswordService extends _i1.Mock implements _i8.PasswordService {
             ),
           )
           as String);
-
-  @override
-  void startHibpBatch() => super.noSuchMethod(
-    Invocation.method(#startHibpBatch, []),
-    returnValueForMissingStub: null,
-  );
-
-  @override
-  void cancelHibpBatch() => super.noSuchMethod(
-    Invocation.method(#cancelHibpBatch, []),
-    returnValueForMissingStub: null,
-  );
-
-  @override
-  _i5.Future<void> loadHibpCache() =>
-      (super.noSuchMethod(
-            Invocation.method(#loadHibpCache, []),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
-          )
-          as _i5.Future<void>);
-
-  @override
-  _i5.Future<void> saveHibpCache() =>
-      (super.noSuchMethod(
-            Invocation.method(#saveHibpCache, []),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
-          )
-          as _i5.Future<void>);
 
   @override
   _i5.Future<int> checkHibp(String? password, {int? cacheDays = 1}) =>

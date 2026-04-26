@@ -75,6 +75,33 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
           as int);
 
   @override
+  bool get autofillEnabled =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillEnabled),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get autofillRelockAfterFill =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillRelockAfterFill),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  String get autofillHotkey =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillHotkey),
+            returnValue: _i3.dummyValue<String>(
+              this,
+              Invocation.getter(#autofillHotkey),
+            ),
+          )
+          as String);
+
+  @override
   set lastVaultName(String? value) => super.noSuchMethod(
     Invocation.setter(#lastVaultName, value),
     returnValueForMissingStub: null,
@@ -107,6 +134,36 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
   @override
   set hibpCacheDays(int? value) => super.noSuchMethod(
     Invocation.setter(#hibpCacheDays, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autoLockMinutes(int? value) => super.noSuchMethod(
+    Invocation.setter(#autoLockMinutes, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set clipboardClearSeconds(int? value) => super.noSuchMethod(
+    Invocation.setter(#clipboardClearSeconds, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillEnabled(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillEnabled, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillRelockAfterFill(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillRelockAfterFill, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillHotkey(String? value) => super.noSuchMethod(
+    Invocation.setter(#autofillHotkey, value),
     returnValueForMissingStub: null,
   );
 }

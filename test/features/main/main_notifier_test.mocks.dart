@@ -209,6 +209,14 @@ class MockDatabaseService extends _i1.Mock implements _i3.DatabaseService {
           as _i4.Future<List<_i2.UserEntity>>);
 
   @override
+  _i4.Future<bool> hasFriends() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasFriends, []),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
+
+  @override
   _i4.Future<List<({int accessLevel, _i2.UserEntity user})>>
   getNotHiddenFriendsWithAccessLevel(int? entryId) =>
       (super.noSuchMethod(

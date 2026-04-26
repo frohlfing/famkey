@@ -387,6 +387,14 @@ class MockDatabaseService extends _i1.Mock implements _i10.DatabaseService {
           as _i8.Future<List<_i2.UserEntity>>);
 
   @override
+  _i8.Future<bool> hasFriends() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasFriends, []),
+            returnValue: _i8.Future<bool>.value(false),
+          )
+          as _i8.Future<bool>);
+
+  @override
   _i8.Future<List<({int accessLevel, _i2.UserEntity user})>>
   getNotHiddenFriendsWithAccessLevel(int? entryId) =>
       (super.noSuchMethod(
@@ -961,7 +969,7 @@ class MockWebService extends _i1.Mock implements _i12.WebService {
   _i8.Future<void> changePassword(
     String? userUuid,
     String? salt,
-      String? publicKey,
+    String? publicKey,
     String? encryptedPrivateKey,
     DateTime? masterKeyTimestamp,
   ) =>
@@ -969,6 +977,7 @@ class MockWebService extends _i1.Mock implements _i12.WebService {
             Invocation.method(#changePassword, [
               userUuid,
               salt,
+              publicKey,
               encryptedPrivateKey,
               masterKeyTimestamp,
             ]),
@@ -1129,6 +1138,33 @@ class MockConfigService extends _i1.Mock implements _i13.ConfigService {
           as int);
 
   @override
+  bool get autofillEnabled =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillEnabled),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get autofillRelockAfterFill =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillRelockAfterFill),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  String get autofillHotkey =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillHotkey),
+            returnValue: _i9.dummyValue<String>(
+              this,
+              Invocation.getter(#autofillHotkey),
+            ),
+          )
+          as String);
+
+  @override
   set lastVaultName(String? value) => super.noSuchMethod(
     Invocation.setter(#lastVaultName, value),
     returnValueForMissingStub: null,
@@ -1161,6 +1197,36 @@ class MockConfigService extends _i1.Mock implements _i13.ConfigService {
   @override
   set hibpCacheDays(int? value) => super.noSuchMethod(
     Invocation.setter(#hibpCacheDays, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autoLockMinutes(int? value) => super.noSuchMethod(
+    Invocation.setter(#autoLockMinutes, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set clipboardClearSeconds(int? value) => super.noSuchMethod(
+    Invocation.setter(#clipboardClearSeconds, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillEnabled(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillEnabled, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillRelockAfterFill(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillRelockAfterFill, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillHotkey(String? value) => super.noSuchMethod(
+    Invocation.setter(#autofillHotkey, value),
     returnValueForMissingStub: null,
   );
 }
