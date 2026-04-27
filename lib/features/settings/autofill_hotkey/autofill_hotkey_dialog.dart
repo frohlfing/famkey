@@ -127,7 +127,7 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Tastenkürzel',
-                      prefixIcon: const Icon(Icons.label_outlined),
+                      prefixIcon: const Icon(Icons.keyboard_outlined),
                       errorText: errorText,
                       hintText: 'z.B. Strg+Shift+A',
                       helperText: 'Kombinationen mit Strg, Shift, Alt, Win und einem Buchstaben oder Ziffer, durch "+" getrennt. Beispiel: Strg+Shift+A',
