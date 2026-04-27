@@ -5,10 +5,7 @@ import 'package:privault/features/settings/log_config/log_config_notifier.dart';
 import 'package:privault/features/settings/log_config/log_config_state.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 
-/// Modaler Dialog, der den Inhalt der Logdatei anzeigt und
-/// die Log-Einstellungen (minLevel, maxDays) bearbeitbar macht.
-///
-/// Öffnung via [LogConfigDialog.show].
+/// Modaler Dialog zum ändern der Log-Konfiguration.
 class LogConfigDialog extends ConsumerStatefulWidget {
 
   /// Konstruktor
@@ -33,7 +30,8 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
   // --- Interne Variablen ---
   // ------------------------------------------------------------------------
 
-  final _maxDaysController = TextEditingController();
+  final _daysController = TextEditingController();
+  final _sizeController = TextEditingController();
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -51,7 +49,8 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
 
   @override
   void dispose() {
-    _maxDaysController.dispose();
+    _daysController.dispose();
+    _sizeController.dispose();
     super.dispose();
   }
 
@@ -78,8 +77,11 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
     ref.listen(logConfigProvider, (previous, next) {
       if (previous == next) return;
       final formData = next.formData;
-      if (_maxDaysController.text != formData.maxDays.toString()) {
-        _maxDaysController.text = formData.maxDays.toString();
+      if (_daysController.text != formData.days.toString()) {
+        _daysController.text = formData.days.toString();
+      }
+      if (_sizeController.text != formData.size.toString()) {
+        _sizeController.text = formData.size.toString();
       }
     });
 
@@ -104,8 +106,8 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
                 // --- Log-Level ---
                 Consumer(
                   builder: (ctx, ref, _) {
-                    final errorText = ref.watch(logConfigProvider.select((state) => state.error.field == 'minLevel' ? state.error.text : null));
-                    final minLevel = ref.watch(logConfigProvider.select((s) => s.formData.minLevel));
+                    final errorText = ref.watch(logConfigProvider.select((state) => state.error.field == 'level' ? state.error.text : null));
+                    final minLevel = ref.watch(logConfigProvider.select((s) => s.formData.level));
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -121,7 +123,7 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
                             ),
                             //hint: const Text('Log-Level'),
                             items: LogLevel.values.map((lvl) => DropdownMenuItem(value: lvl, child: Text(lvl.name.toUpperCase()))).toList(),
-                            onChanged: isBusy ? null : (val) => notifier.setMinLevel(val ?? LogLevel.info),
+                            onChanged: isBusy ? null : (val) => notifier.setLevel(val ?? LogLevel.info),
                           ),
                         ),
                       ],
@@ -134,9 +136,9 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
                 // --- Aufbewahrungsdauer ---
                 Consumer(
                   builder: (ctx, ref, _) {
-                    final errorText = ref.watch(logConfigProvider.select((state) => state.error.field == 'pwLength' ? state.error.text : null));
+                    final errorText = ref.watch(logConfigProvider.select((state) => state.error.field == 'days' ? state.error.text : null));
                     return TextField(
-                      controller: _maxDaysController,
+                      controller: _daysController,
                       autofocus: true,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.next,
@@ -150,16 +152,51 @@ class _LogConfigDialogState extends ConsumerState<LogConfigDialog> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.remove),
-                              onPressed: isBusy ? null : notifier.decrementMaxDays,
+                              onPressed: isBusy ? null : notifier.decrementDays,
                             ),
                             IconButton(
                               icon: const Icon(Icons.add),
-                              onPressed: isBusy ? null : notifier.incrementMaxDays,
+                              onPressed: isBusy ? null : notifier.incrementDays,
                             ),
                           ],
                         ),
                       ),
-                      onChanged: isBusy ? null : (val) => notifier.setMaxDays(int.tryParse(val) ?? 0),
+                      onChanged: isBusy ? null : (val) => notifier.setDays(int.tryParse(val) ?? 0),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // --- Maximale Dateigröße ---
+                Consumer(
+                  builder: (ctx, ref, _) {
+                    final errorText = ref.watch(logConfigProvider.select((state) => state.error.field == 'size' ? state.error.text : null));
+                    return TextField(
+                      controller: _sizeController,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Maximale Dateigröße (KB)',
+                        prefixIcon: const Icon(Icons.insert_drive_file_outlined),
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: isBusy ? null : notifier.decrementSize,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: isBusy ? null : notifier.incrementSize,
+                            ),
+                          ],
+                        ),
+                      ),
+                      onChanged: isBusy ? null : (val) => notifier.setSize(int.tryParse(val) ?? 0),
                     );
                   },
                 ),

@@ -36,8 +36,8 @@ void main() {
       expect(sut.lastVaultName, equals(''));
       expect(sut.showOnlyMine, isFalse);
       expect(sut.themeMode, equals(ThemeMode.system));
-      expect(sut.logMinLevel, equals(LogLevel.info));
-      expect(sut.logMaxDays, equals(7));
+      expect(sut.logLevel, equals(LogLevel.info));
+      expect(sut.logDays, equals(7));
     });
 
     test('1.1.2 Roundtrip: Properties werden korrekt persistiert und wieder geladen', () async {
@@ -45,16 +45,16 @@ void main() {
       sut1.lastVaultName = 'VaultX';
       sut1.showOnlyMine = true;
       sut1.themeMode = ThemeMode.dark;
-      sut1.logMinLevel = LogLevel.debug;
-      sut1.logMaxDays = 14;
+      sut1.logLevel = LogLevel.debug;
+      sut1.logDays = 14;
 
       final sut2 = ConfigService(prefs);
 
       expect(sut2.lastVaultName, equals('VaultX'));
       expect(sut2.showOnlyMine, isTrue);
       expect(sut2.themeMode, equals(ThemeMode.dark));
-      expect(sut2.logMinLevel, equals(LogLevel.debug));
-      expect(sut2.logMaxDays, equals(14));
+      expect(sut2.logLevel, equals(LogLevel.debug));
+      expect(sut2.logDays, equals(14));
     });
   });
 }

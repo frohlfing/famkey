@@ -46,8 +46,9 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
     try {
       // UI-State aktualisieren
       final formData = LogConfigFormData(
-        minLevel: _configService.logMinLevel,
-        maxDays: _configService.logMaxDays,
+        level: _configService.logLevel,
+        days: _configService.logDays,
+        size: _configService.logSize ~/ 1024,
       );
       state = state.copyWith(
         formData: formData,
@@ -67,11 +68,12 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
     if (state.isBusy) return;
 
     final formData = state.formData;
-    _configService.logMinLevel = formData.minLevel;
-    _configService.logMaxDays = formData.maxDays;
+    _configService.logLevel = formData.level;
+    _configService.logDays = formData.days;
+    _configService.logSize = formData.size * 1024;
 
     // Sofort wirksam ohne App-Neustart
-    Logger().configure(minLevel: formData.minLevel, maxDays: formData.maxDays);
+    Logger().configure(level: formData.level, days: formData.days, size: formData.size);
 
     state = state.copyWith(
       originalFormData: formData,
@@ -83,25 +85,41 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
   // --- Setter für den UI-State (synchron) ---
   // ------------------------------------------------------------------------
 
-  /// Setter für den minimalen Log-Level
-  void setMinLevel(LogLevel value) {
-    final formData = state.formData.copyWith(minLevel: value);
+  /// Setter für den Log-Level
+  void setLevel(LogLevel value) {
+    final formData = state.formData.copyWith(level: value);
     state = state.copyWith(formData: formData, status: LogConfigStatus.loaded);
   }
 
-  /// Setter für die maximale Aufbewahrungsdauer in Tagen
-  void setMaxDays(int value) {
-    final formData = state.formData.copyWith(maxDays: value);
+  /// Setter für die Aufbewahrungsdauer in Tagen
+  void setDays(int value) {
+    final formData = state.formData.copyWith(days: value);
     state = state.copyWith(formData: formData, status: LogConfigStatus.loaded);
   }
 
-  /// Verringert die maximale Aufbewahrungsdauer um einen Tag.
-  void decrementMaxDays() {
-    setMaxDays(state.formData.maxDays - 1);
+  /// Verringert die Aufbewahrungsdauer um einen Tag.
+  void decrementDays() {
+    setDays(state.formData.days - 1);
   }
 
-  /// Erhöht die maximale Aufbewahrungsdauer um einen Tag.
-  void incrementMaxDays() {
-    setMaxDays(state.formData.maxDays + 1);
+  /// Erhöht die Aufbewahrungsdauer um einen Tag.
+  void incrementDays() {
+    setDays(state.formData.days + 1);
+  }
+
+  /// Setter für die Dateigröße in KB.
+  void setSize(int value) {
+    final formData = state.formData.copyWith(size: value);
+    state = state.copyWith(formData: formData, status: LogConfigStatus.loaded);
+  }
+
+  /// Verringert  die Dateigröße um 256 KB.
+  void decrementSize() {
+    setSize(state.formData.size - 256);
+  }
+
+  /// Erhöht  die Dateigröße um 256 KB.
+  void incrementSize() {
+    setSize(state.formData.size + 256);
   }
 }

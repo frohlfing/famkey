@@ -31,10 +31,7 @@ class LogConfigState {
   bool get isBusy => status == LogConfigStatus.progress;
 
   /// Gibt an, ob der Benutzer Log-Einstellungen verändert hat.
-  /// (content wird absichtlich nicht verglichen – es ist kein editierbares Feld)
-  bool get isDirty =>
-      formData.minLevel != originalFormData.minLevel ||
-          formData.maxDays != originalFormData.maxDays;
+  bool get isDirty => formData != originalFormData;
 
   /// Konstruktor
   const LogConfigState({

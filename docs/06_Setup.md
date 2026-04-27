@@ -15,7 +15,8 @@ Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 - **SDK:** Flutter SDK (beinhaltet das Dart SDK), die jeweils neueste stabile Version wird empfohlen.
 - **Android-Entwicklung:**
   - JDK: OpenJDK 17 (wird von Flutter für Android-Builds benötigt).
-  - Android SDK: API-Level 34 (Android 14.0) als compileSdkVersion und targetSdkVersion.
+  - Android SDK: API-Level 36 als compileSdk (Gradle-Override, siehe Abschnitt 3.7); targetSdk wird vom Flutter SDK gesteuert.
+  - Kotlin: 2.3.0, Android Gradle Plugin (AGP): 8.13.1 (siehe Abschnitt 3.7).
   - Emulator: Pixel 5 (API 34) wird als Standard-Testgerät empfohlen.
 - **Testumgebung:** Das integrierte Dart/Flutter Test-Framework:
   - Unit-Tests: package:test
@@ -316,6 +317,76 @@ Das CLI-Tool kann dies:
 6) In Rider: "Samsung Galaxy S25" als Target Device auswählen
    Run → Edit Configurations → Target Device
 
+### 3.7 Gradle-Konfiguration
+
+Die Gradle-Versionen in `android/settings.gradle.kts` sind nicht beliebig. Zu alte Versionen führen zu
+Kotlin-DSL-Kompatibilitätsproblemen bei neueren Flutter-Paketen.
+
+**Aktuell verwendete Versionen** (`android/settings.gradle.kts`):
+```kotlin
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.13.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.0" apply false
+}
+```
+
+**Warum diese Versionen?**
+- `shared_preferences_android >= 2.4.23` setzt **Kotlin 2.3.0** und **AGP 8.13.1** voraus. Ältere Versionen
+  führen zu Java-Kompilierungsfehlern.
+- Kotlin 2.3.0 hat die veraltete `kotlinOptions`-DSL entfernt. In `android/app/build.gradle.kts` muss
+  deshalb `kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_17 } }` statt `kotlinOptions { }` stehen.
+
+**compileSdk-Override für Subprojekte** (`android/build.gradle.kts`):
+
+Transitive AndroidX-Abhängigkeiten (z.B. von `webcrypto`) erfordern ein höheres `compileSdk` als manche
+Flutter-Plugins deklarieren. Der folgende Block in `android/build.gradle.kts` hebt alle Library-Subprojekte
+auf mindestens API 36 an, ohne deren Quellcode zu ändern:
+
+```kotlin
+afterEvaluate {
+    extensions.findByType(com.android.build.gradle.LibraryExtension::class)?.apply {
+        if ((compileSdk ?: 0) < 36) compileSdk = 36
+    }
+}
+```
+
+### 3.8 Arm64-only-Geräte (Samsung Galaxy S25 und neuer)
+
+Das Samsung Galaxy S25 (und neuere Flagship-Geräte) unterstützen **ausschließlich arm64-v8a** — kein 32-Bit-ABI.
+
+Der ABI-Filter in `android/app/build.gradle.kts` schränkt den Build explizit auf arm64 ein, damit kein
+überflüssiger x86/armeabi-Code eingebaut wird:
+
+```kotlin
+defaultConfig {
+    ndk {
+        abiFilters += setOf("arm64-v8a")
+    }
+}
+```
+
+### 3.9 Argon2 auf Android (BouncyCastle-Workaround)
+
+**Problem:** Das Flutter-Paket `dargon2_flutter` bindet Argon2 über FFI ein (`libargon2-arm.so`). Diese
+native Bibliothek lässt sich auf neueren Android-Geräten (arm64-only, Android 12+) unter bestimmten
+AGP-/NDK-Kombinationen zur Laufzeit nicht laden. Die App startet dann zwar, aber der Login schlägt mit
+`UnimplementedError` fehl.
+
+**Lösung:** Auf Android wird Argon2id über einen Flutter-MethodChannel an Kotlin delegiert. Kotlin berechnet
+den Hash mit **BouncyCastle** (`bcprov-jdk18on`) in einem Hintergrund-Thread.
+
+Betroffene Dateien:
+| Datei | Inhalt |
+|---|---|
+| `android/app/build.gradle.kts` | BouncyCastle-Dependency (`bcprov-jdk18on:1.78.1`) |
+| `android/app/src/main/kotlin/.../ArgonChannel.kt` | Kotlin-seitige Argon2id-Implementierung |
+| `android/app/src/main/kotlin/.../MainActivity.kt` | Registriert den `ArgonChannel` |
+| `lib/services/crypto_service.dart` | Ruft auf Android den MethodChannel, auf anderen Plattformen `dargon2_flutter` |
+
+Die Argon2id-Parameter (64 MB RAM, 4 Iterationen, 4-fach Parallelismus, 32-Byte-Schlüssel) sind auf beiden
+Seiten identisch, sodass bestehende Tresore weiterhin geöffnet werden können.
+
 ---
 
 ## 4. Einrichtung der IDE für WebAppliance (WASM)
@@ -439,6 +510,38 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
   - Betrifft nur das SQLite‑Kommandozeilenprogramm. Anwendungen, die SQLCipher als Library nutzen (wie Flutter‑Apps), sind nicht betroffen.
   - **Lösung:**
     Betrifft nicht die App -> Warnung ignorieren (rechte Maustaste -> Ignore).
+
+- **Android-Build: `SharedPreferencesPlugin` Kotlin-Kompilierungsfehler**
+  - Symptom: `error: cannot find symbol` / `error: incompatible types` in `SharedPreferencesPlugin.java`
+  - Ursache: `shared_preferences_android >= 2.4.23` wechselte zur Kotlin-DSL und setzt Kotlin 2.3.0 / AGP 8.13.1 voraus.
+  - Lösung: In `android/settings.gradle.kts` die Versionen erhöhen (siehe Abschnitt 3.7).
+
+- **Android-Build: `error: jvmTarget: String` in `build.gradle.kts`**
+  - Symptom: Gradle-Build schlägt mit `error: jvmTarget: String` fehl.
+  - Ursache: In Kotlin 2.3.0 wurde die veraltete `kotlinOptions { jvmTarget = "17" }` DSL entfernt.
+  - Lösung: Den Block ersetzen durch:
+    ```kotlin
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
+    }
+    ```
+
+- **Android-Build: `compileSdk` AAR-Metadaten-Fehler (z.B. bei `:webcrypto`)**
+  - Symptom: `Dependency ... requires compileSdk >= 34, but the project uses 31`
+  - Ursache: Manche Flutter-Plugins deklarieren einen zu niedrigen `compileSdkVersion`.
+  - Lösung: `afterEvaluate`-Block in `android/build.gradle.kts` (siehe Abschnitt 3.7).
+
+- **Android-Laufzeit: Splash-Screen bleibt hängen / App startet nicht**
+  - Symptom: Nur der Splash-Screen ist zu sehen, kein Fortschritt.
+  - Ursache: `DArgon2Flutter.init()` wirft synchron eine Exception (`Failed to load dynamic library 'libargon2-arm.so'`). Der Zone-Error-Handler fängt sie ab, aber da der Logger noch nicht initialisiert ist, bleibt der Fehler stumm — `runApp()` wird nie erreicht.
+  - Lösung: `DArgon2Flutter.init()` in `main.dart` in einen `try/catch` einwickeln (mit `debugPrint`), damit der Fehler sichtbar ist und der App-Start weiterläuft.
+
+- **Android-Laufzeit: Login schlägt mit `UnimplementedError` fehl**
+  - Symptom: Loginseite erscheint, aber das Anlegen oder Öffnen eines Tresors schlägt fehl mit `UnimplementedError: hashPasswordBytes is not implemented`.
+  - Ursache: `libargon2-arm.so` konnte nicht geladen werden (arm64-only-Gerät, z.B. Samsung Galaxy S25). Als Fallback greift `EmptyDArgon2Flutter`, das alle Methoden als `UnimplementedError` wirft.
+  - Lösung: BouncyCastle-Workaround aus Abschnitt 3.9 verwenden.
 
 ---
 

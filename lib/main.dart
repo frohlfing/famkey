@@ -28,7 +28,11 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
 
     // Argon2 initialisieren
-    DArgon2Flutter.init();
+    try {
+      DArgon2Flutter.init();
+    } catch (e) {
+      debugPrint('WARN: DArgon2Flutter.init() fehlgeschlagen: $e');
+    }
 
     // Unbehandelte UI-Fehler abfangen
     FlutterError.onError = (FlutterErrorDetails details) async {
@@ -53,7 +57,7 @@ void main() async {
 
     // Logger initialisieren
     final configService = getIt<ConfigService>();
-    await Logger().init(minLevel: configService.logMinLevel, maxDays: configService.logMaxDays);
+    await Logger().init(level: configService.logLevel, days: configService.logDays, size: configService.logSize);
 
     // ProviderScope hinzufügen (Riverpod Einstiegspunkt)
     runApp(
@@ -68,6 +72,7 @@ void main() async {
     });
 
   }, (error, stack) async {
+    debugPrint('ZONE ERROR: $error\n$stack');
     await Logger().fatal('Zone Error: $error', stack: stack);
   });
 }

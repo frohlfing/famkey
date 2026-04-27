@@ -14,13 +14,15 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-    
-    // Suppress Java compile warnings (Source 8 is obsolete)
+
     afterEvaluate {
         if (project.hasProperty("android")) {
             project.tasks.withType<JavaCompile> {
                 options.compilerArgs.add("-Xlint:-options")
             }
+        }
+        extensions.findByType(com.android.build.gradle.LibraryExtension::class)?.apply {
+            if ((compileSdk ?: 0) < 36) compileSdk = 36
         }
     }
 }

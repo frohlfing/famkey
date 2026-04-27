@@ -44,7 +44,6 @@
 - ✅ Theme-Unterstützung (System/Dark/Light)
 - ✅ Biometrie (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - ✅ Loggen (in Datei; Logdatei automatisch klein halten); unter Settings ein Button zum Anzeigen der Logdatei
-- ❌ Maximale Größe der Logdatei in Setting änderbar machen (Config-Eintrag)
 - ✅ Drucken (Markdown-Generierung)
 - ✅ Export (ZIP-File)
 - ✅ Import: PriVault, Keepass, Bitwarden, 1Password-Import
@@ -58,7 +57,6 @@
 - ❌ Skripte zum Deployen, siehe https://copilot.microsoft.com/shares/hAWk4uv75JWVbYepVZiCg
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
-- ❌ Dialog, um den Passwortgenerator aus der Bearbeitungsseite einstellen zu können
  
 ### 1.5 Meilenstein 5: Androide App
 - ✅ Emulator installieren

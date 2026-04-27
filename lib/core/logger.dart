@@ -54,30 +54,33 @@ class Logger {
   bool _initialized = false;
 
   /// Minimaler Log-Level, der geschrieben wird
-  LogLevel minLevel = LogLevel.info;
+  /// Default: INFO
+  LogLevel _level = LogLevel.info;
 
   /// Maximale Anzahl an Tagen, die in der Log-Datei aufbewahrt wird
-  int maxDays = 7;
+  /// Default: 7 Tage.
+  int _days = 7;
 
   /// Maximale Dateigröße in Bytes, ab der ältere Einträge abgeschnitten werden.
   /// Default: 512 KB.
-  static const int _maxFileSizeBytes = 512 * 1024;
+  int _size = 512 * 1024;
 
   /// Initialisierung
   /// Wird einmalig in `main()` aufgerufen (nach `env.init();`).
-  Future<void> init({required LogLevel minLevel, required int maxDays}) async {
+  Future<void> init({required LogLevel level, required int days, required int size}) async {
     if (_initialized) return;
     _initialized = true;
-    configure(minLevel: minLevel, maxDays: maxDays);
+    configure(level: level, days: days, size: size);
     final path = p.join(env.storagePath, 'privault.log');
     _logFile = createAppFile(path);
     await _cleanupOldEntries();
   }
 
   /// Setzt Konfigurationsparameter
-  void configure({LogLevel? minLevel, int? maxDays}) {
-    if (minLevel != null) this.minLevel = minLevel;
-    if (maxDays != null) this.maxDays = maxDays;
+  void configure({LogLevel? level, int? days, int? size}) {
+    if (level != null) _level = level;
+    if (days != null) _days = days;
+    if (size != null) _size = size;
   }
 
   /// Absoluter Pfad zur Logdatei.
@@ -109,7 +112,7 @@ class Logger {
 
   Future<void> _write(LogLevel level, String message, Map<String, dynamic>? context, {StackTrace? stack}) async {
     if (!_initialized) return;
-    if (level.priority < minLevel.priority) return;
+    if (level.priority < _level.priority) return;
 
     // Bei Unit-Tests nicht schreiben
     if (env.isTest) return;
@@ -140,12 +143,12 @@ class Logger {
   // ------------------------------------------------------------------------
 
   /// Löscht Einträge, die älter als [maxDays] sind, und kürzt die Datei,
-  /// wenn sie die maximale Größe [_maxFileSizeBytes] überschreitet.
+  /// wenn sie die maximale Größe [_size] überschreitet.
   ///
   /// Die kombinierte Strategie hält die Logdatei dauerhaft klein:
   /// 1. **Altersbasiert:** Zeilen mit einem Zeitstempel älter als [maxDays] werden entfernt.
   /// 2. **Größenbasiert:** Überschreitet die Datei nach Schritt 1 noch immer
-  ///    [_maxFileSizeBytes], werden ältere Zeilen vom Anfang abgeschnitten, bis die Datei
+  ///    [_size], werden ältere Zeilen vom Anfang abgeschnitten, bis die Datei
   ///    wieder unter dem Schwellwert liegt. Dabei werden immer nur vollständige
   ///    Log-Einträge entfernt (keine Zeilenrisse mitten in einem Eintrag).
   Future<void> _cleanupOldEntries() async {
@@ -154,7 +157,7 @@ class Logger {
     var lines = await _logFile.readAsLines();
 
     // --- 1. Altersbasierter Cleanup ---
-    final cutoff = DateTime.now().subtract(Duration(days: maxDays));
+    final cutoff = DateTime.now().subtract(Duration(days: _days));
     lines = lines.where((line) {
       if (!line.startsWith('[')) return true;
       final end = line.indexOf(']');
@@ -166,12 +169,12 @@ class Logger {
     // --- 2. Größenbasierter Cleanup ---
     // Ungefähre Größe berechnen (1 Byte pro Zeichen + Zeilenumbruch, ausreichend für ASCII-Logs)
     var approxSize = lines.fold<int>(0, (sum, l) => sum + l.length + 1);
-    if (approxSize > _maxFileSizeBytes) {
+    if (approxSize > _size) {
       // Zeilen vom Anfang entfernen, bis die Datei klein genug ist.
       // Es wird immer an einer Eintragsgrenze (Zeile beginnt mit '[') geschnitten,
       // damit kein Eintrag halbiert wird.
       var removeUntil = 0;
-      for (var i = 1; i < lines.length && approxSize > _maxFileSizeBytes; i++) {
+      for (var i = 1; i < lines.length && approxSize > _size; i++) {
         if (lines[i].startsWith('[')) {
           approxSize -= lines
               .sublist(removeUntil, i)

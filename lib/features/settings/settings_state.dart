@@ -99,11 +99,14 @@ class SettingsState {
 
   // --- Logging ---
 
-  /// Minimaler Log-Level, der geschrieben wird.
-  final LogLevel logMinLevel;
+  /// Log-Level
+  final LogLevel logLevel;
 
-  /// Maximale Aufbewahrungsdauer der Logeinträge in Tagen.
-  final int logMaxDays;
+  /// Aufbewahrungsdauer in Tagen.
+  final int logDays;
+
+  /// Maximale Dateigröße in Bytes
+  final int logSize;
 
   // --- Action-Status und -Error ---
 
@@ -151,8 +154,9 @@ class SettingsState {
     this.autofillHotkey = 'Strg+Shift+A',
     this.autoLockMinutes,
     this.clipboardClearSeconds,
-    this.logMinLevel = LogLevel.info,
-    this.logMaxDays = 7,
+    this.logLevel = LogLevel.info,
+    this.logDays = 7,
+    this.logSize = 512 * 1024,
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -180,8 +184,9 @@ class SettingsState {
     String? autofillHotkey,
     Object? autoLockMinutes = _keep,
     Object? clipboardClearSeconds = _keep,
-    LogLevel? logMinLevel,
-    int? logMaxDays,
+    LogLevel? logLevel,
+    int? logDays,
+    int? logSize,
     SettingsActionStatus? status,
     AppError? error,
   }) {
@@ -206,8 +211,9 @@ class SettingsState {
       autofillHotkey: autofillHotkey ?? this.autofillHotkey,
       autoLockMinutes: autoLockMinutes == _keep ? this.autoLockMinutes : autoLockMinutes as int?,
       clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,
-      logMaxDays: logMaxDays ?? this.logMaxDays,
-      logMinLevel: logMinLevel ?? this.logMinLevel,
+      logLevel: logLevel ?? this.logLevel,
+      logDays: logDays ?? this.logDays,
+      logSize: logSize ?? this.logSize,
       status: status ?? this.status,
       error: error ?? this.error,
     );

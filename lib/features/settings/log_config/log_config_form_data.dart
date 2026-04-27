@@ -3,26 +3,32 @@ import 'package:privault/core/logger.dart';
 /// Alle editierbaren Daten im LogConfig-Dialog.
 class LogConfigFormData {
 
-  /// Minimaler Log-Level, der geschrieben wird
-  final LogLevel minLevel;
+  /// Log-Level, der geschrieben wird
+  final LogLevel level;
 
-  /// Maximale Aufbewahrungsdauer in Tagen
-  final int maxDays;
+  /// Aufbewahrungsdauer in Tagen
+  final int days;
+
+  /// Maximale Dateigröße in KB
+  final int size;
 
   /// Konstruktor
   const LogConfigFormData({
-    this.minLevel = LogLevel.info,
-    this.maxDays = 7,
+    this.level = LogLevel.info,
+    this.days = 7,
+    this.size = 512 * 1024,
   });
 
   /// Daten aktualisieren (immutable)
   LogConfigFormData copyWith({
-    LogLevel? minLevel,
-    int? maxDays,
+    LogLevel? level,
+    int? days,
+    int? size,
   }) {
     return LogConfigFormData(
-      minLevel: minLevel ?? this.minLevel,
-      maxDays: maxDays ?? this.maxDays,
+      level: level ?? this.level,
+      days: days ?? this.days,
+      size: size ?? this.size,
     );
   }
 
@@ -32,12 +38,14 @@ class LogConfigFormData {
     identical(this, other) ||
       other is LogConfigFormData &&
         runtimeType == other.runtimeType &&
-        minLevel == other.minLevel &&
-        maxDays == other.maxDays;
+        level == other.level &&
+        days == other.days &&
+        size == other.size;
 
   @override
   int get hashCode =>
-    minLevel.hashCode ^
-    maxDays.hashCode;
+    level.hashCode ^
+    days.hashCode ^
+    size.hashCode;
 // @formatter:on
 }

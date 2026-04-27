@@ -13,8 +13,9 @@ class ConfigService {
   static const String _keyLastVault = 'last_vault_name';
   static const String _keyShowOnlyMine = 'show_only_mine';
   static const String _keyTheme = 'theme';
-  static const String _keyLogMinLevel = 'log_min_level';
-  static const String _keyLogMaxDays = 'log_max_days';
+  static const String _keyLogLevel = 'log_level';
+  static const String _keyLogDays = 'log_days';
+  static const String _keyLogSize = 'log_size';
   static const String _keyHibpCacheDays = 'hibp_cache_days';
   static const String _keyAutoLockMinutes = 'auto_lock_minutes';
   static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
@@ -56,15 +57,20 @@ class ConfigService {
 
   set themeMode(ThemeMode value) => _prefs.setString(_keyTheme, value.name);
 
-  /// Minimaler Log-Level, der geschrieben wird (0=debug, 1=info, 2=warm, 3=error, 4=fatal)
-  LogLevel get logMinLevel => LogLevel.fromPriority(_prefs.getInt(_keyLogMinLevel) ?? 1);
+  /// Minimaler Log-Level, der geschrieben wird (0=DEBUG, 1=INFO, 2=WARN, 3=ERROR, 4=FATAL). Default: INFO.
+  LogLevel get logLevel => LogLevel.fromPriority(_prefs.getInt(_keyLogLevel) ?? 1);
 
-  set logMinLevel(LogLevel value) => _prefs.setInt(_keyLogMinLevel, value.priority);
+  set logLevel(LogLevel value) => _prefs.setInt(_keyLogLevel, value.priority);
 
-  /// Maximale Anzahl an Tagen, die in der Log-Datei aufbewahrt wird
-  int get logMaxDays => _prefs.getInt(_keyLogMaxDays) ?? 7;
+  /// Maximale Anzahl an Tagen, die in der Log-Datei aufbewahrt wird. Default: 7 Tage.
+  int get logDays => _prefs.getInt(_keyLogDays) ?? 7;
 
-  set logMaxDays(int value) => _prefs.setInt(_keyLogMaxDays, value);
+  set logDays(int value) => _prefs.setInt(_keyLogDays, value);
+
+  /// Maximale Dateigröße in Bytes, ab der ältere Einträge abgeschnitten werden. Default: 512 KB.
+  int get logSize => _prefs.getInt(_keyLogSize) ?? 512 * 1024;
+
+  set logSize(int value) => _prefs.setInt(_keyLogSize, value);
 
   /// Anzahl der Tage, die ein HIBP-Prüfergebnis (Darknet-Check) gecacht wird (Standard: 1 Tag)
   int get hibpCacheDays => _prefs.getInt(_keyHibpCacheDays) ?? 1;

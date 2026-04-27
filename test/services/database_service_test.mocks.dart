@@ -57,7 +57,7 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
           as _i4.ThemeMode);
 
   @override
-  _i5.LogLevel get logMinLevel =>
+  _i5.LogLevel get logLevel =>
       (super.noSuchMethod(
             Invocation.getter(#logMinLevel),
             returnValue: _i5.LogLevel.debug,
@@ -65,7 +65,7 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
           as _i5.LogLevel);
 
   @override
-  int get logMaxDays =>
+  int get logDays =>
       (super.noSuchMethod(Invocation.getter(#logMaxDays), returnValue: 0)
           as int);
 
@@ -120,13 +120,13 @@ class MockConfigService extends _i1.Mock implements _i2.ConfigService {
   );
 
   @override
-  set logMinLevel(_i5.LogLevel? value) => super.noSuchMethod(
+  set logLevel(_i5.LogLevel? value) => super.noSuchMethod(
     Invocation.setter(#logMinLevel, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  set logMaxDays(int? value) => super.noSuchMethod(
+  set logDays(int? value) => super.noSuchMethod(
     Invocation.setter(#logMaxDays, value),
     returnValueForMissingStub: null,
   );

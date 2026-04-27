@@ -20,6 +20,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        ArgonChannel.register(flutterEngine)
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel).also { ch ->
             ch.setMethodCallHandler { call, result ->

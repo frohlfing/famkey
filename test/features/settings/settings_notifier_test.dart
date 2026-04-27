@@ -64,8 +64,8 @@ void main() {
     when(mockSession.user).thenReturn(null);
     // ConfigService-Stubs (werden in load() und setThemeMode() benötigt)
     when(mockConfig.themeMode).thenReturn(ThemeMode.system);
-    when(mockConfig.logMinLevel).thenReturn(LogLevel.info);
-    when(mockConfig.logMaxDays).thenReturn(7);
+    when(mockConfig.logLevel).thenReturn(LogLevel.info);
+    when(mockConfig.logDays).thenReturn(7);
     when(mockConfig.lastVaultName).thenReturn('MyVault');
 
     container = ProviderContainer();

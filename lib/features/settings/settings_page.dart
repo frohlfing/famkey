@@ -577,7 +577,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                     );
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 8),
 
                 // --- Platzhalter für Kategorie ---
                 _buildText(
@@ -599,17 +599,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
                 _buildText(
                   'Log-Level',
-                  (state) => state.logMinLevel.name.toUpperCase(),
+                  (state) => state.logLevel.name.toUpperCase(),
                   icon: Icons.edit_notifications_outlined,
                   onPressed: _showLogConfigDialog,
                   tooltip: 'Logging konfigurieren',
                 ),
 
                 _buildText(
-                  'Maximale Aufbewahrungsdauer der Logeinträge',
-                  (state) => '${state.logMaxDays == 1 ? '1 Tag' : state.logMaxDays.toString()} Tage',
+                  'Aufbewahrungsdauer der Logeinträge',
+                  (state) => '${state.logDays == 1 ? '1 Tag' : state.logDays.toString()} Tage',
                   icon: Icons.timelapse_outlined,
                 ),
+
+                _buildText(
+                  'Maximale Dateigröße',
+                  (state) => '${state.logSize ~/ 1024} KB',
+                  icon: Icons.insert_drive_file_outlined,
+                ),
+
+                const SizedBox(height: 8),
 
                 _buildSystemButton(
                   Icons.article_outlined,
@@ -618,6 +626,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                   _showLogFileDialog,
                 ),
 
+                const SizedBox(height: 16),
                 const Divider(height: 32),
 
                 // ------------------------------------------------------------------------
