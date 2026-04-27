@@ -6,17 +6,6 @@ import 'package:privault/services/autofill_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/session_service.dart';
 
-final log = Logger();
-
-// Win32 MOD_*-Flags für RegisterHotKey (aus winuser.h).
-// Dart kennt keine Win32-Header — die Werte sind aus der Microsoft-Dokumentation übernommen.
-// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
-const int _modAlt = 0x0001;
-const int _modControl = 0x0002;
-const int _modShift = 0x0004;
-const int _modWin = 0x0008;
-const int _modNoRepeat = 0x4000;
-
 /// Windows-Implementierung des Auto-Type-Mechanismus.
 ///
 /// Auf Windows gibt es kein natives Autofill-Framework. PriVault simuliert
@@ -81,6 +70,16 @@ const int _modNoRepeat = 0x4000;
 /// 3. PriVault öffnet sich; bei genau einem Treffer sofort Bestätigungsdialog.
 /// 4. "Einfügen" → Notepad erhält Fokus → "frank[Tab]4711[Enter]" wird getippt.
 class AutofillServiceWindows implements AutofillService {
+
+  // Win32 MOD_*-Flags für RegisterHotKey (aus winuser.h).
+  // Dart kennt keine Win32-Header — die Werte sind aus der Microsoft-Dokumentation übernommen.
+  // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
+  static const int _modAlt = 0x0001;
+  static const int _modControl = 0x0002;
+  static const int _modShift = 0x0004;
+  static const int _modWin = 0x0008;
+  static const int _modNoRepeat = 0x4000;
+
   /// MethodChannel zum C++-Kern in `flutter_window.cpp`.
   ///
   /// Dart → C++: `getLastWindowTitle`, `typeCredentials`, `registerHotkey`.

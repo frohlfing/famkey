@@ -4,8 +4,6 @@ import 'package:privault/core/navigator_key.dart';
 import 'package:privault/services/autofill_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-final log = Logger();
-
 /// Android-Implementierung des Autofill-Frameworks.
 ///
 /// PriVault ist als Android-Autofill-Provider registriert
