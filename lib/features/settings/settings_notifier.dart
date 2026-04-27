@@ -106,7 +106,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         fingerprints: fingerprints,
         friendNeedsRekeying: friendNeedsRekeying,
         themeMode: _configService.themeMode,
-        categoryPlaceholder: _settings!.categoryPlaceholder.isEmpty ? 'Allgemein' : _settings!.categoryPlaceholder,
+        categoryPlaceholder: _settings!.categoryPlaceholder,
         autofillEnabled: _configService.autofillEnabled,
         isAutofillEnabled: isAutofillEnabled,
         autofillRelockAfterFill: _configService.autofillRelockAfterFill,
@@ -328,13 +328,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     final isEnabled = await _autofillService.isAutofillEnabled();
     state = state.copyWith(isAutofillEnabled: isEnabled, status: SettingsActionStatus.saved);
-  }
-
-  /// Speichert das Tastenkürzel für Auto-Type in der Konfiguration (nur Windows).
-  void setAutofillHotkey(String value) {
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-    _configService.autofillHotkey = value;
-    state = state.copyWith(autofillHotkey: value, status: SettingsActionStatus.saved);
   }
 
   /// Speichert die Einstellung "Tresor nach Autofill wieder sperren" in der Konfiguration.

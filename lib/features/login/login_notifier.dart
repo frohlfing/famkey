@@ -265,7 +265,7 @@ class LoginNotifier extends Notifier<LoginState> {
             pwLength: defaultPwLength,
             pwSpecialChars: defaultPwSpecialChars,
             pwAvoidIlO0: true,
-            categoryPlaceholder: '',
+            categoryPlaceholder: 'Allgemein',
           ),
         );
       }

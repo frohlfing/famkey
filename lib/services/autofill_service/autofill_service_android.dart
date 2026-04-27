@@ -140,6 +140,12 @@ class AutofillServiceAndroid implements AutofillService {
   }
 
   @override
+  Future<void> unregisterHotkey() async {}
+
+  @override
+  Future<void> reregisterHotkey() async {}
+
+  @override
   Future<String> getLastWindowTitle() async => '';
 
   @override

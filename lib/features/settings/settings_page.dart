@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/env.dart';
+import 'package:privault/features/settings/autofill_hotkey/autofill_hotkey_dialog.dart';
 import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
 import 'package:privault/features/settings/log_config/log_config_dialog.dart';
 import 'package:privault/features/settings/timeouts/auto_lock_dialog.dart';
@@ -350,11 +351,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                                 },
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 48),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 48, right: 96),
                               child: Text(
-                                'Drücke das Tastenkürzel in einer beliebigen Anwendung, um PriVault im Hintergrund zu aktivieren und Credentials automatisch einzufügen.',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                'Drücke das Tastenkürzel in einer beliebigen Anwendung, um PriVault im Hintergrund zu aktivieren und Benutzername und Passwort automatisch einzufügen.',
+                                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant), //TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ),
                             Padding(
@@ -763,6 +764,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     }
   }
 
+  // todo Dialog auslagern
   /// Zeigt einen Dialog mit drei Löschvarianten.
   Future<void> _showDeleteVaultDialog(bool isRegistered) async {
     final notifier = ref.read(settingsProvider.notifier);
@@ -986,6 +988,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     await LogFileDialog.show(context);
   }
 
+  // todo dem Dialog das Laden und Speichern überlassen
   /// Öffnet den Dialog zum Ändern der Auto-Sperre.
   Future<void> _showAutoLockDialog() async {
     final current = ref.read(settingsProvider).autoLockMinutes;
@@ -994,6 +997,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     ref.read(settingsProvider.notifier).saveAutoLockMinutes(result == 0 ? null : result);
   }
 
+  // todo dem Dialog das Laden und Speichern überlassen
   /// Öffnet den Dialog zum Ändern des Zwischenablage-Timeouts.
   Future<void> _showClipboardClearDialog() async {
     final current = ref.read(settingsProvider).clipboardClearSeconds;
@@ -1004,31 +1008,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
   /// Öffnet den Dialog zum Ändern des Auto-Type-Tastenkürzels.
   Future<void> _showHotkeyDialog(String current) async {
-    final controller = TextEditingController(text: current);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tastenkürzel'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'z.B. Strg+Shift+A',
-            helperText: 'Kombinationen mit Strg, Alt, Shift und einem Buchstaben.',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Übernehmen'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (result == null || result.isEmpty || !mounted) return;
-    ref.read(settingsProvider.notifier).setAutofillHotkey(result);
+    final ok = await AutofillHotkeyDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) {
+        final notifier = ref.read(settingsProvider.notifier);
+        notifier.load();
+      }
+    }
   }
+
 }

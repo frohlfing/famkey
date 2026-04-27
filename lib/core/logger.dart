@@ -123,7 +123,7 @@ class Logger {
 
     // Im Debug-Mode zusätzlich in die Konsole ausgeben
     if (kDebugMode) {
-      debugPrint('❌ $line');
+      debugPrint('🪲 $line');
       if (stack != null) {
         debugPrintStack(stackTrace: stack, maxFrames: 5);
       }

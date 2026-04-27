@@ -3,9 +3,19 @@ import 'package:privault/core/logger.dart';
 import 'package:privault/core/navigator_key.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/autofill_service.dart';
+import 'package:privault/services/config_service.dart';
 import 'package:privault/services/session_service.dart';
 
 final log = Logger();
+
+// Win32 MOD_*-Flags für RegisterHotKey (aus winuser.h).
+// Dart kennt keine Win32-Header — die Werte sind aus der Microsoft-Dokumentation übernommen.
+// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
+const int _modAlt = 0x0001;
+const int _modControl = 0x0002;
+const int _modShift = 0x0004;
+const int _modWin = 0x0008;
+const int _modNoRepeat = 0x4000;
 
 /// Windows-Implementierung des Auto-Type-Mechanismus.
 ///
@@ -33,8 +43,8 @@ final log = Logger();
 /// 4. Bestätigungsdialog mit Zielfenster-Titel wird angezeigt.
 /// 5. Nutzer bestätigt → `typeCredentials(username, password)`.
 /// 6. MethodChannel → C++: `AutoType::TypeCredentials()` bringt Zielfenster in
-///    den Vordergrund (150 ms warten) und schickt die Sequenz als einzelnen
-///    atomaren `SendInput`-Aufruf.
+///    den Vordergrund (150 ms warten) und schickt die Sequenz als zwei
+///    `SendInput`-Aufrufe (Batch 1: Username+Tab; Batch 2: Passwort+Enter).
 ///
 /// Testflow (Notepad):
 /// 1. PriVault: Eintrag "Notepad" öffnen.
@@ -44,17 +54,17 @@ final log = Logger();
 /// 5. Dialog bestätigen → `typeCredentials("frank", "4711")`
 /// 6. C++: Notepad erhält Fokus, "frank[Tab]4711[Enter]" wird getippt.
 ///
-/// # Szenario B — Globaler Hotkey (Strg+Shift+A)
+/// # Szenario B — Globaler Hotkey (konfigurierbar, Standard: Strg+Shift+A)
 ///
 /// Der Nutzer drückt den Hotkey von jeder beliebigen App aus, ohne PriVault
 /// manuell in den Vordergrund bringen zu müssen.
 ///
-/// Der Hotkey ist momentan in C++ hardcoded registriert:
-/// `RegisterHotKey(hwnd, 1, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, 'A')`.
-/// TODO: Hotkey aus ConfigService.autofillHotkey auslesen (flutter_window.cpp, Zeile 82).
+/// Der Hotkey wird aus `ConfigService.autofillHotkey` gelesen und beim Start via
+/// `registerHotkey`-Methodenaufruf an C++ übergeben. C++ registriert ihn mit
+/// `RegisterHotKey(GetHandle(), kAutoTypeHotkeyId, modifiers, vk)`.
 ///
 /// Ablauf:
-/// 1. Nutzer drückt Strg+Shift+A in einer beliebigen App (z.B. Browser oder Notepad).
+/// 1. Nutzer drückt den konfigurierten Hotkey in einer beliebigen App (z.B. Browser oder Notepad).
 /// 2. C++ empfängt `WM_HOTKEY` in `FlutterWindow::MessageHandler()`.
 /// 3. C++ liest Titel von `g_previousHwnd` (= aktives Fenster vor PriVault).
 /// 4. PriVault wird via `ShowWindow(SW_RESTORE)` + `SetForegroundWindow()` in den Vordergrund gebracht.
@@ -67,21 +77,28 @@ final log = Logger();
 ///
 /// Testflow (Notepad):
 /// 1. Notepad öffnen, Cursor in das Textfeld setzen.
-/// 2. Strg+Shift+A drücken.
+/// 2. Konfigurierten Hotkey drücken (Standard: Strg+Shift+A).
 /// 3. PriVault öffnet sich; bei genau einem Treffer sofort Bestätigungsdialog.
 /// 4. "Einfügen" → Notepad erhält Fokus → "frank[Tab]4711[Enter]" wird getippt.
 class AutofillServiceWindows implements AutofillService {
   /// MethodChannel zum C++-Kern in `flutter_window.cpp`.
   ///
-  /// Dart → C++: `getLastWindowTitle`, `typeCredentials`.
+  /// Dart → C++: `getLastWindowTitle`, `typeCredentials`, `registerHotkey`.
   /// C++ → Dart: `onHotkey` (Szenario B).
   static const _autoTypeChannel = MethodChannel('de.frohlfing.privault/autotype');
 
-  /// Registriert den `onHotkey`-Callback für Szenario B.
+  /// Registriert den `onHotkey`-Callback für Szenario B und übergibt den
+  /// konfigurierten Hotkey an C++.
   ///
+  /// Schritt 1 — `onHotkey`-Handler:
   /// Wenn der Hotkey gedrückt wird: prüft ob eingeloggt (`indexKey != null`)
   /// und navigiert zu `/autotype-picker` mit dem Fenstertitel als Argument.
   /// Nicht eingeloggt: PriVault ist bereits im Vordergrund, Nutzer sieht Login-Seite.
+  ///
+  /// Schritt 2 — `registerHotkey`:
+  /// Liest `ConfigService.autofillHotkey` (z.B. "Strg+Shift+A"), zerlegt den String
+  /// in Win32-Modifier-Flags und einen Virtual-Key-Code und übergibt beides an C++.
+  /// C++ deregistriert den alten Hotkey und registriert den neuen mit `RegisterHotKey()`.
   @override
   Future<void> init() async {
     _autoTypeChannel.setMethodCallHandler((call) async {
@@ -98,6 +115,85 @@ class AutofillServiceWindows implements AutofillService {
         }
       }
     });
+
+    await _registerFromConfig();
+  }
+
+  /// Liest `ConfigService.autofillHotkey`, parst ihn und sendet `registerHotkey` an C++.
+  /// Gemeinsame Logik für `init()` und `reregisterHotkey()`.
+  Future<void> _registerFromConfig() async {
+    final configService = getIt<ConfigService>();
+    final hotkey = configService.autofillHotkey;
+    final parsed = _parseHotkey(hotkey);
+    if (parsed != null) {
+      try {
+        await _autoTypeChannel.invokeMethod<void>('registerHotkey', {
+          'modifiers': parsed.modifiers,
+          'vk': parsed.vk,
+        });
+        log.debug('Hotkey registriert', context: {'hotkey': hotkey, 'modifiers': parsed.modifiers, 'vk': parsed.vk});
+      } catch (e) {
+        log.warn('Hotkey-Registrierung fehlgeschlagen', context: {'error': e.toString()});
+      }
+    } else {
+      log.warn('Ungültiges Hotkey-Format', context: {'hotkey': hotkey});
+    }
+  }
+
+  @override
+  Future<void> unregisterHotkey() async {
+    try {
+      await _autoTypeChannel.invokeMethod<void>('unregisterHotkey');
+      log.debug('Hotkey deregistriert');
+    } catch (e) {
+      log.warn('Hotkey-Deregistrierung fehlgeschlagen', context: {'error': e.toString()});
+    }
+  }
+
+  @override
+  Future<void> reregisterHotkey() async => _registerFromConfig();
+
+  /// Parst einen Hotkey-String in Win32-Modifier-Flags und einen Virtual-Key-Code.
+  ///
+  /// Format: Modifizierer durch "+" getrennt, letztes Segment ist ein einzelnes Zeichen
+  /// (Buchstabe oder Ziffer). Win32 erwartet den ASCII-Code direkt als VK-Code —
+  /// das funktioniert für A–Z (0x41–0x5A) und 0–9 (0x30–0x39).
+  /// Beispiel: "Strg+Shift+A" → modifiers: MOD_CONTROL|MOD_SHIFT|MOD_NOREPEAT, vk: 65 ('A')
+  /// Beispiel: "Strg+1"       → modifiers: MOD_CONTROL|MOD_NOREPEAT, vk: 49 ('1')
+  ///
+  /// Unterstützte Modifizierer (Groß-/Kleinschreibung egal):
+  ///   Strg / Ctrl → MOD_CONTROL  (0x0002)
+  ///   Shift       → MOD_SHIFT    (0x0004)
+  ///   Alt         → MOD_ALT      (0x0001)
+  ///   Win         → MOD_WIN      (0x0008)
+  ///
+  /// MOD_NOREPEAT (0x4000) wird immer gesetzt — verhindert, dass der Hotkey
+  /// bei gehaltenem Tastendruck wiederholt feuert.
+  ///
+  /// Gibt null zurück wenn der letzte Abschnitt nicht genau ein Zeichen ist
+  /// oder der String leer ist.
+  ({int modifiers, int vk})? _parseHotkey(String hotkey) {
+    if (hotkey.isEmpty) return null;
+    final parts = hotkey.split('+');
+    if (parts.isEmpty) return null;
+    final keyStr = parts.last.trim();
+    if (keyStr.length != 1) return null;
+    final vk = keyStr.toUpperCase().codeUnitAt(0);
+    int modifiers = _modNoRepeat;
+    for (final part in parts.take(parts.length - 1)) {
+      switch (part.trim().toLowerCase()) {
+        case 'strg':
+        case 'ctrl':
+          modifiers |= _modControl;
+        case 'shift':
+          modifiers |= _modShift;
+        case 'alt':
+          modifiers |= _modAlt;
+        case 'win':
+          modifiers |= _modWin;
+      }
+    }
+    return (modifiers: modifiers, vk: vk);
   }
 
   /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.

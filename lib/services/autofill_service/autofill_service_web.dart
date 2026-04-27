@@ -28,6 +28,12 @@ class AutofillServiceWeb implements AutofillService {
   Future<bool> isAutofillEnabled() async => false;
 
   @override
+  Future<void> unregisterHotkey() async {}
+
+  @override
+  Future<void> reregisterHotkey() async {}
+
+  @override
   Future<String> getLastWindowTitle() async => '';
 
   @override

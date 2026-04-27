@@ -63,6 +63,21 @@ abstract class AutofillService {
   // --- Windows-Operationen ---
   // ---------------------------------------------------------------------------
 
+  /// Deregistriert den globalen Hotkey temporär.
+  ///
+  /// Muss aufgerufen werden, bevor der AutofillHotkeyDialog geöffnet wird,
+  /// damit die Tastenkombination als normales Key-Event an Flutter weitergeleitet
+  /// wird und der Dialog sie über `onKeyEvent` erkennen kann.
+  /// Nur Windows; auf anderen Plattformen ein No-op.
+  Future<void> unregisterHotkey() async {}
+
+  /// Registriert den Hotkey erneut aus der aktuellen ConfigService-Konfiguration.
+  ///
+  /// Muss aufgerufen werden, nachdem der AutofillHotkeyDialog geschlossen wurde.
+  /// Liest `ConfigService.autofillHotkey` und übergibt die geparsten Werte an C++.
+  /// Nur Windows; auf anderen Plattformen ein No-op.
+  Future<void> reregisterHotkey() async {}
+
   /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
   ///
   /// Liest `g_previousHwnd` aus dem C++-Kern via MethodChannel. Gibt einen
