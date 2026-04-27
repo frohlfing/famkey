@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
@@ -10,11 +9,11 @@ import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 
-/// Zeigt passende Einträge zur Auswahl beim Autofill-Vorgang an.
+/// Zeigt passende Einträge zur Auswahl beim Autofill-Vorgang an (unter Android).
 ///
-/// Wird geöffnet, wenn der native [PriVaultAutofillService] einen Autofill-Request
-/// sendet. Der Nutzer wählt einen Eintrag – danach werden die Felder in der
-/// anfragenden App befüllt und diese Activity geschlossen.
+/// Wird geöffnet, wenn der native [PriVaultAutofillService] einen Autofill-Request sendet.
+/// Der Nutzer wählt einen Eintrag – danach werden die Felder in der anfragenden App befüllt
+/// und diese Activity geschlossen.
 class AutofillPickerPage extends StatefulWidget {
   const AutofillPickerPage({super.key});
 

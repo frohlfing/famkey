@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/service_locator.dart';
@@ -12,9 +11,7 @@ import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/widgets/snack.dart';
 
-final log = Logger();
-
-/// Zeigt passende Einträge zur Auswahl beim Auto-Type-Vorgang (Szenario B, Windows).
+/// Zeigt passende Einträge zur Auswahl beim Auto-Type-Vorgang (unter Windows, Szenario B).
 ///
 /// Wird geöffnet, wenn der globale Hotkey (Strg+Shift+A) gedrückt wurde.
 /// `AutofillServiceWindows.init()` navigiert zu `/autotype-picker` und übergibt
