@@ -319,34 +319,66 @@ Das CLI-Tool kann dies:
 
 ### 3.7 Gradle-Konfiguration
 
-Die Gradle-Versionen in `android/settings.gradle.kts` sind nicht beliebig. Zu alte Versionen führen zu
-Kotlin-DSL-Kompatibilitätsproblemen bei neueren Flutter-Paketen.
+#### Was ist Gradle?
+
+**Gradle** ist das Build-System für Android-Apps. Es übernimmt:
+- Kompilieren von Kotlin/Java-Quellcode
+- Verlinken nativer C/C++-Bibliotheken (NDK/CMake)
+- Verpacken der App als APK/AAB
+- Auflösen von Abhängigkeiten (ähnlich wie `pub get` in Flutter/Dart)
+
+Flutter selbst startet Gradle im Hintergrund, wenn du `flutter run` oder `flutter build apk` ausführst.
+Die Konfiguration liegt in drei Dateien unter `android/`:
+
+| Datei                  | Zweck                                                       |
+|------------------------|-------------------------------------------------------------|
+| `settings.gradle.kts`  | Plugin-Versionen (AGP, Kotlin) und Projektstruktur          |
+| `build.gradle.kts`     | Globale Build-Einstellungen für alle Subprojekte            |
+| `app/build.gradle.kts` | App-spezifische Einstellungen (minSdk, targetSdk, ABI, ...) |
+
+Die Endung `.kts` steht für **Kotlin DSL** (Kotlin Script). Ältere Projekte nutzen noch Groovy (`.gradle`).
+
+#### Versionsanforderungen
+
+Die Gradle-Versionen sind nicht beliebig — Flutter-Pakete setzen bestimmte Mindestversionen voraus.
 
 **Aktuell verwendete Versionen** (`android/settings.gradle.kts`):
 ```kotlin
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.13.1" apply false
+    id("com.android.application") version "8.13.1" apply false   // Android Gradle Plugin (AGP)
     id("org.jetbrains.kotlin.android") version "2.3.0" apply false
 }
 ```
 
 **Warum diese Versionen?**
-- `shared_preferences_android >= 2.4.23` setzt **Kotlin 2.3.0** und **AGP 8.13.1** voraus. Ältere Versionen
-  führen zu Java-Kompilierungsfehlern.
-- Kotlin 2.3.0 hat die veraltete `kotlinOptions`-DSL entfernt. In `android/app/build.gradle.kts` muss
-  deshalb `kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_17 } }` statt `kotlinOptions { }` stehen.
+- `shared_preferences_android >= 2.4.23` setzt **Kotlin 2.3.0** und **AGP 8.13.1** voraus.
+  Ältere Versionen führen zu Java-Kompilierungsfehlern beim Build.
+- Kotlin 2.3.0 hat die veraltete `kotlinOptions`-DSL entfernt. In `android/app/build.gradle.kts`
+  muss deshalb der neue Stil verwendet werden:
+  ```kotlin
+  // Neu (Kotlin 2.3.0+):
+  kotlin {
+      compilerOptions {
+          jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+      }
+  }
+  // Nicht mehr: kotlinOptions { jvmTarget = "17" }
+  ```
 
-**compileSdk-Override für Subprojekte** (`android/build.gradle.kts`):
+#### compileSdk-Override für Subprojekte (`android/build.gradle.kts`)
 
-Transitive AndroidX-Abhängigkeiten (z.B. von `webcrypto`) erfordern ein höheres `compileSdk` als manche
-Flutter-Plugins deklarieren. Der folgende Block in `android/build.gradle.kts` hebt alle Library-Subprojekte
+Flutter-Plugins bringen eigene `build.gradle`-Dateien mit, die oft einen veralteten `compileSdkVersion`
+deklarieren. Transitive AndroidX-Abhängigkeiten (z.B. von `webcrypto`) erfordern jedoch mindestens
+API 36. Der folgende Block in `android/build.gradle.kts` hebt alle Library-Subprojekte automatisch
 auf mindestens API 36 an, ohne deren Quellcode zu ändern:
 
 ```kotlin
-afterEvaluate {
-    extensions.findByType(com.android.build.gradle.LibraryExtension::class)?.apply {
-        if ((compileSdk ?: 0) < 36) compileSdk = 36
+subprojects {
+    afterEvaluate {
+        extensions.findByType(com.android.build.gradle.LibraryExtension::class)?.apply {
+            if ((compileSdk ?: 0) < 36) compileSdk = 36
+        }
     }
 }
 ```
@@ -366,26 +398,85 @@ defaultConfig {
 }
 ```
 
-### 3.9 Argon2 auf Android (BouncyCastle-Workaround)
+### 3.9 Argon2 auf Android — manuell kompilierte Native Library
 
-**Problem:** Das Flutter-Paket `dargon2_flutter` bindet Argon2 über FFI ein (`libargon2-arm.so`). Diese
-native Bibliothek lässt sich auf neueren Android-Geräten (arm64-only, Android 12+) unter bestimmten
-AGP-/NDK-Kombinationen zur Laufzeit nicht laden. Die App startet dann zwar, aber der Login schlägt mit
-`UnimplementedError` fehl.
+#### Hintergrund
 
-**Lösung:** Auf Android wird Argon2id über einen Flutter-MethodChannel an Kotlin delegiert. Kotlin berechnet
-den Hash mit **BouncyCastle** (`bcprov-jdk18on`) in einem Hintergrund-Thread.
+Dies ist ein **bekannter Bug in `dargon2_flutter`**, der durch den AGP-Upgrade ausgelöst wird:
+- GitHub Issue: https://github.com/tmthecoder/dargon2/issues/26
+- Fehlermeldung: `dlopen failed: library "libargon2-arm.so" not found`
 
-Betroffene Dateien:
-| Datei | Inhalt |
-|---|---|
-| `android/app/build.gradle.kts` | BouncyCastle-Dependency (`bcprov-jdk18on:1.78.1`) |
-| `android/app/src/main/kotlin/.../ArgonChannel.kt` | Kotlin-seitige Argon2id-Implementierung |
-| `android/app/src/main/kotlin/.../MainActivity.kt` | Registriert den `ArgonChannel` |
-| `lib/services/crypto_service.dart` | Ruft auf Android den MethodChannel, auf anderen Plattformen `dargon2_flutter` |
+`dargon2_flutter` bindet Argon2 über FFI ein: Dart ruft direkt eine native C-Bibliothek
+(`libargon2-arm.so`) auf. Diese Bibliothek wird normalerweise durch einen CMake-Build im Paket
+selbst erzeugt (`dargon2_flutter_mobile` → `android/CMakeLists.txt`). Unter AGP 8.13.1 läuft
+dieser CMake-Build nicht mehr durch — die `.so` fehlt komplett im APK. Die App startet zwar, aber
+beim Login greift der Fallback `EmptyDArgon2Flutter`, der alle Methoden mit `UnimplementedError` wirft.
 
-Die Argon2id-Parameter (64 MB RAM, 4 Iterationen, 4-fach Parallelismus, 32-Byte-Schlüssel) sind auf beiden
-Seiten identisch, sodass bestehende Tresore weiterhin geöffnet werden können.
+**Diagnose:** Im Build-Output fehlt nur die Argon2-Library:
+```
+build/app/intermediates/merged_native_libs/debug/.../lib/arm64-v8a/
+  libflutter.so        ✓
+  libwebcrypto.so      ✓
+  libsqlite3.so        ✓
+  libargon2-arm.so     ✗  ← fehlt
+```
+
+#### Lösung: Library manuell per NDK kompilieren
+
+Die C-Quellen sind im pub cache vorhanden. Wir kompilieren die Library selbst mit dem NDK-Compiler
+und legen sie als `jniLibs`-Datei ins Projekt. Android nimmt `jniLibs` direkt — ohne CMake.
+
+**Schritt 1 — NDK SDK Tools installieren** (falls noch nicht geschehen):  
+Android Studio → SDK Manager → SDK Tools → NDK (Side by side) → ✅ installieren
+
+**Schritt 2 — Library kompilieren** (Git-Bash oder WSL, aus dem Projektverzeichnis):
+```bash
+NDK="$HOME/AppData/Local/Android/Sdk/ndk/28.2.13676358"
+PKG_VER="dargon2_flutter_mobile-3.3.0"
+SRC="$HOME/AppData/Local/Pub/Cache/hosted/pub.dev/$PKG_VER/android/Argon2"
+CLANG="$NDK/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang"
+
+mkdir -p android/app/src/main/jniLibs/arm64-v8a
+
+"$CLANG" -shared -fPIC -O2 \
+  -o android/app/src/main/jniLibs/arm64-v8a/libargon2-arm.so \
+  "$SRC/src/argon2.c" "$SRC/src/core.c" "$SRC/src/encoding.c" \
+  "$SRC/src/ref.c" "$SRC/src/thread.c" "$SRC/src/blake2/blake2b.c" \
+  -I"$SRC/include/"
+```
+
+- NDK-Version anpassen (`ndk/28.2.13676358`) falls eine andere installiert ist.  
+- Verfügbare Versionen: `ls "$HOME/AppData/Local/Android/Sdk/ndk/"`
+
+**Schritt 3 — `extractNativeLibs` aktivieren** (`android/app/src/main/AndroidManifest.xml`):
+
+```xml
+<application
+    android:label="privault"
+    android:name="${applicationName}"
+    android:icon="@mipmap/ic_launcher"
+    android:extractNativeLibs="true">
+```
+
+Ohne dieses Flag lädt AGP 8.x native Libraries direkt aus dem APK (ohne sie zu entpacken).
+Das setzt page-alignment und unkomprimierte Speicherung voraus — Bedingungen, die unsere
+manuell kompilierte Library nicht automatisch erfüllt. Mit `extractNativeLibs="true"` werden
+alle `.so`-Dateien beim App-Install nach `/data/app/<package>/lib/arm64/` entpackt, und
+`dlopen('libargon2-arm.so')` findet sie zuverlässig per Name.
+
+**Schritt 4 — Neu bauen:**
+```bash
+flutter clean 
+flutter run -d <device-id>
+```
+
+#### Wartung
+
+Die fertige `android/app/src/main/jniLibs/arm64-v8a/libargon2-arm.so` ist im Repository
+eingecheckt. Wiederholen wenn:
+- `dargon2_flutter_mobile` auf eine neue Version aktualisiert wird (neue C-Quellen)
+- Das NDK auf eine neue Version aktualisiert wird
+- Ein neues Ziel-ABI hinzukommt (z.B. `x86_64` für Emulator-Support)
 
 ---
 
@@ -539,9 +630,9 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
   - Lösung: `DArgon2Flutter.init()` in `main.dart` in einen `try/catch` einwickeln (mit `debugPrint`), damit der Fehler sichtbar ist und der App-Start weiterläuft.
 
 - **Android-Laufzeit: Login schlägt mit `UnimplementedError` fehl**
-  - Symptom: Loginseite erscheint, aber das Anlegen oder Öffnen eines Tresors schlägt fehl mit `UnimplementedError: hashPasswordBytes is not implemented`.
-  - Ursache: `libargon2-arm.so` konnte nicht geladen werden (arm64-only-Gerät, z.B. Samsung Galaxy S25). Als Fallback greift `EmptyDArgon2Flutter`, das alle Methoden als `UnimplementedError` wirft.
-  - Lösung: BouncyCastle-Workaround aus Abschnitt 3.9 verwenden.
+  - Symptom: `dlopen failed: library "libargon2-arm.so" not found` im Log, Login schlägt fehl mit `UnimplementedError: hashPasswordBytes is not implemented`.
+  - Ursache: Bekannter Bug in `dargon2_flutter` (https://github.com/tmthecoder/dargon2/issues/26). Der CMake-Build der nativen Library läuft unter AGP 8.13.1 nicht durch. Als Fallback greift `EmptyDArgon2Flutter`, das alle Methoden als `UnimplementedError` wirft.
+  - Lösung: Library per NDK manuell kompilieren + `extractNativeLibs="true"` setzen (siehe Abschnitt 3.9).
 
 ---
 

@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto_hash;
 import 'package:dargon2_flutter/dargon2_flutter.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:webcrypto/webcrypto.dart';
 
 /// Kryptografische Dienste für die App.
@@ -23,9 +22,6 @@ class CryptoService {
   static const int _argonIterations  = 4;
   static const int _argonParallelism = 4;
   static const int _argonKeyLength   = 32;
-
-  // MethodChannel für Argon2 auf Android (BouncyCastle-Implementierung)
-  static const MethodChannel _argonChannel = MethodChannel('de.frohlfing.privault/argon2');
 
   // AES-GCM Konstanten
   static const int _nonceSize = 12; // 96 Bit IV (Standard für GCM)
@@ -48,21 +44,9 @@ class CryptoService {
   /// Leitet einen 32-Byte (256 Bit) AES-Schlüssel aus einem Passwort und Salt
   /// mittels Argon2id ab.
   ///
-  /// Android: BouncyCastle via MethodChannel (umgeht defekte FFI-Library).
-  /// Nativ (andere Plattformen): C-Referenzimplementierung via FFI (schnell).
+  /// Nativ: C-Referenzimplementierung via FFI (schnell).
   /// Web: hash-wasm WebAssembly-Implementierung (schnell).
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      final hash = await _argonChannel.invokeMethod<Uint8List>('hashPassword', {
-        'password': Uint8List.fromList(utf8.encode(password)),
-        'salt': salt,
-        'memory': _argonMemory,
-        'iterations': _argonIterations,
-        'parallelism': _argonParallelism,
-        'keyLength': _argonKeyLength,
-      });
-      return hash!;
-    }
     final result = await argon2.hashPasswordString(
       password,
       salt: Salt(salt),

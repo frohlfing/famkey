@@ -72,7 +72,6 @@ void main() async {
     });
 
   }, (error, stack) async {
-    debugPrint('ZONE ERROR: $error\n$stack');
     await Logger().fatal('Zone Error: $error', stack: stack);
   });
 }
