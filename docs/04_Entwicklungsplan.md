@@ -77,4 +77,5 @@
 - 🐞 Android: Systembutton funktionieren nicht
 - 🐞 Android: Biometrie funktioniert nicht 
 - 🐞 Web: Import funktioniert nicht unter Web 
+- 🐞 Nativ: Liste in Main filtern. Eintrag löschen -> Filter wird ignoriert
 

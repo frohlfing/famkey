@@ -1,108 +1,91 @@
-import 'package:flutter/services.dart';
 import 'package:privault/core/env.dart';
-import 'package:privault/core/navigator_key.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:privault/services/autofill_service/autofill_service_android.dart';
+import 'package:privault/services/autofill_service/autofill_service_web.dart';
+import 'package:privault/services/autofill_service/autofill_service_windows.dart';
 
-/// Verwaltet die plattformspezifische Autofill-Unterstützung.
+/// Abstraktes Interface für plattformspezifische Autofill/Auto-Type-Funktionalität.
 ///
-/// **Android:** PriVault registriert sich als Android-Autofill-Provider. Das OS
-/// ruft den nativen [PriVaultAutofillService] auf, wenn ein Login-Formular in
-/// einer fremden App erkannt wird. Dieser Service kommuniziert über einen
-/// MethodChannel mit Flutter, um passende Credentials abzufragen und die Felder
-/// zu befüllen. Der Nutzer aktiviert PriVault als Provider einmalig in den
-/// Android-Systemeinstellungen (Einstellungen → Passwörter → Autofill-Dienst).
-///
-/// **Windows:** Kein natives Autofill-Framework. Zwei Ansätze:
-/// - Auto-Type: Der Nutzer klickt in PriVault auf "Einfügen". Die App wechselt
-///   den Fokus auf das Ziel-Fenster und simuliert Tastaturanschläge via Win32-API.
-/// - Browser-Extension (geplant V2): Eine Chrome/Edge-Extension kommuniziert
-///   über Native Messaging mit PriVault und befüllt Felder automatisch.
-///
-/// **Web:** Kein systemeigenes Autofill möglich, da PriVault selbst im Browser
-/// läuft. Autofill erfordert dieselbe Browser-Extension wie Windows (V2).
-class AutofillService {
-  static const _channel = MethodChannel('de.frohlfing.privault/autofill');
+/// Die genaue Funktionsweise ist in der jeweiligen Implementierungen dokumentiert.
+abstract class AutofillService {
+  /// Factory: gibt die zur aktuellen Plattform passende Implementierung zurück.
+  factory AutofillService.create() {
+    if (env.isAndroid) return AutofillServiceAndroid();
+    if (env.isWindows) return AutofillServiceWindows();
+    return AutofillServiceWeb();
+  }
 
-  /// Die Domain, für die gerade ein Autofill-Request vorliegt, z.B. "paypal.com".
-  /// Ist null, wenn kein Autofill-Request aktiv ist.
-  String? _pendingDomain;
+  // ---------------------------------------------------------------------------
+  // --- Android-spezifische Eigenschaften ---
+  // ---------------------------------------------------------------------------
 
-  String? get pendingDomain => _pendingDomain;
+  /// Die Domain, für die gerade ein Autofill-Request vorliegt (z.B. "paypal.com").
+  /// Null, wenn kein Autofill-Request aktiv ist. Nur Android.
+  String? get pendingDomain => null;
 
-  bool get hasAutofillRequest => _pendingDomain != null;
+  /// True, wenn ein Android-Autofill-Request auf Bearbeitung wartet.
+  bool get hasAutofillRequest => false;
 
-  /// Initialisiert den MethodChannel-Handler.
+  // ---------------------------------------------------------------------------
+  // --- Initialisierung ---
+  // ---------------------------------------------------------------------------
+
+  /// Initialisiert plattformspezifische Handlers (MethodChannel-Callbacks etc.).
   ///
-  /// Muss einmalig nach dem Starten der Flutter-Engine aufgerufen werden.
-  /// Auf Nicht-Android-Plattformen ist diese Methode ein No-op.
-  Future<void> init() async {
-    if (!env.isAndroid) return;
+  /// Muss einmalig nach `runApp()` aufgerufen werden, damit der MethodChannel
+  /// der Flutter-Engine bereit ist. Wird in `main.dart` via
+  /// `WidgetsBinding.instance.addPostFrameCallback` aufgerufen.
+  Future<void> init();
 
-    // Prüfen, ob die Activity für Autofill geöffnet wurde
-    try {
-      final result = await _channel.invokeMethod<Map<Object?, Object?>>('getAutofillRequest');
-      if (result != null) {
-        _pendingDomain = result['domain'] as String?;
-      }
-    } catch (_) {}
+  // ---------------------------------------------------------------------------
+  // --- Android-Operationen ---
+  // ---------------------------------------------------------------------------
 
-    // Handler für eingehende Autofill-Requests (App war bereits offen)
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == 'onAutofillRequest') {
-        final args = call.arguments as Map<Object?, Object?>;
-        _pendingDomain = args['domain'] as String?;
-        if (_pendingDomain != null) {
-          navigatorKey.currentState?.pushNamed('/autofill-picker');
-        }
-      }
-    });
-  }
-
-  /// Schließt den Autofill-Vorgang ab und befüllt die Felder in der anfragenden App.
-  Future<void> complete(String username, String password) async {
-    if (env.isAndroid) {
-      await _channel.invokeMethod<void>('completeAutofill', {
-        'username': username,
-        'password': password,
-      });
-    }
-    _pendingDomain = null;
-  }
-
-  /// Bricht den Autofill-Vorgang ab.
-  Future<void> cancel() async {
-    if (env.isAndroid) {
-      await _channel.invokeMethod<void>('cancelAutofill');
-    }
-    _pendingDomain = null;
-  }
-
-  /// Gibt an, ob Autofill auf diesem Gerät unterstützt wird.
-  bool get isAvailable => env.isAndroid;
-
-  /// Gibt an, ob PriVault aktuell als aktiver Autofill-Anbieter im System eingestellt ist.
+  /// Schließt den Android-Autofill-Vorgang ab und befüllt die Felder der anfragenden App.
   ///
-  /// Gibt auf Nicht-Android-Plattformen immer false zurück.
-  Future<bool> isAutofillEnabled() async {
-    if (!env.isAndroid) return false;
-    try {
-      return await _channel.invokeMethod<bool>('isAutofillEnabled') ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Schickt [username] und [password] über den MethodChannel an den Kotlin-Service,
+  /// der `FillResponse` mit einem `Dataset` an das Android-Framework zurückgibt.
+  /// Setzt [pendingDomain] auf null. Auf Nicht-Android-Plattformen ein No-op.
+  Future<void> complete(String username, String password) async {}
+
+  /// Bricht den Android-Autofill-Vorgang ab.
+  ///
+  /// Informiert den Kotlin-Service, dass kein `FillResponse` geliefert wird.
+  /// Setzt [pendingDomain] auf null. Auf Nicht-Android-Plattformen ein No-op.
+  Future<void> cancel() async {}
+
+  /// Gibt an, ob PriVault als aktiver Autofill-Anbieter im Android-System eingestellt ist.
+  ///
+  /// Fragt den Kotlin-Service über den MethodChannel. Gibt auf Nicht-Android-Plattformen
+  /// immer false zurück.
+  Future<bool> isAutofillEnabled() async => false;
+
+  // ---------------------------------------------------------------------------
+  // --- Windows-Operationen ---
+  // ---------------------------------------------------------------------------
+
+  /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
+  ///
+  /// Liest `g_previousHwnd` aus dem C++-Kern via MethodChannel. Gibt einen
+  /// leeren String zurück, wenn noch kein fremdes Fenster fokussiert war oder
+  /// das Fenster nicht mehr existiert. Auf Nicht-Windows-Plattformen immer "".
+  Future<String> getLastWindowTitle() async => '';
+
+  /// Tippt [username] und [password] in das zuletzt aktive Fenster (Auto-Type).
+  ///
+  /// Sequenz: Benutzername → Tab → Passwort → Enter.
+  /// Der C++-Kern bringt das Zielfenster in den Vordergrund, wartet 100 ms
+  /// (Fokus-Stabilisierung) und schickt `SendInput`-Events mit `KEYEVENTF_UNICODE`.
+  /// Gibt false zurück, wenn kein gültiges Zielfenster verfügbar ist oder
+  /// die Plattform kein Windows ist.
+  Future<bool> typeCredentials(String username, String password) async => false;
+
+  // ---------------------------------------------------------------------------
+  // --- Plattformübergreifend ---
+  // ---------------------------------------------------------------------------
 
   /// Öffnet die plattformspezifischen Systemeinstellungen für den Autofill-Dienst.
-  Future<void> openSystemSettings() async {
-    if (env.isAndroid) {
-      await launchUrl(Uri.parse('intent:#Intent;action=android.settings.REQUEST_SET_AUTOFILL_SERVICE;end'));
-    } else if (env.isWindows) {
-      await launchUrl(
-        Uri.parse('https://support.microsoft.com/de-de/windows/ausf%C3%BCllen-von-formularen-mit-microsoft-autofill-64eb7382-777e-400a-8671-8884976c666e'),
-        mode: LaunchMode.externalApplication,
-      );
-    } else if (env.isApple) {
-      await launchUrl(Uri.parse('App-Prefs:root=PASSWORDS'));
-    }
-  }
+  ///
+  /// - Android: öffnet die Intent-URL `android.settings.REQUEST_SET_AUTOFILL_SERVICE`.
+  /// - Andere Plattformen: No-op.
+  Future<void> openSystemSettings() async {}
 }

@@ -2,13 +2,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/core/app_file_factory.dart';
+import 'package:privault/core/env.dart';
 import 'package:privault/core/helper.dart';
+import 'package:privault/core/service_locator.dart';
 import 'package:privault/database/database.dart';
 import 'package:privault/features/detail/detail_notifier.dart';
 import 'package:privault/features/detail/detail_state.dart';
 import 'package:privault/features/detail/preview/preview_dialog.dart';
 import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/features/detail/friend_dialog.dart';
+import 'package:privault/services/autofill_service.dart';
 import 'package:privault/widgets/password_strength_bar.dart';
 import 'package:privault/widgets/snack.dart';
 
@@ -127,6 +130,12 @@ class _DetailPageState extends ConsumerState<DetailPage> {
               tooltip: "Zurück",
             ),
             actions: [
+              if (env.isWindows)
+                IconButton(
+                  icon: const Icon(Icons.keyboard_outlined),
+                  tooltip: 'Auto-Type: Credentials einfügen',
+                  onPressed: isBusy ? null : _handleAutoType,
+                ),
               if (canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
                 IconButton(
                   icon: const Icon(Icons.edit),
@@ -578,6 +587,67 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   Future<void> _showPreviewDialog() async {
     final state = ref.read(detailProvider);
     await PreviewDialog.show(context, state.previewFile);
+  }
+
+  /// Tippt Benutzername und Passwort per Win32-SendInput in das zuletzt aktive Fenster.
+  /// Zeigt zuerst einen Bestätigungsdialog mit dem Zielfenstertitel.
+  Future<void> _handleAutoType() async {
+    final state = ref.read(detailProvider);
+    final username = state.username;
+    final password = state.password;
+
+    if (username.isEmpty && password.isEmpty) {
+      Snack.show(context, 'Kein Benutzername oder Passwort vorhanden.');
+      return;
+    }
+
+    final autofillService = getIt<AutofillService>();
+    final windowTitle = await autofillService.getLastWindowTitle();
+
+    if (!mounted) return;
+
+    if (windowTitle.isEmpty) {
+      Snack.show(context, 'Kein Zielfenster verfügbar. Wechsle zunächst in die Zielanwendung.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Auto-Type'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Credentials werden eingetippt in:'),
+            const SizedBox(height: 8),
+            Text('"$windowTitle"', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text(
+              'Sequenz: Benutzername → Tab → Passwort → Enter',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Einfügen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final ok = await autofillService.typeCredentials(username, password);
+    if (mounted && !ok) {
+      Snack.show(context, 'Auto-Type fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
+    }
   }
 
   /// Öffnet einen Dialog zur Auswahl eines Kontakts aus Deiner Freundesliste,

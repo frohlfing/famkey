@@ -229,42 +229,70 @@ Der Autofill-Prozess ist plattformspezifisch und läuft isoliert vom Haupt-UI ab
 
 Der Benutzer aktiviert PriVault als Autofill-Anbieter einmalig in den Android-Systemeinstellungen (Einstellungen → Passwörter & Konten → Autofill-Dienst). PriVault zeigt in den App-Einstellungen einen Button, der direkt dorthin führt.
 
-1. **Trigger:** Android erkennt ein Login-Formular in einer anderen App oder im Browser und ruft PriVaults `AutofillService` auf. Android übergibt die **App-ID** (z.B. `com.paypal.android`) oder die **Domain** (z.B. `paypal.com`).
-2. **Lookup:** Der Service extrahiert Domain bzw. Package-Name und sucht in der lokalen Datenbank nach Einträgen, deren URL passt.
-3. **Authentifizierung:** Ist der Tresor gesperrt (kein aktiver Session-Key im RAM), startet der Service eine Authentifizierungs-Activity. Der Nutzer entsperrt per Biometrie oder Master-Passwort.
-4. **Response:** Der Service entschlüsselt die passenden Einträge und gibt strukturierte `Dataset`-Objekte an Android zurück. Android zeigt diese als Vorschläge im Dropdown über dem Formular an und befüllt bei Auswahl die Felder.
+**Ablauf:**
 
-iOS wird nicht unterstützt, da PriVault ausschließlich für Android, Windows und Web entwickelt wird.
+1. **Trigger:** Android erkennt ein Login-Formular in einer anderen App oder im Browser und ruft PriVaults `PriVaultAutofillService` (Kotlin) auf. Kotlin extrahiert die **Domain** (z.B. `paypal.com`) aus der `AssistStructure`.
+2. **App-Zustand:**
+   - *PriVault war geschlossen:* Kotlin startet PriVault über einen `PendingIntent` mit der Domain als Intent-Extra. Nach dem Start ruft `AutofillServiceAndroid.init()` die Domain ab und navigiert zur `AutofillPickerPage` (`/autofill-picker`).
+   - *PriVault lief bereits im Hintergrund:* Kotlin ruft `onAutofillRequest` am MethodChannel auf. Der registrierte Handler setzt die Domain und navigiert sofort zur `AutofillPickerPage`.
+3. **Auswahl:** Die `AutofillPickerPage` lädt alle Einträge und filtert nach der Domain. Der Benutzer wählt einen Eintrag aus.
+4. **Response:** `AutofillServiceAndroid.complete()` schickt Benutzername und Passwort über den MethodChannel zurück an Kotlin. Kotlin befüllt die Felder der anfragenden App mit einem `Dataset` in der `FillResponse`.
 
-#### Windows
+Kommunikation Dart ↔ Kotlin erfolgt über den MethodChannel `de.frohlfing.privault/autofill`.
 
-Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager. Es gibt zwei Ansätze, die sich nicht ausschließen:
+iOS wird nicht unterstützt.
 
-- **Auto-Type:** Wird z.B. bei KeePass verwendet. 
-  - **Szenario A:** 
-  Der Benutzer wählt in PriVault in der Detailansicht einen Eintrag aus und klickt auf "Einfügen". 
-  Die App wechselt den Fokus auf das zuletzt aktive Fenster und simuliert Tastaturanschläge (`Benutzername` → `TAB` → `Passwort` → `ENTER`).
-  - **Szenario B:**
-  Der Benutzer steht im Login-Formular einer beliebigen App und drückt `Strg+Shift+A`.
-  Falls der Benutzer noch nicht in PriVault eingeloggt ist, öffnet sich PriVault und der Benutzer muss sich einloggen.
-  Ansonsten wird PriVault im Hintergrund aktiv. Anhand der URL wird der Eintrag gesucht. Wenn eindeutig gefunden (exakt 1 Treffer),
-  wird Benutzername und Passwort in das zuletzt aktive Fenster eingetragen (wie bei Szenario A). 
-  Ansonsten werden die Treffer in der Hauptansicht gefiltert.
+#### Windows — Auto-Type
 
-- **Browser-Extension (V2):** Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
+Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager. PriVault simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Eingabe-Sequenz ist konfigurierbar je nach vorhandenen Feldern:
+
+- Benutzername **und** Passwort vorhanden: `Benutzername` → `Tab` → `Passwort` → `Enter`
+- Nur Benutzername: `Benutzername` → `Enter`
+- Nur Passwort: `Passwort` → `Enter`
+
+`Tab` und `Passwort` werden in einem separaten `SendInput`-Aufruf nach 100 ms Pause gesendet. Diese Pause ist nötig, damit Browser den Tab-Event vollständig verarbeiten (Fokus-Wechsel in die nächste Eingabe) können, bevor das Passwort ankommt.
+
+Ein `WinEventHook` (EVENT_SYSTEM_FOREGROUND) verfolgt permanent das zuletzt aktive Nicht-PriVault-Fenster. Dessen HWND wird in `g_previousHwnd` (C++, `auto_type.cpp`) gespeichert und ist das Ziel aller Auto-Type-Operationen.
+
+Kommunikation Dart ↔ C++ über den MethodChannel `de.frohlfing.privault/autotype`.
+
+**Szenario A — Button in der Detailansicht:**
+
+Der Benutzer öffnet in PriVault einen Eintrag, wechselt manuell zur Ziel-App (z.B. Browser, Texteditor), wechselt zurück zu PriVault und klickt das Tastatur-Icon in der AppBar der Detailansicht.
+
+1. PriVault fragt den C++-Kern nach dem Titel des letzten aktiven Fensters (`getLastWindowTitle`).
+2. Ein Bestätigungsdialog zeigt den Eintrags-Titel, den Zielfenster-Titel und die geplante Eingabe-Sequenz. Der "Einfügen"-Button ist vorausgewählt (Enter-Taste genügt).
+3. Nach Bestätigung bringt C++ das Zielfenster in den Vordergrund, wartet 150 ms (Fokus-Stabilisierung) und sendet die Sequenz.
+
+**Szenario B — Globaler Hotkey (`Strg+Shift+A`):**
+
+Der Benutzer steht in einer beliebigen App (z.B. Browser-Login-Formular, mit Fokus im Benutzername-Feld) und drückt `Strg+Shift+A`. Der Hotkey ist derzeit hardcoded; eine konfigurierbare Variante ist als TODO markiert.
+
+1. C++ empfängt `WM_HOTKEY`, liest den Titel des aktuell aktiven Fensters und bringt PriVault in den Vordergrund.
+2. C++ sendet `onHotkey` mit dem Fenstertitel über den MethodChannel an Dart.
+3. **Nicht eingeloggt:** PriVault ist nun im Vordergrund, der Benutzer sieht die Login-Seite.
+4. **Eingeloggt:** PriVault navigiert zur `AutoTypePickerPage`, die alle Einträge lädt und nach dem Fenstertitel filtert.
+
+**Matching-Logik der `AutoTypePickerPage`:**
+- **Titel-Substring:** Der Eintrags-Titel kommt als Teilstring im Fenstertitel vor (z.B. Eintrag "GitHub" → Fenster "privault/main · GitHub").
+- **URL-Domain:** Der Host aus der Eintrags-URL kommt im Fenstertitel vor (z.B. URL `github.com` → Fenster "… · GitHub").
+
+**Anzeigemodus:**
+- **Genau 1 Treffer:** Bestätigungsdialog öffnet sich direkt (kein Listenumweg). Abbrechen schließt die Seite.
+- **Mehrere Treffer:** Liste der passenden Einträge. Klick auf einen Eintrag → Bestätigungsdialog.
+- **Kein Treffer:** Alle Einträge mit Hinweistext ("Keine passenden Einträge für … – alle Einträge:").
+
+Der Bestätigungsdialog zeigt in allen Fällen: Eintrags-Titel, Zielfenster-Titel, geplante Sequenz. Nach Bestätigung tippt C++ die Sequenz in das Zielfenster.
+
+**Browser-Extension (V2, geplant):** Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
 
 **Sicherheitsbedenken Auto-Type:**
 
-Das Hauptrisiko ist falsches Zielfenster: Liegt der Fokus auf einer Chat-App statt dem Login-Formular, wird das   
-Passwort im Klartext in den Chat getippt. Das ist praktisch der einzige ernsthafte Angriff, der in der Praxis     
-vorkommt.
+Das Hauptrisiko ist ein falsches Zielfenster: Liegt der Fokus auf einer Chat-App statt dem Login-Formular, wird das Passwort im Klartext in den Chat getippt.
 
-Weitere Risiken: Tastaturanschläge per SendInput laufen durch die normale Windows-Eingabepipeline und können von
-Keyloggern mitgelesen werden – aber das ist nicht schlimmer als manuelles Tippen. Bildschirmrecorder könnten das
-Passwort beim Eintippen erfassen.
+Weitere Risiken: Tastaturanschläge per `SendInput` laufen durch die normale Windows-Eingabepipeline und können von Keyloggern mitgelesen werden – aber das ist nicht schlimmer als manuelles Tippen. Bildschirmrecorder könnten das Passwort beim Eintippen erfassen.
 
-Pflicht-Gegenmaßnahme: Immer einen Bestätigungsdialog zeigen, der den Titel des Ziel-Fensters anzeigt. So erkennt
-der Nutzer sofort, wenn das falsche Fenster aktiv ist.
+Pflicht-Gegenmaßnahme: Der Bestätigungsdialog zeigt immer den Titel des Zielfensters. So erkennt der Nutzer sofort, wenn das falsche Fenster aktiv ist.
 
 #### Web (Browser-Appliance)
 

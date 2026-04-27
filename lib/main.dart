@@ -15,6 +15,7 @@ import 'package:privault/features/edit/edit_page.dart';
 import 'package:privault/features/login/login_page.dart';
 import 'package:privault/features/main/main_page.dart';
 import 'package:privault/features/autofill/autofill_picker_page.dart';
+import 'package:privault/features/autotype/autotype_picker_page.dart';
 import 'package:privault/features/settings/settings_notifier.dart';
 import 'package:privault/features/settings/settings_page.dart';
 import 'package:privault/services/autofill_service.dart';
@@ -164,6 +165,7 @@ class PriVaultApp extends ConsumerWidget {
         '/': (context) => const LoginPage(),
         '/main': (context) => const MainPage(),
         '/autofill-picker': (context) => const AutofillPickerPage(),
+        '/autotype-picker': (context) => const AutoTypePickerPage(),
         '/report': (context) => const ReportPage(),
         '/settings': (context) => const SettingsPage(),
       },

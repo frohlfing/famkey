@@ -91,9 +91,49 @@ class MockAutofillService extends _i1.Mock implements _i6.AutofillService {
   }
 
   @override
-  _i7.Future<bool> isAvailable() =>
+  bool get hasAutofillRequest =>
       (super.noSuchMethod(
-            Invocation.method(#isAvailable, []),
+            Invocation.getter(#hasAutofillRequest),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get isAvailable =>
+      (super.noSuchMethod(Invocation.getter(#isAvailable), returnValue: false)
+          as bool);
+
+  @override
+  _i7.Future<void> init() =>
+      (super.noSuchMethod(
+            Invocation.method(#init, []),
+            returnValue: _i7.Future<void>.value(),
+            returnValueForMissingStub: _i7.Future<void>.value(),
+          )
+          as _i7.Future<void>);
+
+  @override
+  _i7.Future<void> complete(String? username, String? password) =>
+      (super.noSuchMethod(
+            Invocation.method(#complete, [username, password]),
+            returnValue: _i7.Future<void>.value(),
+            returnValueForMissingStub: _i7.Future<void>.value(),
+          )
+          as _i7.Future<void>);
+
+  @override
+  _i7.Future<void> cancel() =>
+      (super.noSuchMethod(
+            Invocation.method(#cancel, []),
+            returnValue: _i7.Future<void>.value(),
+            returnValueForMissingStub: _i7.Future<void>.value(),
+          )
+          as _i7.Future<void>);
+
+  @override
+  _i7.Future<bool> isAutofillEnabled() =>
+      (super.noSuchMethod(
+            Invocation.method(#isAutofillEnabled, []),
             returnValue: _i7.Future<bool>.value(false),
           )
           as _i7.Future<bool>);
@@ -219,6 +259,33 @@ class MockConfigService extends _i1.Mock implements _i10.ConfigService {
           as int);
 
   @override
+  bool get autofillEnabled =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillEnabled),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get autofillRelockAfterFill =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillRelockAfterFill),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  String get autofillHotkey =>
+      (super.noSuchMethod(
+            Invocation.getter(#autofillHotkey),
+            returnValue: _i11.dummyValue<String>(
+              this,
+              Invocation.getter(#autofillHotkey),
+            ),
+          )
+          as String);
+
+  @override
   set lastVaultName(String? value) => super.noSuchMethod(
     Invocation.setter(#lastVaultName, value),
     returnValueForMissingStub: null,
@@ -251,6 +318,36 @@ class MockConfigService extends _i1.Mock implements _i10.ConfigService {
   @override
   set hibpCacheDays(int? value) => super.noSuchMethod(
     Invocation.setter(#hibpCacheDays, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autoLockMinutes(int? value) => super.noSuchMethod(
+    Invocation.setter(#autoLockMinutes, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set clipboardClearSeconds(int? value) => super.noSuchMethod(
+    Invocation.setter(#clipboardClearSeconds, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillEnabled(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillEnabled, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillRelockAfterFill(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autofillRelockAfterFill, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autofillHotkey(String? value) => super.noSuchMethod(
+    Invocation.setter(#autofillHotkey, value),
     returnValueForMissingStub: null,
   );
 }
@@ -560,6 +657,14 @@ class MockDatabaseService extends _i1.Mock implements _i15.DatabaseService {
             ),
           )
           as _i7.Future<List<_i2.UserEntity>>);
+
+  @override
+  _i7.Future<bool> hasFriends() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasFriends, []),
+            returnValue: _i7.Future<bool>.value(false),
+          )
+          as _i7.Future<bool>);
 
   @override
   _i7.Future<List<({int accessLevel, _i2.UserEntity user})>>
@@ -1144,6 +1249,7 @@ class MockWebService extends _i1.Mock implements _i17.WebService {
             Invocation.method(#changePassword, [
               userUuid,
               salt,
+              publicKey,
               encryptedPrivateKey,
               masterKeyTimestamp,
             ]),

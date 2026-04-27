@@ -15,7 +15,7 @@ final getIt = GetIt.instance;
 
 Future<void> setupServiceLocator() async {
   final prefs = await SharedPreferences.getInstance();
-  getIt.registerLazySingleton<AutofillService>(() => AutofillService());
+  getIt.registerLazySingleton<AutofillService>(() => AutofillService.create());
   getIt.registerLazySingleton<BiometricService>(() => BiometricService());
   getIt.registerLazySingleton<ConfigService>(() => ConfigService(prefs));
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
