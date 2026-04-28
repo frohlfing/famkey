@@ -221,7 +221,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                           value: useBiometric,
                           onChanged: isBusy ? null : notifier.saveBiometricSettings,
                         ),
-                        if (useBiometric && !env.isWeb) ...[
+                        if (useBiometric && !env.isWeb) ...[ // todo UI sollte nicht entscheiden, ob Biometrie genutzt wird oder nicht - env.isSupportedBiometric oder state.isSupportedBiometric ist besser
                           Padding(
                             padding: const EdgeInsets.only(left: 48, top: 12, bottom: 12),
                             child: _buildSystemButton(
@@ -271,7 +271,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 // --- Autofill (nur für Android und Windows) ---
                 // ------------------------------------------------------------------------
 
-                if (env.isAndroid) ...[
+                if (env.isAndroid) ...[ // todo UI sollte nicht entscheiden, ob Autofill genutzt wird oder nicht - env.isSupportedAutofill oder state.isSupportedAutofill ist besser
                   _buildSectionTitle('Autofill'),
                   Consumer(
                     builder: (ctx, ref, _) {
@@ -320,8 +320,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                   const Divider(height: 32),
                 ],
 
-                if (env.isWindows) ...[
-                  _buildSectionTitle('Autofill'),
+                if (env.isWindows) ...[ // todo UI sollte nicht entscheiden, ob Autofill genutzt wird oder nicht - env.isSupportedAutoType oder state.isSupportedAutoType ist besser
+                  _buildSectionTitle('Auto-Type'),
                   Consumer(
                     builder: (ctx, ref, _) {
                       final autofillEnabled = ref.watch(settingsProvider.select((s) => s.autofillEnabled));

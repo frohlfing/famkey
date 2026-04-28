@@ -6,6 +6,8 @@ import 'package:privault/services/autofill_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/session_service.dart';
 
+// todo umbenennen in AutotypeService
+
 /// Windows-Implementierung des Auto-Type-Mechanismus.
 ///
 /// Auf Windows gibt es kein natives Autofill-Framework. PriVault simuliert
@@ -261,7 +263,4 @@ class AutofillServiceWindows implements AutofillService {
 
   @override
   Future<bool> isAutofillEnabled() async => false;
-
-  @override
-  Future<void> openSystemSettings() async {}
 }

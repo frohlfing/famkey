@@ -14,7 +14,7 @@ import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
-import 'package:privault/services/device_service.dart';
+import 'package:privault/services/system_settings_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
 
@@ -35,8 +35,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
-  late final DeviceService _deviceService;
   late final SessionService _sessionService;
+  late final SystemSettingsService _systemSettingsService;
   late final WebService _webService;
 
   // ------------------------------------------------------------------------
@@ -64,12 +64,16 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _configService = getIt<ConfigService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
-    _deviceService = getIt<DeviceService>();
     _sessionService = getIt<SessionService>();
+    _systemSettingsService = getIt<SystemSettingsService>();
     _webService = getIt<WebService>();
 
     // Initialer State
-    return SettingsState();
+    return SettingsState().copyWith(
+      canOpenAppSettings: _systemSettingsService.canOpenAppSettings,
+      canOpenBiometricSettings: _systemSettingsService.canOpenBiometricSettings,
+      canOpenAutofillSettings: _systemSettingsService.canOpenAutofillSettings,
+    );
   }
 
   /// Lädt die Daten für die Anzeige.
@@ -77,7 +81,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     if (state.isBusy) return;
 
     // UI-State zurücksetzen
-    state = const SettingsState().copyWith(status: SettingsActionStatus.progress, error: AppError.none());
+    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
 
     try {
       // Einstellungen aus der Datenbank laden
@@ -487,17 +491,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// Öffnet die Systemeinstellungen für Biometrie.
   Future<void> openBiometricSettings() async {
-    await _biometricService.openSystemSettings();
+    await _systemSettingsService.openBiometricSettings();
   }
 
   /// Öffnet die Android-Systemeinstellungen für den Autofill-Anbieter.
   Future<void> openAutofillSettings() async {
-    await _autofillService.openSystemSettings();
+    await _systemSettingsService.openAutofillSettings();
   }
 
   /// Öffnet die App-Info-Seite in den Systemeinstellungen.
   Future<void> openAppSettings() async {
-    await _deviceService.openAppSettings();
+    await _systemSettingsService.openAppSettings();
   }
 
 }

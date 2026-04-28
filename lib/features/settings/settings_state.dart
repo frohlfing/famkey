@@ -73,6 +73,16 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
+  // --- Capabilities ---
+  /// Capabilities - Kann die App-Info-Seite geöffnet werden?
+  final bool canOpenAppSettings;
+
+  /// Capabilities - Kann die Biometrie-Seite geöffnet werden?
+  final bool canOpenBiometricSettings;
+
+  /// Capabilities - Kann die Autofill-Seite geöffnet werden?
+  final bool canOpenAutofillSettings;
+
   // --- Autofill ---
 
   /// Gibt an, ob der Nutzer Autofill verwenden möchte (ConfigService-Einstellung, beide Plattformen).
@@ -148,6 +158,9 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
+    this.canOpenAppSettings = false,
+    this.canOpenBiometricSettings = false,
+    this.canOpenAutofillSettings = false,
     this.autofillEnabled = true,
     this.isAutofillEnabled = false,
     this.autofillRelockAfterFill = false,
@@ -178,6 +191,9 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
+    bool? canOpenAppSettings,
+    bool? canOpenBiometricSettings,
+    bool? canOpenAutofillSettings,
     bool? autofillEnabled,
     bool? isAutofillEnabled,
     bool? autofillRelockAfterFill,
@@ -205,6 +221,9 @@ class SettingsState {
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
+      canOpenAppSettings: canOpenAppSettings ?? this.canOpenAppSettings,
+      canOpenBiometricSettings: canOpenBiometricSettings ?? this.canOpenBiometricSettings,
+      canOpenAutofillSettings: canOpenAutofillSettings ?? this.canOpenAutofillSettings,
       autofillEnabled: autofillEnabled ?? this.autofillEnabled,
       isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
       autofillRelockAfterFill: autofillRelockAfterFill ?? this.autofillRelockAfterFill,

@@ -4,6 +4,8 @@ import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/database_service.dart';
 import 'package:privault/services/session_service.dart';
 
+// todo umbenennen in LockService
+
 /// Sperrt den Tresor automatisch nach konfigurierbarer Inaktivitätsdauer.
 ///
 /// Der Timer wird bei jeder Benutzeraktion (Pointer, Tastatur) zurückgesetzt.

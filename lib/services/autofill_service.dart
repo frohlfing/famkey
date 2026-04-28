@@ -3,6 +3,14 @@ import 'package:privault/services/autofill_service/autofill_service_android.dart
 import 'package:privault/services/autofill_service/autofill_service_web.dart';
 import 'package:privault/services/autofill_service/autofill_service_windows.dart';
 
+// todo in AutotypeService und AutofillService trennen
+// Factory-Pattern:
+// - AutofillServiceBase: abstrakte Klasse,
+// - AutofillServiceAndroid, AutofillServiceWindows, AutofillServiceStub: Implementierung
+// - AutofillService: Conditional Import, Factory Konstruktor
+//
+// Eigenschaft isSupported: für SettingsPage
+
 /// Abstraktes Interface für plattformspezifische Autofill/Auto-Type-Funktionalität.
 ///
 /// Die genaue Funktionsweise ist in der jeweiligen Implementierungen dokumentiert.
@@ -95,14 +103,4 @@ abstract class AutofillService {
   /// Gibt false zurück, wenn kein gültiges Zielfenster verfügbar ist oder
   /// die Plattform kein Windows ist.
   Future<bool> typeCredentials(String username, String password) async => false;
-
-  // ---------------------------------------------------------------------------
-  // --- Plattformübergreifend ---
-  // ---------------------------------------------------------------------------
-
-  /// Öffnet die plattformspezifischen Systemeinstellungen für den Autofill-Dienst.
-  ///
-  /// - Android: öffnet die Intent-URL `android.settings.REQUEST_SET_AUTOFILL_SERVICE`.
-  /// - Andere Plattformen: No-op.
-  Future<void> openSystemSettings() async {}
 }

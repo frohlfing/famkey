@@ -80,27 +80,4 @@ class BiometricService {
     await _storage.delete(key: _getKeyName(vaultName));
   }
 
-  /// Öffnet die plattformspezifischen Systemeinstellungen für Biometrie.
-  Future<void> openSystemSettings() async {
-    if (kIsWeb) return; // im Browser nicht verfügbar
-
-    String url = '';
-    if (env.isWindows) {
-      url = 'ms-settings:signinoptions';
-    } else if (env.isAndroid) {
-      // Direkter Intent zu den Sicherheits-/Biometrie-Einstellungen
-      url = 'intent:#Intent;action=android.settings.SECURITY_SETTINGS;end';
-    } else if (env.isApple) {
-      // iOS / macOS Einstellungen für FaceID/Passcode
-      url = 'App-Prefs:root=FACEID_PASSCODE';
-    }
-    else {
-      return;
-    }
-
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
 }

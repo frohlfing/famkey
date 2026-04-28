@@ -221,11 +221,15 @@ Bei Verlust eines Geräts oder Verdacht auf Passwort-Diebstahl:
    - Alle für Tinka verschlüsselten Entry-Keys werden lokal gelöscht (da nutzlos).
 4. **Behebung:** Frank muss Tinka manuell neu verifizieren. Dabei werden die Entry-Keys der geteilten Einträge mit Tinka's neuem Public-Key neu verschlüsselt.
 
-### 2.11 Autofill
+### 2.11 Automatisches Ausfüllen (Autofill / Auto-Type)
 
-Der Autofill-Prozess ist plattformspezifisch und läuft isoliert vom Haupt-UI ab.
+Autofill läuft ausschließlich unter Android, und Auto-Type nur unter Windows. 
 
-#### Android
+Unter Web (Browser-Appliance) gibt es Autofill nicht und Auto-Type ist ebenso technisch nicht möglich (
+Die Web-App läuft selbst im Browser und kann keine Felder in anderen Tabs oder Anwendungen befüllen).
+Die einzige Möglichkeit unter Web wäre eine Browser-Extension (die auch unter Windows angewendet werden könnte), die aber nicht umgesetzt wird (s.U.).
+
+#### Autofill (für Android)
 
 Der Benutzer aktiviert PriVault als Autofill-Anbieter einmalig in den Android-Systemeinstellungen (Einstellungen → Passwörter & Konten → Autofill-Dienst). PriVault zeigt in den App-Einstellungen einen Button, der direkt dorthin führt.
 
@@ -242,9 +246,10 @@ Kommunikation Dart ↔ Kotlin erfolgt über den MethodChannel `de.frohlfing.priv
 
 iOS wird nicht unterstützt.
 
-#### Windows — Auto-Type
+#### Auto-Type (für Windows)
 
-Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager. PriVault simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Eingabe-Sequenz ist konfigurierbar je nach vorhandenen Feldern:
+Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager.
+PriVault simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Eingabe-Sequenz ist konfigurierbar je nach vorhandenen Feldern:
 
 - Benutzername **und** Passwort vorhanden: `Benutzername` → `Tab` → `Passwort` → `Enter`
 - Nur Benutzername: `Benutzername` → `Enter`
@@ -284,23 +289,10 @@ Der Benutzer steht in einer beliebigen App (z.B. Browser-Login-Formular, mit Fok
 
 Der Bestätigungsdialog zeigt in allen Fällen: Eintrags-Titel, Zielfenster-Titel, geplante Sequenz. Nach Bestätigung tippt C++ die Sequenz in das Zielfenster.
 
-**Browser-Extension (V2, geplant):** Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
+#### Browser-Extension (verworfen, nicht geplant)
 
-**Sicherheitsbedenken Auto-Type:**
-
-Das Hauptrisiko ist ein falsches Zielfenster: Liegt der Fokus auf einer Chat-App statt dem Login-Formular, wird das Passwort im Klartext in den Chat getippt.
-
-Weitere Risiken: Tastaturanschläge per `SendInput` laufen durch die normale Windows-Eingabepipeline und können von Keyloggern mitgelesen werden – aber das ist nicht schlimmer als manuelles Tippen. Bildschirmrecorder könnten das Passwort beim Eintippen erfassen.
-
-Pflicht-Gegenmaßnahme: Der Bestätigungsdialog zeigt immer den Titel des Zielfensters. So erkennt der Nutzer sofort, wenn das falsche Fenster aktiv ist.
-
-#### Web (Browser-Appliance)
-
-Die PriVault-Web-App läuft selbst im Browser und kann keine Felder in anderen Tabs oder Anwendungen befüllen. Autofill im Web-Kontext erfordert daher dieselbe **Browser-Extension** wie für Windows.
-
-Die Extension erkennt Login-Formulare auf anderen Webseiten. Ist die PriVault-Web-App im selben Browser geöffnet, kommuniziert die Extension mit ihr über die Extension-Message-API (`chrome.tabs.sendMessage`), um Credentials abzufragen. Ist die Web-App nicht geöffnet, leitet die Extension zum Öffnen weiter.
-
-Für Web-Nutzer ist die Browser-Extension keine optionale Komfortfunktion, sondern die **einzige** Möglichkeit für automatisches Ausfüllen. Ohne Extension bleibt nur das manuelle Kopieren über den Copy-Button in der Detailansicht.
+Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
+Diese Möglichkeit bietet eine erhöhte Angriffsfläche, daher habe ich diesen Ansatz verworfen (s. https://www.kuketz-blog.de/keepassxc-auto-type-und-browser-add-on-im-alltag-nutzen-passwoerter-teil1/)
 
 ### 2.12 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
 - **Ziel:** Login ohne Tippen, aber kryptografisch sicher.

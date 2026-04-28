@@ -38,7 +38,4 @@ class AutofillServiceWeb implements AutofillService {
 
   @override
   Future<bool> typeCredentials(String username, String password) async => false;
-
-  @override
-  Future<void> openSystemSettings() async {}
 }

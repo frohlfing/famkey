@@ -128,15 +128,6 @@ class AutofillServiceAndroid implements AutofillService {
     }
   }
 
-  /// Öffnet den Android-Dialog zur Auswahl des Autofill-Dienstes.
-  ///
-  /// `android.settings.REQUEST_SET_AUTOFILL_SERVICE` öffnet direkt die
-  /// Systemeinstellung, in der der Nutzer PriVault als Provider auswählen kann.
-  @override
-  Future<void> openSystemSettings() async {
-    await launchUrl(Uri.parse('intent:#Intent;action=android.settings.REQUEST_SET_AUTOFILL_SERVICE;end'));
-  }
-
   @override
   Future<void> unregisterHotkey() async {}
 
