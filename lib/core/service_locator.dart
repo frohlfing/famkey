@@ -6,6 +6,7 @@ import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
+import 'package:privault/services/device_service.dart';
 import 'package:privault/services/password_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
@@ -20,6 +21,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<ConfigService>(() => ConfigService(prefs));
   getIt.registerLazySingleton<CryptoService>(() => CryptoService());
   getIt.registerLazySingleton<DatabaseService>(() => DatabaseService());
+  getIt.registerLazySingleton<DeviceService>(() => DeviceService());
   getIt.registerLazySingleton<PasswordService>(() => PasswordService());
   getIt.registerLazySingleton<SessionService>(() => SessionService(getIt<CryptoService>()));
   getIt.registerLazySingleton<WebService>(() => WebService(getIt<CryptoService>()));

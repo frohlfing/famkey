@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:privault/features/settings/log_file/log_file_notifier.dart';
+import 'package:privault/widgets/confirm_dialog.dart';
 import 'package:privault/widgets/snack.dart';
 
-/// Modaler Dialog, der den Inhalt der Logdatei anzeigt und
-/// die Log-Einstellungen (minLevel, maxDays) bearbeitbar macht.
-///
-/// Öffnung via [LogFileDialog.show].
+/// Modaler Dialog zum Anzeigen der Logdatei.
 class LogFileDialog extends ConsumerStatefulWidget {
 
   /// Konstruktor
@@ -71,7 +69,7 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
 
     return AlertDialog(
       title: const Text('Logdatei'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
       content: SizedBox(
         width: 600,
         child: Column(
@@ -106,14 +104,16 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
         Consumer(
           builder: (ctx, ref, _) {
             final content = ref.watch(logFileProvider.select((s) => s.content));
-            return TextButton.icon(
+            return TextButton(
               onPressed: content.isEmpty ? null : () => _handleCopy(content),
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Kopieren'),
+              child: const Text('Kopieren'),
             );
           },
         ),
-
+        TextButton(
+          onPressed: _handleClearFile,
+          child: const Text('Löschen'),
+        ),
         // Schließen
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -189,6 +189,20 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
     await Clipboard.setData(ClipboardData(text: content));
     if (mounted) {
       Snack.show(context, 'Logdatei in die Zwischenablage kopiert', success: true);
+    }
+  }
+
+  /// Löscht nach Bestätigung die Einträge aus der Logdatei.
+  Future<void> _handleClearFile() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Logdatei leeren',
+      text: 'Möchtest du die Logeinträge löschen?',
+      ok: 'Ja, löschen',
+    );
+    if (mounted && confirmed == true) {
+      final notifier = ref.read(logFileProvider.notifier);
+      notifier.clearFile();
     }
   }
 }

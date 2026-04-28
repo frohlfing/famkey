@@ -7,6 +7,8 @@ import 'package:privault/services/autofill_service/autofill_service_windows.dart
 ///
 /// Die genaue Funktionsweise ist in der jeweiligen Implementierungen dokumentiert.
 abstract class AutofillService {
+
+  // todo Zirkelbezug! Nicht schön!
   /// Factory: gibt die zur aktuellen Plattform passende Implementierung zurück.
   factory AutofillService.create() {
     if (env.isAndroid) return AutofillServiceAndroid();

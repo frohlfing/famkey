@@ -941,7 +941,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     }
   }
 
-  /// Fragt nach Bestätigung und löscht dann den Freund aus der Liste.
+  /// Löscht nach Bestätigung den Freund aus der Liste.
   Future<void> _showDeleteFriendDialog(dynamic user) async {
     final confirmed = await ConfirmDialog.show(
       context,

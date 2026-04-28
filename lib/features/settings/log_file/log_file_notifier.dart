@@ -34,7 +34,13 @@ class LogFileNotifier extends Notifier<LogFileState> {
     state = const LogFileState().copyWith(status: LogFileStatus.progress);
 
     try {
-      final content = await _readLogFile();
+      final path = Logger().logPath;
+      if (path == null) throw Exception('Logdatei wurde nicht initialisiert');
+      final file = createAppFile(path);
+      final exists = await file.exists();
+      //final content = exists ? (await file.readAsLines()).join('\n') : '';
+      final content = exists ? await file.readAsString() : '';
+
       state = state.copyWith(
         content: content,
         status: LogFileStatus.loaded,
@@ -49,20 +55,29 @@ class LogFileNotifier extends Notifier<LogFileState> {
     }
   }
 
-  // ------------------------------------------------------------------------
-  // --- Private Methoden ---
-  // ------------------------------------------------------------------------
+  /// Löscht die Einträge aus der Logdatei.
+  Future<void> clearFile() async {
+    if (state.isBusy) return;
+    state = const LogFileState().copyWith(status: LogFileStatus.progress);
 
-  /// Liest den Inhalt der Logdatei via [AppFile].
-  /// Gibt einen Hinweistext zurück, wenn die Datei nicht existiert.
-  Future<String> _readLogFile() async {
-    final path = Logger().logPath;
-    if (path == null) return '(Logdatei noch nicht initialisiert)';
+    try {
+      final path = Logger().logPath;
+      if (path == null) throw Exception('Logdatei wurde nicht initialisiert');
+      final file = createAppFile(path);
+      final exists = await file.exists();
+      if (exists) await file.writeAsString('');
 
-    final file = createAppFile(path);
-    if (!await file.exists()) return '(Keine Logeinträge vorhanden)';
+      state = state.copyWith(
+        content: '',
+        status: LogFileStatus.loaded,
+      );
 
-    final lines = await file.readAsLines();
-    return lines.join('\n');
+    } catch (e, st) {
+      Logger().error('Fehler beim Laden der Logdatei: $e', context: {'stack': st.toString()});
+      state = state.copyWith(
+        status: LogFileStatus.failure,
+        error: AppError(ErrorCode.unknown, text: 'Logdatei konnte nicht gelesen werden.'),
+      );
+    }
   }
 }

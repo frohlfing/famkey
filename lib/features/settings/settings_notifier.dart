@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:privault/core/app_error.dart';
 import 'package:privault/core/env.dart';
 import 'package:privault/core/logger.dart';
@@ -15,9 +14,9 @@ import 'package:privault/services/clipboard_service.dart';
 import 'package:privault/services/config_service.dart';
 import 'package:privault/services/crypto_service.dart';
 import 'package:privault/services/database_service.dart';
+import 'package:privault/services/device_service.dart';
 import 'package:privault/services/session_service.dart';
 import 'package:privault/services/web_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(() {
   return SettingsNotifier();
@@ -36,6 +35,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
+  late final DeviceService _deviceService;
   late final SessionService _sessionService;
   late final WebService _webService;
 
@@ -64,6 +64,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     _configService = getIt<ConfigService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
+    _deviceService = getIt<DeviceService>();
     _sessionService = getIt<SessionService>();
     _webService = getIt<WebService>();
 
@@ -496,36 +497,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// Öffnet die App-Info-Seite in den Systemeinstellungen.
   Future<void> openAppSettings() async {
-    // todo Die Platform-Weiche möchte ich hier nicht haben. Daher auslagern in einen Service.
-
-    if (env.isWindows) {
-      // Unter Windows gibt es keinen direkten Weg in die Detail-Ansicht einer fremden MSIX/EXE via URI.
-      // Der Standardweg öffnet "ms-settings:appsfeatures-app".
-      // Man kann versuchen, direkt auf die Windows-App-Einstellungen für *diese* App zu zielen.
-      try {
-        final packageInfo = await PackageInfo.fromPlatform();
-        final pfn = packageInfo.packageName;
-        final advancedUri = Uri.parse('ms-settings:appsfeatures-app?PFN=$pfn');
-
-        if (await canLaunchUrl(advancedUri)) {
-          await launchUrl(advancedUri);
-          return;
-        }
-      } catch (_) {}
-
-      // Fallback: Die allgemeine Liste der installierten Apps
-      await launchUrl(Uri.parse('ms-settings:appsfeatures'));
-    } else if (env.isAndroid) {
-      try {
-        final packageInfo = await PackageInfo.fromPlatform();
-        final packageName = packageInfo.packageName;
-        await launchUrl(Uri.parse('intent:package:$packageName#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;end'));
-      } catch (_) {
-        await launchUrl(Uri.parse('intent:#Intent;action=android.settings.APPLICATION_SETTINGS;end'));
-      }
-    } else if (env.isApple) {
-      await launchUrl(Uri.parse('app-settings:'));
-    }
+    await _deviceService.openAppSettings();
   }
 
 }

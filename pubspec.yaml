@@ -70,6 +70,9 @@ dependencies:
   pdf: ^3.11.1
   flutter_inappwebview: ^6.1.5
 
+  # FÜr device_service, openAppSettings
+  permission_handler: ^12.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
