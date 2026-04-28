@@ -3,7 +3,8 @@
     "allow": [
       "Bash(grep -E \"^\\\\s*```|flutter\")",
       "Bash(flutter analyze *)",
-      "Bash(flutter --version)"
+      "Bash(flutter --version)",
+      "Bash(flutter pub *)"
     ]
   }
 }

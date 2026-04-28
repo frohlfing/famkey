@@ -2,7 +2,9 @@ package de.frohlfing.privault.privault
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import io.flutter.embedding.android.FlutterActivity
@@ -51,6 +53,14 @@ class MainActivity : FlutterActivity() {
                     "isAutofillEnabled" -> {
                         val afm = getSystemService(AutofillManager::class.java)
                         result.success(afm?.hasEnabledAutofillServices() == true)
+                    }
+                    // Öffnet die Android-Systemeinstellung zur Auswahl des Autofill-Dienstes
+                    "openAutofillSettings" -> {
+                        val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                        startActivity(intent)
+                        result.success(null)
                     }
                     else -> result.notImplemented()
                 }

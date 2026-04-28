@@ -1,4 +1,5 @@
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:privault/core/env.dart';
@@ -75,7 +76,8 @@ class SystemSettingsServiceMobile implements SystemSettingsService {
   @override
   Future<void> openAutofillSettings() async {
     if (env.isAndroid) {
-      await AppSettings.openAppSettings(type: AppSettingsType.internalStorage);
+      final channel = MethodChannel('de.frohlfing.privault/autofill');
+      await channel.invokeMethod('openAutofillSettings');
     }
   }
 }
