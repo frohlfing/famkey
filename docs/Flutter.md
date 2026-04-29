@@ -68,14 +68,95 @@ import 'package:path_provider/path_provider.dart';
 import `package:open_filex/src/platform/`;
 ```
 
-Wenn Teile daraus verwendet werden müssen, muss mit `kIsWeb` sichergestellt werden, dass im Web der Code nicht ausgeführt wird.
-```dart
-bool get isWindows => !kIsWeb && Platform.isWindows;
-```
+Selbst wenn man in einer Factory `if (kIsWeb) return WebService()` schreibt, würde der Compiler versuchen, `WebService`
+auf allen Plattformen aufzulösen.
 
-Oder man abstrahiert den Code und verwendet einen bedingten Import:
+**Lösung:** Nur der bedingte Import verhindert, dass inkompatibler Code "gesehen" wird:
 ```dart
 export 'app_file/app_file_stub.dart'
   if (dart.library.ffi) 'app_file/app_file_native.dart'
   if (dart.library.js_interop) 'app_file/app_file_web.dart';  
 ```
+
+### Delegation-Pattern
+
+Dieses Pattern wird im offiziellen Flutter-Code und in modernen Paketen (wie `package:http`) verwendet, um die Vorteile 
+des `factory`-Konstruktors (einfache API für den Nutzer) mit der notwendigen Isolation plattformspezifischer 
+Bibliotheken zu kombinieren. 
+
+Das Muster produziert zwar ein **Zirkelbezug**, aber Darts Compiler ist so konzipiert, dass er 
+zirkuläre Imports zwischen Bibliotheken problemlos auflöst, solange keine „Initialisierungs-Zyklen“ (z. B. zwei 
+statische Variablen, die sich gegenseitig zur Erzeugung benötigen) vorliegen.
+
+Hier ist die Umsetzung für einen `DummyService`:
+
+1. Die Schnittstelle/Interface: `dummy_service.dart`
+
+    Diese Datei ist der einzige öffentliche Einstiegspunkt. Sie definiert die API und nutzt bedingte Importe, um die 
+    korrekte Erzeugungs-Logik zu laden.
+    
+    ```dart
+    // Bedingte Importe der Implementierungs-Logik
+    import 'dummy_service_stub.dart'
+      if (dart.library.io) 'dummy_service_io.dart'
+      if (dart.library.js_interop) 'dummy_service_web.dart';
+    
+    abstract class DummyService {
+      // Der Factory-Konstruktor delegiert an eine Top-Level-Funktion, die in allen importierten Dateien existiert.
+      factory DummyService() => createDummyService();
+    
+      void doSomething();
+    }
+    ```
+
+2. Der Stub: `dummy_service_stub.dart`
+
+    Diese Datei dient als Sicherheitsnetz für Plattformen, die nicht explizit abgedeckt sind, und verhindert Analyse-Fehler 
+    in der IDE.
+    
+    ```dart
+    import 'dummy_service.dart';
+    
+    // Die Funktion wirft standardmäßig einen Fehler
+    DummyService createDummyService() => throw UnsupportedError(
+      'DummyService ist auf dieser Plattform nicht verfügbar.',
+    );
+    ```
+
+3. Die Native-Implementierung: `dummy_service_native.dart`
+
+    Hier können Bibliotheken wie `dart:io` sicher importiert werden, da diese Datei nur für Mobile- oder Desktop-Builds
+    herangezogen wird.
+    
+    ```dart
+    import 'dart:io';
+    import 'dummy_service.dart';
+    
+    class DummyServiceNative implements DummyService {
+      @override
+      void doSomething() => print('Native Logik auf ${Platform.operatingSystem}');
+    }
+    
+    // Die plattformspezifische Erzeugungs-Funktion
+    DummyService createDummyService() => DummyServiceNative();
+    ```
+
+4. Die Web-Implementierung: `dummy_service_web.dart`
+
+    Für die Wasm-Kompatibilität wird hier auf `dart.library.js_interop` geprüft und modernes `package:web` verwendet.
+    
+    ```dart
+    import 'package:web/web.dart' as web;
+    import 'dart:js_interop';
+    import 'dummy_service.dart';
+    
+    class DummyServiceWeb implements DummyService {
+      @override
+      void doSomething() {
+        web.console.log('Web-Logik ausgeführt'.toJS);
+      }
+    }
+    
+    // Die Web-spezifische Erzeugungs-Funktion
+    DummyService createDummyService() => DummyServiceWeb();
+    ```

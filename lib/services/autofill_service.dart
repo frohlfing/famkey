@@ -11,13 +11,51 @@ import 'package:privault/services/autofill_service/autofill_service_windows.dart
 //
 // Eigenschaft isSupported: für SettingsPage
 
-/// Abstraktes Interface für plattformspezifische Autofill/Auto-Type-Funktionalität.
+/// Gemeinsames Interface (Schnittstelle) für die Autofill-Funktionalität auf allen Plattformen.
 ///
-/// Die genaue Funktionsweise ist in der jeweiligen Implementierungen dokumentiert.
+/// # Was ist Autofill?
+///
+/// Autofill bedeutet, dass PriVault Benutzername und Passwort automatisch in
+/// Anmeldeformulare anderer Apps einträgt – ohne dass der Nutzer kopieren/einfügen muss.
+/// Auf Android übernimmt das Android-Betriebssystem die Vermittlung (Autofill-Framework).
+/// Auf Windows tippt PriVault die Zugangsdaten per Tastatureingabe in das aktive Fenster
+/// (Auto-Type, da Windows kein vergleichbares Framework hat).
+///
+/// # Warum eine abstrakte Klasse?
+///
+/// Android, Windows und Web funktionieren grundlegend verschieden:
+/// - **Android**: Das Betriebssystem ruft PriVault aktiv auf, wenn der Nutzer ein Formular
+///   antippt. PriVault registriert sich als Autofill-Provider im System.
+/// - **Windows**: PriVault wartet auf einen globalen Hotkey (z.B. Strg+Alt+A) und tippt
+///   dann die Zugangsdaten mit simulierten Tastatureingaben in das aktive Fenster.
+/// - **Web/andere**: Kein Autofill – leere Implementierungen (No-ops).
+///
+/// Da der Rest der App nicht wissen soll, auf welcher Plattform er läuft, definiert
+/// diese abstrakte Klasse eine gemeinsame Schnittstelle (ein "Vertrag"). Jede Plattform
+/// erfüllt diesen Vertrag mit ihrer eigenen Implementierung.
+///
+/// Der Factory-Konstruktor (`AutofillService.create()`) gibt automatisch die richtige
+/// Implementierung für die aktuelle Plattform zurück. Der aufrufende Code muss nur
+/// `AutofillService.create()` aufrufen und erhält das passende Objekt.
+///
+/// # Wo die Implementierungen zu finden sind
+///
+/// - Android: [AutofillServiceAndroid] in `autofill_service_android.dart`
+/// - Windows: `AutofillServiceWindows` in `autofill_service_windows.dart`
+/// - Web/andere: `AutofillServiceWeb` in `autofill_service_web.dart`
+///
+/// # Wo geht es weiter?
+///
+/// Den vollständigen Android-Ablauf erklärt [AutofillServiceAndroid] in
+/// `lib/services/autofill_service/autofill_service_android.dart`.
 abstract class AutofillService {
 
   // todo Zirkelbezug! Nicht schön!
-  /// Factory: gibt die zur aktuellen Plattform passende Implementierung zurück.
+  /// Gibt die zur aktuellen Plattform passende Implementierung zurück.
+  ///
+  /// Dieses Muster heißt "Factory": statt `new AutofillService()` ruft man
+  /// `AutofillService.create()` auf und erhält automatisch das richtige Objekt –
+  /// z.B. [AutofillServiceAndroid] wenn die App auf einem Android-Gerät läuft.
   factory AutofillService.create() {
     if (env.isAndroid) return AutofillServiceAndroid();
     if (env.isWindows) return AutofillServiceWindows();
@@ -29,10 +67,18 @@ abstract class AutofillService {
   // ---------------------------------------------------------------------------
 
   /// Die Domain, für die gerade ein Autofill-Request vorliegt (z.B. "paypal.com").
-  /// Null, wenn kein Autofill-Request aktiv ist. Nur Android.
+  ///
+  /// Android erkennt, in welcher App und auf welcher Website der Nutzer ein
+  /// Formular ausfüllen will, und übergibt diese Information an PriVault.
+  /// Solange kein Request aktiv ist, ist dieser Wert `null`.
+  /// Nach Abschluss (`complete()`) oder Abbruch (`cancel()`) wird er wieder auf
+  /// `null` gesetzt.
   String? get pendingDomain => null;
 
   /// True, wenn ein Android-Autofill-Request auf Bearbeitung wartet.
+  ///
+  /// Kurzform für `pendingDomain != null`. Wird in der Login-Seite geprüft,
+  /// um nach dem Einloggen direkt zur Auswahl-Seite zu navigieren.
   bool get hasAutofillRequest => false;
 
   // ---------------------------------------------------------------------------

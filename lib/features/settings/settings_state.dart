@@ -92,10 +92,6 @@ class SettingsState {
   /// Wird über MethodChannel abgefragt und spiegelt den Systemzustand wider.
   final bool isAutofillEnabled;
 
-  /// Gibt an, ob der Tresor nach einem Autofill-Vorgang wieder gesperrt werden soll,
-  /// wenn er zuvor gesperrt war.
-  final bool autofillRelockAfterFill;
-
   /// Das Tastenkürzel für Auto-Type (nur Windows).
   final String autofillHotkey;
 
@@ -163,7 +159,6 @@ class SettingsState {
     this.canOpenAutofillSettings = false,
     this.autofillEnabled = true,
     this.isAutofillEnabled = false,
-    this.autofillRelockAfterFill = false,
     this.autofillHotkey = 'Strg+Shift+A',
     this.autoLockMinutes,
     this.clipboardClearSeconds,
@@ -196,7 +191,6 @@ class SettingsState {
     bool? canOpenAutofillSettings,
     bool? autofillEnabled,
     bool? isAutofillEnabled,
-    bool? autofillRelockAfterFill,
     String? autofillHotkey,
     Object? autoLockMinutes = _keep,
     Object? clipboardClearSeconds = _keep,
@@ -226,7 +220,6 @@ class SettingsState {
       canOpenAutofillSettings: canOpenAutofillSettings ?? this.canOpenAutofillSettings,
       autofillEnabled: autofillEnabled ?? this.autofillEnabled,
       isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
-      autofillRelockAfterFill: autofillRelockAfterFill ?? this.autofillRelockAfterFill,
       autofillHotkey: autofillHotkey ?? this.autofillHotkey,
       autoLockMinutes: autoLockMinutes == _keep ? this.autoLockMinutes : autoLockMinutes as int?,
       clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,

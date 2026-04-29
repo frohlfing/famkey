@@ -98,12 +98,6 @@ class ConfigService {
 
   set autofillEnabled(bool value) => _prefs.setBool(_keyAutofillEnabled, value);
 
-  /// Gibt an, ob der Tresor nach einem Autofill-Vorgang wieder gesperrt werden soll,
-  /// wenn er zuvor gesperrt war.
-  bool get autofillRelockAfterFill => _prefs.getBool(_keyAutofillRelockAfterFill) ?? false;
-
-  set autofillRelockAfterFill(bool value) => _prefs.setBool(_keyAutofillRelockAfterFill, value);
-
   /// Das Tastenkürzel für Auto-Type (nur Windows). Standard: Strg+Shift+A.
   String get autofillHotkey => _prefs.getString(_keyAutofillHotkey) ?? 'Strg+Shift+A';
 

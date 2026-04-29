@@ -10,96 +10,168 @@ import 'package:privault/services/session_service.dart';
 
 /// Windows-Implementierung des Auto-Type-Mechanismus.
 ///
-/// Auf Windows gibt es kein natives Autofill-Framework. PriVault simuliert
-/// Tastatureingaben via Win32-`SendInput` mit `KEYEVENTF_UNICODE`.
-/// Die Sequenz ist immer: **Benutzername → Tab → Passwort → Enter**.
+/// ═══════════════════════════════════════════════════════════════════════════
+/// WARUM KEIN "ECHTES" AUTOFILL WIE AUF ANDROID?
+/// ═══════════════════════════════════════════════════════════════════════════
 ///
-/// Der C++-Kern liegt in `windows/runner/auto_type.cpp` (Klasse `AutoType`, Singleton).
-/// Kommunikation Dart ↔ C++ via MethodChannel `de.frohlfing.privault/autotype`,
-/// registriert in `flutter_window.cpp`.
+/// Android hat ein eingebautes Autofill-Framework, das Apps erlaubt, sich als
+/// Passwort-Manager zu registrieren. Windows hat das nicht. Auf Windows bleibt
+/// als Alternative die Simulation von Tastatureingaben: PriVault "tippt" den
+/// Benutzernamen und das Passwort in das aktive Fenster, genau so wie es ein
+/// Mensch tun würde – nur viel schneller.
 ///
-/// Ein WinEventHook (EVENT_SYSTEM_FOREGROUND) in C++ verfolgt permanent das zuletzt
-/// aktive Nicht-PriVault-Fenster und speichert dessen HWND in `g_previousHwnd`.
-/// Dieses Fenster ist das Ziel aller Auto-Type-Operationen.
+/// Diese Technik heißt **Auto-Type**.
 ///
-/// # Szenario A — Button in der Detailansicht
+/// ═══════════════════════════════════════════════════════════════════════════
+/// GROSSES BILD: Wie funktioniert Auto-Type auf Windows?
+/// ═══════════════════════════════════════════════════════════════════════════
 ///
-/// Der Nutzer öffnet einen Eintrag in PriVault, wechselt manuell zur Ziel-App,
-/// wechselt zurück zu PriVault und klickt das Tastatur-Icon in der AppBar.
+/// Der Ablauf verläuft über drei Schichten:
 ///
-/// Ablauf:
-/// 1. `DetailPage` zeigt AppBar-Button (nur Windows, via `env.isWindows`).
-/// 2. Klick → `_handleAutoType()` ruft `getLastWindowTitle()` auf.
-/// 3. MethodChannel → C++: `AutoType::GetLastWindowTitle()` liest Titel aus `g_previousHwnd`.
-/// 4. Bestätigungsdialog mit Zielfenster-Titel wird angezeigt.
-/// 5. Nutzer bestätigt → `typeCredentials(username, password)`.
-/// 6. MethodChannel → C++: `AutoType::TypeCredentials()` bringt Zielfenster in
-///    den Vordergrund (150 ms warten) und schickt die Sequenz als zwei
-///    `SendInput`-Aufrufe (Batch 1: Username+Tab; Batch 2: Passwort+Enter).
+/// ```
+///   Flutter (Dart)              MethodChannel              C++ (Win32 API)
+///   ──────────────              ─────────────              ───────────────
 ///
-/// Testflow (Notepad):
-/// 1. PriVault: Eintrag "Notepad" öffnen.
-/// 2. Notepad öffnen, in das Textfeld klicken.
-/// 3. Zurück zu PriVault (Alt+Tab).
-/// 4. Tastatur-Icon anklicken → `getLastWindowTitle()` → "Unbenannt – Editor"
-/// 5. Dialog bestätigen → `typeCredentials("frank", "4711")`
-/// 6. C++: Notepad erhält Fokus, "frank[Tab]4711[Enter]" wird getippt.
+///   AutofillServiceWindows ──►  "typeCredentials"  ──►  AutoType::TypeCredentials()
+///                                                         │
+///                                                         ├─ Zielfenster in Vordergrund
+///                                                         │  SetForegroundWindow(g_previousHwnd)
+///                                                         ├─ 150 ms warten (Fokus stabilisieren)
+///                                                         ├─ SendInput: Username + Tab
+///                                                         ├─ 100 ms warten (Tab-Event verarbeiten)
+///                                                         └─ SendInput: Passwort + Enter
 ///
-/// # Szenario B — Globaler Hotkey (konfigurierbar, Standard: Strg+Shift+A)
+///   AutofillServiceWindows ◄──  "onHotkey"         ◄──  WM_HOTKEY in MessageHandler
+///   (navigiert zu /autotype-picker)                        │
+///                                                         └─ RegisterHotKey() hat dieses
+///                                                            Ereignis registriert
+/// ```
 ///
-/// Der Nutzer drückt den Hotkey von jeder beliebigen App aus, ohne PriVault
-/// manuell in den Vordergrund bringen zu müssen.
+/// # Was ist die Win32 API?
 ///
-/// Der Hotkey wird aus `ConfigService.autofillHotkey` gelesen und beim Start via
-/// `registerHotkey`-Methodenaufruf an C++ übergeben. C++ registriert ihn mit
-/// `RegisterHotKey(GetHandle(), kAutoTypeHotkeyId, modifiers, vk)`.
+/// Win32 ist die C-basierte Programmierschnittstelle von Windows. Über sie kann
+/// man direkt mit dem Betriebssystem kommunizieren: Fenster öffnen, Tastatureingaben
+/// senden, Fensterpositionierungen abfragen usw. In PriVault kümmert sich der
+/// C++-Code in `windows/runner/auto_type.cpp` um diese Aufrufe.
 ///
-/// Ablauf:
-/// 1. Nutzer drückt den konfigurierten Hotkey in einer beliebigen App (z.B. Browser oder Notepad).
-/// 2. C++ empfängt `WM_HOTKEY` in `FlutterWindow::MessageHandler()`.
-/// 3. C++ liest Titel von `g_previousHwnd` (= aktives Fenster vor PriVault).
-/// 4. PriVault wird via `ShowWindow(SW_RESTORE)` + `SetForegroundWindow()` in den Vordergrund gebracht.
-/// 5. C++ sendet `onHotkey` mit dem Fenstertitel an Flutter via MethodChannel.
-/// 6. `init()` empfängt den Aufruf: prüft ob eingeloggt, navigiert zu `/autotype-picker`.
-/// 7. `AutoTypePickerPage` lädt alle Index-Einträge, matcht nach Fenstertitel
-///    (Titel-Substring oder URL-Domain). Gibt es genau einen Treffer, wird der
-///    Bestätigungsdialog direkt geöffnet (ohne Listendarstellung).
-/// 8. Bestätigt → `typeCredentials()` → C++ tippt die Sequenz.
+/// Flutter selbst kann Win32 nicht direkt aufrufen, weil Flutter in Dart läuft
+/// und Dart keinen nativen Zugriff auf Windows-APIs hat. Genau für diese Brücke
+/// ist der MethodChannel (aus `de.frohlfing.privault/autotype`) zuständig –
+/// vergleichbar mit dem Android MethodChannel (siehe `autofill_service_android.dart`).
 ///
-/// Testflow (Notepad):
-/// 1. Notepad öffnen, Cursor in das Textfeld setzen.
-/// 2. Konfigurierten Hotkey drücken (Standard: Strg+Shift+A).
-/// 3. PriVault öffnet sich; bei genau einem Treffer sofort Bestätigungsdialog.
-/// 4. "Einfügen" → Notepad erhält Fokus → "frank[Tab]4711[Enter]" wird getippt.
+/// # Was ist ein HWND?
+///
+/// Jedes Fenster in Windows bekommt beim Erstellen eine eindeutige Nummer
+/// (`HWND` = Handle to a WiNDow). Mit dieser Nummer kann man das Fenster
+/// wiederfinden, in den Vordergrund bringen oder ihm Tastaturereignisse schicken.
+///
+/// PriVault speichert das HWND des zuletzt aktiven Nicht-PriVault-Fensters
+/// in der C++-Variable `g_previousHwnd`. Das ist das Ziel des Auto-Type.
+///
+/// # Wie verfolgt PriVault das aktive Fenster?
+///
+/// Ein **WinEventHook** (`EVENT_SYSTEM_FOREGROUND`) läuft permanent im Hintergrund.
+/// Windows benachrichtigt diesen Hook immer dann, wenn der Nutzer das Fenster wechselt.
+/// Der Hook prüft: "Ist das neue Fenster PriVault selbst?" → Wenn nein: HWND speichern.
+/// So weiß PriVault immer, wohin es tippen soll.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// DIE ZWEI SZENARIEN
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// **Szenario A — Button in der Detailansicht:**
+///
+/// ```
+///   PriVault (Detailansicht)              C++ (Auto-Type)
+///   ────────────────────────              ───────────────
+///
+///   Nutzer klickt Tastatur-Icon
+///         │
+///         ▼
+///   getLastWindowTitle()    ──────────►  AutoType::GetLastWindowTitle()
+///                           ◄──────────  Titel aus g_previousHwnd
+///         │
+///         ▼
+///   Dialog: "Eintrag X wird in 'Firefox' getippt" – Bestätigen?
+///         │
+///         ▼ (Nutzer bestätigt)
+///   typeCredentials()       ──────────►  AutoType::TypeCredentials()
+///                                         SetForegroundWindow(Firefox)
+///                                         SendInput: "frank" + Tab + "4711" + Enter
+///
+///   Firefox: Formular ausgefüllt ✓
+/// ```
+///
+/// **Szenario B — Globaler Hotkey (Standard: Strg+Shift+A):**
+///
+/// ```
+///   Irgendeine App (z.B. Browser)        C++ / Flutter
+///   ─────────────────────────────        ─────────────
+///
+///   Nutzer drückt Strg+Shift+A
+///         │
+///         ▼
+///                                        WM_HOTKEY in C++ MessageHandler
+///                                        • Fenstertitel aus g_previousHwnd lesen
+///                                        • PriVault in Vordergrund bringen
+///                                        • "onHotkey" an Flutter schicken
+///         │
+///         ▼ (Flutter, diese Datei)
+///   Navigiere zu /autotype-picker
+///   (mit Fenstertitel als Argument)
+///         │
+///         ▼
+///   AutoTypePickerPage: Einträge nach Fenstertitel filtern
+///   Nutzer wählt Eintrag → Bestätigungsdialog
+///         │
+///         ▼
+///   typeCredentials()       ──────────►  AutoType::TypeCredentials()
+///                                         SetForegroundWindow(Browser)
+///                                         SendInput: credentials
+///
+///   Browser: Formular ausgefüllt ✓
+/// ```
 class AutofillServiceWindows implements AutofillService {
 
   // Win32 MOD_*-Flags für RegisterHotKey (aus winuser.h).
+  // Diese Konstanten sind bitmaskiert: jedes Flag belegt ein einzelnes Bit.
+  // Durch bitweises ODER (|) können mehrere Flags kombiniert werden:
+  //   Strg+Shift = _modControl | _modShift = 0x0002 | 0x0004 = 0x0006
   // Dart kennt keine Win32-Header — die Werte sind aus der Microsoft-Dokumentation übernommen.
   // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
   static const int _modAlt = 0x0001;
   static const int _modControl = 0x0002;
   static const int _modShift = 0x0004;
   static const int _modWin = 0x0008;
+
+  /// Verhindert, dass der Hotkey bei gehaltenem Tastendruck wiederholt feuert.
+  /// Ohne dieses Flag würde der Hotkey alle paar Hundert Millisekunden auslösen,
+  /// solange die Tasten gedrückt gehalten werden.
   static const int _modNoRepeat = 0x4000;
 
   /// MethodChannel zum C++-Kern in `flutter_window.cpp`.
   ///
-  /// Dart → C++: `getLastWindowTitle`, `typeCredentials`, `registerHotkey`.
-  /// C++ → Dart: `onHotkey` (Szenario B).
+  /// Dart → C++: `getLastWindowTitle`, `typeCredentials`, `registerHotkey`,
+  ///             `unregisterHotkey`.
+  /// C++ → Dart: `onHotkey` (wenn der globale Hotkey gedrückt wurde).
   static const _autoTypeChannel = MethodChannel('de.frohlfing.privault/autotype');
 
-  /// Registriert den `onHotkey`-Callback für Szenario B und übergibt den
-  /// konfigurierten Hotkey an C++.
+  /// Richtet den MethodChannel-Handler ein und registriert den Hotkey bei C++.
   ///
-  /// Schritt 1 — `onHotkey`-Handler:
-  /// Wenn der Hotkey gedrückt wird: prüft ob eingeloggt (`indexKey != null`)
-  /// und navigiert zu `/autotype-picker` mit dem Fenstertitel als Argument.
-  /// Nicht eingeloggt: PriVault ist bereits im Vordergrund, Nutzer sieht Login-Seite.
+  /// Diese Methode wird einmalig beim App-Start aufgerufen (analog zu
+  /// `AutofillServiceAndroid.init()`).
   ///
-  /// Schritt 2 — `registerHotkey`:
-  /// Liest `ConfigService.autofillHotkey` (z.B. "Strg+Shift+A"), zerlegt den String
-  /// in Win32-Modifier-Flags und einen Virtual-Key-Code und übergibt beides an C++.
-  /// C++ deregistriert den alten Hotkey und registriert den neuen mit `RegisterHotKey()`.
+  /// **Schritt 1 – `onHotkey`-Handler:**
+  /// C++ schickt `onHotkey` an Flutter, wenn der Nutzer den konfigurierten
+  /// Hotkey drückt. Der Handler prüft ob der Nutzer eingeloggt ist und navigiert
+  /// dann zu `/autotype-picker`, wobei der Fenstertitel als Argument mitgegeben
+  /// wird (damit die Picker-Seite den richtigen Eintrag vorfiltern kann).
+  ///
+  /// **Schritt 2 – `registerHotkey`:**
+  /// Der in den Einstellungen konfigurierte Hotkey-String (z.B. "Strg+Shift+A")
+  /// wird geparst und als Win32-Modifier-Flags + Virtual-Key-Code an C++ übergeben.
+  /// C++ ruft `RegisterHotKey()` auf – ab jetzt reagiert Windows auf diesen Hotkey,
+  /// auch wenn PriVault im Hintergrund ist.
   @override
   Future<void> init() async {
     _autoTypeChannel.setMethodCallHandler((call) async {
@@ -107,9 +179,15 @@ class AutofillServiceWindows implements AutofillService {
         final args = call.arguments as Map<Object?, Object?>?;
         final windowTitle = args?['windowTitle'] as String? ?? '';
         log.debug('Auto-Type Hotkey empfangen', context: {'windowTitle': windowTitle});
+
+        // Nur navigieren wenn eingeloggt – indexKey ist nur gesetzt wenn eine Session aktiv ist.
+        // Ist der Nutzer nicht eingeloggt, ist PriVault durch den Hotkey schon im Vordergrund
+        // und der Nutzer sieht den Login-Screen.
         final sessionService = getIt<SessionService>();
         if (sessionService.indexKey != null) {
           log.debug('Navigiere zu /autotype-picker');
+          // Der Fenstertitel wird als Argument mitgegeben, damit die Picker-Seite
+          // weiß, für welches Fenster ein Eintrag gesucht wird.
           navigatorKey.currentState?.pushNamed('/autotype-picker', arguments: windowTitle);
         } else {
           log.debug('Hotkey ignoriert: nicht eingeloggt');
@@ -120,8 +198,10 @@ class AutofillServiceWindows implements AutofillService {
     await _registerFromConfig();
   }
 
-  /// Liest `ConfigService.autofillHotkey`, parst ihn und sendet `registerHotkey` an C++.
-  /// Gemeinsame Logik für `init()` und `reregisterHotkey()`.
+  /// Liest den Hotkey aus der Konfiguration, parst ihn und übergibt ihn an C++.
+  ///
+  /// Gemeinsame Logik für `init()` (beim Start) und `reregisterHotkey()` (nach
+  /// Änderung in den Einstellungen). Ausgelagert, damit keine Duplizierung entsteht.
   Future<void> _registerFromConfig() async {
     final configService = getIt<ConfigService>();
     final hotkey = configService.autofillHotkey;
@@ -141,6 +221,11 @@ class AutofillServiceWindows implements AutofillService {
     }
   }
 
+  /// Deregistriert den Hotkey vorübergehend.
+  ///
+  /// Wird aufgerufen, bevor der Hotkey-Konfigurations-Dialog in den Einstellungen
+  /// geöffnet wird. Ohne diese Deregistrierung würde der Hotkey auch dann feuern,
+  /// wenn der Nutzer ihn im Dialog eintippt – er könnte ihn dadurch nicht konfigurieren.
   @override
   Future<void> unregisterHotkey() async {
     try {
@@ -151,16 +236,31 @@ class AutofillServiceWindows implements AutofillService {
     }
   }
 
+  /// Registriert den Hotkey nach dem Schließen des Konfigurations-Dialogs neu.
+  ///
+  /// Liest den (möglicherweise neu gesetzten) Hotkey aus der Konfiguration
+  /// und übergibt ihn an C++. Wiederverwendet `_registerFromConfig()`.
   @override
   Future<void> reregisterHotkey() async => _registerFromConfig();
 
-  /// Parst einen Hotkey-String in Win32-Modifier-Flags und einen Virtual-Key-Code.
+  /// Parst einen Hotkey-String (z.B. "Strg+Shift+A") in Win32-Modifier-Flags
+  /// und einen Virtual-Key-Code (VK-Code).
   ///
-  /// Format: Modifizierer durch "+" getrennt, letztes Segment ist ein einzelnes Zeichen
-  /// (Buchstabe oder Ziffer). Win32 erwartet den ASCII-Code direkt als VK-Code —
-  /// das funktioniert für A–Z (0x41–0x5A) und 0–9 (0x30–0x39).
-  /// Beispiel: "Strg+Shift+A" → modifiers: MOD_CONTROL|MOD_SHIFT|MOD_NOREPEAT, vk: 65 ('A')
-  /// Beispiel: "Strg+1"       → modifiers: MOD_CONTROL|MOD_NOREPEAT, vk: 49 ('1')
+  /// # Was ist ein Virtual-Key-Code (VK)?
+  ///
+  /// Windows identifiziert Tasten nicht über ihre Zeichen, sondern über
+  /// numerische Codes – den Virtual-Key-Code. Die Taste "A" hat z.B. den
+  /// Code 65 (0x41), unabhängig davon, ob die Shift-Taste gedrückt ist.
+  /// Buchstaben A–Z haben die Codes 65–90, Ziffern 0–9 haben 48–57.
+  ///
+  /// Praktischerweise entsprechen diese Codes den ASCII-Werten der
+  /// Großbuchstaben, d.h. `'A'.codeUnitAt(0) == 65` → gültiger VK-Code.
+  ///
+  /// # Format des Hotkey-Strings
+  ///
+  /// Modifizierer werden durch "+" getrennt, der letzte Teil ist die Haupttaste:
+  /// - "Strg+Shift+A" → modifiers: MOD_CONTROL|MOD_SHIFT|MOD_NOREPEAT, vk: 65
+  /// - "Alt+1"        → modifiers: MOD_ALT|MOD_NOREPEAT,                vk: 49
   ///
   /// Unterstützte Modifizierer (Groß-/Kleinschreibung egal):
   ///   Strg / Ctrl → MOD_CONTROL  (0x0002)
@@ -168,24 +268,30 @@ class AutofillServiceWindows implements AutofillService {
   ///   Alt         → MOD_ALT      (0x0001)
   ///   Win         → MOD_WIN      (0x0008)
   ///
-  /// MOD_NOREPEAT (0x4000) wird immer gesetzt — verhindert, dass der Hotkey
-  /// bei gehaltenem Tastendruck wiederholt feuert.
+  /// MOD_NOREPEAT wird immer gesetzt – verhindert Wiederholung bei gehaltenem Druck.
   ///
-  /// Gibt null zurück wenn der letzte Abschnitt nicht genau ein Zeichen ist
-  /// oder der String leer ist.
+  /// Gibt null zurück, wenn der String leer ist oder die Haupttaste kein einzelnes
+  /// Zeichen ist.
   ({int modifiers, int vk})? _parseHotkey(String hotkey) {
     if (hotkey.isEmpty) return null;
     final parts = hotkey.split('+');
     if (parts.isEmpty) return null;
+
+    // Die Haupttaste ist immer der letzte Teil (z.B. "A" in "Strg+Shift+A").
     final keyStr = parts.last.trim();
     if (keyStr.length != 1) return null;
+
+    // codeUnitAt(0) gibt den Unicode/ASCII-Code des Zeichens zurück.
+    // Großschreibung ist notwendig, damit z.B. "a" und "A" denselben VK-Code ergeben.
     final vk = keyStr.toUpperCase().codeUnitAt(0);
+
+    // MOD_NOREPEAT immer setzen; dann Modifizierer durch Strings-Scan addieren.
     int modifiers = _modNoRepeat;
     for (final part in parts.take(parts.length - 1)) {
       switch (part.trim().toLowerCase()) {
         case 'strg':
         case 'ctrl':
-          modifiers |= _modControl;
+          modifiers |= _modControl;  // bitweises ODER: Control-Bit setzen
         case 'shift':
           modifiers |= _modShift;
         case 'alt':
@@ -199,9 +305,13 @@ class AutofillServiceWindows implements AutofillService {
 
   /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
   ///
-  /// Fragt C++ via MethodChannel: `AutoType::GetLastWindowTitle()` prüft `IsWindow(g_previousHwnd)`
-  /// und liest den Titel mit `GetWindowTextW()`.
-  /// Gibt "" zurück, wenn noch kein fremdes Fenster aktiv war oder es nicht mehr existiert.
+  /// C++ liest den Titel aus `g_previousHwnd` mit `GetWindowTextW()`.
+  /// Falls `g_previousHwnd` nicht mehr gültig ist (z.B. weil das Fenster
+  /// geschlossen wurde), gibt C++ einen leeren String zurück.
+  ///
+  /// Dieser Titel wird im Bestätigungsdialog angezeigt, damit der Nutzer
+  /// weiß, in welches Fenster getippt wird, und im Szenario B als
+  /// Suchanfrage für die Eintrags-Filterung verwendet.
   @override
   Future<String> getLastWindowTitle() async {
     try {
@@ -214,22 +324,41 @@ class AutofillServiceWindows implements AutofillService {
     }
   }
 
-  /// Tippt [username] und/oder [password] in das zuletzt aktive Fenster.
+  /// Tippt [username] und [password] in das zuletzt aktive Fenster.
   ///
-  /// Sequenz (abhängig von vorhandenen Feldern):
-  /// - Beide vorhanden:  Benutzername → Tab → Passwort → Enter
-  /// - Nur Benutzername: Benutzername → Enter
-  /// - Nur Passwort:     Passwort → Enter
+  /// # Was passiert in C++? (auto_type.cpp)
   ///
-  /// C++ sendet die Sequenz in zwei getrennten `SendInput`-Aufrufen:
-  /// Batch 1 (Benutzername + Tab), dann 100 ms Pause, dann Batch 2 (Passwort + Enter).
-  /// Die Pause gibt Browsern Zeit, den Tab-Event zu verarbeiten und den Fokus
-  /// ins Passwortfeld zu wechseln, bevor das Passwort ankommt.
-  /// Tab wird als `VK_TAB` gesendet, damit Browser und Login-Dialoge den
-  /// Feldwechsel über `WM_KEYDOWN` erkennen.
+  /// 1. **Zielfenster in den Vordergrund bringen:**
+  ///    `SetForegroundWindow(g_previousHwnd)` – bringt z.B. den Browser nach vorne.
+  ///    Danach 150 ms warten, damit der Fokus-Wechsel abgeschlossen ist, bevor
+  ///    Eingaben gesendet werden.
   ///
-  /// Gibt false zurück, wenn `g_previousHwnd` ungültig ist oder C++
-  /// `NO_TARGET_WINDOW` als `PlatformException` zurückgibt.
+  /// 2. **Benutzername tippen (Batch 1):**
+  ///    Jedes Zeichen des Benutzernamens wird als `INPUT`-Struktur mit
+  ///    `KEYEVENTF_UNICODE` kodiert. Das bedeutet: statt einen Scan-Code zu
+  ///    senden, wird direkt das Unicode-Zeichen übertragen. Das funktioniert
+  ///    plattformunabhängig für alle Sprachen und Sonderzeichen.
+  ///    Am Ende: Tab-Taste als `VK_TAB` senden.
+  ///
+  /// 3. **100 ms warten:**
+  ///    Gibt Browsern und Programmen Zeit, den Tab-Event zu verarbeiten und
+  ///    den Cursor ins Passwortfeld zu setzen, bevor das Passwort ankommt.
+  ///    Ohne diese Pause würden Passwortzeichen manchmal im Benutzernamefeld landen.
+  ///
+  /// 4. **Passwort tippen (Batch 2):**
+  ///    Analog zum Benutzernamen. Am Ende: Enter-Taste als `VK_RETURN`.
+  ///
+  /// # Sequenz (abhängig von vorhandenen Feldern)
+  ///
+  /// - Benutzername + Passwort: Benutzername → Tab → Passwort → Enter
+  /// - Nur Benutzername:        Benutzername → Enter
+  /// - Nur Passwort:            Passwort → Enter
+  ///
+  /// # Fehlerfälle
+  ///
+  /// Gibt false zurück, wenn `g_previousHwnd` ungültig ist (Fenster wurde
+  /// geschlossen). C++ sendet dann eine `PlatformException` mit Code
+  /// `NO_TARGET_WINDOW` zurück.
   @override
   Future<bool> typeCredentials(String username, String password) async {
     log.debug('Auto-Type starten', context: {'username': username});
@@ -241,6 +370,7 @@ class AutofillServiceWindows implements AutofillService {
       log.debug('Auto-Type erfolgreich');
       return true;
     } on PlatformException catch (e) {
+      // PlatformException kommt von C++ (z.B. NO_TARGET_WINDOW).
       log.warn('Auto-Type fehlgeschlagen', context: {'code': e.code, 'message': e.message});
       return false;
     } catch (e) {
@@ -248,6 +378,10 @@ class AutofillServiceWindows implements AutofillService {
       return false;
     }
   }
+
+  // Die folgenden Properties und Methoden sind Android-spezifisch und werden
+  // auf Windows nicht benötigt. Sie müssen trotzdem implementiert werden, weil
+  // AutofillService als gemeinsames Interface sie für alle Plattformen vorschreibt.
 
   @override
   String? get pendingDomain => null;

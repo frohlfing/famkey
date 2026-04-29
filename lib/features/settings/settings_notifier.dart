@@ -114,7 +114,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
         categoryPlaceholder: _settings!.categoryPlaceholder,
         autofillEnabled: _configService.autofillEnabled,
         isAutofillEnabled: isAutofillEnabled,
-        autofillRelockAfterFill: _configService.autofillRelockAfterFill,
         autofillHotkey: _configService.autofillHotkey,
         autoLockMinutes: _configService.autoLockMinutes,
         clipboardClearSeconds: _configService.clipboardClearSeconds,
@@ -321,8 +320,14 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Autofill ---
   // ------------------------------------------------------------------------
 
-  /// Schaltet Autofill ein oder aus und speichert die Einstellung.
-  void toggleAutofill(bool value) {
+  /// Schaltet Autofill ein oder aus.
+  /// Auf Android: öffnet die Systemeinstellungen zur Auswahl des Autofill-Anbieters.
+  /// Auf Windows: speichert die Einstellung lokal.
+  Future<void> toggleAutofill(bool value) async {
+    if (env.isAndroid) {
+      await openAutofillSettings();
+      return;
+    }
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     _configService.autofillEnabled = value;
     state = state.copyWith(autofillEnabled: value, status: SettingsActionStatus.saved);
@@ -333,13 +338,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     final isEnabled = await _autofillService.isAutofillEnabled();
     state = state.copyWith(isAutofillEnabled: isEnabled, status: SettingsActionStatus.saved);
-  }
-
-  /// Speichert die Einstellung "Tresor nach Autofill wieder sperren" in der Konfiguration.
-  void setAutofillRelockAfterFill(bool value) {
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-    _configService.autofillRelockAfterFill = value;
-    state = state.copyWith(autofillRelockAfterFill: value, status: SettingsActionStatus.saved);
   }
 
   // ------------------------------------------------------------------------

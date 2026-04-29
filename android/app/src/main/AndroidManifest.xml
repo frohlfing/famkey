@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="privault"
+        android:label="PriVault"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:extractNativeLibs="true">
@@ -26,6 +26,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Relay-Activity für Autofill-Authentifizierung: kein FLAG_ACTIVITY_NEW_TASK,
+             damit das Autofill-Framework das setResult() korrekt empfangen kann. -->
+        <activity
+            android:name=".AutofillAuthActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".PriVaultAutofillService"
             android:exported="true"

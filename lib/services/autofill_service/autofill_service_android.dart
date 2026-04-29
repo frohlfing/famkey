@@ -1,51 +1,126 @@
 import 'package:flutter/services.dart';
 import 'package:privault/core/logger.dart';
 import 'package:privault/core/navigator_key.dart';
+import 'package:privault/core/service_locator.dart';
 import 'package:privault/services/autofill_service.dart';
+import 'package:privault/services/session_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Android-Implementierung des Autofill-Frameworks.
+/// Android-Implementierung des Autofill-Service.
 ///
-/// PriVault ist als Android-Autofill-Provider registriert
-/// (Manifest: `android:name=".PriVaultAutofillService"`).
-/// Der Kotlin-Service in `android/` kommuniziert mit dieser Dart-Klasse über den
-/// MethodChannel `de.frohlfing.privault/autofill`. Die Aktivierung erfolgt einmalig
-/// durch den Nutzer: Einstellungen → Passwörter → Autofill-Dienst → PriVault.
+/// ═══════════════════════════════════════════════════════════════════════════
+/// GROSSES BILD: Was passiert, wenn ein Nutzer ein Login-Formular antippt?
+/// ═══════════════════════════════════════════════════════════════════════════
 ///
-/// # Ablauf
+/// Das Android-Betriebssystem hat ein eingebautes "Autofill-Framework". Jede App
+/// kann sich als "Autofill-Provider" registrieren. PriVault tut das, damit Android
+/// PriVault fragt, wenn der Nutzer ein Formular ausfüllen möchte.
 ///
-/// 1. Nutzer fokussiert ein Login-Formular in einer fremden App (z.B. Chrome).
-/// 2. Android ruft `PriVaultAutofillService.onFillRequest()` auf (Kotlin).
-/// 3. Kotlin extrahiert die Domain aus der `AssistStructure` (z.B. "paypal.com").
-/// 4. Je nach App-Zustand:
-///
-///    **a) PriVault war nicht geöffnet:**
-///       Kotlin startet PriVault via `PendingIntent` mit der Domain als Intent-Extra.
-///       `init()` ruft `getAutofillRequest` ab → [_pendingDomain] wird gesetzt.
-///       Die App navigiert zu `/autofill-picker`.
-///
-///    **b) PriVault war bereits im Hintergrund:**
-///       Kotlin ruft `onAutofillRequest` am Channel auf.
-///       Der registrierte Handler setzt [_pendingDomain] und navigiert zu `/autofill-picker`.
-///       Der registrierte Handler setzt [_pendingDomain] und navigiert zu `/autofill-picker`.
-///
-/// 5. `AutofillPickerPage` lädt alle Einträge und filtert nach [_pendingDomain].
-/// 6. Nutzer wählt einen Eintrag → `complete()` schickt Credentials zurück an Kotlin.
-/// 7. Kotlin befüllt die Felder mit einem `Dataset` in der `FillResponse`.
-///
-/// # Testflow: PayPal in Chrome
+/// Der Ablauf hat viele Schritte und ist über mehrere Dateien verteilt:
 ///
 /// ```
-/// Chrome (Login) → PriVaultAutofillService.onFillRequest() [Kotlin]
-///   → PendingIntent → PriVault startet
-///   → init(): getAutofillRequest → _pendingDomain = "paypal.com"
-///   → Navigator: /autofill-picker
-///   → Nutzer wählt "PayPal"-Eintrag
-///   → complete("user@example.com", "geheim123")
-///   → MethodChannel: completeAutofill → Kotlin → Chrome befüllt
+///   Chrome (andere App)     Android-System          PriVault (diese Datei + Kotlin)
+///   ──────────────────      ──────────────          ──────────────────────────────
+///
+///   Nutzer tippt ins
+///   Login-Formular
+///         │
+///         ▼
+///   Android erkennt          PriVaultAutofillService.onFillRequest()
+///   Formularfelder    ──►    (Kotlin, android/.../PriVaultAutofillService.kt)
+///                             • Welche Felder gibt es? (Benutzername, Passwort)
+///                             • Welche Domain ist das? (z.B. "paypal.com")
+///                             • "PriVault"-Eintrag als Vorschlag erstellen
+///                             • PendingIntent auf AutofillAuthActivity
+///                                  │
+///         ◄──────────────────────── Zeigt "PriVault"-Bubble im Dropdown
+///
+///   Nutzer tippt auf
+///   PriVault-Bubble   ──►    AutofillAuthActivity.onCreate()
+///                             (Kotlin, android/.../AutofillAuthActivity.kt)
+///                             • Callbacks in AutofillResultRelay registrieren
+///                             • MainActivity mit FLAG_ACTIVITY_NEW_TASK starten
+///                                  │
+///         ◄──────────── PriVault kommt in den Vordergrund
+///
+///                             MainActivity.onNewIntent() oder onCreate()
+///                             (Kotlin, android/.../MainActivity.kt)
+///                             • Ruft Flutter via MethodChannel auf
+///                                  │
+///                                  ▼
+///                    ┌─────────────────────────────────────┐
+///                    │  Flutter (Dart) – diese Datei       │
+///                    │                                     │
+///                    │  init() hat zwei Jobs:              │
+///                    │  a) beim Start: getAutofillRequest  │
+///                    │  b) im Betrieb: onAutofillRequest   │
+///                    │                                     │
+///                    │  _pendingDomain wird gesetzt        │
+///                    │  Navigation zu /autofill-picker     │
+///                    └─────────────────────────────────────┘
+///                                  │
+///                                  ▼
+///                    AutofillPickerPage (Flutter UI)
+///                    (lib/features/autofill/autofill_picker_page.dart)
+///                    • Einträge laden und nach Domain filtern
+///                    • Nutzer wählt einen Eintrag aus
+///                                  │
+///                                  ▼
+///                    complete(username, password)
+///                    • MethodChannel → Kotlin completeAutofill
+///                    • AutofillResultRelay.deliver() → AutofillAuthActivity
+///                    • AutofillAuthActivity: Dataset bauen, setResult(OK)
+///                    • AutofillAuthActivity: finish()
+///
+///         ◄──────────────────────────────── Android befüllt Formular in Chrome
+///
+///   Formular ist befüllt ✓
 /// ```
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// DIE DREI START-SZENARIEN
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// Je nachdem, ob PriVault schon läuft oder nicht, gibt es drei Szenarien:
+///
+/// **Szenario A – Cold-Start (PriVault war nicht gestartet):**
+///   1. Android startet PriVault komplett neu
+///   2. `init()` ruft `getAutofillRequest` ab → `_pendingDomain` wird gesetzt
+///   3. Nutzer sieht den Login-Screen
+///   4. Nach dem Login prüft die Login-Seite `hasAutofillRequest` und navigiert zu
+///      `/autofill-picker` (statt zu `/main`)
+///
+/// **Szenario B – Warm-Start, eingeloggt (PriVault lief im Hintergrund):**
+///   1. Android bringt PriVault in den Vordergrund
+///   2. Kotlin ruft `onAutofillRequest` via MethodChannel auf
+///   3. Der Handler hier setzt `_pendingDomain` und navigiert sofort zu `/autofill-picker`
+///
+/// **Szenario C – Warm-Start, nicht eingeloggt (PriVault lief, aber gesperrt):**
+///   1. Android bringt PriVault in den Vordergrund
+///   2. Kotlin ruft `onAutofillRequest` auf
+///   3. Der Handler setzt nur `_pendingDomain`, navigiert aber NICHT (weil kein Login)
+///   4. Nutzer loggt sich ein → Login-Seite prüft `hasAutofillRequest` → `/autofill-picker`
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// WAS IST EIN METHODCHANNEL?
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// Flutter (Dart) und der Android-Unterbau (Kotlin) laufen in getrennten
+/// Laufzeitumgebungen. Sie können nicht direkt auf die Objekte des anderen zugreifen.
+/// Ein MethodChannel ist eine benannte Brücke zwischen den beiden Welten:
+///
+///   Dart  ──( "completeAutofill" + args )──►  Kotlin
+///   Dart  ◄─( result )──────────────────────  Kotlin
+///
+/// Der Channel hat einen Namen ("de.frohlfing.privault/autofill"), an dem sich
+/// beide Seiten erkennen. Der Aufruf ist asynchron (`await`), weil er die Grenze
+/// zwischen zwei Threads überquert.
 class AutofillServiceAndroid implements AutofillService {
   /// Bidirektionaler MethodChannel zum Kotlin-`PriVaultAutofillService`.
+  ///
+  /// Dieser Name muss auf beiden Seiten exakt gleich sein:
+  /// - Dart: hier in dieser Datei
+  /// - Kotlin: in `MainActivity.kt` (Konstante `channel`)
   ///
   /// Dart → Kotlin: `getAutofillRequest`, `completeAutofill`, `cancelAutofill`, `isAutofillEnabled`.
   /// Kotlin → Dart: `onAutofillRequest`.
@@ -53,8 +128,8 @@ class AutofillServiceAndroid implements AutofillService {
 
   /// Domain des aktiven Autofill-Requests (z.B. "paypal.com").
   ///
-  /// Gesetzt von `init()` beim App-Start (Szenario a) oder vom Channel-Handler (Szenario b).
-  /// Nach `complete()` oder `cancel()` wieder null.
+  /// Gesetzt von `init()` beim App-Start (Szenario A) oder vom Channel-Handler (Szenario B/C).
+  /// Nach `complete()` oder `cancel()` wieder null – signalisiert "kein offener Request".
   String? _pendingDomain;
 
   @override
@@ -63,14 +138,25 @@ class AutofillServiceAndroid implements AutofillService {
   @override
   bool get hasAutofillRequest => _pendingDomain != null;
 
-  /// Initialisiert den MethodChannel-Handler.
+  /// Initialisiert den MethodChannel und behandelt beide Einstiegsszenarien.
   ///
-  /// Prüft zunächst ob PriVault per PendingIntent mit Domain gestartet wurde
-  /// (Szenario a: `getAutofillRequest`). Registriert dann den Handler für
-  /// laufende App (Szenario b: `onAutofillRequest`).
+  /// Diese Methode wird einmalig beim App-Start in `main.dart` aufgerufen,
+  /// nachdem Flutter vollständig initialisiert ist.
+  ///
+  /// **Szenario A (Cold-Start):** `getAutofillRequest` fragt Kotlin, ob die App
+  /// über einen Autofill-Intent gestartet wurde. Wenn ja, liefert Kotlin die Domain.
+  /// In diesem Fall ist PriVault noch nicht gestartet gewesen – Android hat es für
+  /// den Nutzer gestartet.
+  ///
+  /// **Szenario B/C (Warm-Start):** `onAutofillRequest` ist ein Kotlin→Dart-Callback,
+  /// der ausgelöst wird, wenn PriVault schon lief und Android es reaktiviert.
   @override
   Future<void> init() async {
-    // Szenario a: PriVault wurde über einen Autofill-Intent gestartet.
+    // ─────────────────────────────────────────────────────────────────────────
+    // Szenario A: PriVault wurde über einen Autofill-Intent kalt gestartet.
+    // Kotlin hat beim Start der MainActivity die Domain aus dem Intent-Extra gelesen
+    // und wartet, bis Flutter sie über diesen MethodChannel-Aufruf abholt.
+    // ─────────────────────────────────────────────────────────────────────────
     try {
       final result = await _channel.invokeMethod<Map<Object?, Object?>>('getAutofillRequest');
       if (result != null) {
@@ -79,23 +165,47 @@ class AutofillServiceAndroid implements AutofillService {
       }
     } catch (_) {}
 
-    // Szenario b: PriVault lief bereits, Kotlin ruft diesen Callback auf.
+    // ─────────────────────────────────────────────────────────────────────────
+    // Szenario B/C: PriVault lief bereits. Android hat MainActivity via
+    // onNewIntent() benachrichtigt, die dann diesen Callback auslöst.
+    //
+    // Der Handler prüft, ob der Nutzer eingeloggt ist, bevor er navigiert:
+    //   - Eingeloggt (Szenario B): sofort zu /autofill-picker navigieren
+    //   - Nicht eingeloggt (Szenario C): nur _pendingDomain setzen; die Login-Seite
+    //     navigiert nach erfolgreichem Login selbst zu /autofill-picker, weil sie
+    //     hasAutofillRequest prüft (login_page.dart).
+    // ─────────────────────────────────────────────────────────────────────────
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onAutofillRequest') {
         final args = call.arguments as Map<Object?, Object?>;
         _pendingDomain = args['domain'] as String?;
         log.debug('Autofill-Request (App lief)', context: {'domain': _pendingDomain});
         if (_pendingDomain != null) {
-          navigatorKey.currentState?.pushNamed('/autofill-picker');
+          // Nur navigieren wenn bereits eingeloggt – sonst übernimmt der Login-Handler
+          // die Navigation nach erfolgreichem Login (hasAutofillRequest → /autofill-picker).
+          final isLoggedIn = getIt<SessionService>().user != null;
+          if (isLoggedIn) {
+            navigatorKey.currentState?.pushNamed('/autofill-picker');
+          }
         }
       }
     });
   }
 
-  /// Schließt den Autofill-Vorgang ab und befüllt die Felder der anfragenden App.
+  /// Schließt den Autofill-Vorgang erfolgreich ab und befüllt die Formularfelder.
   ///
-  /// Kotlin baut einen `Dataset` in einer `FillResponse` und gibt diesen an
-  /// das Android-Autofill-Framework zurück, das die Felder befüllt.
+  /// Was hier passiert:
+  /// 1. `_channel.invokeMethod('completeAutofill', ...)` schickt Benutzername und
+  ///    Passwort über den MethodChannel an Kotlin.
+  /// 2. Kotlin ruft `AutofillResultRelay.deliver()` auf.
+  /// 3. Das Relay leitet die Daten an `AutofillAuthActivity` weiter.
+  /// 4. `AutofillAuthActivity` baut ein `Dataset` (Container mit den Feldwerten)
+  ///    und gibt es mit `setResult(RESULT_OK)` an Android zurück.
+  /// 5. Android befüllt die Felder in Chrome (oder einer anderen App).
+  /// 6. PriVault geht mit `moveTaskToBack` in den Hintergrund (Session bleibt erhalten).
+  ///
+  /// Erst NACHDEM Kotlin `result.success(null)` aufruft, kehrt `await invokeMethod`
+  /// hier zurück – d.h. das Formular ist zu diesem Zeitpunkt bereits befüllt.
   @override
   Future<void> complete(String username, String password) async {
     log.debug('Autofill abschließen', context: {'domain': _pendingDomain, 'username': username});
@@ -106,9 +216,14 @@ class AutofillServiceAndroid implements AutofillService {
     _pendingDomain = null;
   }
 
-  /// Bricht den Autofill-Vorgang ab.
+  /// Bricht den Autofill-Vorgang ab (Nutzer hat den X-Button gedrückt).
   ///
-  /// Kotlin gibt eine leere `FillResponse` zurück, Android beendet den Vorgang sauber.
+  /// Was hier passiert:
+  /// 1. Kotlin ruft `AutofillResultRelay.cancel()` auf.
+  /// 2. Das Relay benachrichtigt `AutofillAuthActivity`.
+  /// 3. `AutofillAuthActivity` ruft `setResult(RESULT_CANCELED)` auf und schließt sich.
+  /// 4. Das Android-Autofill-Framework erhält das Cancel – Chrome zeigt keinen Fehler.
+  /// 5. PriVault geht mit `moveTaskToBack` in den Hintergrund.
   @override
   Future<void> cancel() async {
     log.debug('Autofill abgebrochen', context: {'domain': _pendingDomain});
@@ -116,9 +231,11 @@ class AutofillServiceAndroid implements AutofillService {
     _pendingDomain = null;
   }
 
-  /// Gibt an, ob PriVault als aktiver Autofill-Provider im System eingestellt ist.
+  /// Fragt Android, ob PriVault als Autofill-Provider ausgewählt ist.
   ///
-  /// Kotlin prüft via `AutofillManager.hasEnabledAutofillServices()`.
+  /// Der Nutzer muss in den Android-Einstellungen unter "Passwörter & Autofill"
+  /// PriVault als Anbieter einstellen. Diese Methode gibt true zurück, wenn das
+  /// bereits geschehen ist. Wird in den PriVault-Einstellungen angezeigt.
   @override
   Future<bool> isAutofillEnabled() async {
     try {
@@ -127,6 +244,10 @@ class AutofillServiceAndroid implements AutofillService {
       return false;
     }
   }
+
+  // Die folgenden Methoden sind Windows-spezifisch und werden auf Android nicht benötigt.
+  // Sie existieren hier nur, weil AutofillService als gemeinsames Interface alle Methoden
+  // enthält und diese Implementierung den Vertrag erfüllen muss.
 
   @override
   Future<void> unregisterHotkey() async {}

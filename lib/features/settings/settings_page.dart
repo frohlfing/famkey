@@ -275,7 +275,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                   _buildSectionTitle('Autofill'),
                   Consumer(
                     builder: (ctx, ref, _) {
-                      final autofillEnabled = ref.watch(settingsProvider.select((s) => s.autofillEnabled));
+                      final isAutofillEnabled = ref.watch(settingsProvider.select((s) => s.isAutofillEnabled));
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -283,36 +283,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                             secondary: const Icon(Icons.text_fields_outlined),
                             title: const Text('Autofill'),
                             subtitle: Text('PriVault als Autofill-Anbieter für andere Apps verwenden.'),
-                            value: autofillEnabled,
+                            value: isAutofillEnabled,
                             onChanged: notifier.toggleAutofill,
                           ),
-                          if (autofillEnabled) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(left: 48, top: 12),
-                              child: _buildSystemButton(
-                                Icons.settings_outlined,
-                                'Android-Autofill einrichten',
-                                'PriVault muss einmalig in den Android-Systemeinstellungen als Autofill-Anbieter ausgewählt werden.',
-                                notifier.openAutofillSettings,
-                                width: 280,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 32),
-                              child: Consumer(
-                                builder: (ctx, ref, _) {
-                                  final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
-                                  return SwitchListTile(
-                                    secondary: const Icon(Icons.lock_reset_outlined),
-                                    title: const Text('Tresor nach Autofill wieder sperren'),
-                                    subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
-                                    value: relock,
-                                    onChanged: notifier.setAutofillRelockAfterFill,
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
+                          // if (isAutofillEnabled) ...[
+                          //   Padding(
+                          //     padding: const EdgeInsets.only(left: 32),
+                          //     child: Consumer(
+                          //       builder: (ctx, ref, _) {
+                          //         final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
+                          //         return SwitchListTile(
+                          //           secondary: const Icon(Icons.lock_reset_outlined),
+                          //           title: const Text('Tresor nach Autofill wieder sperren'),
+                          //           subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
+                          //           value: relock,
+                          //           onChanged: notifier.setAutofillRelockAfterFill,
+                          //         );
+                          //       },
+                          //     ),
+                          //   ),
+                          // ],
                         ],
                       );
                     },
@@ -358,21 +348,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                                 style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant), //TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 32, top: 4),
-                              child: Consumer(
-                                builder: (ctx, ref, _) {
-                                  final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
-                                  return SwitchListTile(
-                                    secondary: const Icon(Icons.lock_reset_outlined),
-                                    title: const Text('Tresor nach Autofill wieder sperren'),
-                                    subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
-                                    value: relock,
-                                    onChanged: notifier.setAutofillRelockAfterFill,
-                                  );
-                                },
-                              ),
-                            ),
+                            // Padding(
+                            //   padding: const EdgeInsets.only(left: 32, top: 4),
+                            //   child: Consumer(
+                            //     builder: (ctx, ref, _) {
+                            //       final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
+                            //       return SwitchListTile(
+                            //         secondary: const Icon(Icons.lock_reset_outlined),
+                            //         title: const Text('Tresor nach Autofill wieder sperren'),
+                            //         subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
+                            //         value: relock,
+                            //         onChanged: notifier.setAutofillRelockAfterFill,
+                            //       );
+                            //     },
+                            //   ),
+                            // ),
                           ],
                         ],
                       );
