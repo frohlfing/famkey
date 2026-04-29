@@ -9,7 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -18,10 +18,16 @@ import io.flutter.plugin.common.MethodChannel
  *
  * # Was ist eine FlutterActivity?
  *
- * `FlutterActivity` ist eine Android-Activity, die eine Flutter-Engine einbettet.
+ * `FlutterFragmentActivity` ist eine Android-Activity, die eine Flutter-Engine einbettet.
  * Der gesamte Dart-Code läuft innerhalb dieser Activity. Aus Android-Sicht ist
  * PriVault eine ganz normale App mit einer Activity – nur dass diese Activity
  * statt nativer Android-Views einen Flutter-Canvas rendert.
+ *
+ * Hinweis: `FlutterFragmentActivity` statt `FlutterActivity` wird benötigt,
+ * weil das `local_auth`-Plugin intern `FragmentManager` verwendet (z.B. für
+ * `BiometricPrompt`). `FlutterActivity` erbt nur von `AppCompatActivity`,
+ * nicht von `FragmentActivity` – daher der PlatformException-Fehler
+ * "local_auth plugin requires activity to be a FragmentActivity."
  *
  * # Die Brücke zwischen Flutter (Dart) und Android (Kotlin): MethodChannel
  *
@@ -54,7 +60,7 @@ import io.flutter.plugin.common.MethodChannel
  *   Intent aufgerufen. Dart wird über `onAutofillRequest` via MethodChannel
  *   benachrichtigt.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
     /** Name des MethodChannels – muss auf Dart-Seite identisch sein. */
     private val channel = "de.frohlfing.privault/autofill"

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:privault/core/env.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:privault/core/logger.dart';
 
 /// Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
 ///
@@ -33,6 +33,7 @@ class BiometricService {
       final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
       return canAuthenticate;
     } catch (e) {
+      log.debug("Biometrie-Verfügbarkeit konnte nicht ermittelt werden: $e");
       return false;
     }
   }
@@ -47,6 +48,7 @@ class BiometricService {
   Future<void> saveMasterKey(String vaultName, Uint8List masterKey) async {
     final base64Key = base64.encode(masterKey);
     await _storage.write(key: _getKeyName(vaultName), value: base64Key);
+    log.debug('Master-Schlüssel wurde im Keystore des Geräts gespeichert.');
   }
 
   /// Startet den System-Dialog (Biometrie) und gibt bei Erfolg den gespeicherten Master-Key zurück.
@@ -69,6 +71,7 @@ class BiometricService {
 
       return authenticated ? base64.decode(base64Key) : null;
     } catch (e) {
+      log.debug("Biometrie-Abfrage abgebrochen oder fehlgeschlagen: $e");
       // Bricht der User ab oder es gibt ein OS-Problem, wird das hier abgefangen.
       return null;
     }
@@ -78,6 +81,7 @@ class BiometricService {
   /// Wenn der Key nicht existiert, passiert nichts.
   Future<void> removeMasterKey(String vaultName) async {
     await _storage.delete(key: _getKeyName(vaultName));
+    log.debug('Master-Schlüssel wurde aus dem Keystore des Geräts gelöscht.');
   }
 
 }
