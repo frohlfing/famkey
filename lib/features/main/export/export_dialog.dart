@@ -167,7 +167,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                         duration: const Duration(milliseconds: 200),
                         child: encrypt
                             ? Padding(
-                          padding: const EdgeInsets.only(top: 8, bottom: 4),
+                          padding: const EdgeInsets.only(top: 8, bottom: 0),
                           child: TextField(
                             controller: _passwordController,
                             obscureText: true,
@@ -246,7 +246,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
         if (status == ExportActionStatus.loaded || status == ExportActionStatus.progress)
           ElevatedButton(
             onPressed: isBusy ? null : _handleExport,
-            child: const Text('Exportieren'),
+            child: const Text('Export'),
           ),
 
         // Schließen - nachdem die Exportdatei erfolgreich gespeichert wurde
@@ -287,12 +287,10 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     final state = ref.read(exportProvider);
 
     final text = state.formData.encrypt
-      ? 'Der Tresor wird als ZIP‑Datei exportiert und mit AES‑256 verschlüsselt – dem derzeit\n'
-        'sichersten Verfahren für ZIP‑Dateien. \n\n'
-        '⚠️ Unter Windows ist zum Öffnen ein externes Zip-Tool wie z.B. 7-Zip (kostenlos) oder \n'
-        'WinRAR notwendig. Der Windows-Explorer kann keine passwortgeschützten Archive öffnen. \n\n'
+      ? 'Der Tresor wird als ZIP‑Datei exportiert und mit AES‑256 verschlüsselt – dem derzeit sichersten Verfahren für ZIP‑Dateien. \n\n'
+        '⚠️ Unter Windows ist zum Öffnen ein externes Zip-Tool wie z.B. 7-Zip (kostenlos) oder WinRAR notwendig. Der Windows-Explorer kann keine passwortgeschützten Archive öffnen. \n\n'
         'Fortfahren?'
-      : 'Der Tresor wird als unverschlüsselte ZIP-Datei exportiert. '
+      : 'Der Tresor wird als unverschlüsselte ZIP-Datei exportiert.\n\n'
         '⚠️ Alle Passwörter sind für jeden lesbar, der Zugriff auf die Datei erhält.\n\n'
         'Fortfahren?';
 

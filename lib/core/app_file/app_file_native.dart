@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:privault/core/app_file.dart';
+import 'package:privault/core/env.dart';
 import 'package:uuid/uuid.dart';
 
 /// Implementierung von [AppFile] für eine Desktop- oder Mobile-Platform auf Basis von `dart:io File`.
@@ -167,19 +168,20 @@ Future<void> downloadAppFile(AppFile file) async {
   // 1. Die Bytes der Datei laden (egal ob von Disk oder aus dem RAM)
   final bytes = await file.readAsBytes();
 
-  // 2. Den "Speichern unter"-Dialog aufrufen
-  // FilePicker.platform.saveFile öffnet den nativen Dateimanager
+  // 2. Den "Speichern unter"-Dialog aufrufen.
+  //
+  // Plattformunterschiede bei file_picker.saveFile():
+  //   Android/iOS: `bytes` ist Pflicht – das Plugin schreibt die Datei selbst.
+  //   Desktop:     `bytes` wird ignoriert – das Plugin gibt nur den Zielpfad zurück,
+  //                den wir danach selbst beschreiben müssen.
   final String? outputPath = await FilePicker.platform.saveFile(
     dialogTitle: 'Datei speichern unter...',
     fileName: file.name,
-    // Optional: Du könntest hier die Extension einschränken
-    // type: FileType.custom,
-    // allowedExtensions: [p.extension(file.path).replaceAll('.', '')],
+    bytes: bytes,
   );
 
-  // 3. Wenn der Nutzer nicht abgebrochen hat, die Daten schreiben
-  if (outputPath != null) {
-    final outputFile = File(outputPath);
-    await outputFile.writeAsBytes(bytes);
+  // 3. Auf Desktop die Daten manuell schreiben (auf Mobile hat das Plugin das bereits erledigt).
+  if (outputPath != null && env.isDesktop) {
+    await File(outputPath).writeAsBytes(bytes);
   }
 }

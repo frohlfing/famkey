@@ -748,6 +748,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
               const SizedBox(height: 8),
               ...excluded.map((e) => _buildExcludedCard(e, theme)),
             ],
+            const SizedBox(height: 24),
           ],
         );
       },
