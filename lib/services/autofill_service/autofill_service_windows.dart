@@ -178,7 +178,7 @@ class AutofillServiceWindows implements AutofillService {
       if (call.method == 'onHotkey') {
         final args = call.arguments as Map<Object?, Object?>?;
         final windowTitle = args?['windowTitle'] as String? ?? '';
-        log.debug('Auto-Type Hotkey empfangen', context: {'windowTitle': windowTitle});
+        log.debug('Auto-Type Hotkey empfangen');
 
         // Nur navigieren wenn eingeloggt – indexKey ist nur gesetzt wenn eine Session aktiv ist.
         // Ist der Nutzer nicht eingeloggt, ist PriVault durch den Hotkey schon im Vordergrund
@@ -316,7 +316,7 @@ class AutofillServiceWindows implements AutofillService {
   Future<String> getLastWindowTitle() async {
     try {
       final title = await _autoTypeChannel.invokeMethod<String>('getLastWindowTitle') ?? '';
-      log.debug('Zielfenster abgefragt', context: {'title': title});
+      log.debug('Zielfenster abgefragt');
       return title;
     } catch (e) {
       log.warn('getLastWindowTitle fehlgeschlagen', context: {'error': e.toString()});
@@ -361,7 +361,7 @@ class AutofillServiceWindows implements AutofillService {
   /// `NO_TARGET_WINDOW` zurück.
   @override
   Future<bool> typeCredentials(String username, String password) async {
-    log.debug('Auto-Type starten', context: {'username': username});
+    log.debug('Auto-Type starten');
     try {
       await _autoTypeChannel.invokeMethod<void>('typeCredentials', {
         'username': username,

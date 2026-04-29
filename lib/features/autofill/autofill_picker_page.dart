@@ -89,7 +89,7 @@ class _AutofillPickerPageState extends State<AutofillPickerPage> {
   /// Records sind anonyme Datenstrukturen: `({EntryEntity entry, IndexPayload index})`.
   Future<List<({EntryEntity entry, IndexPayload index})>> _loadMatchingEntries() async {
     final domain = _autofillService.pendingDomain ?? '';
-    log.debug('AutofillPicker: Lade Einträge', context: {'domain': domain});
+    log.debug('AutofillPicker: Lade Einträge');
 
     // indexKey ist ein von SessionService verwalteter AES-Schlüssel, der speziell
     // für die Entschlüsselung des encryptedIndex (Metadaten) der Einträge abgeleitet wurde.
@@ -123,7 +123,7 @@ class _AutofillPickerPageState extends State<AutofillPickerPage> {
 
     // Alphabetisch sortieren, damit die Liste immer gleich aussieht.
     result.sort((a, b) => a.index.title.toLowerCase().compareTo(b.index.title.toLowerCase()));
-    log.debug('AutofillPicker: ${result.length} Treffer für "$domain"');
+    log.debug('AutofillPicker: ${result.length} Treffer');
     return result;
   }
 
@@ -191,7 +191,7 @@ class _AutofillPickerPageState extends State<AutofillPickerPage> {
       // Schritt 4: JSON parsen.
       final payload = EntryPayload.fromJson(json.decode(utf8.decode(decryptedData)));
 
-      log.debug('AutofillPicker: complete() – username=${payload.username}');
+      log.debug('AutofillPicker: complete()');
 
       // Zugangsdaten an Kotlin schicken. Kotlin → AutofillResultRelay → AutofillAuthActivity
       // → setResult(RESULT_OK, dataset) → Android befüllt das Formular → Chrome kommt wieder
@@ -258,7 +258,7 @@ class _AutofillPickerPageState extends State<AutofillPickerPage> {
           // nachdem der aktuelle Frame vollständig gerendert wurde (keine Navigation
           // mitten in einem Build-Durchlauf).
           if (entries.length == 1) {
-            log.debug('AutofillPicker: 1 Treffer – Auto-Select "${entries[0].index.title}"');
+            log.debug('AutofillPicker: 1 Treffer – Auto-Select');
             WidgetsBinding.instance.addPostFrameCallback((_) => _selectEntry(entries[0].entry));
             return const Center(child: CircularProgressIndicator());
           }

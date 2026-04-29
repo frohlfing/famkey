@@ -161,7 +161,7 @@ class AutofillServiceAndroid implements AutofillService {
       final result = await _channel.invokeMethod<Map<Object?, Object?>>('getAutofillRequest');
       if (result != null) {
         _pendingDomain = result['domain'] as String?;
-        log.debug('Autofill-Request beim Start', context: {'domain': _pendingDomain});
+        log.debug('Autofill-Request beim Start');
       }
     } catch (_) {}
 
@@ -179,7 +179,7 @@ class AutofillServiceAndroid implements AutofillService {
       if (call.method == 'onAutofillRequest') {
         final args = call.arguments as Map<Object?, Object?>;
         _pendingDomain = args['domain'] as String?;
-        log.debug('Autofill-Request (App lief)', context: {'domain': _pendingDomain});
+        log.debug('Autofill-Request (App lief)');
         if (_pendingDomain != null) {
           // Nur navigieren wenn bereits eingeloggt – sonst übernimmt der Login-Handler
           // die Navigation nach erfolgreichem Login (hasAutofillRequest → /autofill-picker).
@@ -208,7 +208,7 @@ class AutofillServiceAndroid implements AutofillService {
   /// hier zurück – d.h. das Formular ist zu diesem Zeitpunkt bereits befüllt.
   @override
   Future<void> complete(String username, String password) async {
-    log.debug('Autofill abschließen', context: {'domain': _pendingDomain, 'username': username});
+    log.debug('Autofill abschließen');
     await _channel.invokeMethod<void>('completeAutofill', {
       'username': username,
       'password': password,
@@ -226,7 +226,7 @@ class AutofillServiceAndroid implements AutofillService {
   /// 5. PriVault geht mit `moveTaskToBack` in den Hintergrund.
   @override
   Future<void> cancel() async {
-    log.debug('Autofill abgebrochen', context: {'domain': _pendingDomain});
+    log.debug('Autofill abgebrochen');
     await _channel.invokeMethod<void>('cancelAutofill');
     _pendingDomain = null;
   }

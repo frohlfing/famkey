@@ -88,7 +88,7 @@ class PriVaultAutofillService : AutofillService() {
 
         // Formularfelder und Domain aus der AssistStructure auslesen.
         val parsed = parseStructure(structure)
-        Log.d(TAG, "onFillRequest: domain=${parsed.domain}, usernameId=${parsed.usernameId}, passwordId=${parsed.passwordId}")
+        Log.d(TAG, "onFillRequest: usernameId=${parsed.usernameId}, passwordId=${parsed.passwordId}")
 
         // Wenn weder Benutzername- noch Passwort-Feld gefunden wurde, ist das
         // vermutlich kein Login-Formular → keine Vorschläge anbieten.

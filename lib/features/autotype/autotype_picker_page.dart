@@ -108,7 +108,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
       // den Fenstertitel als argument übergeben. ModalRoute.of(context) liefert die aktuelle
       // Route; settings.arguments ist das mitgegebene Objekt.
       _windowTitle = ModalRoute.of(context)?.settings.arguments as String? ?? '';
-      log.debug('AutoTypePicker geöffnet', context: {'windowTitle': _windowTitle});
+      log.debug('AutoTypePicker geöffnet');
       _entriesFuture = _loadEntries();
     }
   }
@@ -285,7 +285,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
         return;
       }
 
-      log.debug('Auto-Type bestätigt', context: {'windowTitle': _windowTitle});
+      log.debug('Auto-Type bestätigt');
 
       // typeCredentials() schickt via MethodChannel die Zugangsdaten an C++.
       // C++ bringt das Zielfenster in den Vordergrund und tippt die Sequenz.

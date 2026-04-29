@@ -102,7 +102,7 @@ class MainActivity : FlutterActivity() {
                     "getAutofillRequest" -> {
                         if (intent?.action == PriVaultAutofillService.ACTION_AUTOFILL_PICK) {
                             val domain = intent.getStringExtra(PriVaultAutofillService.EXTRA_DOMAIN) ?: ""
-                            Log.d(TAG, "getAutofillRequest: domain=$domain")
+                            Log.d(TAG, "getAutofillRequest: Autofill-Intent erkannt")
                             result.success(mapOf("domain" to domain))
                         } else {
                             Log.d(TAG, "getAutofillRequest: kein Autofill-Intent")
@@ -123,7 +123,7 @@ class MainActivity : FlutterActivity() {
                     "completeAutofill" -> {
                         val username = call.argument<String>("username") ?: ""
                         val password = call.argument<String>("password") ?: ""
-                        Log.d(TAG, "completeAutofill: username=$username, usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
+                        Log.d(TAG, "completeAutofill: usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
                         completeAutofill(username, password)
                         result.success(null)
                     }
@@ -186,7 +186,7 @@ class MainActivity : FlutterActivity() {
             autofillUsernameId = getAutofillId(intent, PriVaultAutofillService.EXTRA_USERNAME_ID)
             autofillPasswordId = getAutofillId(intent, PriVaultAutofillService.EXTRA_PASSWORD_ID)
             val domain = intent.getStringExtra(PriVaultAutofillService.EXTRA_DOMAIN) ?: ""
-            Log.d(TAG, "onCreate (Autofill): domain=$domain, usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
+            Log.d(TAG, "onCreate (Autofill): usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
         }
     }
 
@@ -212,7 +212,7 @@ class MainActivity : FlutterActivity() {
             autofillUsernameId = getAutofillId(intent, PriVaultAutofillService.EXTRA_USERNAME_ID)
             autofillPasswordId = getAutofillId(intent, PriVaultAutofillService.EXTRA_PASSWORD_ID)
             val domain = intent.getStringExtra(PriVaultAutofillService.EXTRA_DOMAIN) ?: ""
-            Log.d(TAG, "onNewIntent (Autofill): domain=$domain, usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
+            Log.d(TAG, "onNewIntent (Autofill): usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
 
             // Dart (autofill_service_android.dart) über den neuen Autofill-Request informieren.
             // Dart setzt _pendingDomain und navigiert zu /autofill-picker (falls eingeloggt).
@@ -265,7 +265,7 @@ class MainActivity : FlutterActivity() {
      * Das funktioniert nur korrekt, wenn diese Activity selbst im richtigen Task sitzt.
      */
     private fun completeAutofill(username: String, password: String) {
-        Log.d(TAG, "completeAutofill: username=$username, usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
+        Log.d(TAG, "completeAutofill: usernameId=$autofillUsernameId, passwordId=$autofillPasswordId")
 
         // Normalfall: AutofillAuthActivity wartet im Relay auf das Ergebnis.
         // moveTaskToBack statt finish() → Flutter-Session (Schlüssel, Login) bleibt erhalten.

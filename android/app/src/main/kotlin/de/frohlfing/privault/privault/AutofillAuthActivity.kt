@@ -79,7 +79,7 @@ class AutofillAuthActivity : Activity() {
         val usernameId = getAutofillId(intent, PriVaultAutofillService.EXTRA_USERNAME_ID)
         val passwordId = getAutofillId(intent, PriVaultAutofillService.EXTRA_PASSWORD_ID)
         val domain = intent.getStringExtra(PriVaultAutofillService.EXTRA_DOMAIN) ?: ""
-        Log.d(TAG, "AutofillAuthActivity.onCreate: domain=$domain, usernameId=$usernameId, passwordId=$passwordId")
+        Log.d(TAG, "AutofillAuthActivity.onCreate: usernameId=$usernameId, passwordId=$passwordId")
 
         // Callbacks im Relay registrieren, BEVOR MainActivity gestartet wird.
         // So ist sichergestellt, dass MainActivity sofort delivern kann, sobald
@@ -88,7 +88,7 @@ class AutofillAuthActivity : Activity() {
             onResult = { username, password ->
                 // Dieser Block wird aufgerufen, wenn MainActivity über den MethodChannel
                 // "completeAutofill" sendet und AutofillResultRelay.deliver() aufruft.
-                Log.d(TAG, "AutofillAuthActivity: relay – username=$username, setResult(OK)")
+                Log.d(TAG, "AutofillAuthActivity: relay – setResult(OK)")
 
                 // Dataset = Behälter mit den konkreten Feldwerten (username → Feld X, password → Feld Y).
                 // buildDataset() erzeugt diesen Behälter mit den korrekten AutofillIds.
