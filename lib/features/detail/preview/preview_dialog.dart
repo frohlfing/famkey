@@ -78,7 +78,7 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
         ],
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
-      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       content: SizedBox(
         width: 600,
         child: Column(
@@ -95,7 +95,13 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
                       color: Colors.white,
                       border: Border.all(color: Colors.black26),
                     ),
-                    child: renderer.buildWidget(),
+                    child: Theme(
+                      data: ThemeData.light(),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: renderer.buildWidget(),
+                      ),
+                    ),
                   ),
 
                   // --- Ladeanzeige ---
@@ -129,27 +135,24 @@ class _PreviewDialogState extends ConsumerState<PreviewDialog> {
                 ],
               ),
             ),
-
-            const SizedBox(height: 16),
           ],
+
         ),
       ),
 
       // --- Buttons ---
       actions: [
         // Download
-        TextButton.icon(
+        TextButton(
           onPressed: state.isBusy ? null : notifier.download,
-          icon: const Icon(Icons.download_outlined),
-          label: const Text('Herunterladen'),
+          child: const Text('Speichern'),
         ),
 
         // Drucken
         if (renderer.isPrintable)
-          TextButton.icon(
+          TextButton(
             onPressed: state.isBusy ? null : notifier.print,
-            icon: const Icon(Icons.print_outlined),
-            label: const Text('Drucken'),
+            child: const Text('Drucken'),
           ),
 
         // Schließen

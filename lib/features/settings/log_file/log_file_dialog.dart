@@ -70,6 +70,7 @@ class _LogFileDialogState extends ConsumerState<LogFileDialog> {
     return AlertDialog(
       title: const Text('Logdatei'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       content: SizedBox(
         width: 600,
         child: Column(

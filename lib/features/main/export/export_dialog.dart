@@ -78,6 +78,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     return AlertDialog(
       title: const Text('Tresor exportieren'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       content: SizedBox(
         width: 600,
         child: Column(
@@ -131,7 +132,13 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                             color: Colors.white,
                             border: Border.all(color: Colors.black26),
                           ),
-                          child: renderer.buildWidget(),
+                          child: Theme(
+                            data: ThemeData.light(),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: renderer.buildWidget(),
+                            ),
+                          ),
                         );
                       },
                     ),
