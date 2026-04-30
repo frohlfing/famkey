@@ -2,6 +2,47 @@
 .SYNOPSIS
     Installiert Xdebug in eine bestehende XAMPP-Umgebung.
 
+.DESCRIPTION
+
+# Manuelle Installation:
+
+## XAMPP herunterladen
+- XAMPP herunterladen:
+   https://www.apachefriends.org/download.html
+- Installation starten → **alle Default‑Einstellungen übernehmen**
+   Zielverzeichnis: `C:\xampp`
+
+## Xdebug installieren
+- PHP‑Info erzeugen:
+  Datei C:\xampp\htdocs\info.php:
+  ```
+  <?php phpinfo();
+  ```
+- Browser öffnen:
+    http://localhost/info.php
+- phpinfo‑Output kopieren.
+- Xdebug Wizard öffnen:
+    https://xdebug.org/wizard
+- Output einfügen → Analyse starten.
+- Empfohlene DLL herunterladen (z.B. `php_xdebug-3.x.x-8.4-vs16-x86_64.dll`).
+- Datei speichern nach:
+    C:\xampp\php\ext\php_xdebug.dll
+- In php.ini am Ende einfügen:
+    ```
+    [Xdebug]
+    zend_extension = "C:\xampp\php\ext\php_xdebug.dll"
+    xdebug.mode = debug
+    xdebug.start_with_request = yes
+    xdebug.client_port = 9003
+    xdebug.client_host = 127.0.0.1
+    ```
+
+## Apache starten & testen
+  - XAMPP öffnen → Apache starten.
+  - http://localhost/info.php öffnen.
+  - Prüfen:
+    - Xdebug‑Block sichtbar
+
 .EXAMPLE
     .\xampp_install_xdebug.ps1
 #>

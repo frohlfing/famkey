@@ -2,6 +2,63 @@
 .SYNOPSIS
     Installiert eine bestimmte PHP-Version in eine bestehende XAMPP-Umgebung.
 
+.DESCRIPTION
+
+# Manuelle Installation:
+
+## PHP 8.4 herunterladen
+- Offizielle PHP‑Downloads:
+   https://windows.php.net/download
+- Lade herunter:
+   **PHP 8.4.x – Thread Safe – x64 – ZIP (VS16/VC15)**
+- ZIP **nur entpacken**, nicht installieren.
+
+## PHP 8.4 in XAMPP integrieren
+- XAMPP stoppen (Apache + MySQL).
+- Backup anlegen:
+   `C:\xampp\php` → `C:\xampp\php-8.2-backup`
+- PHP‑8.4‑ZIP nach `C:\xampp\php` entpacken.
+- Alte php.ini übernehmen:
+   `C:\xampp\php-8.2-backup\php.ini` → `C:\xampp\php\php.ini`
+
+## php.ini prüfen/anpassen
+- In `C:\xampp\php\php.ini` sicherstellen:
+    ```
+    extension_dir = "C:\xampp\php\ext"
+
+    extension=curl
+    extension=openssl
+    extension=mbstring
+    extension=fileinfo
+    extension=gd
+    extension=intl
+    extension=pdo_mysql
+
+    date.timezone = Europe/Berlin
+    ```
+- Optional (OPcache):
+    ```
+    opcache.enable=1
+    opcache.enable_cli=1
+    opcache.memory_consumption=192
+    opcache.interned_strings_buffer=16
+    opcache.max_accelerated_files=10000
+    opcache.jit_buffer_size=64M
+    ```
+
+## Apache starten & testen
+  - XAMPP öffnen → Apache starten.
+  - http://localhost/info.php öffnen.
+  - Prüfen:
+    - „PHP Version 8.4.x“
+
+7. Rollback (falls nötig)
+  - Apache stoppen.
+  - Ordner tauschen:
+    - C:\xampp\php → C:\xampp\php-8.4-broken
+    - C:\xampp\php-8.2-backup → C:\xampp\php
+  - Apache starten.
+
 .EXAMPLE
     # Neueste PHP‑Version installieren:
     .\xampp_upgrade_php.ps1
