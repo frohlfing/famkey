@@ -73,6 +73,7 @@ dependencies:
   # FÜr device_service, openAppSettings
   permission_handler: ^12.0.1
   app_settings: ^7.0.0
+  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:
@@ -88,6 +89,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/icons/app_icon.svg
 
 flutter_launcher_icons:
   image_path: "assets/icons/app_icon.png"

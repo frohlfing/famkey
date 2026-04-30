@@ -2,7 +2,7 @@
 
 **Sicherheitskonzept & Architektur-Handbuch für die Entwicklung eines Passwort-Managers.**
 - **Version:** 1.0
-- **Datum:** 21.02.2026
+- **Datum:** 29.04.2026
 - **Autor:** Frank Rohlfing
 
 ## Inhaltsverzeichnis

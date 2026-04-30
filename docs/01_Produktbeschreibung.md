@@ -1,11 +1,6 @@
 # 01 Produktbeschreibung
 
-PriVault ist ein ein selbst-gehosteter **Passwort-Manager** für Desktop, Mobile und Webbrowser.
-
-**Zielgruppe:**
-- Privatanwender und Familien.
-- Kleine bis mittlere Teams, die Zugangsdaten sicher teilen möchten.
-- Nutzer, die eine self-hosted Synchronisations-Infrastruktur bevorzugen.
+PriVault ist ein ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
 
 ---
 

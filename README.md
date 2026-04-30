@@ -1,6 +1,6 @@
 # Privault
 
-Ein selbst-gehosteter **Passwort-Manager** für Desktop, Mobile und Webbrowser.
+Ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
 
 **Key-Features:**
 

@@ -1,48 +1,662 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privault Sync Server</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-            border: 1px solid #333;
-            border-radius: 8px;
-            background-color: #252525;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        h1 { margin-bottom: 0.5rem; letter-spacing: 1px; }
-        p { color: #888; margin-bottom: 2rem; }
-        .status {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            background-color: #1b5e20;
-            color: #a5d6a7;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-        .icon { font-size: 3rem; margin-bottom: 1rem; display: block;}
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PriVault – Selbst-gehosteter Passwort-Manager</title>
+  <meta name="description" content="PriVault ist ein kostenloser, selbst-gehosteter Passwort-Manager für Familien, Teams und Vereine. Zero-Knowledge, Offline-First, BSI-konform.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #607D8B;
+      --primary-dark: #455A64;
+      --primary-light: #90A4AE;
+      --bg: #0d1b2a;
+      --bg-card: #162232;
+      --bg-card2: #1c2d3f;
+      --text: #dce8f0;
+      --text-muted: #90a8b8;
+      --border: #243749;
+      --radius: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 16px;
+    }
+
+    a { color: var(--primary-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 64px;
+      background: linear-gradient(160deg, #0d1b2a 0%, #1a2e42 60%, #0d1b2a 100%);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-icon { display: inline-block; margin-bottom: 20px; }
+    .hero-icon svg {
+      width: 96px; height: 96px;
+      filter: drop-shadow(0 0 24px rgba(96,125,139,0.55));
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #e8f4fb;
+      margin-bottom: 16px;
+    }
+
+    .hero .tagline {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+
+    .hero-badges {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      background: rgba(96,125,139,0.15);
+      border: 1px solid rgba(96,125,139,0.35);
+      color: var(--primary-light);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 28px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: opacity 0.15s, transform 0.1s;
+      border: none;
+    }
+    .btn:hover { opacity: 0.85; text-decoration: none; transform: translateY(-1px); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary-light); }
+
+    /* ── GENERIC SECTIONS ── */
+    .section { padding: 64px 24px; max-width: 1000px; margin: 0 auto; }
+    .section-title { font-size: 1.6rem; font-weight: 700; color: #e8f4fb; margin-bottom: 8px; }
+    .section-sub { color: var(--text-muted); margin-bottom: 40px; max-width: 700px; }
+    .divider { height: 1px; background: var(--border); }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+    }
+    .feature-card .icon { font-size: 1.7rem; margin-bottom: 10px; }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; color: #e8f4fb; margin-bottom: 6px; }
+    .feature-card p { color: var(--text-muted); font-size: 0.88rem; }
+
+    /* ── SCREENSHOTS ── */
+    #screenshots { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .gallery-item {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: #0a141e;
+    }
+
+    .gallery-item img {
+      width: 100%;
+      display: block;
+      aspect-ratio: 9/16;
+      object-fit: cover;
+      object-position: top;
+      transition: transform 0.2s;
+    }
+
+    .gallery-item:hover img { transform: scale(1.04); }
+
+    .gallery-item figcaption {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      color: #dce8f0;
+      font-size: 0.75rem;
+      padding: 20px 10px 8px;
+      text-align: center;
+    }
+
+    /* Lightbox (CSS-only via :target) */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .lightbox:target { display: flex; }
+    .lightbox img {
+      max-height: 90vh;
+      max-width: 90vw;
+      border-radius: 8px;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.7);
+    }
+    .lightbox-close {
+      position: fixed;
+      top: 20px; right: 28px;
+      color: #fff;
+      font-size: 2.2rem;
+      line-height: 1;
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .lightbox-close:hover { opacity: 1; text-decoration: none; }
+    .lightbox-caption {
+      position: fixed;
+      bottom: 24px;
+      left: 0; right: 0;
+      text-align: center;
+      color: rgba(255,255,255,0.75);
+      font-size: 0.9rem;
+    }
+
+    /* ── DOWNLOADS ── */
+    #downloads { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .dl-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .dl-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .dl-card .dl-icon { font-size: 2.4rem; margin-bottom: 12px; }
+    .dl-card h3 { font-size: 1.05rem; font-weight: 700; color: #e8f4fb; margin-bottom: 8px; }
+    .dl-card p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; }
+    .dl-card .btn { display: block; width: 100%; text-align: center; margin-bottom: 10px; }
+    .dl-card .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 9px 20px;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      display: block;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .dl-card .btn-secondary:hover { border-color: var(--primary); color: var(--primary-light); text-decoration: none; }
+    .note { font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── SERVER SETUP ── */
+    .steps { list-style: none; counter-reset: step; }
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 20px 20px 20px 64px;
+      margin-bottom: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 18px; top: 18px;
+      width: 32px; height: 32px;
+      background: var(--primary-dark);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .steps li h4 { font-size: 0.95rem; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
+    .steps li p { font-size: 0.88rem; color: var(--text-muted); }
+    code {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 0.84em;
+      color: #a8d1e8;
+    }
+
+    .setup-script-box {
+      margin-top: 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .setup-script-box .pill {
+      display: inline-block;
+      background: rgba(96,125,139,0.18);
+      border: 1px solid rgba(96,125,139,0.4);
+      color: var(--primary-light);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .setup-script-box h4 { font-size: 1rem; font-weight: 700; color: #e8f4fb; margin-bottom: 8px; }
+    .setup-script-box p { font-size: 0.88rem; color: var(--text-muted); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      padding: 48px 24px 32px;
+    }
+    .footer-inner { max-width: 1000px; margin: 0 auto; }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+    .footer-col h4 { color: var(--text); font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .footer-col p, .footer-col a { display: block; color: var(--text-muted); line-height: 1.85; }
+    .footer-col a:hover { color: var(--primary-light); }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-bottom a { color: var(--text-muted); }
+    .footer-bottom a:hover { color: var(--primary-light); }
+
+    @media (max-width: 600px) {
+      .hero { padding: 56px 16px 48px; }
+      .section { padding: 48px 16px; }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-    <span class="icon">🔒</span>
-    <h1>priVault Sync</h1>
-    <p>Private Zero-Knowledge Cloud Storage</p>
-    <div class="status">● System Operational</div>
+
+<!-- ════════════════════════════════ HERO ════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#607D8B">
+      <g><rect fill="none" height="20" width="20" x="0"/></g>
+      <path d="M5.5,16.5v-8h9v3.07C16.66,12.3,14.83,9.9,15,11.7c0.34,0,0.68,0.04,1,0.1V8.5C16,7.67,15.33,7,14.5,7H14V5 c0-2.21-1.79-4-4-4S6,2.79,6,5v2H5.5C4.67,7,4,7.67,4,8.5v8C4,17.33,4.67,18,5.5,18h4.89c-0.3-0.46-0.53-0.96-0.68-1.5H5.5z M7.5,5c0-1.38,1.12-2.5,2.5-2.5s2.5,1.12,2.5,2.5v2h-5V5z"/>
+      <rect height="0.9" width="3.4" x="6.8" y="9.8"/>
+      <rect height="0.9" width="3.4" x="6.8" y="11.6"/>
+      <rect height="0.9" width="3.4" x="6.8" y="13.4"/>
+      <circle cx="16" cy="14.5" r="1.5"/>
+      <path d="M14.5 19c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5H14.5z"/>
+      <circle cx="12" cy="16" r="1.2"/>
+      <path d="M10.8 20c0-1.1.9-2 2-2s2 .9 2 2h-4z"/>
+    </svg>
+  </div>
+
+  <h1>PriVault</h1>
+  <p class="tagline">Der selbst-gehostete Passwort-Manager für Familien, Teams und Vereine.</p>
+
+  <div class="hero-badges">
+    <span class="badge">Zero-Knowledge</span>
+    <span class="badge">Offline-First</span>
+    <span class="badge">BSI-konform</span>
+    <span class="badge">Open Source (GPL-3.0)</span>
+    <span class="badge">Kostenlos</span>
+  </div>
+
+  <a href="#downloads" class="btn btn-primary">Jetzt herunterladen</a>
+  &nbsp;
+  <a href="https://github.com/frohlfing/privault" class="btn btn-outline" target="_blank" rel="noopener">GitHub</a>
+</section>
+
+
+<!-- ════════════════════════════════ WAS IST PRIVAULT ════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">Was ist PriVault?</h2>
+  <p class="section-sub">
+    PriVault ist ein kostenloser Passwort-Manager, der speziell dafür konzipiert wurde, Passwörter
+    sicher mit Familienmitgliedern, Freunden oder Kollegen zu teilen – ohne dabei die Kontrolle über
+    die eigenen Daten aufzugeben. Statt auf einen Cloud-Dienst zu vertrauen, betreibst du deinen
+    eigenen Sync-Server auf einem einfachen Webspace. Alle Daten verlassen das Gerät nur verschlüsselt;
+    der Server kennt zu keiner Zeit Passwörter oder Schlüssel.
+  </p>
+
+  <div class="features-grid">
+
+    <!-- Zeile 1 -->
+    <div class="feature-card">
+      <div class="icon">⚡</div>
+      <h3>Offline-First</h3>
+      <p>Volle Funktionalität auch ohne Internetverbindung. Der Tresor liegt lokal auf dem Gerät und wird bei Bedarf synchronisiert.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">🤝</div>
+      <h3>Family Sharing</h3>
+      <p>Einzelne Einträge lassen sich gezielt mit Familienmitgliedern, Freunden oder Kollegen teilen – sicher per Hybrid-Verschlüsselung (RSA + AES), ohne dass der Server die Inhalte je im Klartext sieht.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">📱</div>
+      <h3>Multi-Device-Sync</h3>
+      <p>Nahtlose Nutzung auf mehreren Geräten: Smartphone, Windows-PC und Browser greifen stets auf denselben aktuellen Stand zu.</p>
+    </div>
+
+    <!-- Zeile 2 -->
+    <div class="feature-card">
+      <div class="icon">📎</div>
+      <h3>Anhänge</h3>
+      <p>Dateien (Bilder, PDFs, Dokumente) werden verschlüsselt zusammen mit dem Eintrag gespeichert. Ein integrierter Viewer öffnet Anhänge direkt in der App – ohne unsichere Umwege über externe Programme.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">📄</div>
+      <h3>Import / Export &amp; Paper Backup</h3>
+      <p>Leichter Wechsel aus anderen Passwort-Managern über Standardformate. Für den Notfall lässt sich ein <strong style="color: var(--text);">Paper Backup</strong> generieren – ein druckbarer Notfallbogen für den physischen Tresor.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">🖼️</div>
+      <h3>Favicon-Cache</h3>
+      <p>PriVault lädt automatisch die Favicons der gespeicherten Webseiten und speichert sie verschlüsselt im Tresor. So sind Einträge auf einen Blick erkennbar – auch offline.</p>
+    </div>
+
+    <!-- Zeile 3 -->
+    <div class="feature-card">
+      <div class="icon">☁️</div>
+      <h3>Einfaches Self-Hosting</h3>
+      <p>Der Sync-Server ist ein schlankes PHP/MySQL-Backend und läuft auf jedem Standard-Webspace – kein Docker, keine komplexe Infrastruktur. Ein Setup-Script erledigt die Einrichtung in wenigen Minuten.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">🏷️</div>
+      <h3>Zero-Knowledge-Architektur</h3>
+      <p>Master-Passwort und Schlüssel verlassen nie das Endgerät. Der Server speichert ausschließlich verschlüsselte Daten-Blobs und kann den Inhalt des Tresors nicht lesen.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">📚</div>
+      <h3>Multi-Tenant</h3>
+      <p>Ein einziger Server kann mehrere voneinander vollständig getrennte Tresore betreiben – ideal für Familien, WGs oder kleine Teams mit unterschiedlichen Zugriffsrechten.</p>
+    </div>
+
+    <!-- Zeile 4 -->
+    <div class="feature-card">
+      <div class="icon">👆</div>
+      <h3>Biometrie &amp; Auto-Fill</h3>
+      <p>Schneller Login per Fingerabdruck oder Face ID über hardware-gestützte Keystores. Auto-Fill füllt Login-Felder direkt im Browser und in anderen Apps aus.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">🔍</div>
+      <h3>Sicherheitsbericht</h3>
+      <p>Analysiert alle Passwörter auf Schwäche, Alter und Wiederverwendung. Per <strong style="color: var(--text);">Darknet-Check</strong> (Have I Been Pwned) wird geprüft, ob ein Passwort in bekannten Datenlecks auftaucht – ohne das Passwort selbst zu übertragen.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon">🔐</div>
+      <h3>BSI-konforme Kryptografie</h3>
+      <p>AES-256-GCM, RSA-4096 (OAEP) und Argon2id-Hashing nach den Empfehlungen des BSI (TR-02102). TLS 1.3 für alle Serververbindungen.</p>
+    </div>
+
+  </div>
 </div>
+
+
+<!-- ════════════════════════════════ SCREENSHOTS ════════════════════════════════ -->
+<div id="screenshots">
+  <div class="section">
+    <h2 class="section-title">Screenshots</h2>
+    <p class="section-sub">PriVault läuft nativ auf Android, Windows und im Browser.</p>
+
+    <div class="gallery">
+
+      <figure class="gallery-item">
+        <a href="#lb-login"><img src="img/Login.png" alt="Login-Ansicht" loading="lazy"></a>
+        <figcaption>Login</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-main"><img src="img/Hauptseite.png" alt="Hauptansicht" loading="lazy"></a>
+        <figcaption>Hauptansicht</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-detail"><img src="img/Detailansicht.png" alt="Detailansicht" loading="lazy"></a>
+        <figcaption>Detailansicht</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-edit"><img src="img/Bearbeitung.png" alt="Eintrag bearbeiten" loading="lazy"></a>
+        <figcaption>Bearbeitung</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-sync"><img src="img/Synchronisation.png" alt="Synchronisieren" loading="lazy"></a>
+        <figcaption>Synchronisation</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-import"><img src="img/Import.png" alt="Importieren" loading="lazy"></a>
+        <figcaption>Import</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-export"><img src="img/Export.png" alt="Exportieren" loading="lazy"></a>
+        <figcaption>Export</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-report"><img src="img/Sicherheitsbericht.png" alt="Sicherheitsbericht" loading="lazy"></a>
+        <figcaption>Sicherheitsbericht</figcaption>
+      </figure>
+
+      <figure class="gallery-item">
+        <a href="#lb-settings"><img src="img/Einstellungen.png
+" alt="Einstellungen" loading="lazy"></a>
+        <figcaption>Einstellungen</figcaption>
+      </figure>
+
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox-Overlays -->
+<div id="lb-login"    class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Login.png"              alt="Login"><span class="lightbox-caption">Login</span></div>
+<div id="lb-main"     class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Hauptseite.png"         alt="Hauptansicht"><span class="lightbox-caption">Hauptansicht</span></div>
+<div id="lb-detail"   class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Detailansicht.png"      alt="Detailansicht"><span class="lightbox-caption">Detailansicht</span></div>
+<div id="lb-edit"     class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Bearbeitung.png"        alt="Bearbeiten"><span class="lightbox-caption">Eintrag bearbeiten</span></div>
+<div id="lb-sync"     class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Synchronisation.png"    alt="Synchronisation"><span class="lightbox-caption">Synchronisation</span></div>
+<div id="lb-import"   class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Import.png"             alt="Import"><span class="lightbox-caption">Import</span></div>
+<div id="lb-export"   class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Export.png"             alt="Export"><span class="lightbox-caption">Export</span></div>
+<div id="lb-report"   class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Sicherheitsbericht.png" alt="Sicherheitsbericht"><span class="lightbox-caption">Sicherheitsbericht</span></div>
+<div id="lb-settings" class="lightbox"><a href="#screenshots" class="lightbox-close">&times;</a><img src="img/Einstellungen.png"      alt="Einstellungen"><span class="lightbox-caption">Einstellungen</span></div>
+
+
+<!-- ════════════════════════════════ DOWNLOADS ════════════════════════════════ -->
+<div class="divider"></div>
+<div id="downloads">
+  <div class="section">
+    <h2 class="section-title">Download</h2>
+    <p class="section-sub">PriVault ist für Windows, Android und den Browser verfügbar. Alle Plattformen teilen sich denselben Sync-Server.</p>
+
+    <div class="dl-grid">
+
+      <div class="dl-card">
+        <div class="dl-icon">🖥️</div>
+        <h3>Windows</h3>
+        <p>Läuft nativ unter Windows 10 und Windows 11 (64-Bit). Keine Installation erforderlich.</p>
+        <a href="https://github.com/frohlfing/privault/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
+          Download (.exe)
+        </a>
+        <span class="note">Über GitHub Releases</span>
+      </div>
+
+      <div class="dl-card">
+        <div class="dl-icon">📱</div>
+        <h3>Android</h3>
+        <p>Unterstützt Android 8.0 (API 26) und neuer. Mit Biometrie-Login und Auto-Fill.</p>
+        <a href="https://github.com/frohlfing/privault/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
+          Download (.apk)
+        </a>
+        <a href="#" class="btn-secondary" title="Demnächst im Play Store verfügbar">
+          ▶&nbsp; Google Play (demnächst)
+        </a>
+        <span class="note">APK manuell installieren: Einstellungen → Unbekannte Quellen erlauben</span>
+      </div>
+
+      <div class="dl-card">
+        <div class="dl-icon">🌐</div>
+        <h3>Web-App</h3>
+        <p>Läuft direkt im Browser ohne Installation – als WebAssembly-App auf deinem eigenen Server.</p>
+        <a href="../" class="btn btn-primary">
+          Web-App starten
+        </a>
+        <a href="https://github.com/frohlfing/privault/releases/latest" class="btn-secondary" target="_blank" rel="noopener">
+          Web-Appliance herunterladen
+        </a>
+        <span class="note">Hoste die Web-App selbst auf deinem Server</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════ SERVER SETUP ════════════════════════════════ -->
+<div class="divider"></div>
+<div class="section">
+  <h2 class="section-title">Sync-Server einrichten</h2>
+  <p class="section-sub">
+    Der PriVault-Sync-Server ist ein schlankes PHP/MySQL-Backend. Er läuft auf jedem Standard-Webspace –
+    kein Docker, keine Root-Rechte. Das mitgelieferte Setup-Script erledigt Konfiguration und
+    Datenbankeinrichtung in wenigen Klicks, ähnlich wie bei WordPress oder Nextcloud.
+  </p>
+
+  <p style="margin-bottom: 28px; font-size: 0.88rem; color: var(--text-muted);">
+    <strong style="color: var(--text);">Voraussetzungen:</strong>
+    PHP 8.4 oder neuer &nbsp;·&nbsp; MySQL 8.x oder MariaDB &nbsp;·&nbsp; HTTPS (z.&nbsp;B. Let's Encrypt)
+  </p>
+
+  <ol class="steps">
+    <li>
+      <h4>Dateien hochladen</h4>
+      <p>Lade das <a href="https://github.com/frohlfing/privault/releases/latest" target="_blank" rel="noopener">aktuelle Release</a> herunter. Entpacke das Archiv und lade den Inhalt des Ordners <code>server/</code> per FTP/SFTP in das Web-Root deines Servers (z.&nbsp;B. <code>httpdocs/</code> oder <code>public_html/</code>).</p>
+    </li>
+    <li>
+      <h4>MySQL-Datenbank anlegen</h4>
+      <p>Lege über das Verwaltungs-Panel deines Hosters eine neue Datenbank an. Zeichensatz: <code>utf8mb4</code>, Kollation: <code>utf8mb4_unicode_ci</code>. Notiere Datenbankname, Benutzername und Passwort.</p>
+    </li>
+    <li>
+      <h4>Setup-Script starten</h4>
+      <p>Rufe im Browser <code>https://deine-domain.de/setup</code> auf. Das Script prüft die Systemanforderungen, fragt Datenbankverbindung und Server-Einstellungen ab, legt <code>config.php</code> automatisch an und richtet das Datenbankschema ein. Danach löscht es sich selbst.</p>
+    </li>
+    <li>
+      <h4>HTTPS sicherstellen</h4>
+      <p>PriVault erzwingt TLS für alle API-Verbindungen. Bei den meisten Hostern ist Let's Encrypt mit einem Klick aktivierbar. Nach dem Setup ist HTTP automatisch auf HTTPS umgeleitet.</p>
+    </li>
+    <li>
+      <h4>Server-URL in der App eintragen</h4>
+      <p>Öffne PriVault → Einstellungen → Sync-Server. Trage die URL deines Servers ein (z.&nbsp;B. <code>https://vault.deine-domain.de</code>). Registriere einen neuen Benutzer – fertig.</p>
+    </li>
+  </ol>
+
+  <div class="setup-script-box">
+    <span class="pill">In Entwicklung</span>
+    <h4>Setup-Script</h4>
+    <p>Das webbasierte Setup-Script ist in Entwicklung und wird mit dem nächsten Release veröffentlicht.
+    Bis dahin findest du im GitHub-Repository eine
+    <a href="https://github.com/frohlfing/privault" target="_blank" rel="noopener">manuelle Installationsanleitung</a>.</p>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════ FOOTER ════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+
+      <div class="footer-col">
+        <h4>PriVault</h4>
+        <p>Selbst-gehosteter Passwort-Manager für Familien, Teams und Vereine.</p>
+        <br>
+        <a href="https://github.com/frohlfing/privault" target="_blank" rel="noopener">GitHub-Repository</a>
+        <a href="https://github.com/frohlfing/privault/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/frohlfing/privault/issues" target="_blank" rel="noopener">Fehler melden</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Impressum</h4>
+        <p>Frank Rohlfing<br>
+           An der Engelsfuhr 24<br>
+           51467 Bergisch Gladbach</p>
+        <br>
+        <a href="mailto:mail@frank-rohlfing.de">mail@frank-rohlfing.de</a>
+        <p style="margin-top: 6px;">Privatperson · kein Gewerbe</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>Haftungsausschluss</h4>
+        <p>PriVault ist ein privates Hobby-Projekt und wird ohne jegliche Gewährleistung bereitgestellt.
+           Die Nutzung erfolgt auf eigene Gefahr. Der Autor übernimmt keine Haftung für Datenverlust,
+           Schäden oder Sicherheitsvorfälle, die durch die Nutzung dieser Software entstehen.</p>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2025 Frank Rohlfing &nbsp;&mdash;&nbsp; Lizenz: <a href="https://github.com/frohlfing/privault/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0</a></span>
+      <span>Quellcode auf <a href="https://github.com/frohlfing/privault" target="_blank" rel="noopener">GitHub</a></span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>

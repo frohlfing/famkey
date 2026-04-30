@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:privault/core/service_locator.dart';
 import 'package:privault/features/login/login_notifier.dart';
 import 'package:privault/features/login/login_state.dart';
@@ -180,7 +181,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
 
                     // --- Logo ---
-                    const Icon(Icons.lock_person_outlined, size: 80, color: Colors.blueGrey),
+                    SvgPicture.asset('assets/icons/app_icon.svg', height: 88, width: 88, colorFilter: const ColorFilter.mode(Colors.blueGrey, BlendMode.srcIn)),
+                    // const Icon(Icons.lock_person_outlined, size: 80, color: Colors.blueGrey),
                     const SizedBox(height: 16),
 
                     // --- Überschrift ---

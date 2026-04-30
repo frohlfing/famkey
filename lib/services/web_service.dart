@@ -7,7 +7,7 @@ import 'package:privault/models/dtos/user_response.dart';
 import 'package:privault/models/dtos/version_response.dart';
 import 'package:privault/services/crypto_service.dart';
 
-/// Dienst für die Kommunikation mit der priVault-API (Backend).
+/// Dienst für die Kommunikation mit der PriVault-API (Backend).
 /// Kümmert sich um Authentifizierung (API-Token) und Autorisierung (RSA-Signatur der Requests).
 class WebService {
 
