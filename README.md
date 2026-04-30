@@ -14,7 +14,7 @@ Ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
 
 ## Projektdokumentation
 
-Eine detailliertere technische Dokumentation befindet sich in [Projektdokumentation.md](Docs/Projektdokumentation.md).
+Eine detailliertere technische Dokumentation befindet sich in [Projektdokumentation.md](docs/Projektdokumentation.md).
 
 ## Lizenz
 
