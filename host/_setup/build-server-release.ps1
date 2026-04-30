@@ -94,7 +94,7 @@ foreach ($entry in $entries) {
     $destPath = Join-Path $tmpDir  $entry.Dest
 
     if (-not (Test-Path $srcPath)) {
-        Write-Warning "  ! NICHT GEFUNDEN: $($entry.Src)  →  übersprungen"
+        Write-Warning "  ! NICHT GEFUNDEN: $($entry.Src)  →  übersprungen"^^
         continue
     }
 

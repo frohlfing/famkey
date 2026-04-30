@@ -21,6 +21,6 @@ web-root/api                     | public/api
 web-root/.htaccess               | public/.htaccess
 web-root/favicons.php            | public/favicons.php
 web-root/setup/index.php         | setup/index.php
-web-root/index.html              | setup/index.html
+web-root/index.html              | index.html
 
 README.txt                       | setup/README.txt

@@ -549,18 +549,18 @@ Für die Entwicklung unter Windows dient **Laragon** als Server.
    (Menü ist über rechte Maustaste erreichbar)
     * Menü -> Tools -> Quick add -> PHP 8.4
     * Menü -> PHP -> PHP 8.4.12
-    * Menü -> Tools -> Quick add -> myPHPAdmin-6.0.snapshot
+    * Menü -> Tools -> Quick add -> myPHPAdmin-6.0.snapshot (Login: root, kein Passwort)
     * Dienste starten.
     * Schloss neben Apache anklicken, um SSL zu aktivieren.
 
 ### 5.2 VirtualHost hinzufügen
 
-1. Neue Webseite erstellen -> Blank (Name: FamKey)
-2. Apache -> sites-enabeled -> auto.FamKey.test.conf
-   `define ROOT "C:/Users/frank/Source/Rider/FamKey/Host/public"`
+1. Neue Webseite erstellen -> Blank (Name: famkey)
+2. Apache -> sites-enabeled -> auto.famkey.test.conf
+   `define ROOT "C:/Users/frank/Source/AndroidStudio/famkey/host/public"`
 3. Apache neu starten
 
-Webseite ist jetzt erreichbar unter: https://FamKey.test/
+Webseite ist jetzt erreichbar unter: https://famkey.test/
 
 ### 5.3 Datenbank anlegen
 
@@ -658,6 +658,8 @@ FamKey/                                        # Projekt-Root
  │    │    │    ├── .htaccess                  # Apache Zugriffsschutz
  │    │    │    ├── .htpasswd                  # Apache Passwortdatei
  │    │    │    └── index.php                  # Adminseite
+ │    │    ├── setup/                          # Setup-Skript zur Installation des Sync-Servers beim Hoster (der Ordner wird nach der Installation automatisch gelöscht)
+ │    │    ├── www/                            # Homepage (https//famkey.de)
  │    │    ├── .htaccess                       # Apache Sicherheitsregeln
  │    │    └── index.html                      # Startseite
  │    ├── src/                                 # PHP-Quellcode (PSR-4-ähnlich)
