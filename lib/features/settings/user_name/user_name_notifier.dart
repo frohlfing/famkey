@@ -1,11 +1,11 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/user_name/user_name_state.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/settings/user_name/user_name_state.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 final userNameProvider = NotifierProvider<UserNameNotifier, UserNameState>(() {
   return UserNameNotifier();

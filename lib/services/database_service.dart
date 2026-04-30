@@ -1,8 +1,8 @@
-import 'package:drift/drift.dart';
+﻿import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/database/database.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/database/database.dart';
 import '../core/env.dart';
 
 /// Daten für einen Freund-Permission-Eintrag innerhalb einer `import()`-Batch.

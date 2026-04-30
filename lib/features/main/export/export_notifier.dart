@@ -1,21 +1,21 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/helper.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/renderers/markdown_renderer.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/features/main/export/export_state.dart';
-import 'package:privault/models/payloads/attachment_meta_payload.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/helper.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/renderers/markdown_renderer.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/features/main/export/export_state.dart';
+import 'package:famkey/models/payloads/attachment_meta_payload.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 final exportProvider = NotifierProvider<ExportNotifier, ExportState>(() {
   return ExportNotifier();
@@ -112,7 +112,7 @@ class ExportNotifier extends Notifier<ExportState> {
 
     // Zeilen für die CSV-Datei
     //
-    // Spaltenreihenfolge (fest, wird vom PrivaultZipParser vorausgesetzt):
+    // Spaltenreihenfolge (fest, wird vom FamKeyZipParser vorausgesetzt):
     //   0  uuid
     //   1  category
     //   2  title

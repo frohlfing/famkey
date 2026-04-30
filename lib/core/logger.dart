@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/core/env.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/core/env.dart';
 
 /// Globale Zugriffsvariable (Kurzform für Logger())
 final log = Logger(); // todo Logger() überall ersetzen
@@ -71,7 +71,7 @@ class Logger {
     if (_initialized) return;
     _initialized = true;
     configure(level: level, days: days, size: size);
-    final path = p.join(env.storagePath, 'privault.log');
+    final path = p.join(env.storagePath, 'FamKey.log');
     _logFile = createAppFile(path);
     await _cleanupOldEntries();
   }

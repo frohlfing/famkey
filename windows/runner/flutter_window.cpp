@@ -1,4 +1,4 @@
-#include "flutter_window.h"
+﻿#include "flutter_window.h"
 
 #include <optional>
 
@@ -74,14 +74,14 @@ bool FlutterWindow::OnCreate() {
   /// WinEventProc aufgerufen, der das neue Fenster-HWND in g_previousHwnd speichert.
   AutoType::Instance().Initialize();
 
-  /// MethodChannel "de.frohlfing.privault/autotype" einrichten.
+  /// MethodChannel "de.frohlfing.famkey/autotype" einrichten.
   /// Ein MethodChannel ist ein benannter Kommunikationskanal zwischen Dart und C++.
   /// StandardMethodCodec serialisiert Argumente als JSON-ähnliche Binärstruktur.
   /// messenger() ist der Plugin-Registrar des Flutter-Engines — er leitet Nachrichten
   /// an den richtigen Handler weiter.
   autotype_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       flutter_controller_->engine()->messenger(),
-      "de.frohlfing.privault/autotype",
+      "de.frohlfing.famkey/autotype",
       &flutter::StandardMethodCodec::GetInstance());
 
   /// Handler für eingehende Dart→C++ Methodenaufrufe registrieren.
@@ -298,23 +298,23 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     /// Ablauf:
     ///   1. Titel des letzten Fremd-Fensters lesen (g_previousHwnd).
     ///   2. UTF-16→UTF-8 konvertieren für den MethodChannel.
-    ///   3. PriVault in den Vordergrund bringen (SW_RESTORE: aus Taskleiste wiederherstellen).
+    ///   3. FamKey in den Vordergrund bringen (SW_RESTORE: aus Taskleiste wiederherstellen).
     ///   4. InvokeMethod("onHotkey"): Dart über den Hotkey informieren.
     ///      Dart navigiert dann zu /autotype-picker und übergibt den Fenstertitel.
     case WM_HOTKEY:
       if (wparam == kAutoTypeHotkeyId && autotype_channel_) {
-        /// Guard: Hotkey ignorieren, wenn PriVault bereits Vordergrundfenster ist.
+        /// Guard: Hotkey ignorieren, wenn FamKey bereits Vordergrundfenster ist.
         /// Tritt auf, wenn der Nutzer den Hotkey innerhalb der App drückt.
-        /// `GetForegroundWindow() == hwnd` bedeutet: PriVault hat bereits den Fokus — der Hotkey
+        /// `GetForegroundWindow() == hwnd` bedeutet: FamKey hat bereits den Fokus — der Hotkey
         /// war kein Aufruf aus einer Fremd-App.
         if (GetForegroundWindow() == hwnd) break;
 
-        /// AutoType::GetLastWindowTitle() liest g_previousHwnd (das Fremd-Fenster vor PriVault).
+        /// AutoType::GetLastWindowTitle() liest g_previousHwnd (das Fremd-Fenster vor FamKey).
         std::wstring title = AutoType::Instance().GetLastWindowTitle();
         /// Utf8FromUtf16: Konvertiert Windows-UTF-16 in UTF-8, das der MethodChannel überträgt.
         std::string utf8Title = Utf8FromUtf16(title.c_str());
 
-        /// PriVault in den Vordergrund bringen: SW_RESTORE stellt das Fenster aus dem
+        /// FamKey in den Vordergrund bringen: SW_RESTORE stellt das Fenster aus dem
         /// minimierten Zustand wieder her. SetForegroundWindow übergibt den Eingabefokus.
         ShowWindow(hwnd, SW_RESTORE);
         SetForegroundWindow(hwnd);

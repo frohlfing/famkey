@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:privault/features/report/report_notifier.dart';
-import 'package:privault/features/report/report_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/features/report/report_notifier.dart';
+import 'package:famkey/features/report/report_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Die [ReportPage] zeigt eine Sicherheitsanalyse des Tresors.

@@ -1,15 +1,15 @@
-import 'package:get_it/get_it.dart';
-import 'package:privault/services/auto_lock_service.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/clipboard_service.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/system_settings_service.dart';
-import 'package:privault/services/password_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
+﻿import 'package:get_it/get_it.dart';
+import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/system_settings_service.dart';
+import 'package:famkey/services/password_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final getIt = GetIt.instance;

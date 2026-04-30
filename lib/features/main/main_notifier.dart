@@ -1,17 +1,17 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/main/main_state.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/auto_lock_service.dart';
-import 'package:privault/services/clipboard_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/main/main_state.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 /// Kombiniert einen Datenbank-Eintrag mit seinen entschlüsselten Anzeigedaten.
 typedef EntryWithIndex = ({EntryEntity entry, IndexPayload index});

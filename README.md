@@ -1,4 +1,4 @@
-# Privault
+﻿# FamKey
 
 Ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
 

@@ -1,4 +1,4 @@
-/// Zentrale Liste aller fachlichen Fehlercodes der App.
+﻿/// Zentrale Liste aller fachlichen Fehlercodes der App.
 enum ErrorCode {
   // --- Allgemeines ---
 
@@ -130,7 +130,7 @@ extension ErrorCodeExtension on ErrorCode {
       case ErrorCode.wrongBiometric: return 'Die biometrische Authentifizierung ist veraltet. Die Eingabe des Passworts ist erforderlich.';
 
       // --- Synchronisation ---
-      case ErrorCode.noSyncService: return 'Auf dem Server läuft kein PriVault Sync-Service.';
+      case ErrorCode.noSyncService: return 'Auf dem Server läuft kein FamKey Sync-Service.';
       case ErrorCode.appIsOutdated: return 'Die App muss für diesen Server aktualisiert werden.';
       case ErrorCode.serverIsOutdated: return 'Der Server ist zu alt für diese App-Version.';
       case ErrorCode.syncSaltMismatch: return 'Die Identität des Benutzers stimmt nicht überein.';

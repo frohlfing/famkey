@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/edit/edit_notifier.dart';
-import 'package:privault/features/edit/edit_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/password_field.dart';
-import 'package:privault/widgets/password_strength_bar.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/features/edit/edit_notifier.dart';
+import 'package:famkey/features/edit/edit_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/password_field.dart';
+import 'package:famkey/widgets/password_strength_bar.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Der [EditPage] stellt das Formular zum Erstellen oder Bearbeiten eines Tresor-Eintrags bereit.
 ///

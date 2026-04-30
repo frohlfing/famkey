@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/new_friend/new_friend_notifier.dart';
-import 'package:privault/features/settings/new_friend/new_friend_state.dart';
+import 'package:famkey/features/settings/new_friend/new_friend_notifier.dart';
+import 'package:famkey/features/settings/new_friend/new_friend_state.dart';
 
 /// Ein modaler Dialog zur Personensuche.
 class NewFriendDialog extends ConsumerStatefulWidget {

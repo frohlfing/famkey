@@ -1,8 +1,8 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:privault/core/renderer.dart';
+import 'package:famkey/core/renderer.dart';
 
 
 /// Sicherer Renderer für HTML-Inhalte.

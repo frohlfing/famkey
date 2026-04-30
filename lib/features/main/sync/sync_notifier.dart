@@ -1,24 +1,24 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_version.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/main/sync/adopt_identity/user_identity.dart';
-import 'package:privault/features/main/sync/sync_state.dart';
-import 'package:privault/features/main/sync/sync_statistics.dart';
-import 'package:privault/models/dtos/sync_dtos.dart';
-import 'package:privault/models/dtos/user_response.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/models/payloads/friend_payload.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_version.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/main/sync/adopt_identity/user_identity.dart';
+import 'package:famkey/features/main/sync/sync_state.dart';
+import 'package:famkey/features/main/sync/sync_statistics.dart';
+import 'package:famkey/models/dtos/sync_dtos.dart';
+import 'package:famkey/models/dtos/user_response.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/models/payloads/friend_payload.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 
 final syncProvider = NotifierProvider<SyncNotifier, SyncState>(() {
   return SyncNotifier();
@@ -87,7 +87,7 @@ class SyncNotifier extends Notifier<SyncState> {
 
       // 1. Server-Version prüfen
       final serverVersion = await _webService.getServerVersion();
-      if (!serverVersion.service.contains("PriVault")) {
+      if (!serverVersion.service.contains("FamKey")) {
         state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.noSyncService));
         return;
       }

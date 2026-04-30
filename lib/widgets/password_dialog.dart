@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:privault/widgets/password_field.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:famkey/widgets/password_field.dart';
 
 /// Ein modaler Dialog zur Passwortabfrage.
 class PasswordDialog {

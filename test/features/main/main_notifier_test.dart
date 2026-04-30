@@ -1,16 +1,16 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/main/main_notifier.dart';
-import 'package:privault/features/main/main_state.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/main/main_notifier.dart';
+import 'package:famkey/features/main/main_state.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 import 'main_notifier_test.mocks.dart';
 
 Uint8List indexBytes(String category, String title, String url, String notes) {

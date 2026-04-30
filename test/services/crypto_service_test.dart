@@ -1,7 +1,7 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privault/services/crypto_service.dart';
+import 'package:famkey/services/crypto_service.dart';
 
 void main() {
   group('CryptoService Tests', () {
@@ -92,7 +92,7 @@ void main() {
     // --- 3. Sonstiges ---
 
     test('3.1.1 ComputeHash: SHA-256 Hash ist deterministisch.', () {
-      const input = "HelloPrivault";
+      const input = "HelloFamKey";
       final hash1 = sut.computeHash(input);
       final hash2 = sut.computeHash(input);
       

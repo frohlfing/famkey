@@ -1,7 +1,7 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
-import 'package:privault/core/renderer.dart';
+import 'package:famkey/core/renderer.dart';
 
 /// Renderer für PDF-Dokumente.
 class PdfRenderer implements Renderer {

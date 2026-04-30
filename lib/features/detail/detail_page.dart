@@ -1,19 +1,19 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/helper.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/detail/detail_notifier.dart';
-import 'package:privault/features/detail/detail_state.dart';
-import 'package:privault/features/detail/preview/preview_dialog.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/features/detail/friend_dialog.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/widgets/password_strength_bar.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/helper.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/detail/detail_notifier.dart';
+import 'package:famkey/features/detail/detail_state.dart';
+import 'package:famkey/features/detail/preview/preview_dialog.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/features/detail/friend_dialog.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/widgets/password_strength_bar.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Der [DetailPage] ist dafür zuständig, dir die vollständigen Details eines bestimmten
 /// Tresor-Eintrags anzuzeigen.

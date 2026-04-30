@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/features/settings/autofill_hotkey/autofill_hotkey_notifier.dart';
-import 'package:privault/features/settings/autofill_hotkey/autofill_hotkey_state.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_notifier.dart';
+import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_state.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Ändern Auto-Type-Tastenkürzels.
 class AutofillHotkeyDialog extends ConsumerStatefulWidget {

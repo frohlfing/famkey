@@ -1,10 +1,10 @@
-import 'package:flutter/services.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/navigator_key.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/session_service.dart';
+﻿import 'package:flutter/services.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/navigator_key.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 // todo umbenennen in AutotypeService
 
@@ -16,7 +16,7 @@ import 'package:privault/services/session_service.dart';
 ///
 /// Android hat ein eingebautes Autofill-Framework, das Apps erlaubt, sich als
 /// Passwort-Manager zu registrieren. Windows hat das nicht. Auf Windows bleibt
-/// als Alternative die Simulation von Tastatureingaben: PriVault "tippt" den
+/// als Alternative die Simulation von Tastatureingaben: FamKey "tippt" den
 /// Benutzernamen und das Passwort in das aktive Fenster, genau so wie es ein
 /// Mensch tun würde – nur viel schneller.
 ///
@@ -51,12 +51,12 @@ import 'package:privault/services/session_service.dart';
 ///
 /// Win32 ist die C-basierte Programmierschnittstelle von Windows. Über sie kann
 /// man direkt mit dem Betriebssystem kommunizieren: Fenster öffnen, Tastatureingaben
-/// senden, Fensterpositionierungen abfragen usw. In PriVault kümmert sich der
+/// senden, Fensterpositionierungen abfragen usw. In FamKey kümmert sich der
 /// C++-Code in `windows/runner/auto_type.cpp` um diese Aufrufe.
 ///
 /// Flutter selbst kann Win32 nicht direkt aufrufen, weil Flutter in Dart läuft
 /// und Dart keinen nativen Zugriff auf Windows-APIs hat. Genau für diese Brücke
-/// ist der MethodChannel (aus `de.frohlfing.privault/autotype`) zuständig –
+/// ist der MethodChannel (aus `de.frohlfing.famkey/autotype`) zuständig –
 /// vergleichbar mit dem Android MethodChannel (siehe `autofill_service_android.dart`).
 ///
 /// # Was ist ein HWND?
@@ -65,15 +65,15 @@ import 'package:privault/services/session_service.dart';
 /// (`HWND` = Handle to a WiNDow). Mit dieser Nummer kann man das Fenster
 /// wiederfinden, in den Vordergrund bringen oder ihm Tastaturereignisse schicken.
 ///
-/// PriVault speichert das HWND des zuletzt aktiven Nicht-PriVault-Fensters
+/// FamKey speichert das HWND des zuletzt aktiven Nicht-FamKey-Fensters
 /// in der C++-Variable `g_previousHwnd`. Das ist das Ziel des Auto-Type.
 ///
-/// # Wie verfolgt PriVault das aktive Fenster?
+/// # Wie verfolgt FamKey das aktive Fenster?
 ///
 /// Ein **WinEventHook** (`EVENT_SYSTEM_FOREGROUND`) läuft permanent im Hintergrund.
 /// Windows benachrichtigt diesen Hook immer dann, wenn der Nutzer das Fenster wechselt.
-/// Der Hook prüft: "Ist das neue Fenster PriVault selbst?" → Wenn nein: HWND speichern.
-/// So weiß PriVault immer, wohin es tippen soll.
+/// Der Hook prüft: "Ist das neue Fenster FamKey selbst?" → Wenn nein: HWND speichern.
+/// So weiß FamKey immer, wohin es tippen soll.
 ///
 /// ═══════════════════════════════════════════════════════════════════════════
 /// DIE ZWEI SZENARIEN
@@ -82,7 +82,7 @@ import 'package:privault/services/session_service.dart';
 /// **Szenario A — Button in der Detailansicht:**
 ///
 /// ```
-///   PriVault (Detailansicht)              C++ (Auto-Type)
+///   FamKey (Detailansicht)              C++ (Auto-Type)
 ///   ────────────────────────              ───────────────
 ///
 ///   Nutzer klickt Tastatur-Icon
@@ -113,7 +113,7 @@ import 'package:privault/services/session_service.dart';
 ///         ▼
 ///                                        WM_HOTKEY in C++ MessageHandler
 ///                                        • Fenstertitel aus g_previousHwnd lesen
-///                                        • PriVault in Vordergrund bringen
+///                                        • FamKey in Vordergrund bringen
 ///                                        • "onHotkey" an Flutter schicken
 ///         │
 ///         ▼ (Flutter, diese Datei)
@@ -154,7 +154,7 @@ class AutofillServiceWindows implements AutofillService {
   /// Dart → C++: `getLastWindowTitle`, `typeCredentials`, `registerHotkey`,
   ///             `unregisterHotkey`.
   /// C++ → Dart: `onHotkey` (wenn der globale Hotkey gedrückt wurde).
-  static const _autoTypeChannel = MethodChannel('de.frohlfing.privault/autotype');
+  static const _autoTypeChannel = MethodChannel('de.frohlfing.famkey/autotype');
 
   /// Richtet den MethodChannel-Handler ein und registriert den Hotkey bei C++.
   ///
@@ -171,7 +171,7 @@ class AutofillServiceWindows implements AutofillService {
   /// Der in den Einstellungen konfigurierte Hotkey-String (z.B. "Strg+Shift+A")
   /// wird geparst und als Win32-Modifier-Flags + Virtual-Key-Code an C++ übergeben.
   /// C++ ruft `RegisterHotKey()` auf – ab jetzt reagiert Windows auf diesen Hotkey,
-  /// auch wenn PriVault im Hintergrund ist.
+  /// auch wenn FamKey im Hintergrund ist.
   @override
   Future<void> init() async {
     _autoTypeChannel.setMethodCallHandler((call) async {
@@ -181,7 +181,7 @@ class AutofillServiceWindows implements AutofillService {
         log.debug('Auto-Type Hotkey empfangen');
 
         // Nur navigieren wenn eingeloggt – indexKey ist nur gesetzt wenn eine Session aktiv ist.
-        // Ist der Nutzer nicht eingeloggt, ist PriVault durch den Hotkey schon im Vordergrund
+        // Ist der Nutzer nicht eingeloggt, ist FamKey durch den Hotkey schon im Vordergrund
         // und der Nutzer sieht den Login-Screen.
         final sessionService = getIt<SessionService>();
         if (sessionService.indexKey != null) {
@@ -303,7 +303,7 @@ class AutofillServiceWindows implements AutofillService {
     return (modifiers: modifiers, vk: vk);
   }
 
-  /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
+  /// Gibt den Titel des zuletzt aktiven Nicht-FamKey-Fensters zurück.
   ///
   /// C++ liest den Titel aus `g_previousHwnd` mit `GetWindowTextW()`.
   /// Falls `g_previousHwnd` nicht mehr gültig ist (z.B. weil das Fenster

@@ -1,4 +1,4 @@
-# 06 Setup
+﻿# 06 Setup
 
 Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 
@@ -73,9 +73,9 @@ schalten.
 
 - New Flutter Project auswählen
     - Flutter-Pojekt
-    - Projektname: `privault` (muss snake_case sein!)
-    - Ordner: `C:\Users\frank\Source\AndroidStudio\privault`
-    - Organization: `de.frohlfing.privault` (Umgekehrte Domain!)
+    - Projektname: `FamKey` (muss snake_case sein!)
+    - Ordner: `C:\Users\frank\Source\AndroidStudio\FamKey`
+    - Organization: `de.frohlfing.famkey` (Umgekehrte Domain!)
       Wichtig! Dies wird zum eindeutigen Package-Namen für Android und zur Bundle-ID für iOS.
       Der Standardwert `com.example` darf nicht für die Veröffentlichung verwendet werden.
     - Android language: `Kotlin`
@@ -110,8 +110,8 @@ dart run webcrypto:setup
 
 ```
 Code wird generiert:
-- Bibliothek "C:/Users/frank/Source/AndroidStudio/privault/.dart_tool/webcrypto/Debug/webcrypto.lib" 
-- und Objekt "C:/Users/frank/Source/AndroidStudio/privault/.dart_tool/webcrypto/Debug/webcrypto.exp"
+- Bibliothek "C:/Users/frank/Source/AndroidStudio/FamKey/.dart_tool/webcrypto/Debug/webcrypto.lib" 
+- und Objekt "C:/Users/frank/Source/AndroidStudio/FamKey/.dart_tool/webcrypto/Debug/webcrypto.exp"
   
 Package webcrypto now configured for use in your project.
 This is only necessary for using package:webcrypto in unit tests and scripts, not for usage in applications.
@@ -132,7 +132,7 @@ Troubleshooting:
 SQLCipher (basiert auf SQLite 3.51.2) wird benötigt, um unter Windows die SQLite-DB verschlüsseln zu können.
 
 - Download: https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.2.7 (`sqlite3mc-2.2.7-sqlite-3.51.2-win64.zip`)
-- `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\privault\` kopieren
+- `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\FamKey\` kopieren
 
 ### 2.6 Datenbank-Tool für Android Studio
 
@@ -141,10 +141,10 @@ https://docs.oracle.com/en/database/oracle/database-navigator/3.7/dbnug/introduc
 
 Ein SQLCipher‑fähiger JDBC‑Treiber kann hier heruntergeladen werden:
 https://github.com/Willena/sqlite-jdbc-crypt/releases/download/3.51.2.0/sqlite-jdbc-3.51.2.0.jar
-Speicherort: C:\Users\frank\Source\AndroidStudio\privault\drivers\sqlite-jdbc-3.51.2.0.jar 
+Speicherort: C:\Users\frank\Source\AndroidStudio\FamKey\drivers\sqlite-jdbc-3.51.2.0.jar 
 
 Als Client-DB wird diese SQLite-Datei verwendet:
-`jdbc:sqlite:/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test1.db3`  
+`jdbc:sqlite:/Users/frank/AppData/Roaming/de.frohlfing.famkey/FamKey/vaults/test1.db3`  
 - Master-Passwort: 4711
 - Parameter für Database Navigator:
   ```ini
@@ -153,7 +153,7 @@ Als Client-DB wird diese SQLite-Datei verwendet:
   key=65e4917e2035121562eba4b67827e3b5e21a6d10c01000d8354ae3c64f447f22
   ```
 - oder per JDBC-URL mit Query-Parametern
-  `/Users/frank/AppData/Roaming/de.frohlfing.privault/privault/vaults/test1.db3?cipher=sqlcipher&hexkey_mode=SSE&key=65e4917e2035121562eba4b67827e3b5e21a6d10c01000d8354ae3c64f447f22`
+  `/Users/frank/AppData/Roaming/de.frohlfing.famkey/FamKey/vaults/test1.db3?cipher=sqlcipher&hexkey_mode=SSE&key=65e4917e2035121562eba4b67827e3b5e21a6d10c01000d8354ae3c64f447f22`
   
 Die Eigenschaft `hexkey_mode` kann folgende Werte haben:
 - `NONE`: Text-basiertes Passwort (Standard)
@@ -179,7 +179,7 @@ Für die Verbindung per JDBC wird der Hex-Code des Master-Keys benötigt. So kan
    flutter_inappwebview: ^6.1.5
    ```
 - Android: Netzwerk-Ausnahme verbieten
-   In `apps/privault/android/app/src/main/AndroidManifest.xml` darf **kein** `android:usesCleartextTraffic="true"` gesetzt sein. Standardmäßig ist es false — gut so.
+   In `apps/FamKey/android/app/src/main/AndroidManifest.xml` darf **kein** `android:usesCleartextTraffic="true"` gesetzt sein. Standardmäßig ist es false — gut so.
 - iOS:  App Transport Security aktiv lassen
    In `Info.plist` darf **kein** `NSAllowsArbitraryLoads = true` gesetzt sein.
 
@@ -281,10 +281,10 @@ Das CLI-Tool kann dies:
         emulator-5554   device
       ```
 
-- APK auf Emulator deployen (siehe `/Privault/bin/deploy-privault.ps1`):
+- APK auf Emulator deployen (siehe `/FamKey/bin/deploy-FamKey.ps1`):
   ```shell
-  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe uninstall com.companyname.privault | Out-Null
-  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r C:\Users\frank\Source\Rider\Privault\Privault\bin\Debug\net8.0-android\android-x64\com.companyname.privault-Signed.apk
+  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe uninstall com.companyname.FamKey | Out-Null
+  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r C:\Users\frank\Source\Rider\FamKey\FamKey\bin\Debug\net8.0-android\android-x64\com.companyname.FamKey-Signed.apk
   ```
 
 ### 3.6 Auf einem physischen Gerät (Samsung Galaxy S25) testen
@@ -452,7 +452,7 @@ mkdir -p android/app/src/main/jniLibs/arm64-v8a
 
 ```xml
 <application
-    android:label="privault"
+    android:label="FamKey"
     android:name="${applicationName}"
     android:icon="@mipmap/ic_launcher"
     android:extractNativeLibs="true">
@@ -555,19 +555,19 @@ Für die Entwicklung unter Windows dient **Laragon** als Server.
 
 ### 5.2 VirtualHost hinzufügen
 
-1. Neue Webseite erstellen -> Blank (Name: privault)
-2. Apache -> sites-enabeled -> auto.privault.test.conf
-   `define ROOT "C:/Users/frank/Source/Rider/Privault/Host/public"`
+1. Neue Webseite erstellen -> Blank (Name: FamKey)
+2. Apache -> sites-enabeled -> auto.FamKey.test.conf
+   `define ROOT "C:/Users/frank/Source/Rider/FamKey/Host/public"`
 3. Apache neu starten
 
-Webseite ist jetzt erreichbar unter: https://privault.test/
+Webseite ist jetzt erreichbar unter: https://FamKey.test/
 
 ### 5.3 Datenbank anlegen
 
 1. phpMyAdmin starten:
    https://localhost/phpmyadmin6/public/ (User: root, kein Passwort)
 2. Datenbank hinzufügen
-    * Database Name: privault
+    * Database Name: FamKey
     * Server connection collation: utf8mb4_unicode_ci
 3. SQL-Datei Host/migrations/001_initial_schema.sql importieren
 
@@ -638,7 +638,7 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
 
 ## 7. Ordnerstruktur
 <pre>
-privault/                                      # Projekt-Root
+FamKey/                                        # Projekt-Root
  ├── android/                                  # Android-spezifische Dateien (Gradle, Manifest, Ressourcen)
  ├── assets/                                   # Assests der App (z.B. app_icon.png)
  ├── coverage/                                 # Entsteht durch flutter test --coverage
@@ -726,30 +726,41 @@ privault/                                      # Projekt-Root
 Die Speicherorte hängen vom Betriebssystem ab, da Flutter die nativen Mechanismen nutzt.
 
 ### 8.1 Unter Windows (Entwicklungsumgebung)
-- Basisverzeichnis: `%AppData%\Roaming\[Package]\privault`
- C:\Users\frank\AppData\Roaming\de.frohlfing.privault\privault\vaults
+- Basisverzeichnis: `%AppData%\Roaming\[Package]\FamKey`
+ C:\Users\frank\AppData\Roaming\de.frohlfing.famkey\FamKey\vaults
    - `%AppData%`: Z.B. `C:\Users\frank\AppData`
-   - `[Package]`: Z.B. `de.frohlfing.privault`
+   - `[Package]`: Z.B. `de.frohlfing.famkey`
 - SQLite-Datei: `.\LocalState\Trresorname.db3`
 - Konfiguration: `.\Settings\settings.dat`
 
 **Wie man sie am schnellsten löscht (Empfohlen):**
 Du musst nicht in den Dateien wühlen. Windows hat eine eingebaute Funktion dafür:
 1.  Drücke `Windows-Taste`.
-2.  Tippe den Namen deiner App (`Privault`).
+2.  Tippe den Namen deiner App (`FamKey`).
 3.  Rechtsklick auf das App-Icon -> **App-Einstellungen** (App settings).
 4.  Scrolle runter und klicke auf den Button **Zurücksetzen** (Reset).
 *   *Das löscht Preferences UND die lokale Datenbank.*
 
+**Hier wird der Name festgelegt:**
+- `windows/runner/Runner.rc` — bestimmt den Pfad:
+  - CompanyName → erster Ordner (`de.frohlfing.famkey`)
+  - ProductName → zweiter Ordner (`FamKey`)
+
+`windows/CMakeLists.txt` — bestimmt den EXE-Namen:
+  - BINARY_NAME "FamKey" → `FamKey.exe`
+
 ### 8.2 Unter Android (Emulator / Gerät)
 Die Preferences liegen in einer XML-Datei im geschützten Speicher (SharedPreferences).
-- Basisverzeichnis: `/data/data/com.companyname.privault/shared_prefs/com.companyname.privault.xml`
+- Basisverzeichnis: `/data/data/com.companyname.FamKey/shared_prefs/com.companyname.FamKey.xml`
 
 **Wie man sie löscht:**
 1.  Im Emulator/Handy lange auf das App-Icon drücken.
 2.  Auf das **(i)** (App Info) tippen.
 3.  Gehe zu **Speicher & Cache** (Storage).
 4.  Tippe auf **Speicherinhalt löschen** (Clear Storage / Clear Data).
+
+**Hier wird der Name festgelegt:**
+- `android/app/src/main/AndroidManifest.xml` (Schlüssel: `android:label`)
 
 ### 8.3 Backend
 Die Konfiguration wird in `config.php` gespeichert. Diese Datei darf nicht ins VCS eingecheckt werden!

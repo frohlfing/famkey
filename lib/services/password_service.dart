@@ -1,12 +1,12 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart' as crypto_hash;
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
-import 'package:privault/core/app_file.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/logger.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/logger.dart';
 import 'package:zxcvbn/zxcvbn.dart';
 
 /// Standardlänge für Passwörter.
@@ -36,7 +36,7 @@ class PasswordService {
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 15),
       headers: {
-        'User-Agent': 'PriVault-PasswordManager',
+        'User-Agent': 'FamKey-PasswordManager',
         'Add-Padding': 'true', // HIBP-Empfehlung: padding gegen Traffic-Analyse
       },
     ),

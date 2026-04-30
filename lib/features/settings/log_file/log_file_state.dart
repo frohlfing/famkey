@@ -1,4 +1,4 @@
-import 'package:privault/core/app_error.dart';
+﻿import 'package:famkey/core/app_error.dart';
 
 /// Status-Enum für die Aktionen im LogFileDialog
 enum LogFileStatus {

@@ -1,11 +1,11 @@
-import 'dart:typed_data';
-import 'package:privault/core/renderer.dart';
-import 'package:privault/core/renderers/fallback_renderer.dart';
-import 'package:privault/core/renderers/html_renderer.dart';
-import 'package:privault/core/renderers/image_renderer.dart';
-import 'package:privault/core/renderers/markdown_renderer.dart';
-import 'package:privault/core/renderers/pdf_renderer.dart';
-import 'package:privault/core/renderers/text_renderer.dart';
+﻿import 'dart:typed_data';
+import 'package:famkey/core/renderer.dart';
+import 'package:famkey/core/renderers/fallback_renderer.dart';
+import 'package:famkey/core/renderers/html_renderer.dart';
+import 'package:famkey/core/renderers/image_renderer.dart';
+import 'package:famkey/core/renderers/markdown_renderer.dart';
+import 'package:famkey/core/renderers/pdf_renderer.dart';
+import 'package:famkey/core/renderers/text_renderer.dart';
 
 /// Erstellt einen passenden [Renderer] anhand des MIME-Typs.
 Renderer createRenderer(Uint8List? bytes, String mime) {

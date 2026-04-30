@@ -1,4 +1,4 @@
-PriVault – Sync-Server Installation
+﻿FamKey – Sync-Server Installation
 ====================================
 
 VERZEICHNISSTRUKTUR
@@ -23,7 +23,7 @@ INSTALLATION (5 Schritte)
      https://deine-domain.de/setup
    Das Script prüft die Voraussetzungen, fragt Datenbankzugangsdaten ab,
    schreibt config.php und richtet das Datenbankschema ein.
-5. PriVault-App öffnen → Einstellungen → Sync-Server → URL eintragen.
+5. FamKey-App öffnen → Einstellungen → Sync-Server → URL eintragen.
 
 
 VORAUSSETZUNGEN
@@ -41,5 +41,5 @@ Falls nicht: Ordner manuell löschen – er darf nicht dauerhaft erreichbar sein
 
 WEITERE INFORMATIONEN
 ----------------------
-  GitHub:  https://github.com/frohlfing/privault
+  GitHub:  https://github.com/frohlfing/FamKey
   Lizenz:  GPL-3.0

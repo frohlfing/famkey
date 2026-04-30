@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/log_file/log_file_notifier.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/features/settings/log_file/log_file_notifier.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Modaler Dialog zum Anzeigen der Logdatei.
 class LogFileDialog extends ConsumerStatefulWidget {

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Middleware;
@@ -27,7 +27,7 @@ use App\Core\Response;
  * - `X-RateLimit-Reset`: Sekunden bis zum Reset des Zeitfensters
  *
  * Storage:
- * - `sys_get_temp_dir()`/`privault_rate_limit`
+ * - `sys_get_temp_dir()`/`famkey_rate_limit`
  */
 final class RateLimitMiddleware implements MiddlewareInterface
 {
@@ -53,7 +53,7 @@ final class RateLimitMiddleware implements MiddlewareInterface
 
         $key = hash('sha256', $ip . '|' . $request->path . '|' . $bucket);
 
-        $dir = rtrim(sys_get_temp_dir(), '\\/') . DIRECTORY_SEPARATOR . 'privault_rate_limit';
+        $dir = rtrim(sys_get_temp_dir(), '\\/') . DIRECTORY_SEPARATOR . 'famkey_rate_limit';
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }

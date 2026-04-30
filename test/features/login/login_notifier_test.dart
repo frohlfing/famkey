@@ -1,19 +1,19 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/login/login_notifier.dart';
-import 'package:privault/features/login/login_state.dart';
-import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/password_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/login/login_notifier.dart';
+import 'package:famkey/features/login/login_state.dart';
+import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/password_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 import 'login_notifier_test.mocks.dart';
 

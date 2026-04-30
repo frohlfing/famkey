@@ -1,5 +1,5 @@
-name: privault
-description: "Ein selbst-gehosteter Passwort-Manager für Desktop und Mobile"
+﻿name: famkey
+description: "Ein selbst-gehosteter Passwort-Manager für Familien, Teams und Vereine."
 publish_to: 'none'
 
 # Angezeigte App-Version + Buildnummer (Major.Minor.Patch+Build oder Major.Minor+Build)

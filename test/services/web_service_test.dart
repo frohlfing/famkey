@@ -1,11 +1,11 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/web_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/web_service.dart';
 import 'package:uuid/uuid.dart';
 
 @GenerateMocks([CryptoService])
@@ -26,7 +26,7 @@ void main() {
     late String vaultName;
     late String apiToken;
     
-    const String testHost = 'https://privault.test/api/'; // Oder http://localhost:8000/api/
+    const String testHost = 'https://famkey.test/api/'; // Oder http://localhost:8000/api/
 
     // Extrahiert den API-Token aus der host/config.php (wie im C# Test)
     String readApiTokenFromConfig() {
@@ -90,7 +90,7 @@ void main() {
         final version = await sut.getServerVersion();
         
         // Korrektur: Case-insensitive Vergleich oder korrekte Schreibweise
-        expect(version.service.toLowerCase(), contains('privault'));
+        expect(version.service.toLowerCase(), contains('famkey'));
         expect(version.syncProtocolVersion, greaterThanOrEqualTo(1));
         debugPrint('Backend-Service: ${version.service}');
       } on DioException catch (e) {

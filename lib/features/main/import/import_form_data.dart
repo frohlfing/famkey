@@ -1,4 +1,4 @@
-import '../../../core/app_file.dart';
+﻿import '../../../core/app_file.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum ImportFileFormat {
@@ -6,7 +6,7 @@ enum ImportFileFormat {
   bitwardenJson, // Bitwarden JSON
   keepassXml, // KeePass XML (2.x)
   onePassword1Pux, // 1Password 1PUX (8.x)
-  privaultZip, // PriVault ZIP-Export
+  FamKeyZip, // FamKey ZIP-Export
 
   // In Planung (späterer Ausbau):
   //genericCsv, // nicht spezifische CSV-Datei
@@ -21,13 +21,13 @@ extension ImportFileFormatExtension on ImportFileFormat {
       ImportFileFormat.bitwardenJson => ['json'],
       ImportFileFormat.keepassXml => ['xml'],
       ImportFileFormat.onePassword1Pux => ['1pux'],
-      ImportFileFormat.privaultZip => ['zip'],
+      ImportFileFormat.FamKeyZip => ['zip'],
       _ => ['json', 'xml', '1pux', 'zip'], // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
 
   /// Gibt an, ob das Format ein optionales Passwort unterstützt.
-  bool get supportsPassword => this == ImportFileFormat.privaultZip;
+  bool get supportsPassword => this == ImportFileFormat.FamKeyZip;
 }
 
 /// Alle Daten im Dialog, die der Benutzer ändern kann.

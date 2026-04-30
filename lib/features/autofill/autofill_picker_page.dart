@@ -1,22 +1,22 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 /// Die Flutter-Seite zur Eintrags-Auswahl beim Autofill-Vorgang (nur Android).
 ///
 /// # Wann erscheint diese Seite?
 ///
 /// Diese Seite wird geöffnet, sobald der Nutzer in einer anderen App (z.B. Chrome)
-/// auf die "PriVault"-Autofill-Bubble getippt hat und PriVault geöffnet wurde.
-/// Der native [PriVaultAutofillService] hat die Domain der Ziel-Website bereits
+/// auf die "FamKey"-Autofill-Bubble getippt hat und FamKey geöffnet wurde.
+/// Der native [FamKeyAutofillService] hat die Domain der Ziel-Website bereits
 /// ermittelt (z.B. "paypal.com") und in [AutofillService.pendingDomain] abgelegt.
 ///
 /// # Was diese Seite macht
@@ -30,7 +30,7 @@ import 'package:privault/services/session_service.dart';
 ///
 /// # Warum ist die Entschlüsselung zweistufig?
 ///
-/// PriVault verschlüsselt Einträge in zwei Schichten:
+/// FamKey verschlüsselt Einträge in zwei Schichten:
 /// - **encryptedIndex**: Nur Metadaten (Titel, URL, Favicon) – schnell zu laden,
 ///   damit die Liste ohne das gesamte Passwort entschlüsselt werden kann.
 /// - **encryptedData**: Alle Felder inkl. Benutzername und Passwort – wird erst
@@ -195,11 +195,11 @@ class _AutofillPickerPageState extends State<AutofillPickerPage> {
 
       // Zugangsdaten an Kotlin schicken. Kotlin → AutofillResultRelay → AutofillAuthActivity
       // → setResult(RESULT_OK, dataset) → Android befüllt das Formular → Chrome kommt wieder
-      // in den Vordergrund. PriVault geht mit moveTaskToBack(true) in den Hintergrund.
+      // in den Vordergrund. FamKey geht mit moveTaskToBack(true) in den Hintergrund.
       await _autofillService.complete(payload.username, payload.password);
       log.debug('AutofillPicker: complete() abgeschlossen');
 
-      // Route entfernen, damit der Picker nicht sichtbar ist wenn PriVault wieder in den Vordergrund kommt.
+      // Route entfernen, damit der Picker nicht sichtbar ist wenn FamKey wieder in den Vordergrund kommt.
       // Im Cold-Start-Fall (Login → pushReplacementNamed('/autofill-picker')) ist der Picker die einzige
       // Route im Stack – pop() würde einen leeren Stack erzeugen (schwarzer Bildschirm). Daher zu /main.
       if (mounted) {

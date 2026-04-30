@@ -1,7 +1,7 @@
-/// Repräsentiert die Antwort des Servers auf eine Versionsabfrage.
+﻿/// Repräsentiert die Antwort des Servers auf eine Versionsabfrage.
 class VersionResponse {
 
-  /// "PriVault v1 REST-API"
+  /// "FamKey v1 REST-API"
   final String service;
 
   /// Sync-Protokollversion.

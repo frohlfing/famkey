@@ -1,10 +1,10 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
-import 'package:privault/core/service_locator.dart';
+import 'package:famkey/core/service_locator.dart';
 import '../services/session_service.dart';
 
 /// Sammlung von Hilfsfunktionen für die UI.
@@ -24,7 +24,7 @@ Future<String?> downloadFavicon(String url) async {
   if (kIsWeb) {
     // Sync-Server als CORS-Proxy verwenden.
     final sessionService = getIt<SessionService>();
-    final host = sessionService.settings?.host ?? 'https://privault.frank-rohlfing.de'; // ist bereits normalisiert (ohne Slash am Ende, z.B. "https://privault.test")
+    final host = sessionService.settings?.host ?? 'https://FamKey.frank-rohlfing.de'; // ist bereits normalisiert (ohne Slash am Ende, z.B. "https://FamKey.test")
     faviconUrl = '$host/favicons.php?domain=$domain';
   } else {
     // Nativ: direkt ohne Proxy

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 // ── Pfade ───────────────────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 
             $configContent = "<?php\n"
                 . "/** @noinspection SpellCheckingInspection */\n"
-                . "// Generiert durch PriVault Setup am {$generated}\n\n"
+                . "// Generiert durch FamKey Setup am {$generated}\n\n"
                 . "// Sync-Protokollversion\n"
                 . "const SYNC_PROTOCOL_VERSION = 1;\n\n"
                 . "// Kleinste unterstützte Protokollversion\n"
@@ -183,7 +183,7 @@ $reqPassed    = allPassed($requirements);
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PriVault – Setup</title>
+  <title>FamKey – Setup</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -311,7 +311,7 @@ $reqPassed    = allPassed($requirements);
       <circle cx="12" cy="16" r="1.2"/>
       <path d="M10.8 20c0-1.1.9-2 2-2s2 .9 2 2h-4z"/>
     </svg>
-    <h1>PriVault</h1>
+    <h1>FamKey</h1>
     <p>Server-Setup</p>
   </div>
 
@@ -329,7 +329,7 @@ $reqPassed    = allPassed($requirements);
 <?php if ($step === 1): ?>
   <!-- ══ Schritt 1: Systemvoraussetzungen ═══════════════════════════════════ -->
   <h2>Systemvoraussetzungen</h2>
-  <p class="subtitle">PriVault prüft, ob dein Server alle Voraussetzungen erfüllt.</p>
+  <p class="subtitle">FamKey prüft, ob dein Server alle Voraussetzungen erfüllt.</p>
 
   <ul class="req-list">
     <?php foreach ($requirements as [$label, $value, $ok, $hint]): ?>
@@ -379,7 +379,7 @@ $reqPassed    = allPassed($requirements);
 
       <div class="field">
         <label for="db_name">Datenbankname</label>
-        <input type="text" id="db_name" name="db_name" value="<?= h($_POST['db_name'] ?? 'privault') ?>" required>
+        <input type="text" id="db_name" name="db_name" value="<?= h($_POST['db_name'] ?? 'famkey') ?>" required>
       </div>
 
       <div class="field">
@@ -413,7 +413,7 @@ $reqPassed    = allPassed($requirements);
             Neu&nbsp;generieren
           </button>
         </div>
-        <p class="hint-text">Geheimen Token aufschreiben – wird in der PriVault-App unter <em>Einstellungen → Sync-Server</em> eingetragen.</p>
+        <p class="hint-text">Geheimen Token aufschreiben – wird in der FamKey-App unter <em>Einstellungen → Sync-Server</em> eingetragen.</p>
       </div>
 
       <div class="field">
@@ -480,7 +480,7 @@ $reqPassed    = allPassed($requirements);
   <!-- ══ Schritt 4: Erfolg ══════════════════════════════════════════════════ -->
   <div class="success-icon">✅</div>
   <h2 style="text-align:center">Installation abgeschlossen!</h2>
-  <p class="subtitle" style="text-align:center">PriVault ist bereit.</p>
+  <p class="subtitle" style="text-align:center">FamKey ist bereit.</p>
 
   <ul class="success-list">
     <li><span class="ok-icon">✓</span> <span>Datenbank eingerichtet und <strong>Schema migriert</strong></span></li>
@@ -491,7 +491,7 @@ $reqPassed    = allPassed($requirements);
   </ul>
 
   <p style="font-size:.88rem; color:var(--text-muted); margin-bottom:20px;">
-    Nächster Schritt: Öffne die PriVault-App → <strong style="color:var(--text)">Einstellungen → Sync-Server</strong>
+    Nächster Schritt: Öffne die FamKey-App → <strong style="color:var(--text)">Einstellungen → Sync-Server</strong>
     und trage die URL deines Servers ein:
     <code><?= h('https://' . ($_SERVER['HTTP_HOST'] ?? 'deine-domain.de')) ?></code>
   </p>
@@ -503,8 +503,8 @@ $reqPassed    = allPassed($requirements);
 </div>
 
 <p class="footer-note">
-  PriVault &nbsp;&mdash;&nbsp;
-  <a href="https://github.com/frohlfing/privault" target="_blank" rel="noopener" style="color:var(--text-muted);">GitHub</a>
+  FamKey &nbsp;&mdash;&nbsp;
+  <a href="https://github.com/frohlfing/famkey" target="_blank" rel="noopener" style="color:var(--text-muted);">GitHub</a>
 </p>
 
 </body>

@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/features/settings/log_config/log_config_notifier.dart';
-import 'package:privault/features/settings/log_config/log_config_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/features/settings/log_config/log_config_notifier.dart';
+import 'package:famkey/features/settings/log_config/log_config_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Modaler Dialog zum ändern der Log-Konfiguration.
 class LogConfigDialog extends ConsumerStatefulWidget {

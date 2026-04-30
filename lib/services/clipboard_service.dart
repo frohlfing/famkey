@@ -1,6 +1,6 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:privault/services/config_service.dart';
+import 'package:famkey/services/config_service.dart';
 
 /// Kapselt alle Zwischenablage-Operationen und leert die Ablage nach konfigurierbarer Zeit.
 class ClipboardService {

@@ -1,7 +1,7 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Schnürt das PriVault-Server-Release-Paket als ZIP-Archiv.
+    Schnürt das FamKey-Server-Release-Paket als ZIP-Archiv.
 
 .DESCRIPTION
     Liest die zu packenden Dateien aus manifest.txt (im selben Ordner).
@@ -49,7 +49,7 @@ if ($Version -eq '') {
     if ($Version -eq '') { $Version = '0.0.1' }
 }
 
-Write-Host "PriVault Server Release Builder" -ForegroundColor Cyan
+Write-Host "FamKey Server Release Builder" -ForegroundColor Cyan
 Write-Host "Version  : $Version"
 Write-Host "Manifest : $manifestFile"
 Write-Host "Ausgabe  : $OutDir"
@@ -78,8 +78,8 @@ foreach ($line in Get-Content $manifestFile -Encoding UTF8) {
 Write-Host "Einträge : $($entries.Count)`n"
 
 # ── Temp-Verzeichnis vorbereiten ──────────────────────────────────────────────
-$tmpDir  = Join-Path $OutDir "privault-server-$Version"
-$zipName = "privault-server-v$Version.zip"
+$tmpDir  = Join-Path $OutDir "FamKey-server-$Version"
+$zipName = "FamKey-server-v$Version.zip"
 $zipPath = Join-Path $OutDir $zipName
 
 if (Test-Path $tmpDir)  { Remove-Item $tmpDir  -Recurse -Force }

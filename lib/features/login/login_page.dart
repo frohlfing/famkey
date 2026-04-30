@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/features/login/login_notifier.dart';
-import 'package:privault/features/login/login_state.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/password_field.dart';
-import 'package:privault/widgets/password_strength_bar.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/features/login/login_notifier.dart';
+import 'package:famkey/features/login/login_state.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/password_field.dart';
+import 'package:famkey/widgets/password_strength_bar.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Der [LoginPage] dient als Einstiegspunkt und Sicherheitsschleuse der App.
 ///
@@ -187,7 +187,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                     // --- Überschrift ---
                     Text(
-                      'PriVault',
+                      'FamKey',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
                     ),

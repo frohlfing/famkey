@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 /// Ein strukturierter Fehler, der von einem Parser geworfen wird.
 /// Enthält alle relevanten Informationen für Logging und UI-Anzeige.
@@ -112,10 +112,10 @@ class ParsedEntry {
   /// Dateianhänge
   final List<ParsedAttachment>? attachments;
 
-  /// Freigaben – nur beim PriVault-Import befüllt, bei anderen Formaten `null`.
+  /// Freigaben – nur beim FamKey-Import befüllt, bei anderen Formaten `null`.
   final List<ParsedSharedUser>? sharedWith;
 
-  /// Vom Sicherheitsbericht ausgeschlossen – nur beim PriVault-Import befüllt.
+  /// Vom Sicherheitsbericht ausgeschlossen – nur beim FamKey-Import befüllt.
   final bool? reportExcluded;
 
   /// Zeilennummer in der Importdatei (1-basiert)

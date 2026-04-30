@@ -1,17 +1,17 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/master_password/master_password_form_data.dart';
-import 'package:privault/features/settings/master_password/master_password_state.dart';
-import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/password_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/settings/master_password/master_password_form_data.dart';
+import 'package:famkey/features/settings/master_password/master_password_state.dart';
+import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/password_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, MasterPasswordState>(() {
   return MasterPasswordNotifier();

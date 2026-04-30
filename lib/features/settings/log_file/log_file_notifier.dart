@@ -1,9 +1,9 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/features/settings/log_file/log_file_state.dart';
-import 'package:privault/services/config_service.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/features/settings/log_file/log_file_state.dart';
+import 'package:famkey/services/config_service.dart';
 
 final logFileProvider = NotifierProvider<LogFileNotifier, LogFileState>(() {
   return LogFileNotifier();

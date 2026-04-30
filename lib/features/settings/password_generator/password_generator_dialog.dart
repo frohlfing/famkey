@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/password_generator/password_generator_notifier.dart';
-import 'package:privault/features/settings/password_generator/password_generator_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/features/settings/password_generator/password_generator_notifier.dart';
+import 'package:famkey/features/settings/password_generator/password_generator_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Konfigurieren des Passwortgenerators.
 class PasswordGeneratorDialog extends ConsumerStatefulWidget {

@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/password_field.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/password_field.dart';
 import 'import_form_data.dart';
 import 'import_notifier.dart';
 import 'import_state.dart';
@@ -122,7 +122,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       ),
                       hint: const Text('Format wählen'),
                       items: const [
-                        DropdownMenuItem(value: ImportFileFormat.privaultZip, child: Text('PriVault ZIP')),
+                        DropdownMenuItem(value: ImportFileFormat.FamKeyZip, child: Text('FamKey ZIP')),
                         DropdownMenuItem(value: ImportFileFormat.bitwardenJson, child: Text('Bitwarden JSON')),
                         DropdownMenuItem(value: ImportFileFormat.keepassXml, child: Text('KeePass XML (2.x)')),
                         DropdownMenuItem(value: ImportFileFormat.onePassword1Pux, child: Text('1Password 1PUX')),

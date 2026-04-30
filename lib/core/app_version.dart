@@ -1,6 +1,6 @@
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:privault/core/sync_protocol.dart';
-import 'package:privault/database/database.dart';
+﻿import 'package:package_info_plus/package_info_plus.dart';
+import 'package:famkey/core/sync_protocol.dart';
+import 'package:famkey/database/database.dart';
 
 // todo evtl eine setup.dart, global.dart oder config.dart anlegen und dort diese Werte speichern
 

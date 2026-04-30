@@ -1,15 +1,15 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_version.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/sync_server/sync_server_form_data.dart';
-import 'package:privault/features/settings/sync_server/sync_server_state.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_version.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_form_data.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_state.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 
 final syncServerProvider = NotifierProvider<SyncServerNotifier, SyncServerState>(() {
   return SyncServerNotifier();
@@ -183,7 +183,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       // 4. Server-Version prüfen
       // Falls die Serverantwort ein unerwartetes Format hat, wird `VersionResponse` mit leeren Werten zurückgegeben.
       final serverVersion = await _webService.getServerVersion();
-      if (!serverVersion.service.contains("PriVault")) {
+      if (!serverVersion.service.contains("FamKey")) {
         state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.noSyncService));
         return;
       }

@@ -1,21 +1,21 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/helper.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/edit/edit_form_data.dart';
-import 'package:privault/features/edit/edit_state.dart';
-import 'package:privault/features/main/main_notifier.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/password_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/helper.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/edit/edit_form_data.dart';
+import 'package:famkey/features/edit/edit_state.dart';
+import 'package:famkey/features/main/main_notifier.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/password_service.dart';
+import 'package:famkey/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 
 final editProvider = NotifierProvider<EditNotifier, EditState>(() {

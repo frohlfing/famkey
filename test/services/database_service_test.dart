@@ -1,12 +1,12 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/database_service.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/database_service.dart';
 
 import 'database_service_test.mocks.dart';
 
@@ -23,8 +23,8 @@ void main() {
     setUp(() async {
       // Mock für PackageInfo (wird von AppDatabase beim Öffnen geloggt)
       PackageInfo.setMockInitialValues(
-        appName: 'privault',
-        packageName: 'com.example.privault',
+        appName: 'FamKey',
+        packageName: 'com.example.famkey',
         version: '1.0.0',
         buildNumber: '1',
         buildSignature: 'buildSignature',
@@ -40,7 +40,7 @@ void main() {
       getIt.registerSingleton<ConfigService>(mockConfigService);
 
       // 2. Temporäres Verzeichnis
-      tempDir = await Directory.systemTemp.createTemp('privault_test_');
+      tempDir = await Directory.systemTemp.createTemp('famkey_test_');
 
       sut = DatabaseService();
     });

@@ -1,24 +1,24 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:dargon2_flutter/dargon2_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/navigator_key.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/services/auto_lock_service.dart';
-import 'package:privault/features/report/report_page.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/features/detail/detail_page.dart';
-import 'package:privault/features/edit/edit_page.dart';
-import 'package:privault/features/login/login_page.dart';
-import 'package:privault/features/main/main_page.dart';
-import 'package:privault/features/autofill/autofill_picker_page.dart';
-import 'package:privault/features/autotype/autotype_picker_page.dart';
-import 'package:privault/features/settings/settings_notifier.dart';
-import 'package:privault/features/settings/settings_page.dart';
-import 'package:privault/services/autofill_service.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/navigator_key.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/features/report/report_page.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/features/detail/detail_page.dart';
+import 'package:famkey/features/edit/edit_page.dart';
+import 'package:famkey/features/login/login_page.dart';
+import 'package:famkey/features/main/main_page.dart';
+import 'package:famkey/features/autofill/autofill_picker_page.dart';
+import 'package:famkey/features/autotype/autotype_picker_page.dart';
+import 'package:famkey/features/settings/settings_notifier.dart';
+import 'package:famkey/features/settings/settings_page.dart';
+import 'package:famkey/services/autofill_service.dart';
 
 // @formatter:off
 void main() async {
@@ -62,7 +62,7 @@ void main() async {
     // ProviderScope hinzufügen (Riverpod Einstiegspunkt)
     runApp(
       const ProviderScope(
-        child: PriVaultApp(),
+        child: FamKeyApp(),
       ),
     );
 
@@ -77,8 +77,8 @@ void main() async {
 }
 // @formatter:on
 
-class PriVaultApp extends ConsumerWidget {
-  const PriVaultApp({super.key});
+class FamKeyApp extends ConsumerWidget {
+  const FamKeyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,7 +87,7 @@ class PriVaultApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
 
     return MaterialApp(
-      title: 'PriVault',
+      title: 'FamKey',
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
 

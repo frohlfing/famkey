@@ -1,4 +1,4 @@
-#include "auto_type.h"
+﻿#include "auto_type.h"
 
 #include <vector>
 
@@ -6,7 +6,7 @@
 /// Globale Zustandsvariablen (Datei-Scope)
 /// -----------------------------------------------------------------------------
 
-/// HWND des zuletzt aktiven Nicht-PriVault-Vordergrundfensters.
+/// HWND des zuletzt aktiven Nicht-FamKey-Vordergrundfensters.
 ///
 /// Wird von WinEventProc aktualisiert, sobald das OS ein neues Fenster in den
 /// Vordergrund bringt. Bleibt nullptr, bis zum ersten Mal ein fremdes Fenster
@@ -78,7 +78,7 @@ void AutoType::Cleanup() {
     g_previousHwnd = nullptr;
 }
 
-/// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
+/// Gibt den Titel des zuletzt aktiven Nicht-FamKey-Fensters zurück.
 ///
 /// IsWindow() prüft, ob g_previousHwnd noch gültig ist (Fenster könnte
 /// inzwischen geschlossen worden sein).

@@ -1,6 +1,6 @@
-# 01 Produktbeschreibung
+﻿# 01 Produktbeschreibung
 
-PriVault ist ein ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
+FamKey ist ein ein selbst-gehosteter **Passwort-Manager** für Familien, Teams und Vereine.
 
 ---
 
@@ -34,7 +34,7 @@ PriVault ist ein ein selbst-gehosteter **Passwort-Manager** für Familien, Teams
 
 siehe [IT-Sicherheit auf dem digitalen Verbrauchermarkt: Fokus Passwortmanager](https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Publikationen/DVS-Berichte/passwortmanager.pdf?__blob=publicationFile) vom BSI (Bundesamt für Sicherheit in der Informationstechnik).
 
-| Feature                       |        PriVault        |        KeePass         |      Bitwarden      |
+| Feature                       |        FamKey        |        KeePass         |      Bitwarden      |
 |:------------------------------|:----------------------:|:----------------------:|:-------------------:|
 | **Zero-Knowledge**            |           Ja           |           Ja           |         Ja          |
 | **Native Multi-Device Sync**  |           Ja           | Nein (via Cloud-Files) |         Ja          |
@@ -45,7 +45,7 @@ siehe [IT-Sicherheit auf dem digitalen Verbrauchermarkt: Fokus Passwortmanager](
 ---
 
 ## 3. BSI-Anforderungen (Konformität)
-PriVault orientiert sich an den Empfehlungen des **BSI (Bundesamt für Sicherheit in der Informationstechnik)** für Passwort-Manager (TR-02102):
+FamKey orientiert sich an den Empfehlungen des **BSI (Bundesamt für Sicherheit in der Informationstechnik)** für Passwort-Manager (TR-02102):
 
 1. **Starke KDF:** Verwendung von **Argon2id** statt veraltetem PBKDF2, um Brute-Force-Angriffe auf GPU-Clustern zu erschweren.
 2. **Authentizität:** Integritätsschutz der Daten durch **AES-GCM** (Authenticated Encryption).

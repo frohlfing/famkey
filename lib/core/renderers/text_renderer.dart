@@ -1,9 +1,9 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:privault/core/renderer.dart';
+import 'package:famkey/core/renderer.dart';
 
 /// Renderer für Text-basierte Inhalte wie TXT, Markdown, CSV, VCard und JSON.
 class TextRenderer implements Renderer {

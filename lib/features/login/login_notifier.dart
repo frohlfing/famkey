@@ -1,20 +1,20 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file_factory.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/login/login_state.dart';
-import 'package:privault/services/auto_lock_service.dart';
-import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/password_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/login/login_state.dart';
+import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/password_service.dart';
+import 'package:famkey/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 
 final loginProvider = NotifierProvider<LoginNotifier, LoginState>(
@@ -258,7 +258,7 @@ class LoginNotifier extends Notifier<LoginState> {
             salt: base64.encode(salt),
             encryptedPrivateKey: encryptedPrivKey,
             masterKeyTimestamp: DateTime.now().toUtc(),
-            host: kDebugMode ? 'https://privault.test' : '', // todo später wieder auskommentieren!!!!
+            host: kDebugMode ? 'https://FamKey.test' : '', // todo später wieder auskommentieren!!!!
             apiToken: kDebugMode ? '6h54qT5l2r37Kr7XxfP08YD7gPAGff6aWSaa' : '', // todo später wieder auskommentieren!!!!
             lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // 1970‑01‑01 00:00:00 UTC
             useBiometric: false,

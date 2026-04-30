@@ -1,4 +1,4 @@
-# 04 Entwicklungsplan
+﻿# 04 Entwicklungsplan
 
 ## 1. Meilensteine
 
@@ -46,7 +46,7 @@
 - ✅ Loggen (in Datei; Logdatei automatisch klein halten); unter Settings ein Button zum Anzeigen der Logdatei
 - ✅ Drucken (Markdown-Generierung)
 - ✅ Export (ZIP-File)
-- ✅ Import: PriVault, Keepass, Bitwarden, 1Password-Import
+- ✅ Import: FamKey, Keepass, Bitwarden, 1Password-Import
 - ✅ Report (Darknet-Check https://haveibeenpwned.com/, Passwortstärke und -Alter)
 - ✅ Auto-Sperre nach x Sekunden
 - ✅ Zwischenablage nach x Sekunden leeren

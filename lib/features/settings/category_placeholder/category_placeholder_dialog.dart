@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/category_placeholder/category_placeholder_notifier.dart';
-import 'package:privault/features/settings/category_placeholder/category_placeholder_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/features/settings/category_placeholder/category_placeholder_notifier.dart';
+import 'package:famkey/features/settings/category_placeholder/category_placeholder_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Ändern des Platzhalters für eine leere Kategorie.
 class CategoryPlaceholderDialog extends ConsumerStatefulWidget {

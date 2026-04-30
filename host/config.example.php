@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /** @noinspection SpellCheckingInspection */
 
 // Sync-Protokollversion
@@ -12,7 +12,7 @@ const DATABASE_SCHEMA_VERSION = 1;
 
 // Datenbank
 const DB_HOST = 'localhost';
-const DB_NAME = 'privault';
+const DB_NAME = 'famkey';
 const DB_USER = 'root';
 const DB_PASS = '';
 

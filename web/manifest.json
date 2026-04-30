@@ -1,6 +1,6 @@
-{
-    "name": "privault",
-    "short_name": "privault",
+﻿{
+    "name": "FamKey",
+    "short_name": "FamKey",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

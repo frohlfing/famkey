@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/user_name/user_name_notifier.dart';
-import 'package:privault/features/settings/user_name/user_name_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
+import 'package:famkey/features/settings/user_name/user_name_notifier.dart';
+import 'package:famkey/features/settings/user_name/user_name_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Umbenennen des Benutzers.
 class UserNameDialog extends ConsumerStatefulWidget {

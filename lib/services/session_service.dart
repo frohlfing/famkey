@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/services/crypto_service.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/services/crypto_service.dart';
 
 /// Hält den Zustand der aktuellen Benutzersitzung im Arbeitsspeicher.
 class SessionService {

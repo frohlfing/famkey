@@ -1,8 +1,8 @@
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/database/database.dart';
+﻿import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/database/database.dart';
 import 'package:flutter/material.dart';
-import 'package:privault/services/password_service.dart';
+import 'package:famkey/services/password_service.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SettingsActionStatus {
@@ -88,7 +88,7 @@ class SettingsState {
   /// Gibt an, ob der Nutzer Autofill verwenden möchte (ConfigService-Einstellung, beide Plattformen).
   final bool autofillEnabled;
 
-  /// Gibt an, ob PriVault aktuell als Autofill-Anbieter im Android-System aktiv ist.
+  /// Gibt an, ob FamKey aktuell als Autofill-Anbieter im Android-System aktiv ist.
   /// Wird über MethodChannel abgefragt und spiegelt den Systemzustand wider.
   final bool isAutofillEnabled;
 

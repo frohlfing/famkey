@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/vault_name/vault_name_notifier.dart';
-import 'package:privault/features/settings/vault_name/vault_name_state.dart';
-import 'package:privault/widgets/password_field.dart';
+import 'package:famkey/features/settings/vault_name/vault_name_notifier.dart';
+import 'package:famkey/features/settings/vault_name/vault_name_state.dart';
+import 'package:famkey/widgets/password_field.dart';
 
 /// Ein modaler Dialog zum Umbenennen des Tresors.
 class VaultNameDialog extends ConsumerStatefulWidget {

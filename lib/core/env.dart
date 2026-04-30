@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -73,9 +73,9 @@ class Env {
   // --- Dateisystem ---
 
   /// Speicherpfad der App.
-  /// Unter Windows: `C:\Users\<user>\AppData\Roaming\de.frohlfing.privault\privault`
+  /// Unter Windows: `C:\Users\<user>\AppData\Roaming\de.frohlfing.famkey\FamKey`
   /// Unter Android: `/data/data/<package>/files`
-  /// Unter Linux: `/home/<user>/.local/share/de.frohlfing.privault/privault`
+  /// Unter Linux: `/home/<user>/.local/share/de.frohlfing.famkey/FamKey`
   /// Im Webbrowser: kein Dateisystem (Leerstring)
   String get storagePath => _storagePath;
 

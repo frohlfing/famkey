@@ -1,6 +1,6 @@
-# 03 Technisches Konzept
+﻿# 03 Technisches Konzept
 
-Diese Dokumentation umfasst den ersten Entwurf der UI und Grundfunktionen der PriVault-Anwendung.
+Diese Dokumentation umfasst den ersten Entwurf der UI und Grundfunktionen der FamKey-Anwendung.
 
 ## 1. UI (Entwurf)
 
@@ -231,25 +231,25 @@ Die einzige Möglichkeit unter Web wäre eine Browser-Extension (die auch unter 
 
 #### Autofill (für Android)
 
-Der Benutzer aktiviert PriVault als Autofill-Anbieter einmalig in den Android-Systemeinstellungen (Einstellungen → Passwörter & Konten → Autofill-Dienst). PriVault zeigt in den App-Einstellungen einen Button, der direkt dorthin führt.
+Der Benutzer aktiviert FamKey als Autofill-Anbieter einmalig in den Android-Systemeinstellungen (Einstellungen → Passwörter & Konten → Autofill-Dienst). FamKey zeigt in den App-Einstellungen einen Button, der direkt dorthin führt.
 
 **Ablauf:**
 
-1. **Trigger:** Android erkennt ein Login-Formular in einer anderen App oder im Browser und ruft PriVaults `PriVaultAutofillService` (Kotlin) auf. Kotlin extrahiert die **Domain** (z.B. `paypal.com`) aus der `AssistStructure`.
+1. **Trigger:** Android erkennt ein Login-Formular in einer anderen App oder im Browser und ruft FamKeys `FamKeyAutofillService` (Kotlin) auf. Kotlin extrahiert die **Domain** (z.B. `paypal.com`) aus der `AssistStructure`.
 2. **App-Zustand:**
-   - *PriVault war geschlossen:* Kotlin startet PriVault über einen `PendingIntent` mit der Domain als Intent-Extra. Nach dem Start ruft `AutofillServiceAndroid.init()` die Domain ab und navigiert zur `AutofillPickerPage` (`/autofill-picker`).
-   - *PriVault lief bereits im Hintergrund:* Kotlin ruft `onAutofillRequest` am MethodChannel auf. Der registrierte Handler setzt die Domain und navigiert sofort zur `AutofillPickerPage`.
+   - *FamKey war geschlossen:* Kotlin startet FamKey über einen `PendingIntent` mit der Domain als Intent-Extra. Nach dem Start ruft `AutofillServiceAndroid.init()` die Domain ab und navigiert zur `AutofillPickerPage` (`/autofill-picker`).
+   - *FamKey lief bereits im Hintergrund:* Kotlin ruft `onAutofillRequest` am MethodChannel auf. Der registrierte Handler setzt die Domain und navigiert sofort zur `AutofillPickerPage`.
 3. **Auswahl:** Die `AutofillPickerPage` lädt alle Einträge und filtert nach der Domain. Der Benutzer wählt einen Eintrag aus.
 4. **Response:** `AutofillServiceAndroid.complete()` schickt Benutzername und Passwort über den MethodChannel zurück an Kotlin. Kotlin befüllt die Felder der anfragenden App mit einem `Dataset` in der `FillResponse`.
 
-Kommunikation Dart ↔ Kotlin erfolgt über den MethodChannel `de.frohlfing.privault/autofill`.
+Kommunikation Dart ↔ Kotlin erfolgt über den MethodChannel `de.frohlfing.famkey/autofill`.
 
 iOS wird nicht unterstützt.
 
 #### Auto-Type (für Windows)
 
 Windows bietet kein natives Autofill-Framework für Drittanbieter-Passwortmanager.
-PriVault simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Eingabe-Sequenz ist konfigurierbar je nach vorhandenen Feldern:
+FamKey simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Eingabe-Sequenz ist konfigurierbar je nach vorhandenen Feldern:
 
 - Benutzername **und** Passwort vorhanden: `Benutzername` → `Tab` → `Passwort` → `Enter`
 - Nur Benutzername: `Benutzername` → `Enter`
@@ -257,15 +257,15 @@ PriVault simuliert stattdessen Tastatureingaben via Win32-`SendInput`. Die Einga
 
 `Tab` und `Passwort` werden in einem separaten `SendInput`-Aufruf nach 100 ms Pause gesendet. Diese Pause ist nötig, damit Browser den Tab-Event vollständig verarbeiten (Fokus-Wechsel in die nächste Eingabe) können, bevor das Passwort ankommt.
 
-Ein `WinEventHook` (EVENT_SYSTEM_FOREGROUND) verfolgt permanent das zuletzt aktive Nicht-PriVault-Fenster. Dessen HWND wird in `g_previousHwnd` (C++, `auto_type.cpp`) gespeichert und ist das Ziel aller Auto-Type-Operationen.
+Ein `WinEventHook` (EVENT_SYSTEM_FOREGROUND) verfolgt permanent das zuletzt aktive Nicht-FamKey-Fenster. Dessen HWND wird in `g_previousHwnd` (C++, `auto_type.cpp`) gespeichert und ist das Ziel aller Auto-Type-Operationen.
 
-Kommunikation Dart ↔ C++ über den MethodChannel `de.frohlfing.privault/autotype`.
+Kommunikation Dart ↔ C++ über den MethodChannel `de.frohlfing.famkey/autotype`.
 
 **Szenario A — Button in der Detailansicht:**
 
-Der Benutzer öffnet in PriVault einen Eintrag, wechselt manuell zur Ziel-App (z.B. Browser, Texteditor), wechselt zurück zu PriVault und klickt das Tastatur-Icon in der AppBar der Detailansicht.
+Der Benutzer öffnet in FamKey einen Eintrag, wechselt manuell zur Ziel-App (z.B. Browser, Texteditor), wechselt zurück zu FamKey und klickt das Tastatur-Icon in der AppBar der Detailansicht.
 
-1. PriVault fragt den C++-Kern nach dem Titel des letzten aktiven Fensters (`getLastWindowTitle`).
+1. FamKey fragt den C++-Kern nach dem Titel des letzten aktiven Fensters (`getLastWindowTitle`).
 2. Ein Bestätigungsdialog zeigt den Eintrags-Titel, den Zielfenster-Titel und die geplante Eingabe-Sequenz. Der "Einfügen"-Button ist vorausgewählt (Enter-Taste genügt).
 3. Nach Bestätigung bringt C++ das Zielfenster in den Vordergrund, wartet 150 ms (Fokus-Stabilisierung) und sendet die Sequenz.
 
@@ -273,13 +273,13 @@ Der Benutzer öffnet in PriVault einen Eintrag, wechselt manuell zur Ziel-App (z
 
 Der Benutzer steht in einer beliebigen App (z.B. Browser-Login-Formular, mit Fokus im Benutzername-Feld) und drückt `Strg+Shift+A`. Der Hotkey ist derzeit hardcoded; eine konfigurierbare Variante ist als TODO markiert.
 
-1. C++ empfängt `WM_HOTKEY`, liest den Titel des aktuell aktiven Fensters und bringt PriVault in den Vordergrund.
+1. C++ empfängt `WM_HOTKEY`, liest den Titel des aktuell aktiven Fensters und bringt FamKey in den Vordergrund.
 2. C++ sendet `onHotkey` mit dem Fenstertitel über den MethodChannel an Dart.
-3. **Nicht eingeloggt:** PriVault ist nun im Vordergrund, der Benutzer sieht die Login-Seite.
-4. **Eingeloggt:** PriVault navigiert zur `AutoTypePickerPage`, die alle Einträge lädt und nach dem Fenstertitel filtert.
+3. **Nicht eingeloggt:** FamKey ist nun im Vordergrund, der Benutzer sieht die Login-Seite.
+4. **Eingeloggt:** FamKey navigiert zur `AutoTypePickerPage`, die alle Einträge lädt und nach dem Fenstertitel filtert.
 
 **Matching-Logik der `AutoTypePickerPage`:**
-- **Titel-Substring:** Der Eintrags-Titel kommt als Teilstring im Fenstertitel vor (z.B. Eintrag "GitHub" → Fenster "privault/main · GitHub").
+- **Titel-Substring:** Der Eintrags-Titel kommt als Teilstring im Fenstertitel vor (z.B. Eintrag "GitHub" → Fenster "FamKey/main · GitHub").
 - **URL-Domain:** Der Host aus der Eintrags-URL kommt im Fenstertitel vor (z.B. URL `github.com` → Fenster "… · GitHub").
 
 **Anzeigemodus:**
@@ -291,7 +291,7 @@ Der Bestätigungsdialog zeigt in allen Fällen: Eintrags-Titel, Zielfenster-Tite
 
 #### Browser-Extension (verworfen, nicht geplant)
 
-Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App. Die Extension übergibt die aktuelle URL, PriVault antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
+Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden FamKey-Desktop-App. Die Extension übergibt die aktuelle URL, FamKey antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
 Diese Möglichkeit bietet eine erhöhte Angriffsfläche, daher habe ich diesen Ansatz verworfen (s. https://www.kuketz-blog.de/keepassxc-auto-type-und-browser-add-on-im-alltag-nutzen-passwoerter-teil1/)
 
 ### 2.12 Biometrie-Integration (Einloggen per Fingerabdruck oder Gesichtserkennung)
@@ -301,10 +301,10 @@ Diese Möglichkeit bietet eine erhöhte Angriffsfläche, daher habe ich diesen A
 - **Login:** App lädt `Biometric-Blob` und bittet Keystore um Entschlüsselung. Keystore fordert Fingerabdruck an. Bei
   Erfolg wird der `Master-Key` in den RAM zurückgegeben.
 
-### 2.13 Selbstzerstörung – Warum PriVault diese Funktion nicht umsetzt
+### 2.13 Selbstzerstörung – Warum FamKey diese Funktion nicht umsetzt
 
 Viele Passwortmanager (z. B. mSecure) bieten an, die lokale Datenbank nach einer bestimmten Anzahl fehlgeschlagener 
-Login-Versuche zu löschen. PriVault implementiert diese Funktion bewusst nicht, weil sie keinen echten Sicherheitsgewinn
+Login-Versuche zu löschen. FamKey implementiert diese Funktion bewusst nicht, weil sie keinen echten Sicherheitsgewinn
 bietet.
 
 **Das strukturelle Problem**
@@ -322,7 +322,7 @@ durchprobieren, ohne dass eine App-seitige Schutzfunktion greift.
 
 **Die echte Schutzlinie ist kryptografisch**
 
-PriVault nutzt Argon2id mit 64 MB Arbeitsspeicher, 4 Iterationen und 4-facher Parallelisierung als 
+FamKey nutzt Argon2id mit 64 MB Arbeitsspeicher, 4 Iterationen und 4-facher Parallelisierung als 
 Key-Derivation-Funktion. Jeder Passwortversuch dauert auf einem normalen Rechner mehrere Sekunden; auf einer GPU-Farm 
 ist der Angriff wegen der Speicheranforderung (memory-hard) ebenfalls sehr kostspielig. Ein starkes Master-Passwort 
 macht Brute-Force praktisch unmöglich – unabhängig davon, ob eine Selbstzerstörungsfunktion existiert.
@@ -331,12 +331,12 @@ macht Brute-Force praktisch unmöglich – unabhängig davon, ob eine Selbstzers
 
 Die Selbstzerstörung schützt ausschließlich gegen technisch unerfahrene Angreifer, die direkt in der laufenden App 
 tippen, ohne vorher die Datenbankdatei zu sichern. Gegen jeden anderen Angreifer ist sie wirkungslos und vermittelt 
-ein falsches Sicherheitsgefühl. PriVault setzt stattdessen auf die Auto-Sperre (Abschnitt 2.16), die den häufigeren 
+ein falsches Sicherheitsgefühl. FamKey setzt stattdessen auf die Auto-Sperre (Abschnitt 2.16), die den häufigeren 
 Angriff – ein unbeaufsichtigtes, entsperrtes Gerät – tatsächlich adressiert.
 
 ### 2.14 Timeouts (Auto-Sperre und Zwischenablage leeren)
 
-PriVault bietet zwei gerätespezifische Timeout-Einstellungen, die unabhängig vom Tresor im `ConfigService` (SharedPreferences) gespeichert werden. Da es sich um Geräte-Präferenzen handelt – ein Desktop-Nutzer wählt typischerweise längere Zeitspannen als ein Smartphone-Nutzer – wäre eine Speicherung in der verschlüsselten Tresor-Datenbank falsch: Sie würden beim Sync das Verhalten des anderen Geräts überschreiben.
+FamKey bietet zwei gerätespezifische Timeout-Einstellungen, die unabhängig vom Tresor im `ConfigService` (SharedPreferences) gespeichert werden. Da es sich um Geräte-Präferenzen handelt – ein Desktop-Nutzer wählt typischerweise längere Zeitspannen als ein Smartphone-Nutzer – wäre eine Speicherung in der verschlüsselten Tresor-Datenbank falsch: Sie würden beim Sync das Verhalten des anderen Geräts überschreiben.
 
 **Auto-Sperre**
 
@@ -362,7 +362,7 @@ Entscheidend ist aber ein Usability-Argument: Das Sperren bei jedem Hintergrundw
 
 ### 2.15 Backup, Import & Export
 - **Import:** Massenimport bestehender Daten. Folgende Dateiformate werden für den Import unterstützt.
-    - PriVault ZIP
+    - FamKey ZIP
    - Bitwarden JSON (Spezifikation: https://gist.github.com/ctrlcmdshft/fe6baead7be858ca08666f34da028163)
    - KeePass XML (2.x) (Spezifikation: https://github.com/keepassxreboot/keepassxc-specs/blob/master/kdbx-xml/rfc.md)
    - 1Password 1PUX (Spezifikation: https://support.1password.com/1pux-format/)
@@ -510,8 +510,8 @@ Vor der Synchronisation wird die Protokollversion der App mit der Protokollversi
    - Wenn client.syncProtocolVersion > server.currentSyncProtocol → Server zu alt
 
 ### 3.3 Host-URLs
-- https://privault.frank-rohling.de/api (für MAJOR = 1)
-- https://privault{MAJOR}.frank-rohling.de/api (für MAJOR > 1)
+- https://FamKey.frank-rohling.de/api (für MAJOR = 1)
+- https://FamKey{MAJOR}.frank-rohling.de/api (für MAJOR > 1)
 
 ---
 
@@ -572,9 +572,9 @@ Das Zweitgerät erzeugt beim Tresor-Anlegen ebenfalls eine zufällige `userUuid`
 
 **Bei Import aus Fremdformaten** (Bitwarden, KeePass, 1Password, CSV): Die UUID wird, sofern im Quellformat vorhanden, vom Quellsystem übernommen. Andernfalls wird sie deterministisch generiert oder neu vergeben.
 
-**Bei Import aus dem PriVault-eigenen ZIP-Format** (Backup/Recovery): Die UUID aus der Exportdatei wird beibehalten. Das ermöglicht einen verlustfreien Round-Trip: Export → Import erzeugt denselben Datenbestand, und ein zweiter Import desselben Backups erzeugt Updates statt Duplikate (Last-Write-Wins greift auf denselben Schlüssel).
+**Bei Import aus dem FamKey-eigenen ZIP-Format** (Backup/Recovery): Die UUID aus der Exportdatei wird beibehalten. Das ermöglicht einen verlustfreien Round-Trip: Export → Import erzeugt denselben Datenbestand, und ein zweiter Import desselben Backups erzeugt Updates statt Duplikate (Last-Write-Wins greift auf denselben Schlüssel).
 
-**Warum auch beim PriVault-Import keine neue UUID vergeben?**
+**Warum auch beim FamKey-Import keine neue UUID vergeben?**
 Wenn beim Import immer neue UUIDs vergeben würden, wäre das Backup/Recovery-Szenario (Tresor exportieren → Tresor importieren) nicht idempotent. Jeder Import würde die Einträge duplizieren. Das ist für einen Passwort-Manager inakzeptabel.
 
 **Konsequenz: entryUuid ist nur innerhalb eines Tresors eindeutig.**
@@ -605,4 +605,4 @@ Hinzu kommt: `vault_uuid` müsste in `permissions` trotzdem erhalten bleiben, we
 Die Composite Keys sind also keine Notlösung, sondern die direkte Abbildung der fachlichen Invariante im Schema. Sie transportieren die Geschäftslogik in die Datenbankstruktur und machen fehlerhafte Queries — die z.B. nur auf `entry_uuid` ohne `vault_uuid` filtern — strukturell unmöglich.
 
 **Maßstab:**
-PriVault ist kein Hochlast-System. Ein typischer Tresor hat 100–2000 Einträge. Der Performanceunterschied zwischen einem 72-Byte-Composite-FK und einem 8-Byte-Integer-FK ist bei dieser Datenmenge vollständig irrelevant.
+FamKey ist kein Hochlast-System. Ein typischer Tresor hat 100–2000 Einträge. Der Performanceunterschied zwischen einem 72-Byte-Composite-FK und einem 8-Byte-Integer-FK ist bei dieser Datenmenge vollständig irrelevant.

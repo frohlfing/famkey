@@ -1,15 +1,15 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Die Flutter-Seite zur Eintrags-Auswahl beim Auto-Type-Vorgang (nur Windows, Szenario B).
 ///
@@ -17,7 +17,7 @@ import 'package:privault/widgets/snack.dart';
 ///
 /// Der Nutzer hat den konfigurierten Hotkey (z.B. Strg+Shift+A) gedrückt, während
 /// er sich in einer anderen App (z.B. Chrome, Firefox, Notepad) befand.
-/// C++ hat PriVault in den Vordergrund gebracht und den Fenstertitel der zuvor
+/// C++ hat FamKey in den Vordergrund gebracht und den Fenstertitel der zuvor
 /// aktiven App via MethodChannel `onHotkey` an Flutter geschickt.
 /// `AutofillServiceWindows.init()` hat dann zu dieser Seite navigiert und den
 /// Fenstertitel als Argument mitgegeben.
@@ -33,15 +33,15 @@ import 'package:privault/widgets/snack.dart';
 ///
 /// # Unterschied zur [AutofillPickerPage] (Android)
 ///
-/// - Auf Android wählt der Nutzer einen Eintrag, und PriVault gibt das Ergebnis
+/// - Auf Android wählt der Nutzer einen Eintrag, und FamKey gibt das Ergebnis
 ///   direkt an das Formular zurück (Betriebssystem übernimmt das Eintragen).
-/// - Auf Windows muss PriVault die Zugangsdaten selbst tippen (SendInput via C++).
+/// - Auf Windows muss FamKey die Zugangsdaten selbst tippen (SendInput via C++).
 ///   Daher gibt es hier immer einen Bestätigungsdialog mit Zielfenster-Angabe –
 ///   der Nutzer sieht, wohin getippt wird, bevor er bestätigt.
 ///
 /// # Matching-Logik (`_matches`)
 ///
-/// PriVault vergleicht den Fenstertitel mit den gespeicherten Eintragsdaten:
+/// FamKey vergleicht den Fenstertitel mit den gespeicherten Eintragsdaten:
 /// 1. **Titel-Substring:** "PayPal" (Eintrags-Titel) im Fenstertitel "PayPal — Mozilla Firefox" → Treffer
 /// 2. **URL-Domain:** "paypal.com" (aus Eintrags-URL) im Fenstertitel → Treffer
 ///
@@ -65,7 +65,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
 
-  /// Fenstertitel der App, die vor PriVault aktiv war (z.B. "PayPal – Mozilla Firefox").
+  /// Fenstertitel der App, die vor FamKey aktiv war (z.B. "PayPal – Mozilla Firefox").
   /// Wird als Suchbegriff für das Matching verwendet und im AppBar-Titel angezeigt.
   String _windowTitle = '';
 

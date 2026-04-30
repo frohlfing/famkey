@@ -1,10 +1,10 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-**PriVault** is a self-hosted password manager for Windows, Android, and Web (WebAssembly), built with Flutter/Dart. It uses a PHP/MySQL backend for synchronization. Documentation and comments are in **German**.
+**FamKey** is a self-hosted password manager for Windows, Android, and Web (WebAssembly), built with Flutter/Dart. It uses a PHP/MySQL backend for synchronization. Documentation and comments are in **German**.
 
 ## Common Commands
 

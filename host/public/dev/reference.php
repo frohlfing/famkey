@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 /**
@@ -193,7 +193,7 @@ $defaultId = $items[0]['id'] ?? '';
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <title>PriVault API–Referenz</title>
+    <title>FamKey API–Referenz</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!--suppress CssUnusedSymbol -->
     <style>
@@ -254,7 +254,7 @@ $defaultId = $items[0]['id'] ?? '';
 </head>
 <body>
 <div class="wrap">
-    <h1>PriVault API–Referenz</h1>
+    <h1>FamKey API–Referenz</h1>
     <div class="muted">
         Generiert aus <code>routes.php</code> + PHPDoc der Controller-Methoden.
     </div>

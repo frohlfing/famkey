@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/features/detail/preview/preview_notifier.dart';
-import 'package:privault/features/detail/preview/preview_state.dart';
-import 'package:privault/core/renderer_factory.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/features/detail/preview/preview_notifier.dart';
+import 'package:famkey/features/detail/preview/preview_state.dart';
+import 'package:famkey/core/renderer_factory.dart';
 
 /// Ein modaler Dialog zur Vorschau von Dateianhängen.
 class PreviewDialog extends ConsumerStatefulWidget {

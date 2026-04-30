@@ -1,7 +1,7 @@
-import 'package:privault/core/env.dart';
-import 'package:privault/services/autofill_service/autofill_service_android.dart';
-import 'package:privault/services/autofill_service/autofill_service_web.dart';
-import 'package:privault/services/autofill_service/autofill_service_windows.dart';
+﻿import 'package:famkey/core/env.dart';
+import 'package:famkey/services/autofill_service/autofill_service_android.dart';
+import 'package:famkey/services/autofill_service/autofill_service_web.dart';
+import 'package:famkey/services/autofill_service/autofill_service_windows.dart';
 
 // todo in AutotypeService und AutofillService trennen
 // Factory-Pattern:
@@ -15,18 +15,18 @@ import 'package:privault/services/autofill_service/autofill_service_windows.dart
 ///
 /// # Was ist Autofill?
 ///
-/// Autofill bedeutet, dass PriVault Benutzername und Passwort automatisch in
+/// Autofill bedeutet, dass FamKey Benutzername und Passwort automatisch in
 /// Anmeldeformulare anderer Apps einträgt – ohne dass der Nutzer kopieren/einfügen muss.
 /// Auf Android übernimmt das Android-Betriebssystem die Vermittlung (Autofill-Framework).
-/// Auf Windows tippt PriVault die Zugangsdaten per Tastatureingabe in das aktive Fenster
+/// Auf Windows tippt FamKey die Zugangsdaten per Tastatureingabe in das aktive Fenster
 /// (Auto-Type, da Windows kein vergleichbares Framework hat).
 ///
 /// # Warum eine abstrakte Klasse?
 ///
 /// Android, Windows und Web funktionieren grundlegend verschieden:
-/// - **Android**: Das Betriebssystem ruft PriVault aktiv auf, wenn der Nutzer ein Formular
-///   antippt. PriVault registriert sich als Autofill-Provider im System.
-/// - **Windows**: PriVault wartet auf einen globalen Hotkey (z.B. Strg+Alt+A) und tippt
+/// - **Android**: Das Betriebssystem ruft FamKey aktiv auf, wenn der Nutzer ein Formular
+///   antippt. FamKey registriert sich als Autofill-Provider im System.
+/// - **Windows**: FamKey wartet auf einen globalen Hotkey (z.B. Strg+Alt+A) und tippt
 ///   dann die Zugangsdaten mit simulierten Tastatureingaben in das aktive Fenster.
 /// - **Web/andere**: Kein Autofill – leere Implementierungen (No-ops).
 ///
@@ -69,7 +69,7 @@ abstract class AutofillService {
   /// Die Domain, für die gerade ein Autofill-Request vorliegt (z.B. "paypal.com").
   ///
   /// Android erkennt, in welcher App und auf welcher Website der Nutzer ein
-  /// Formular ausfüllen will, und übergibt diese Information an PriVault.
+  /// Formular ausfüllen will, und übergibt diese Information an FamKey.
   /// Solange kein Request aktiv ist, ist dieser Wert `null`.
   /// Nach Abschluss (`complete()`) oder Abbruch (`cancel()`) wird er wieder auf
   /// `null` gesetzt.
@@ -109,7 +109,7 @@ abstract class AutofillService {
   /// Setzt [pendingDomain] auf null. Auf Nicht-Android-Plattformen ein No-op.
   Future<void> cancel() async {}
 
-  /// Gibt an, ob PriVault als aktiver Autofill-Anbieter im Android-System eingestellt ist.
+  /// Gibt an, ob FamKey als aktiver Autofill-Anbieter im Android-System eingestellt ist.
   ///
   /// Fragt den Kotlin-Service über den MethodChannel. Gibt auf Nicht-Android-Plattformen
   /// immer false zurück.
@@ -134,7 +134,7 @@ abstract class AutofillService {
   /// Nur Windows; auf anderen Plattformen ein No-op.
   Future<void> reregisterHotkey() async {}
 
-  /// Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
+  /// Gibt den Titel des zuletzt aktiven Nicht-FamKey-Fensters zurück.
   ///
   /// Liest `g_previousHwnd` aus dem C++-Kern via MethodChannel. Gibt einen
   /// leeren String zurück, wenn noch kein fremdes Fenster fokussiert war oder

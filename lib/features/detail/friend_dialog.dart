@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:privault/database/database.dart'; // Pfad ggf. anpassen
+﻿import 'package:flutter/material.dart';
+import 'package:famkey/database/database.dart'; // Pfad ggf. anpassen
 
 /// Ein modaler Dialog zur Auswahl eines Freundes.
 class FriendDialog {

@@ -1,4 +1,4 @@
-# 02 Kryptografie
+﻿# 02 Kryptografie
 
 Dieses Dokument beschreibt anerkannte kryptografische Verfahren. Ziel ist es, die Sicherheitsmechanismen so zu erklären, 
 dass sie ohne tiefgreifende Kryptografie-Kenntnisse implementiert und gewartet werden können.
@@ -106,18 +106,18 @@ Hier fungiert das Betriebssystem als vertrauenswürdiger Vermittler (Broker).
 
 **Der Ablauf:**
 1. **Erkennung:** Der User tippt in Chrome auf `amazon.de` in das User-Feld.
-2. **Anfrage:** Das OS erkennt das Feld und fragt registrierte Provider (PriVault): *"Hast du Credentials für `amazon.de` (oder Package `com.amazon.mShop`)?"*
-3. **Suche:** PriVault (läuft als Hintergrund-Service) prüft die Metadaten der verschlüsselten Datenbank (Indexsuche auf URL).
+2. **Anfrage:** Das OS erkennt das Feld und fragt registrierte Provider (FamKey): *"Hast du Credentials für `amazon.de` (oder Package `com.amazon.mShop`)?"*
+3. **Suche:** FamKey (läuft als Hintergrund-Service) prüft die Metadaten der verschlüsselten Datenbank (Indexsuche auf URL).
 4. **Authentifizierung:**
-   - Falls die DB gesperrt ist, fordert PriVault über das OS eine Biometrie-Freigabe an.
-   - PriVault entschlüsselt den Eintrag im geschützten Speicherbereich.
-5. **Übergabe:** PriVault baut ein Antwort-Objekt (`Dataset` in Android) und übergibt es direkt an das OS-Framework.
+   - Falls die DB gesperrt ist, fordert FamKey über das OS eine Biometrie-Freigabe an.
+   - FamKey entschlüsselt den Eintrag im geschützten Speicherbereich.
+5. **Übergabe:** FamKey baut ein Antwort-Objekt (`Dataset` in Android) und übergibt es direkt an das OS-Framework.
 6. **Ausfüllen:** Das OS fügt die Daten in die Ziel-App ein. Die Ziel-App (Browser) sieht die Daten erst in diesem Moment.
 
 ### 3.2. Desktop (Windows / macOS)**
 Da Desktop-Betriebssysteme kein einheitliches globales Auto-Fill-System für alle Browser bieten, nutzen wir hier zwei Strategien:
 - **Variante A (Browser Extension - Empfohlen):**
-  Eine schlanke Browser-Erweiterung kommuniziert via **Native Messaging** mit der laufenden PriVault-Desktop-App.
+  Eine schlanke Browser-Erweiterung kommuniziert via **Native Messaging** mit der laufenden FamKey-Desktop-App.
     - Vorteil: Erkennt URL exakt, schützt vor Phishing.
     - Nachteil: Muss für jeden Browser (Chrome, Edge, Firefox) separat bereitgestellt werden.
 - **Variante B (Auto-Type - Fallback):**
@@ -127,9 +127,9 @@ Da Desktop-Betriebssysteme kein einheitliches globales Auto-Fill-System für all
 
 ---
 
-## 4 Anwendung in PriVault
+## 4 Anwendung in FamKey
 
-PriVault nutzt eine mehrstufige Hierarchie, um Sicherheit und Flexibilität (z. B. beim Teilen von Daten) zu kombinieren.
+FamKey nutzt eine mehrstufige Hierarchie, um Sicherheit und Flexibilität (z. B. beim Teilen von Daten) zu kombinieren.
 
 ### 4.1: Master-Passwort & Master-Key
 - **Input:** Das vom Nutzer gewählte Master-Passwort.
@@ -150,7 +150,7 @@ Das Umschlag-Verfahren ermöglicht das Teilen von diesen verschlüsselten Eintr�
 3. **Entschlüsseln:** Ein Nutzer lädt den verschlüsselten Payload und seinen persönlichen Umschlag herunter. Er öffnet den Umschlag mit seinem **RSA-Private-Key**, erhält den Entry-Key und entschlüsselt damit die Daten.
 
 ### 4.4 Das Zero-Knowledge-Prinzip
-Das fundamentale Sicherheitsversprechen von PriVault lautet: **Der Server kennt niemals Daten im Klartext.**
+Das fundamentale Sicherheitsversprechen von FamKey lautet: **Der Server kennt niemals Daten im Klartext.**
 - Alle Verschlüsselungsvorgänge finden auf dem Client statt.
 - Der Server fungiert als rein passiver Speicher für verschlüsselte Blobs. Er validiert keine Dateninhalte, sondern prüft lediglich die Authentizität der Anfragen.
 - Das Master-Passwort wird niemals über das Netzwerk übertragen.
@@ -223,7 +223,7 @@ Oberfläche zu öffnen.
 
 #### 6.1.2 Der UI-Angriff (Dieb hat Geräte-PIN)
 
-* **Szenario:** Der Dieb hat dir beim Entsperren über die Schulter geschaut (Shoulder Surfing) und kennt deinen Geräte-PIN (z.B. "2580"). Er entsperrt das Handy und öffnet die PriVault-App.
+* **Szenario:** Der Dieb hat dir beim Entsperren über die Schulter geschaut (Shoulder Surfing) und kennt deinen Geräte-PIN (z.B. "2580"). Er entsperrt das Handy und öffnet die FamKey-App.
 * **Angriff auf Biometrie:**
     * Die App fragt nach FaceID/Fingerabdruck. Das schlägt fehl (falsches Gesicht).
     * Android/iOS bieten dann oft den **Geräte-PIN als Fallback** an.
@@ -253,8 +253,8 @@ Ein Dieb stiehlt den Laptop. Windows ist durch "Windows Hello" (PIN/Gesicht) ges
 * **Szenario:** Du nutzt eine simple 4-stellige PIN für Windows ("1234"). Der Dieb errät diese.
 * **Angriff:**
     * Dieb loggt sich in Windows ein.
-    * Er startet PriVault.
-    * PriVault fragt nach Biometrie (Hello). Da der Dieb eingeloggt ist, gilt er für Windows oft als "authentifiziert"
+    * Er startet FamKey.
+    * FamKey fragt nach Biometrie (Hello). Da der Dieb eingeloggt ist, gilt er für Windows oft als "authentifiziert"
       oder er gibt erneut "1234" ein.
     * Der TPM-Chip gibt den Schlüssel frei -> **Zugriff erfolgreich.**
 * **Schutz:**
@@ -266,7 +266,7 @@ Ein Dieb stiehlt den Laptop. Windows ist durch "Windows Hello" (PIN/Gesicht) ges
 
 * **Funktion:** Löschen der `sqlite.db` nach X Fehlversuchen in der App-Oberfläche.
 * **Grenzen:** Unter Windows hat der User (und damit der Dieb) vollen Zugriff auf den Dateimanager.
-* **Bypass:** Der Dieb kopiert einfach den Ordner `%AppData%\Privault` an einen sicheren Ort, bevor er anfängt zu raten.
+* **Bypass:** Der Dieb kopiert einfach den Ordner `%AppData%\FamKey` an einen sicheren Ort, bevor er anfängt zu raten.
   Wenn die App sich löscht, kopiert er die Datei zurück und probiert weiter.
 * **Fazit:** Selbstzerstörung ist auf dem Desktop ein reines Komfort-Feature gegen Neugierige, kein harter Schutz.
 

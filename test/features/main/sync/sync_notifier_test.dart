@@ -1,21 +1,21 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:privault/core/app_version.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/main/sync/sync_notifier.dart';
-import 'package:privault/features/main/sync/sync_state.dart';
-import 'package:privault/models/dtos/sync_dtos.dart';
-import 'package:privault/models/dtos/user_response.dart';
-import 'package:privault/models/dtos/version_response.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
+import 'package:famkey/core/app_version.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/main/sync/sync_notifier.dart';
+import 'package:famkey/features/main/sync/sync_state.dart';
+import 'package:famkey/models/dtos/sync_dtos.dart';
+import 'package:famkey/models/dtos/user_response.dart';
+import 'package:famkey/models/dtos/version_response.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 
 import 'sync_notifier_test.mocks.dart';
 
@@ -100,7 +100,7 @@ void main() {
       arrangeLoggedIn();
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault',
+        service: 'FamKey',
         syncProtocolVersion: AppVersion.syncProtocolVersion - 1,
         minSyncProtocolVersion: 1,
       ));
@@ -116,7 +116,7 @@ void main() {
       arrangeLoggedIn();
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault v1 REST-API',
+        service: 'FamKey v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion,
         minSyncProtocolVersion: 1,
       ));
@@ -168,7 +168,7 @@ void main() {
       arrangeLoggedIn();
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault v1 REST-API',
+        service: 'FamKey v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion,
         minSyncProtocolVersion: 1,
       ));
@@ -212,7 +212,7 @@ void main() {
       when(mockSession.vaultName).thenReturn('VaultX');
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault v1 REST-API',
+        service: 'FamKey v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion,
         minSyncProtocolVersion: 1,
       ));
@@ -255,7 +255,7 @@ void main() {
       arrangeLoggedIn(); // vaultName = 'VaultX', user.syncedName = ''
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
-        service: 'PriVault v1 REST-API',
+        service: 'FamKey v1 REST-API',
         syncProtocolVersion: AppVersion.syncProtocolVersion,
         minSyncProtocolVersion: 1,
       ));

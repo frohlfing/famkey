@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include <windows.h>
 #include <string>
 
 // Implementiert Auto-Type für Windows (Szenario A):
-// Verfolgt das zuletzt aktive Nicht-PriVault-Fenster und tippt Credentials hinein.
+// Verfolgt das zuletzt aktive Nicht-FamKey-Fenster und tippt Credentials hinein.
 class AutoType {
 public:
     static AutoType& Instance();
@@ -16,7 +16,7 @@ public:
     // Gibt den WinEvent-Hook frei.
     void Cleanup();
 
-    // Gibt den Titel des zuletzt aktiven Nicht-PriVault-Fensters zurück.
+    // Gibt den Titel des zuletzt aktiven Nicht-FamKey-Fensters zurück.
     // Leer, wenn noch kein Fenster verfolgt wurde oder das Fenster nicht mehr existiert.
     std::wstring GetLastWindowTitle() const;
 

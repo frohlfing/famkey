@@ -1,7 +1,7 @@
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/app_file.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/models/payloads/attachment_meta_payload.dart';
+﻿import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/app_file.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/models/payloads/attachment_meta_payload.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum DetailActionStatus {

@@ -1,5 +1,5 @@
-import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/log_config/log_config_form_data.dart';
+﻿import 'package:famkey/core/app_error.dart';
+import 'package:famkey/features/settings/log_config/log_config_form_data.dart';
 
 /// Status-Enum für die Aktionen im LogConfigDialog
 enum LogConfigStatus {

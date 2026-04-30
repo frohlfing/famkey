@@ -1,13 +1,13 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/main/export/export_dialog.dart';
-import 'package:privault/features/main/main_notifier.dart';
-import 'package:privault/features/main/main_state.dart';
-import 'package:privault/features/main/import/import_dialog.dart';
-import 'package:privault/features/main/sync/sync_dialog.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/features/main/export/export_dialog.dart';
+import 'package:famkey/features/main/main_notifier.dart';
+import 'package:famkey/features/main/main_state.dart';
+import 'package:famkey/features/main/import/import_dialog.dart';
+import 'package:famkey/features/main/sync/sync_dialog.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Der [MainPage] ist die zentrale Übersicht deines Tresors.
 ///

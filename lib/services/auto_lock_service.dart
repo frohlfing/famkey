@@ -1,8 +1,8 @@
-import 'dart:async';
-import 'package:privault/core/navigator_key.dart';
-import 'package:privault/services/clipboard_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+﻿import 'dart:async';
+import 'package:famkey/core/navigator_key.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 
 // todo umbenennen in LockService
 

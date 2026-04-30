@@ -1,7 +1,7 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:privault/core/helper.dart';
+import 'package:famkey/core/helper.dart';
 
 /// Plattformunabhängige Abstraktion für Dateizugriffe.
 ///

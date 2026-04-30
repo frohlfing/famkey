@@ -1,9 +1,9 @@
-import 'package:app_settings/app_settings.dart';
+﻿import 'package:app_settings/app_settings.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
-import 'package:privault/core/env.dart';
-import 'package:privault/services/system_settings_service/system_settings_service.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/services/system_settings_service/system_settings_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Implementierung von [SystemSettingsService] für die Windows-Platform.
@@ -76,7 +76,7 @@ class SystemSettingsServiceMobile implements SystemSettingsService {
   @override
   Future<void> openAutofillSettings() async {
     if (env.isAndroid) {
-      final channel = MethodChannel('de.frohlfing.privault/autofill');
+      final channel = MethodChannel('de.frohlfing.famkey/autofill');
       await channel.invokeMethod('openAutofillSettings');
     }
   }

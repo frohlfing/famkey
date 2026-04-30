@@ -1,11 +1,11 @@
-# 07 Deployment (Build & Auslieferung)
+﻿# 07 Deployment (Build & Auslieferung)
 
 ## 1. Deployment der Windows-App
-1. Sicherstellen, dass in `Privault.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
+1. Sicherstellen, dass in `FamKey.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
 2. TODO
 
 ## 2. Deployment der Android-App
-1. Sicherstellen, dass in `Privault.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
+1. Sicherstellen, dass in `FamKey.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
 2. TODO
 Erstellung von Release-APKs/AABs via CLI:
 ```powershell
@@ -13,7 +13,7 @@ dotnet publish -f net8.0-android -c Release
 ```
 
 ## 3. Deployment der Web-App
-1. Sicherstellen, dass in `Privault.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
+1. Sicherstellen, dass in `FamKey.Core.csproj` die `Version` und `RequiredServerMinor` korrekt angehoben sind.
 2. TODO
 
 ## 4. Serverseitige Migration
@@ -59,7 +59,7 @@ Wenn du von MAJOR 1 auf 2 gehst, machst du aus dem bisherigen Stand einen Mainte
 - "main" ist ab jetzt die Entwicklungslinie für MAJOR 2.
 
 - Schritt 2:
-  Auf "main" erhöhst du die Version (in `Privault.Core.csproj` und in `config.php`).
+  Auf "main" erhöhst du die Version (in `FamKey.Core.csproj` und in `config.php`).
 
 - Schritt 3: Committen:
   ```bash

@@ -1,22 +1,22 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/settings/settings_state.dart';
-import 'package:privault/services/auto_lock_service.dart';
-import 'package:privault/services/autofill_service.dart';
-import 'package:privault/services/biometric_service.dart';
-import 'package:privault/services/clipboard_service.dart';
-import 'package:privault/services/config_service.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/system_settings_service.dart';
-import 'package:privault/services/session_service.dart';
-import 'package:privault/services/web_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/settings/settings_state.dart';
+import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/system_settings_service.dart';
+import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(() {
   return SettingsNotifier();
@@ -474,7 +474,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// Setter für das Farbschema.
   ///
-  /// `PriVaultApp` (siehe `main.dart`) beobachtet das Farbschema indirekt über
+  /// `FamKeyApp` (siehe `main.dart`) beobachtet das Farbschema indirekt über
   /// das `MaterialApp`-Widget und reagiert auf diese Änderungen.
   void setThemeMode(ThemeMode value) {
     final error = state.error.field == 'themeMode' ? AppError.none() : null;

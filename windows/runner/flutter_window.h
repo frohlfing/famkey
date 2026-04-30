@@ -1,4 +1,4 @@
-#ifndef RUNNER_FLUTTER_WINDOW_H_
+﻿#ifndef RUNNER_FLUTTER_WINDOW_H_
 #define RUNNER_FLUTTER_WINDOW_H_
 
 #include <flutter/dart_project.h>
@@ -15,7 +15,7 @@
 /// Erbt von Win32Window (erstellt das native Win32-Fenster und leitet Nachrichten weiter).
 /// Verantwortlich für:
 ///   - Flutter-Engine starten und in das Win32-Fenster einbetten.
-///   - MethodChannel "de.frohlfing.privault/autotype" registrieren (Dart ↔ C++ Kommunikation).
+///   - MethodChannel "de.frohlfing.famkey/autotype" registrieren (Dart ↔ C++ Kommunikation).
 ///   - WinEvent-Hook via AutoType::Initialize() starten (aktives Fremd-Fenster verfolgen).
 ///   - Globalen Hotkey (WM_HOTKEY) empfangen und an Dart weiterleiten.
 ///   - Ressourcen in OnDestroy() sauber freigeben.
@@ -61,7 +61,7 @@ class FlutterWindow : public Win32Window {
 
   /// Bidirektionaler Kommunikationskanal zwischen Dart und C++ für Auto-Type.
   ///
-  /// Registrierter Name: "de.frohlfing.privault/autotype".
+  /// Registrierter Name: "de.frohlfing.famkey/autotype".
   /// Dart → C++: "getLastWindowTitle", "typeCredentials", "registerHotkey".
   /// C++ → Dart: "onHotkey" (via InvokeMethod bei WM_HOTKEY).
   ///

@@ -1,4 +1,4 @@
-# PriVault Server – Paket-Manifest
+﻿# FamKey Server – Paket-Manifest
 #
 # Format:  Ziel im ZIP  |  Quelle (relativ zu host/)
 #

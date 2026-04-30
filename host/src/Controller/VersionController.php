@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 declare(strict_types=1);
 
@@ -29,7 +29,7 @@ final class VersionController
      * Antwort (200 OK):
      * <code>
      * {
-     *   "service": "PriVault",
+     *   "service": "FamKey",
      *   "sync_protocol_version": {integer},
      *   "min_sync_protocol_version": {integer},
      * }
@@ -52,7 +52,7 @@ final class VersionController
     public function version(Request $request): Response
     {
         return Response::json([
-            'service' => 'PriVault v1 REST-API',
+            'service' => 'FamKey v1 REST-API',
             'sync_protocol_version' => SYNC_PROTOCOL_VERSION,
             'min_sync_protocol_version' => MIN_SYNC_PROTOCOL_VERSION,
         ]);

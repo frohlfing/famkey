@@ -1,24 +1,24 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/core/helper.dart';
-import 'package:privault/core/logger.dart';
-import 'package:privault/core/service_locator.dart';
-import 'package:privault/database/database.dart';
-import 'package:privault/features/main/import/import_form_data.dart';
-import 'package:privault/features/main/import/parser.dart';
-import 'package:privault/features/main/import/import_state.dart';
-import 'package:privault/features/main/import/parsers/bitwarden_json_parser.dart';
-import 'package:privault/features/main/import/parsers/keepass_xml_parser.dart';
-import 'package:privault/features/main/import/parsers/onepassword_1pux_parser.dart';
-import 'package:privault/features/main/import/parsers/privault_zip_parser.dart';
-import 'package:privault/models/payloads/attachment_meta_payload.dart';
-import 'package:privault/models/payloads/entry_payload.dart';
-import 'package:privault/models/payloads/index_payload.dart';
-import 'package:privault/services/crypto_service.dart';
-import 'package:privault/services/database_service.dart';
-import 'package:privault/services/session_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/core/helper.dart';
+import 'package:famkey/core/logger.dart';
+import 'package:famkey/core/service_locator.dart';
+import 'package:famkey/database/database.dart';
+import 'package:famkey/features/main/import/import_form_data.dart';
+import 'package:famkey/features/main/import/parser.dart';
+import 'package:famkey/features/main/import/import_state.dart';
+import 'package:famkey/features/main/import/parsers/bitwarden_json_parser.dart';
+import 'package:famkey/features/main/import/parsers/keepass_xml_parser.dart';
+import 'package:famkey/features/main/import/parsers/onepassword_1pux_parser.dart';
+import 'package:famkey/features/main/import/parsers/FamKey_zip_parser.dart';
+import 'package:famkey/models/payloads/attachment_meta_payload.dart';
+import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/models/payloads/index_payload.dart';
+import 'package:famkey/services/crypto_service.dart';
+import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/app_file.dart';
@@ -344,7 +344,7 @@ class ImportNotifier extends Notifier<ImportState> {
       ImportFileFormat.bitwardenJson => BitwardenJsonParser(file),
       ImportFileFormat.keepassXml => KeepassXmlParser(file),
       ImportFileFormat.onePassword1Pux => OnePassword1PuxParser(file),
-      ImportFileFormat.privaultZip => PrivaultZipParser(file, password: password),
+      ImportFileFormat.FamKeyZip => FamKeyZipParser(file, password: password),
       _ => null, // Default-Fall (Catch-all) -> alle unterstützen Formate
     };
   }
@@ -379,7 +379,7 @@ class ImportNotifier extends Notifier<ImportState> {
         'json' => ImportFileFormat.bitwardenJson,
         'xml'  => ImportFileFormat.keepassXml,
         '1pux' => ImportFileFormat.onePassword1Pux,
-        'zip'  => ImportFileFormat.privaultZip,
+        'zip'  => ImportFileFormat.FamKeyZip,
         _      => ImportFileFormat.none,
       });
     }
@@ -395,7 +395,7 @@ class ImportNotifier extends Notifier<ImportState> {
     state = state.copyWith(formData: formData, status: ImportActionStatus.initial, error: error);
   }
 
-  /// Setzt das Passwort (nur relevant für verschlüsselte PriVault-ZIP-Exporte).
+  /// Setzt das Passwort (nur relevant für verschlüsselte FamKey-ZIP-Exporte).
   void setPassword(String value) {
     if (value == state.formData.password) return;
     final error = state.error.field == 'password' ? AppError.none() : null;

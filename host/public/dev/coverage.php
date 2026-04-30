@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * Coverage-Report-Generator
@@ -470,7 +470,7 @@ $projectPercent = $projectTotal > 0 ? ($projectCovered / $projectTotal) * 100.0 
 // Projekt-Wurzelknoten rendern (standardmäßig ausgeklappt)
 echo '<details open class="file">';
 echo '<summary>';
-renderSummary('Privault.Host', $projectPercent, $projectCovered . '/' . $projectTotal, 0, $projectTotal);
+renderSummary('FamKey.Host', $projectPercent, $projectCovered . '/' . $projectTotal, 0, $projectTotal);
 echo '</summary>';
 
 // Dateien "wie im Explorer" sortieren:

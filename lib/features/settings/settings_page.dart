@@ -1,22 +1,22 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/features/settings/autofill_hotkey/autofill_hotkey_dialog.dart';
-import 'package:privault/features/settings/category_placeholder/category_placeholder_dialog.dart';
-import 'package:privault/features/settings/log_config/log_config_dialog.dart';
-import 'package:privault/features/settings/timeouts/auto_lock_dialog.dart';
-import 'package:privault/features/settings/timeouts/clipboard_clear_dialog.dart';
-import 'package:privault/features/settings/log_file/log_file_dialog.dart';
-import 'package:privault/features/settings/master_password/master_password_dialog.dart';
-import 'package:privault/features/settings/new_friend/new_friend_dialog.dart';
-import 'package:privault/features/settings/password_generator/password_generator_dialog.dart';
-import 'package:privault/features/settings/settings_notifier.dart';
-import 'package:privault/features/settings/settings_state.dart';
-import 'package:privault/features/settings/sync_server/sync_server_dialog.dart';
-import 'package:privault/features/settings/user_name/user_name_dialog.dart';
-import 'package:privault/features/settings/vault_name/vault_name_dialog.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/snack.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_dialog.dart';
+import 'package:famkey/features/settings/category_placeholder/category_placeholder_dialog.dart';
+import 'package:famkey/features/settings/log_config/log_config_dialog.dart';
+import 'package:famkey/features/settings/timeouts/auto_lock_dialog.dart';
+import 'package:famkey/features/settings/timeouts/clipboard_clear_dialog.dart';
+import 'package:famkey/features/settings/log_file/log_file_dialog.dart';
+import 'package:famkey/features/settings/master_password/master_password_dialog.dart';
+import 'package:famkey/features/settings/new_friend/new_friend_dialog.dart';
+import 'package:famkey/features/settings/password_generator/password_generator_dialog.dart';
+import 'package:famkey/features/settings/settings_notifier.dart';
+import 'package:famkey/features/settings/settings_state.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_dialog.dart';
+import 'package:famkey/features/settings/user_name/user_name_dialog.dart';
+import 'package:famkey/features/settings/vault_name/vault_name_dialog.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/snack.dart';
 
 /// Der [SettingsPage] ermöglicht die Konfiguration der App und des aktuellen Tresors.
 ///
@@ -282,7 +282,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                           SwitchListTile(
                             secondary: const Icon(Icons.text_fields_outlined),
                             title: const Text('Autofill'),
-                            subtitle: Text('PriVault als Autofill-Anbieter für andere Apps verwenden.'),
+                            subtitle: Text('FamKey als Autofill-Anbieter für andere Apps verwenden.'),
                             value: isAutofillEnabled,
                             onChanged: notifier.toggleAutofill,
                           ),
@@ -344,7 +344,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                             Padding(
                               padding: const EdgeInsets.only(left: 48, right: 96),
                               child: Text(
-                                'Drücke das Tastenkürzel in einer beliebigen Anwendung, um PriVault im Hintergrund zu aktivieren und Benutzername und Passwort automatisch einzufügen.',
+                                'Drücke das Tastenkürzel in einer beliebigen Anwendung, um FamKey im Hintergrund zu aktivieren und Benutzername und Passwort automatisch einzufügen.',
                                 style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant), //TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ),

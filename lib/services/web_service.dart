@@ -1,13 +1,13 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:privault/core/app_error.dart';
-import 'package:privault/models/dtos/sync_dtos.dart';
-import 'package:privault/models/dtos/user_response.dart';
-import 'package:privault/models/dtos/version_response.dart';
-import 'package:privault/services/crypto_service.dart';
+import 'package:famkey/core/app_error.dart';
+import 'package:famkey/models/dtos/sync_dtos.dart';
+import 'package:famkey/models/dtos/user_response.dart';
+import 'package:famkey/models/dtos/version_response.dart';
+import 'package:famkey/services/crypto_service.dart';
 
-/// Dienst für die Kommunikation mit der PriVault-API (Backend).
+/// Dienst für die Kommunikation mit der FamKey-API (Backend).
 /// Kümmert sich um Authentifizierung (API-Token) und Autorisierung (RSA-Signatur der Requests).
 class WebService {
 
@@ -303,7 +303,7 @@ class WebService {
         final status = de.response?.statusCode;
         if (status == 404) {
           code = ErrorCode.noSyncService;
-          message = 'Auf dem Server $host läuft kein PriVault Sync-Service. Überprüfe die Serveradresse.';
+          message = 'Auf dem Server $host läuft kein FamKey Sync-Service. Überprüfe die Serveradresse.';
         } else if (status == 401) {
           code = ErrorCode.unauthorized;
           message = 'Der API-Token wurde vom Server abgelehnt.';

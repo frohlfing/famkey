@@ -1,5 +1,5 @@
-import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/sync_server/sync_server_form_data.dart';
+﻿import 'package:famkey/core/app_error.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_form_data.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum SyncServerActionStatus {

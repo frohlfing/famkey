@@ -1,4 +1,4 @@
--- Database Name: privault
+﻿-- Database Name: famkey
 -- Server connection collation: utf8mb4_unicode_ci
 
 -- 1. Tabelle für die Tresore

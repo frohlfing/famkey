@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/sync_server/sync_server_notifier.dart';
-import 'package:privault/features/settings/sync_server/sync_server_state.dart';
-import 'package:privault/widgets/confirm_dialog.dart';
-import 'package:privault/widgets/password_field.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_notifier.dart';
+import 'package:famkey/features/settings/sync_server/sync_server_state.dart';
+import 'package:famkey/widgets/confirm_dialog.dart';
+import 'package:famkey/widgets/password_field.dart';
 
 /// Ein modaler Dialog zum Konfigurieren des Sync-Servers.
 class SyncServerDialog extends ConsumerStatefulWidget {

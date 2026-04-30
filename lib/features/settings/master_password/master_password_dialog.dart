@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:privault/features/settings/master_password/master_password_notifier.dart';
-import 'package:privault/features/settings/master_password/master_password_state.dart';
-import 'package:privault/widgets/password_field.dart';
-import 'package:privault/widgets/password_strength_bar.dart';
+import 'package:famkey/features/settings/master_password/master_password_notifier.dart';
+import 'package:famkey/features/settings/master_password/master_password_state.dart';
+import 'package:famkey/widgets/password_field.dart';
+import 'package:famkey/widgets/password_strength_bar.dart';
 
 /// Ein modaler Dialog zum Ändern des Master-Passworts.
 class MasterPasswordDialog extends ConsumerStatefulWidget {

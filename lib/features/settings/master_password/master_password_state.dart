@@ -1,5 +1,5 @@
-import 'package:privault/core/app_error.dart';
-import 'package:privault/features/settings/master_password/master_password_form_data.dart';
+﻿import 'package:famkey/core/app_error.dart';
+import 'package:famkey/features/settings/master_password/master_password_form_data.dart';
 
 /// Ein Enum für den Status von Aktionen
 enum MasterPasswordActionStatus {

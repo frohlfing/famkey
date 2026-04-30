@@ -1,4 +1,4 @@
-import 'package:privault/services/password_service.dart';
+﻿import 'package:famkey/services/password_service.dart';
 
 /// Alle Daten des Passwortgenerators, die der Benutzer ändern kann.
 class PasswordGeneratorFormData {

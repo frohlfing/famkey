@@ -1,9 +1,9 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:privault/core/env.dart';
-import 'package:privault/core/logger.dart';
+import 'package:famkey/core/env.dart';
+import 'package:famkey/core/logger.dart';
 
 /// Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
 ///
@@ -23,7 +23,7 @@ class BiometricService {
   // --- Eigenschaften & Methoden ---
   // ------------------------------------------------------------------------
 
-  String _getKeyName(String vaultName) => 'privault_key_$vaultName';
+  String _getKeyName(String vaultName) => 'FamKey_key_$vaultName';
 
   /// Prüft, ob das aktuelle Gerät Biometrie (Fingerabdruck, FaceID) oder
   /// alternative Sicherheitsmechanismen (Geräte-PIN/Windows Hello) unterstützt.

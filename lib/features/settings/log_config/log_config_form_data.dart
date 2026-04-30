@@ -1,4 +1,4 @@
-import 'package:privault/core/logger.dart';
+﻿import 'package:famkey/core/logger.dart';
 
 /// Alle editierbaren Daten im LogConfig-Dialog.
 class LogConfigFormData {

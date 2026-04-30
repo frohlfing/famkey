@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:privault/core/renderer.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:famkey/core/renderer.dart';
 
 /// Fallback-Renderer, wenn für den Dateityp keine Vorschau verfügbar ist.
 class FallbackRenderer implements Renderer {
