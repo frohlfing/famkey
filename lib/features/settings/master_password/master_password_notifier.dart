@@ -7,11 +7,13 @@ import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/settings/master_password/master_password_form_data.dart';
 import 'package:famkey/features/settings/master_password/master_password_state.dart';
+import 'package:dio/dio.dart';
 import 'package:famkey/services/biometric_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/password_service.dart';
 import 'package:famkey/services/session_service.dart';
+import 'package:famkey/services/web_service.dart';
 
 final masterPasswordProvider = NotifierProvider<MasterPasswordNotifier, MasterPasswordState>(() {
   return MasterPasswordNotifier();
@@ -28,6 +30,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
   late final DatabaseService _databaseService;
   late final PasswordService _passwordService;
   late final SessionService _sessionService;
+  late final WebService _webService;
 
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
@@ -45,6 +48,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
     _databaseService = getIt<DatabaseService>();
     _passwordService = getIt<PasswordService>();
     _sessionService = getIt<SessionService>();
+    _webService = getIt<WebService>();
 
     // Initialer State
     return MasterPasswordState();
@@ -110,6 +114,18 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
       } catch (_) {
         state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.wrongPassword, field: 'password'));
         return;
+      }
+
+      // 5a. Server-Erreichbarkeit vorab prüfen (nur bei RSA-Rotation erforderlich).
+      // Die Rotation muss zwingend mit dem Server-Update abgeschlossen werden,
+      // da AuthMiddleware sonst gegen den alten Public Key prüft und alle Requests scheitern.
+      if (formData.regenerateKeyPair) {
+        try {
+          await _webService.getServerVersion();
+        } on DioException catch (de) {
+          state = state.copyWith(status: MasterPasswordActionStatus.failure, error: WebService.convertDioError(de));
+          return;
+        }
       }
 
       // 6. Physisches Datenbank-Backup erstellen
@@ -217,7 +233,22 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
 
         // --- Ende Kritische Logik ---
 
-        // 15. Erfolg: Backup löschen
+        // 15. RSA-Rotation: neuen Public Key sofort zum Sync-Server übertragen.
+        // Der WebService signiert noch mit dem alten Private Key – gewollt: der Server
+        // validiert damit gegen den alten Public Key und speichert erst dann den neuen.
+        // (Reine Passwortänderungen werden beim nächsten Sync automatisch nachgeholt.)
+        if (formData.regenerateKeyPair && _sessionService.user != null) {
+          await _webService.changePassword(
+            _sessionService.user!.uuid,
+            base64Encode(newSalt),
+            _sessionService.user!.publicKey, // bereits der neue Key (Schritt 13c)
+            newEncryptedPrivKey,
+            settings.masterKeyTimestamp,
+          );
+          _webService.setSignatureData(userUuid: _sessionService.user!.uuid, privateKey: newPrivateKeyBytes!);
+        }
+
+        // 16. Erfolg: Backup löschen
         await _databaseService.removeBackup();
 
       } catch (_) {
@@ -230,7 +261,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
         rethrow;
       }
 
-      // 16. State aktualisieren
+      // 17. State aktualisieren
       state = state.copyWith(
         formData: MasterPasswordFormData(), // Felder leeren
         status: MasterPasswordActionStatus.saved,

@@ -116,13 +116,17 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       // 4. Datenbank und Session aktualisieren
       if (formData != state.originalFormData) {
         if (_settings == null) throw Exception("Die Einstellungen sind nicht geladen.");
+        final serverChanged = formData.host != state.originalFormData.host;
         final updatedSettings = _settings!.copyWith(
           host: formData.host,
           apiToken: formData.apiToken,
-          lastSyncAt: formData.host != state.originalFormData.host ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true) : null, // auf 1970‑01‑01 00:00:00 UTC zurücksetzen, wenn die Serveradresse geändert wurde
+          lastSyncAt: serverChanged ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true) : null, // auf 1970‑01‑01 00:00:00 UTC zurücksetzen bei Host-Wechsel (= andere Organisation/anderer Server)
         );
         _settings = await _databaseService.saveSettings(updatedSettings);
         _sessionService.setSettings(_settings!);
+        if (serverChanged) {
+          _webService.updateConfig(host: formData.host, apiToken: formData.apiToken);
+        }
       }
 
       // 5. State aktualisieren

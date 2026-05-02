@@ -4,7 +4,8 @@
       "Bash(grep -E \"^\\\\s*```|flutter\")",
       "Bash(flutter analyze *)",
       "Bash(flutter --version)",
-      "Bash(flutter pub *)"
+      "Bash(flutter pub *)",
+      "Bash(awk '{print $NF}')"
     ]
   }
 }

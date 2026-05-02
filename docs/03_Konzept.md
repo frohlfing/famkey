@@ -289,6 +289,9 @@ Der Benutzer steht in einer beliebigen App (z.B. Browser-Login-Formular, mit Fok
 
 Der Bestätigungsdialog zeigt in allen Fällen: Eintrags-Titel, Zielfenster-Titel, geplante Sequenz. Nach Bestätigung tippt C++ die Sequenz in das Zielfenster.
 
+Siehe auch:
+https://keepassxc.org/docs/KeePassXC_UserGuide#_auto_type
+
 #### Browser-Extension (verworfen, nicht geplant)
 
 Eine separate Chrome/Edge-Extension erkennt Login-Formulare automatisch und kommuniziert via **Native Messaging** mit der laufenden FamKey-Desktop-App. Die Extension übergibt die aktuelle URL, FamKey antwortet mit passenden Credentials, die Extension befüllt die Felder direkt. Erfordert ein separates Projekt (JavaScript/TypeScript + nativer Messaging-Host in Dart).
