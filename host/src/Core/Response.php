@@ -39,6 +39,7 @@ final readonly class Response
         public string $body = ''
     ) {
         // Headers normalisieren (in Kleinbuchstaben umwandeln)
+        /** @noinspection PhpRedundantOptionalArgumentInspection */
         $this->headers = array_change_key_case($headers, CASE_LOWER);
     }
 

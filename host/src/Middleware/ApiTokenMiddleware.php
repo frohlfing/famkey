@@ -67,7 +67,7 @@ final class ApiTokenMiddleware implements MiddlewareInterface
     private function processSingleTenant(Request $request, callable $next): Response
     {
         $token = $this->extractToken($request);
-        if ($token !== null && $token === API_TOKEN) {
+        if ($token === API_TOKEN) {
             return $next($request);
         }
         return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');

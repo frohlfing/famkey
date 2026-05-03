@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 declare(strict_types=1);
 
 // ── Pfade ───────────────────────────────────────────────────────────────────
@@ -56,10 +56,7 @@ function checkRequirements(string $configPath, string $migrationDir): array
 
 function allPassed(array $checks): bool
 {
-    foreach ($checks as $c) {
-        if (!$c[2]) return false;
-    }
-    return true;
+    return array_all($checks, fn($c) => $c[2]);
 }
 
 // ── POST: Install durchführen ────────────────────────────────────────────────
@@ -91,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
     if (empty($errors)) {
         try {
             // ── DB-Verbindung testen ────────────────────────────────────────
-            $dsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
             $pdoOptions = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
             if ($dbSslCa !== '') {
                 $pdoOptions[PDO::MYSQL_ATTR_SSL_CA] = $dbSslCa;
@@ -100,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
             $pdo = new PDO($dsn, $dbUser, $dbPass, $pdoOptions);
 
             // ── Alle Migrationen ausführen (sortiert nach Dateiname) ───────────
-            $migrationDir = __DIR__ . '/../../migrations';
             $migrationFiles = glob($migrationDir . '/*.sql') ?: [];
             sort($migrationFiles);
             foreach ($migrationFiles as $mFile) {
@@ -120,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 
             $configContent = "<?php\n"
                 . "/** @noinspection SpellCheckingInspection */\n"
-                . "// Generiert durch FamKey Setup am {$generated}\n\n"
+                . "// Generiert durch FamKey Setup am $generated\n\n"
                 . "// Sync-Protokollversion\n"
                 . "const SYNC_PROTOCOL_VERSION = 1;\n\n"
                 . "// Kleinste unterstützte Protokollversion\n"
@@ -133,18 +129,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 . "const DB_USER = " . phpStr($dbUser)  . ";\n"
                 . "const DB_PASS = " . phpStr($dbPass)  . ";\n\n"
                 . "// SSL-Zertifikat für die DB (null = kein SSL)\n"
-                . "const DB_SSLCA = {$sslCaVal};\n\n"
+                . "const DB_SSLCA = $sslCaVal;\n\n"
                 . "// API-Token (geheim halten! Nur für Single-Tenant-Betrieb.)\n"
                 . "const API_TOKEN = " . phpStr($apiToken) . ";\n\n"
                 . "// Rate Limit (max. Einträge pro Minute; 0 = kein Limit)\n"
-                . "const RATE_LIMIT = {$rateLimit};\n\n"
+                . "const RATE_LIMIT = $rateLimit;\n\n"
                 . "// Debug-Mode\n"
-                . "const DEBUG = {$debugVal};\n\n"
+                . "const DEBUG = $debugVal;\n\n"
                 . "// Logging\n"
                 . "const LOG_LEVEL   = " . phpStr($logLevel) . ";\n"
-                . "const LOG_MAX_DAYS = {$logMaxDays};\n\n"
+                . "const LOG_MAX_DAYS = $logMaxDays;\n\n"
                 . "// Maximal erlaubte Größe eines Anhangs (in Bytes)\n"
-                . "const MAX_ATTACHMENT_BYTES = {$maxBytes}; // {$maxAttachMb} MB\n\n"
+                . "const MAX_ATTACHMENT_BYTES = $maxBytes; // $maxAttachMb MB\n\n"
                 . "// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)\n"
                 . "//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)\n"
                 . "const MULTI_TENANT = false;\n";
@@ -221,8 +217,8 @@ $reqPassed    = allPassed($requirements);
       display: flex; align-items: center; justify-content: center;
       background: var(--bg-card2); border: 1px solid var(--border); color: var(--text-muted);
     }
-    .step-dot.active { background: var(--primary-dark); border-color: var(--primary); color: #fff; }
-    .step-dot.done   { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .step-dot { background: var(--primary-dark); border-color: var(--primary); color: #fff; }
+    .step-dot   { background: var(--ok); border-color: var(--ok); color: #fff; }
     .step-line { flex: 1; height: 1px; background: var(--border); align-self: center; max-width: 40px; }
 
     h2 { font-size: 1.1rem; font-weight: 700; color: #e8f4fb; margin-bottom: 6px; }
@@ -244,7 +240,7 @@ $reqPassed    = allPassed($requirements);
 
     /* Form */
     fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 18px; }
-    legend { padding: 0 8px; font-size: .78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+    legend { padding: 0 8px; font-size: .78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
     .field { margin-bottom: 14px; }
     label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
     input[type=text], input[type=password], input[type=number], select {
@@ -281,7 +277,7 @@ $reqPassed    = allPassed($requirements);
     }
     .btn:hover { opacity: .85; transform: translateY(-1px); }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary-light); }
+    .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary-light); }
     .btn-block { display: block; width: 100%; text-align: center; }
     .btn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 

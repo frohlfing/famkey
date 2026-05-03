@@ -17,15 +17,40 @@ require_once __DIR__ . '/../../src/Core/Bootstrap.php';
 Bootstrap::registerAutoloader();
 Bootstrap::loadConfig();
 
-if (!MULTI_TENANT) {
-    http_response_code(403);
-    echo '<p style="font-family:sans-serif;padding:2rem;">Dieser Bereich ist nur im Multi-Tenant-Modus verfügbar (<code>MULTI_TENANT = true</code> in <code>config.php</code>).</p>';
-    exit;
-}
-
 function h(string $s): string
 {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+
+if (!MULTI_TENANT) {
+    http_response_code(403);
+    ?>
+    <!doctype html>
+    <html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <title>FamKey Dev – Organisationen</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            :root { --bg:#0d1b2a; --text:#dce8f0; --text-muted:#90a8b8; --border:#243749; --bg-card:#162232; --primary:#607D8B; --err:#e57373; }
+            body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+            .box { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:32px 40px; max-width:460px; text-align:center; }
+            h2 { margin-bottom:12px; color:#e8f4fb; }
+            p { color:var(--text-muted); font-size:14px; line-height:1.6; }
+            code { background:rgba(255,255,255,.07); padding:2px 6px; border-radius:4px; font-family:monospace; font-size:13px; }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h2>Single-Tenant-Modus</h2>
+            <p>Dieser Bereich ist nur im Multi-Tenant-Modus verfügbar.<br>Setze <code>MULTI_TENANT = true</code> in <code>config.php</code>.</p>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 
 $pdo    = Database::pdo();
@@ -48,6 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newApiToken = Uuid::v4();
             $pdo->prepare('INSERT INTO organizations (uuid, api_token, name) VALUES (?, ?, ?)')
                 ->execute([$newOrgUuid, $newApiToken, $name]);
+            $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
             $infos[] = "Organisation angelegt: <strong>" . h($name) . "</strong><br>"
                 . "Server-Adresse: <code>" . h($baseUrl . '/org/' . $newOrgUuid) . "</code><br>"
                 . "API-Token: <code>" . h($newApiToken) . "</code>";
@@ -85,47 +112,82 @@ $orgs = $pdo->query('
     ORDER BY o.created_at DESC
 ')->fetchAll();
 
-// Basis-URL aus dem Request ableiten (funktioniert für local dev und Production gleichermaßen)
 $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$baseUrl = "{$proto}://{$_SERVER['HTTP_HOST']}";
+$baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
 
 ?>
 <!doctype html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <title>FamKey – Organisationen</title>
+    <title>FamKey Dev – Organisationen</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        :root { --bg:#f4f4f4; --fg:#222; --muted:#666; --card:#fff; --border:#ddd; --red:#c00; --green:#2a6; --orange:#b85c00; }
-        body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height:1.6; margin:0; background:var(--bg); color:var(--fg); }
-        .wrap { max-width:900px; margin:0 auto; padding:24px; }
-        h1 { margin:0 0 4px; }
-        .muted { color:var(--muted); }
-        .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; margin-top:16px; }
-        table { width:100%; border-collapse:collapse; font-size:13px; }
-        th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
-        th { font-weight:bold; white-space:nowrap; }
-        td.mono { font-family:monospace; font-size:12px; word-break:break-all; }
-        .btn { display:inline-block; padding:5px 12px; border:1px solid var(--border); border-radius:6px; background:var(--card); cursor:pointer; font:inherit; font-size:12px; }
-        .btn-primary { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
-        .btn-danger  { color:var(--red); border-color:var(--red); }
-        .btn-warn    { color:var(--orange); border-color:var(--orange); }
-        .btn-ok      { color:var(--green); border-color:var(--green); }
-        .alert { padding:10px 14px; border-radius:6px; margin-top:12px; border:1px solid; font-size:13px; }
-        .alert-info  { background:#f0fff4; border-color:#b2dfdb; color:#1b5e20; }
-        .alert-warn  { background:#fff8e1; border-color:#ffe082; color:#795548; }
-        .field-row { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
-        .field-row input { padding:7px 10px; border:1px solid var(--border); border-radius:6px; font:inherit; font-size:13px; }
-        .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
-        .badge-ok     { background:#e8f5e9; color:#2a6; }
-        .badge-warn   { background:#fff3e0; color:var(--orange); }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d1b2a; --bg-card: #162232; --bg-card2: #1c2d3f;
+            --primary: #607D8B; --primary-dark: #455A64; --primary-light: #90A4AE;
+            --text: #dce8f0; --text-muted: #90a8b8; --border: #243749;
+            --ok: #4caf92; --warn-col: #ffb74d; --err: #e57373; --radius: 8px;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px; }
+        a { color: var(--primary-light); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+
+/* ── Layout ── */
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 24px; }
+        .page-title { font-size: 20px; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
+        .page-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+        /* ── Cards ── */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-top: 16px; }
+        .card-title { font-size: 13px; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
+        .card-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+        /* ── Table ── */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: rgba(255,255,255,.025); }
+        td.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; }
+        td.mono .sub { color: var(--text-muted); margin-top: 3px; }
+
+        /* ── Buttons ── */
+        .btn { display: inline-block; padding: 5px 14px; border-radius: 6px; font: inherit; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card2); color: var(--text); transition: opacity .15s; }
+        .btn:hover { opacity: .8; }
+        .btn-primary { background: var(--primary-dark); color: #fff; border-color: var(--primary); }
+        .btn-danger  { background: rgba(229,115,115,.12); color: var(--err); border-color: rgba(229,115,115,.35); }
+        .btn-warn    { background: rgba(255,183,77,.1); color: var(--warn-col); border-color: rgba(255,183,77,.35); }
+        .btn-ok      { background: rgba(76,175,146,.12); color: var(--ok); border-color: rgba(76,175,146,.35); }
+
+        /* ── Alerts ── */
+        .alert { padding: 12px 16px; border-radius: var(--radius); margin-top: 14px; border: 1px solid; font-size: 13px; line-height: 1.5; }
+        .alert-info { background: rgba(76,175,146,.1); border-color: rgba(76,175,146,.3); color: var(--ok); }
+        .alert-warn { background: rgba(229,115,115,.1); border-color: rgba(229,115,115,.3); color: var(--err); }
+
+        /* ── Badges ── */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+        .badge-ok   { background: rgba(76,175,146,.15); color: var(--ok); }
+        .badge-warn { background: rgba(255,183,77,.15); color: var(--warn-col); }
+
+        /* ── Form ── */
+        .field-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        input[type=text] { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 12px; font: inherit; font-size: 13px; outline: none; flex: 1; min-width: 220px; }
+        input[type=text]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(96,125,139,.2); }
+        input::placeholder { color: var(--text-muted); }
+
+        .empty { color: var(--text-muted); font-size: 13px; }
     </style>
 </head>
 <body>
+
+
 <div class="wrap">
-    <h1>Organisationen</h1>
-    <div class="muted">Jede Organisation repräsentiert eine Familie / Gruppe (Multi-Tenant-Modus).</div>
+    <div class="page-title">Organisationen</div>
+    <div class="page-sub">Jede Organisation repräsentiert eine Familie / Gruppe (Multi-Tenant-Modus).</div>
 
     <?php foreach ($infos as $msg): ?>
         <div class="alert alert-info"><?= $msg ?></div>
@@ -136,12 +198,12 @@ $baseUrl = "{$proto}://{$_SERVER['HTTP_HOST']}";
 
     <!-- Organisation anlegen -->
     <div class="card">
-        <strong>Neue Organisation anlegen</strong>
-        <div class="muted" style="margin:4px 0 12px; font-size:12px;">Generiert eine neue org_uuid und einen API-Token. Den Namen sieht nur der Admin.</div>
+        <div class="card-title">Neue Organisation anlegen</div>
+        <div class="card-sub">Generiert eine neue UUID und einen API-Token. Der Name ist nur für den Admin sichtbar.</div>
         <form method="post">
             <input type="hidden" name="action" value="create">
             <div class="field-row">
-                <input type="text" name="name" placeholder="z.&thinsp;B. Familie Müller oder info@example.com" style="flex:1; min-width:220px;" required maxlength="255">
+                <input type="text" name="name" title="" placeholder="z.&thinsp;B. Familie Müller oder info@example.com" required maxlength="255">
                 <button class="btn btn-primary" type="submit">Anlegen</button>
             </div>
         </form>
@@ -149,17 +211,17 @@ $baseUrl = "{$proto}://{$_SERVER['HTTP_HOST']}";
 
     <!-- Organisations-Tabelle -->
     <div class="card">
-        <strong>Vorhandene Organisationen</strong>
-        <div style="height:1px; background:var(--border); margin:10px 0 12px;"></div>
+        <div class="card-title">Vorhandene Organisationen</div>
+        <div class="divider"></div>
 
         <?php if (empty($orgs)): ?>
-            <div class="muted">Keine Organisationen vorhanden.</div>
+            <div class="empty">Keine Organisationen vorhanden.</div>
         <?php else: ?>
             <table>
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>org_uuid / Server-Adresse</th>
+                        <th>UUID / Server-Adresse</th>
                         <th>API-Token</th>
                         <th>Tresore</th>
                         <th>Status</th>
@@ -170,23 +232,23 @@ $baseUrl = "{$proto}://{$_SERVER['HTTP_HOST']}";
                 <tbody>
                 <?php foreach ($orgs as $o): ?>
                     <?php $blocked = $o['blocked_at'] !== null; ?>
-                    <tr style="<?= $blocked ? 'opacity:.6' : '' ?>">
+                    <tr style="<?= $blocked ? 'opacity:.5' : '' ?>">
                         <td><?= h($o['name']) ?></td>
                         <td class="mono">
                             <div><?= h($o['org_uuid']) ?></div>
-                            <div style="color:var(--muted); margin-top:2px;"><?= h($baseUrl . '/org/' . $o['org_uuid']) ?></div>
+                            <div class="sub"><?= h($baseUrl . '/org/' . $o['org_uuid']) ?></div>
                         </td>
                         <td class="mono"><?= h($o['api_token']) ?></td>
                         <td><?= (int)$o['vault_count'] ?></td>
                         <td>
                             <?php if ($blocked): ?>
                                 <span class="badge badge-warn">Gesperrt</span>
-                                <div style="font-size:11px; color:var(--muted); margin-top:2px;"><?= h($o['blocked_at']) ?></div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:3px;"><?= h($o['blocked_at']) ?></div>
                             <?php else: ?>
                                 <span class="badge badge-ok">Aktiv</span>
                             <?php endif; ?>
                         </td>
-                        <td style="white-space:nowrap;"><?= h(substr($o['created_at'], 0, 10)) ?></td>
+                        <td style="white-space:nowrap; color:var(--text-muted);"><?= h(substr($o['created_at'], 0, 10)) ?></td>
                         <td style="white-space:nowrap;">
                             <?php if ($blocked): ?>
                                 <form method="post" style="display:inline;">

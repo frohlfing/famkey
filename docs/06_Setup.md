@@ -21,7 +21,7 @@ Dieses Dokument führt durch die Installation der Entwicklungsumgebung.
 - **Testumgebung:** Das integrierte Dart/Flutter Test-Framework:
   - Unit-Tests: package:test
   - Widget-Tests: package:flutter_test
-- **Lokaler Test-Server**:** Laragon mit Xdebug, PHP 8.4 oder aktueller
+- **Lokaler Test-Server**:** XAMPP mit Xdebug, PHP 8.4 oder aktueller
 - **VCS:** Git, Repository auf GitHub
 
 ### 1.2 Server (Backend)
@@ -539,53 +539,129 @@ for await (const [name, handle] of driftDir.entries()) {
 
 ## 5. Backend (PHP) unter Windows
 
-Für die Entwicklung unter Windows dient **Laragon** als Server.
+Für die Entwicklung unter Windows dient **XAMPP** als Server.
 
 ### 5.1 Lokalen Webserver einrichten
 
-1. [Laragon](https://laragon.org/download) installieren.
+1. XAMPP installieren.
+   https://www.apachefriends.org/download.html
 
-2. Laragon konfigurieren:
-   (Menü ist über rechte Maustaste erreichbar)
-    * Menü -> Tools -> Quick add -> PHP 8.4
-    * Menü -> PHP -> PHP 8.4.12
-    * Menü -> Tools -> Quick add -> myPHPAdmin-6.0.snapshot (Login: root, kein Passwort)
-    * Dienste starten.
-    * Schloss neben Apache anklicken, um SSL zu aktivieren.
+2. PowerShell-Skript ausführen, um die PHP-Version zu aktualisieren und um die Xdebug-Erweiterung zu installieren:
+    ```shell
+      .\bin\xampp_upgrade.ps1
+    ``` 
+   
+    Das Skript automatisiert diese Schritte:
 
-### 5.2 VirtualHost hinzufügen
+    a) Aktuelle PHP-Version installieren
+        - PHP 8.5 herunterladen
+            - Offizielle PHP‑Downloads:
+                https://windows.php.net/download (z.B.: php‑8.5.5‑Win32‑vs17‑x64.zip)
+                    - Thread Safe (TS)
+                    - VS17 Build (Visual Studio 2022)
+                    - x64
+                    - ZIP‑Archiv, nicht MSI
+                
+        - XAMPP stoppen (Apache + MySQL).
+        - Backup anlegen:
+            `C:\xampp\php` → `C:\xampp\php-8.2-backup`
+        - PHP‑8.5‑ZIP nach `C:\xampp\php` entpacken.
+        - Alte php.ini übernehmen:
+            `C:\xampp\php-8.2-backup\php.ini` → `C:\xampp\php\php.ini`
+        -  C:\xampp\php\php.ini prüfen/anpassen
+            ```
+            extension_dir = "C:\xampp\php\ext"
+        
+            extension=curl
+            extension=openssl
+            extension=mbstring
+            extension=fileinfo
+            extension=gd
+            extension=intl
+            extension=pdo_mysql
+        
+            date.timezone = Europe/Berlin
 
-1. Neue Webseite erstellen -> Blank (Name: famkey)
-2. Apache -> sites-enabeled -> auto.famkey.test.conf
-   `define ROOT "C:/Users/frank/Source/AndroidStudio/famkey/host/public"`
-3. Apache neu starten
+            opcache.enable=1
+            opcache.enable_cli=1
+            opcache.memory_consumption=192
+            opcache.interned_strings_buffer=16
+            opcache.max_accelerated_files=10000
+            opcache.jit_buffer_size=64M
+            ```
+        - Apache starten.
 
-Webseite ist jetzt erreichbar unter: https://famkey.test/
+    b) Xdebug installieren:
+        1. PHP-Info ausgeben: <?php phpinfo(); ?>
+        2. [Xdebug Wizard](https://xdebug.org/wizard) ausführen und ermittelte DLL nach `C:\xampp\php\ext\php_xdebug.dll` kopieren.
+        3. C:\xampp\php\php.ini ergänzen um diesen Abschnitt:
+            ```ini
+            [Xdebug]
+            zend_extension = xdebug
+            xdebug.mode = debug,develop,coverage
+            xdebug.start_with_request = yes
+            xdebug.client_port = 9003
+            xdebug.log = "C:/xampp/apache/logs/xdebug.log"
+            ```
+        4. Apache neu starten
+        5. In PHP-Info sollte nun Xdebug aufgeführt sein.
 
-### 5.3 Datenbank anlegen
+### 5.2. SSL-Zertifikat installieren.
+
+    ```shell
+    cd C:\xampp\apache\bin
+    
+    .\openssl.exe req -x509 -nodes -newkey rsa:2048 `
+     -keyout "C:\xampp\apache\conf\ssl.key\famkey.test.key" `
+     -out "C:\xampp\apache\conf\ssl.crt\famkey.test.crt" `
+     -days 365 `
+     -config "C:\xampp\apache\conf\openssl.cnf" `
+     -subj "/CN=famkey.test" `
+     -addext "basicConstraints=CA:FALSE" `
+     -addext "subjectAltName=DNS:famkey.test"
+    ```
+
+### 5.3 Apache‑VHost (VirtualHost) hinzufügen
+
+Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
+
+```
+<VirtualHost *:443>
+    ServerName favicon.test
+    DocumentRoot "C:/Users/frank/Source/AndroidStudio/famkey/host/public"
+
+    SSLEngine on
+	SSLCertificateFile "C:/xampp/apache/conf/ssl.crt/famkey.test.crt"
+	SSLCertificateKeyFile "C:/xampp/apache/conf/ssl.key/famkey.test.key"
+
+    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/host/public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+	
+	Alias /home "C:/Users/frank/Source/AndroidStudio/famkey/home/public"
+	<Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public">
+		AllowOverride All
+		Require all granted
+	</Directory>
+</VirtualHost>
+```
+
+Apache neu starten
+
+- Die Webseite ist jetzt erreichbar unter: https://famkey.test/
+- Und die Homepage unter: https://famkey.test/home/
+
+### 5.4 MySQL-Datenbank anlegen
 
 1. phpMyAdmin starten:
-   https://localhost/phpmyadmin6/public/ (User: root, kein Passwort)
+   http://localhost/phpmyadmin// (User: root, kein Passwort)
+
 2. Datenbank hinzufügen
-    * Database Name: FamKey
-    * Server connection collation: utf8mb4_unicode_ci
+    - Database Name: famkey
+    - Server connection collation: utf8mb4_unicode_ci
+
 3. SQL-Datei Host/migrations/001_initial_schema.sql importieren
-
-### 5.4 Xdebug installieren
-
-1. PHP-Info ausgeben: <?php phpinfo(); ?>
-2. [Xdebug Wizard](https://xdebug.org/wizard) ausführen und ermittelte DLL nach `C:\laragon\bin\php\php_xdebug.dll` kopieren.
-3. C:\laragon\bin\php\php-8.4.12-nts-Win32-vs17-x64\php.ini ergänzen um diesen Abschnitt:
-   ```ini
-   [Xdebug]
-   zend_extension = xdebug
-   xdebug.mode = debug,develop,coverage
-   xdebug.start_with_request = yes
-   xdebug.client_port = 9003
-   xdebug.log = "C:/laragon/tmp/xdebug.log"
-   ```
-4. Apache neu starten
-5. Im Browser Xdebug-Erweiterung installieren
 
 ### 5.5 WinSCP installieren
 
@@ -643,6 +719,7 @@ FamKey/                                        # Projekt-Root
  ├── assets/                                   # Assests der App (z.B. app_icon.png)
  ├── coverage/                                 # Entsteht durch flutter test --coverage
  ├── docs/                                     # Projektdokumentation (Markdown)
+ ├── home/                                     # Homepage (https//famkey.de)
  ├── host/                                     # Backend (PHP)
  │    ├── coverage/                            # Automatisch generierte Code-Coverage-Daten
  │    │    ├── clover.xml                      # Clover-Report (XML) für IDE 
@@ -659,7 +736,6 @@ FamKey/                                        # Projekt-Root
  │    │    │    ├── .htpasswd                  # Apache Passwortdatei
  │    │    │    └── index.php                  # Adminseite
  │    │    ├── setup/                          # Setup-Skript zur Installation des Sync-Servers beim Hoster (der Ordner wird nach der Installation automatisch gelöscht)
- │    │    ├── www/                            # Homepage (https//famkey.de)
  │    │    ├── .htaccess                       # Apache Sicherheitsregeln
  │    │    └── index.html                      # Startseite
  │    ├── src/                                 # PHP-Quellcode (PSR-4-ähnlich)

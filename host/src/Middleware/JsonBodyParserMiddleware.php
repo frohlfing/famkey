@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Middleware;
 
-use App\Core\HttpStatus;
 use App\Core\MiddlewareInterface;
 use App\Core\Request;
 use App\Core\Response;

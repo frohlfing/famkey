@@ -136,7 +136,7 @@ final readonly class Request
      * Gibt die Organisations-UUID zurück (Multi-Tenant-Modus).
      *
      * Wird von Request::fromGlobals() aus dem URL-Pfad /org/{uuid}/api/... extrahiert.
-     * Ist null im Single-Tenant-Betrieb (MULTI_TENANT = false) oder wenn kein /org/-Präfix vorhanden.
+     * Ist null im Single-Tenant-Betrieb (wenn MULTI_TENANT = false oder wenn kein /org/-Präfix vorhanden).
      *
      * @return string|null
      */

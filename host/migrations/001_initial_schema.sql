@@ -1,4 +1,4 @@
-﻿-- Database Name: famkey
+-- Database Name: famkey
 -- Server connection collation: utf8mb4_unicode_ci
 
 -- Tabelle für Organisationen (repräsentiert eine Familie/Verein/Arbeitsgruppe)
@@ -18,7 +18,7 @@ CREATE TABLE `organizations` (
 CREATE TABLE `vaults` (
     `uuid` VARCHAR(36),                              -- Universally Unique Identifier des Tresors
     `org_uuid`  VARCHAR(36) DEFAULT NULL,            -- Referenz auf organizations.uuid, NULL -> Single-Tenant-Betrieb (MULTI_TENANT = false in config.php)
-    `hash_name`  VARCHAR(64) NOT NULL,               -- Name des Tresor (SHA256-Hash), eindeutig pro Server
+    `hash_name`  VARCHAR(64) NOT NULL,               -- Name des Tresor (SHA256-Hash), eindeutig pro Organisation
     `is_test` TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = Test-Tresor
     `created_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt der Erstellung
     PRIMARY KEY (`uuid`),

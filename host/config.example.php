@@ -1,4 +1,5 @@
-﻿<?php
+<?php
+/** @noinspection PhpUnused */
 /** @noinspection SpellCheckingInspection */
 
 // Sync-Protokollversion

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 declare(strict_types=1);
 
 /**
@@ -193,85 +193,86 @@ $defaultId = $items[0]['id'] ?? '';
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <title>FamKey API–Referenz</title>
+    <title>FamKey Dev – API-Referenz</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!--suppress CssUnusedSymbol -->
     <style>
-        :root { --bg:#f4f4f4; --fg:#222; --muted:#666; --card:#fff; --border:#ddd; --codebg:#111; --codefg:#eee; }
-        body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; line-height: 1.6; margin: 0; background: var(--bg); color: var(--fg); }
-        .wrap { margin: 0 auto; padding: 20px; }
-        h1 { margin: 0 0 10px; }
-        .muted { color: var(--muted); }
-        .grid { display: grid; grid-template-columns: 440px 1fr; gap: 14px; align-items: start; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
-        .toc a { color: inherit; text-decoration: none; }
-        .toc a:hover { text-decoration: underline; }
-.toc-link {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: block;
-}
-        /* (4) pills links/rechts gleich breit: gilt für .pill allgemein */
-        .pill {
-            display:inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-            border: 1px solid var(--border);
-            background: #fafafa;
-            min-width: 78px;
-            text-align: center;
-            box-sizing: border-box;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d1b2a; --bg-card: #162232; --bg-card2: #1c2d3f;
+            --primary: #607D8B; --primary-dark: #455A64; --primary-light: #90A4AE;
+            --text: #dce8f0; --text-muted: #90a8b8; --border: #243749;
+            --ok: #4caf92; --err: #e57373; --radius: 8px;
+            --code-bg: #070f18; --code-fg: #ccd9e3;
         }
-        .pill.protected { border-color: #b35; color: #b35; background: #fff5f7; }
-        .pill.open { border-color: #3a7; color: #2a6; background: #f4fffa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px; }
+        a { color: var(--primary-light); text-decoration: none; }
+        a:hover { text-decoration: underline; }
 
-        .endpoint-title { display:flex; gap:10px; align-items: baseline; justify-content: space-between; }
-        .endpoint-title h2 { margin: 0; font-size: 18px; }
-        .handler { font-size: 12px; color: var(--muted); }
-        pre.code { background: var(--codebg); color: var(--codefg); padding: 12px; border-radius: 8px; overflow: auto; }
-        code { font-family: inherit; }
-        .doc { margin-top: 10px; }
-        .doc p { margin: 8px 0; }     /* (1) weniger vertikale Luft als <br><br> */
-        .hr { height: 1px; background: var(--border); margin: 10px 0; }
+/* ── Layout ── */
+        .wrap { padding: 20px 24px; }
+        .page-title { font-size: 20px; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
+        .page-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+        .grid { display: grid; grid-template-columns: 400px 1fr; gap: 14px; align-items: start; }
 
-        /* (3) Sidebar bleibt sichtbar */
-        .toc.card { position: sticky; top: 16px; }
+        /* ── Cards ── */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+        .divider { height: 1px; background: var(--border); margin: 10px 0; }
+        .muted { color: var(--text-muted); }
 
-        /* (3) rechte Spalte: nur ein Endpunkt sichtbar, eigener Scrollbereich */
-        .content.card { max-height: calc(100vh - 40px); overflow: auto; }
+        /* ── TOC ── */
+        .toc.card { position: sticky; top: 16px; max-height: calc(100vh - 80px); overflow-y: auto; }
+        .toc-count { font-size: 12px; color: var(--text-muted); }
+        .toc-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 5px 0; }
+        .toc-link { color: var(--text-muted); text-decoration: none; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; transition: color .1s; }
+        .toc-link:hover { color: var(--text); text-decoration: none; }
+
+        /* ── Pills ── */
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid; min-width: 72px; text-align: center; font-weight: 600; white-space: nowrap; }
+        .pill.protected { border-color: rgba(229,115,115,.4); color: var(--err); background: rgba(229,115,115,.08); }
+        .pill.open { border-color: rgba(76,175,146,.4); color: var(--ok); background: rgba(76,175,146,.08); }
+
+        /* ── Content ── */
+        .content.card { max-height: calc(100vh - 80px); overflow: auto; }
         .endpoint { display: none; }
         .endpoint.active { display: block; }
+        .endpoint-title { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+        .endpoint-title h2 { margin: 0; font-size: 17px; font-family: ui-monospace, Menlo, Consolas, monospace; color: #e8f4fb; }
+        .handler { font-size: 12px; color: var(--text-muted); font-family: ui-monospace, Menlo, Consolas, monospace; margin-bottom: 10px; }
+
+        /* ── Doc ── */
+        .doc { margin-top: 12px; font-size: 13px; line-height: 1.7; }
+        .doc p { margin: 8px 0; color: var(--text); }
+        .doc p strong { color: #e8f4fb; }
+        pre.code { background: var(--code-bg); color: var(--code-fg); padding: 14px; border-radius: 6px; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; border: 1px solid var(--border); margin: 8px 0; }
+        code { font-family: ui-monospace, Menlo, Consolas, monospace; }
 
         @media (max-width: 900px) {
             .grid { grid-template-columns: 1fr; }
             .content.card { max-height: none; }
-            .toc.card { position: static; }
+            .toc.card { position: static; max-height: none; }
         }
     </style>
 </head>
 <body>
-<div class="wrap">
-    <h1>FamKey API–Referenz</h1>
-    <div class="muted">
-        Generiert aus <code>routes.php</code> + PHPDoc der Controller-Methoden.
-    </div>
 
-    <div class="grid" style="margin-top:14px;">
+<div class="wrap">
+    <div class="page-title">API-Referenz</div>
+    <div class="page-sub">Generiert aus <code style="font-size:12px;background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">routes.php</code> + PHPDoc der Controller-Methoden.</div>
+
+    <div class="grid">
         <div class="card toc">
-            <div style="display:flex; justify-content:space-between; gap:10px;">
-                <strong>Endpunkte</strong>
-                <span class="muted"><?= h((string)count($items)) ?></span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                <strong style="font-size:13px; color:#e8f4fb;">Endpunkte</strong>
+                <span class="toc-count"><?= h((string)count($items)) ?></span>
             </div>
-            <div class="hr"></div>
+            <div class="divider"></div>
 
             <?php if ($items === []): ?>
-                <div class="muted">Keine Routen gefunden.</div>
+                <div class="muted" style="font-size:13px;">Keine Routen gefunden.</div>
             <?php else: ?>
                 <?php foreach ($items as $it): ?>
-                    <div style="display:flex; justify-content:space-between; gap:10px; margin: 6px 0;">
+                    <div class="toc-row">
                         <a class="toc-link" data-target="<?= h($it['id']) ?>" href="#<?= h($it['id']) ?>"><?= h($it['title']) ?></a>
                         <?php if ($it['protected']): ?>
                             <span class="pill protected">RSA: Ja</span>
@@ -283,13 +284,13 @@ $defaultId = $items[0]['id'] ?? '';
             <?php endif; ?>
         </div>
 
-        <div>
+        <div class="content card">
             <?php foreach ($routes as $r): ?>
                 <?php
                 $id = strtolower($r['method'] . '-' . ltrim(str_replace('/', '-', $r['path']), '-'));
                 $controllerClass = $r['handler'][0] ?? '';
                 $controllerMethod = $r['handler'][1] ?? '';
-                $docHtml = '<div class="muted">(Handler ungültig)</div>';
+                $docHtml = '<div class="muted" style="font-size:13px;">(Handler ungültig)</div>';
 
                 if (is_string($controllerClass) && is_string($controllerMethod) && $controllerClass !== '' && $controllerMethod !== '') {
                     try {
@@ -297,11 +298,11 @@ $defaultId = $items[0]['id'] ?? '';
                         $doc = normalizeDocComment($rm->getDocComment());
                         $docHtml = renderDocAsHtml($doc);
                     } catch (Throwable $e) {
-                        $docHtml = '<div class="muted">(Doc-Extraction fehlgeschlagen: ' . h($e->getMessage()) . ')</div>';
+                        $docHtml = '<div class="muted" style="font-size:13px;">(Doc-Extraction fehlgeschlagen: ' . h($e->getMessage()) . ')</div>';
                     }
                 }
                 ?>
-                <div class="card endpoint" id="<?= h($id) ?>">
+                <div class="endpoint" id="<?= h($id) ?>">
                     <div class="endpoint-title">
                         <h2><?= h($r['method'] . ' ' . $r['path']) ?></h2>
                         <?php if ($r['protected']): ?>
@@ -310,13 +311,9 @@ $defaultId = $items[0]['id'] ?? '';
                             <span class="pill open">RSA-Schutz: Nein</span>
                         <?php endif; ?>
                     </div>
-                    <div class="handler">
-                        Handler: <?= h((string)$controllerClass) ?>::<?= h((string)$controllerMethod) ?>()
-                    </div>
-
-                    <div class="doc">
-                        <?= $docHtml ?>
-                    </div>
+                    <div class="handler">Handler: <?= h((string)$controllerClass) ?>::<?= h((string)$controllerMethod) ?>()</div>
+                    <div class="divider"></div>
+                    <div class="doc"><?= $docHtml ?></div>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -329,7 +326,6 @@ $defaultId = $items[0]['id'] ?? '';
 
     function setActive(id) {
         document.querySelectorAll('.endpoint').forEach(el => el.classList.remove('active'));
-
         const target = document.getElementById(id);
         if (target && target.classList.contains('endpoint')) {
             target.classList.add('active');
@@ -339,11 +335,9 @@ $defaultId = $items[0]['id'] ?? '';
     }
 
     function currentIdFromHash() {
-        const h = (location.hash || '').replace(/^#/, '');
-        return h || '';
+        return (location.hash || '').replace(/^#/, '');
     }
 
-    // Click: nicht "scrollen", nur anzeigen + hash setzen
     document.querySelectorAll('a.toc-link').forEach(a => {
         a.addEventListener('click', function (e) {
             e.preventDefault();
@@ -354,14 +348,12 @@ $defaultId = $items[0]['id'] ?? '';
         });
     });
 
-    // Initial
     const initial = currentIdFromHash() || defaultId;
     if (initial) {
         history.replaceState(null, '', '#' + initial);
         setActive(initial);
     }
 
-    // Hash-Änderung (Back/Forward)
     window.addEventListener('hashchange', function () {
         const id = currentIdFromHash();
         if (id) setActive(id);

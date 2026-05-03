@@ -26,7 +26,7 @@ void main() {
     late String vaultName;
     late String apiToken;
     
-    const String testHost = 'https://famkey.test/api/'; // Oder http://localhost:8000/api/
+    const String testHost = 'https://famkey.test/'; // Oder http://localhost:8000/
 
     // Extrahiert den API-Token aus der host/config.php (wie im C# Test)
     String readApiTokenFromConfig() {

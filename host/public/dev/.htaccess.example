@@ -1,4 +1,4 @@
-﻿AuthUserFile "/usr/www/famkey/public/dev/.htpasswd"
+AuthUserFile "/usr/www/famkey/public/dev/.htpasswd"
 AuthName "Geschützter Bereich"
 AuthType Basic
 require valid-user

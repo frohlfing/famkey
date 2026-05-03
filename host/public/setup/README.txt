@@ -1,4 +1,4 @@
-﻿FamKey – Sync-Server installieren
+FamKey – Sync-Server installieren
 =================================
 
 GitHub:  https://github.com/frohlfing/FamKey
@@ -24,20 +24,20 @@ Installationsschritte
    Merke dir Datenbankname, Benutzername und Passwort.
 
 3. Dateien hochladen
-   Entpacke das Archiv und lade den Inhalt des Ordners FamKey/ in das
+   Entpacke das Archiv und lade den Inhalt des Ordners webroot/ in das
    Web-Root deines Servers hoch (z.B. per WinSCP ode ein anderes FTP/SFTP-Programm).
 
-4. Setup-Assistenten aufrufen
+4. Setup-Assistenten starten
 
-   https://deine-domain.de/setup
+   Rufe im Browser https://deine-domain.de/setup auf.
 
-   Das Script prüft die Voraussetzungen, fragt Datenbankzugangsdaten ab,
-   schreibt die Konfiguration und richtet das Datenbankschema ein.
+   Das Script prüft die Systemanforderungen, fragt Datenbankverbindung und Server-Einstellungen ab,
+   legt die Konfiguration automatisch an und richtet das Datenbankschema ein.
 
    Am Ende des Setups wird der Setup-Ordner (setup/) automatisch gelöscht.
    Falls nicht: Ordner manuell löschen – er darf nicht dauerhaft erreichbar sein.
 
-5. FamKey-App konfigurieren und Sync starten
+5. Server-URL in der App eintragen und Sync starten.
    Öffne deine FamKey-App. Trage unter Einstellungen den Sync-Server ein.
    Gib dort auch den API-Token an, der in der Konfigurationsdatei config.php hinterlegt ist.
 

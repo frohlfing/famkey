@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * Coverage-Report-Generator
@@ -41,13 +41,13 @@ const COVERAGE_IGNORE = [
 
 // Prüfen, ob Coverage-Daten vorhanden sind
 if (!file_exists($dataFile)) {
-    die('<h1>Keine Coverage-Daten gefunden.</h1>');
+    die('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Coverage</title><style>body{font-family:sans-serif;background:#0d1b2a;color:#dce8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}p{font-size:15px;color:#90a8b8}</style></head><body><p>Keine Coverage-Daten gefunden.</p></body></html>');
 }
 
 // Coverage-Daten laden und validieren
 $data = json_decode(file_get_contents($dataFile), true);
 if (!is_array($data)) {
-    die('<h1>Coverage-Daten sind ungültig.</h1>');
+    die('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Coverage</title><style>body{font-family:sans-serif;background:#0d1b2a;color:#dce8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}p{font-size:15px;color:#90a8b8}</style></head><body><p>Coverage-Daten sind ungültig.</p></body></html>');
 }
 
 /**
@@ -380,73 +380,76 @@ function renderSummary(string $label, float $percent, string $meta, int $indentP
 }
 
 // HTML-Report generieren
-echo '
+echo '<!doctype html>
 <html lang="de">
 <head>
-  <title>Coverage</title>
+  <meta charset="utf-8">
+  <title>FamKey Dev – Coverage</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; margin: 16px; }
-    .tree { max-width: 1200px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+        --bg: #0d1b2a; --bg-card: #162232; --bg-card2: #1c2d3f;
+        --primary: #607D8B; --primary-dark: #455A64; --primary-light: #90A4AE;
+        --text: #dce8f0; --text-muted: #90a8b8; --border: #243749;
+        --ok: #4caf92; --warn-col: #ffb74d; --err: #e57373;
+        --code-bg: #070f18; --code-fg: #ccd9e3;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px; }
+
+/* ── Layout ── */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+    .page-title { font-size: 20px; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
+    .page-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+    /* ── Coverage tree ── */
+    .tree { }
     details > summary { cursor: pointer; user-select: none; list-style: none; }
     details > summary::-webkit-details-marker { display: none; }
-    summary { padding: 6px 8px; }
+    summary { padding: 6px 8px; border-radius: 6px; }
+    summary:hover { background: rgba(255,255,255,.04); }
     .node {
       display: grid;
       grid-template-columns: 1fr 220px 72px 96px;
       align-items: center;
       column-gap: 10px;
     }
-    .label {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .label.empty { color: #999; }
-    .bar {
-      height: 10px;
-      background: #eee;
-      border-radius: 999px;
-      overflow: hidden;
-    }
+    .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .label.empty { color: var(--text-muted); }
+    .bar { height: 10px; background: var(--border); border-radius: 999px; overflow: hidden; }
     .bar > span { display: block; height: 100%; width: 0; }
-    .bar > span.good { background: #34c759; }   /* grün */
-    .bar > span.warn { background: #ffcc00; }   /* gelb */
-    .bar > span.bad  { background: #ff3b30; }   /* rot */
-    .bar > span.neutral { background: #cfcfcf; }
-    .pct {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      color: #444;
-    }
-    .meta {
-      text-align: right;
-      color: #777;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .file { margin: 6px 0; }
-    .fn { margin: 4px 0; }
-    .code { margin: 8px 0 12px 0; }
+    .bar > span.good    { background: var(--ok); }
+    .bar > span.warn    { background: var(--warn-col); }
+    .bar > span.bad     { background: var(--err); }
+    .bar > span.neutral { background: #243749; }
+    .pct  { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 13px; }
+    .meta { text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+    .file { margin: 4px 0; }
+    .fn   { margin: 2px 0; }
+    .code { margin: 6px 0 10px 0; background: var(--code-bg); border-radius: 6px; overflow: hidden; }
     .code-line {
       display: flex;
       gap: 10px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      padding: 2px 8px;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 1px 8px;
       white-space: pre;
     }
-    .ln { width: 56px; text-align: right; color: #888; flex: 0 0 auto; }
-    .src { flex: 1 1 auto; overflow: hidden; }
-    .hits { width: 70px; text-align: right; color: #666; flex: 0 0 auto; }
-    .hit { background: #c8f7c5; }
-    .miss { background: #f7c5c5; }
-    .neutral { color: #777; background: #fff; }
-    .ignored { color: #999; background: #f2f2f2; }
+    .ln   { width: 56px; text-align: right; color: #4a6070; flex: 0 0 auto; }
+    .src  { flex: 1 1 auto; overflow: hidden; color: var(--code-fg); }
+    .hits { width: 70px; text-align: right; color: #4a6070; flex: 0 0 auto; }
+    .hit  { background: rgba(76,175,146,.12); }
+    .hit  .ln, .hit  .hits { color: var(--ok); }
+    .miss { background: rgba(229,115,115,.12); }
+    .miss .ln, .miss .hits { color: var(--err); }
+    .ignored { opacity: .4; }
   </style>
 </head>
 <body>
-<h1>Coverage-Report</h1>
+<div class="wrap">
+<h1 class="page-title">Coverage-Report</h1>
+<p class="page-sub">Zeilenabdeckung der API-Endpunkte</p>
 <div class="tree">
 ';
 
@@ -548,4 +551,4 @@ foreach ($files as $file) {
 }
 
 echo '</details>';
-echo '</div></body></html>';
+echo '</div></div></body></html>';
