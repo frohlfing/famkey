@@ -1,3 +1,10 @@
+<?php
+declare(strict_types=1);
+use App\Core\Bootstrap;
+require_once __DIR__ . '/../../src/Core/Bootstrap.php';
+Bootstrap::loadConfig();
+?>
+
 <!doctype html>
 <html lang="de">
 <head>
@@ -79,11 +86,13 @@
             <a href="version.php" class="btn" target="_blank">Testen</a>
         </div>
 
+<?php if (MULTI_TENANT) { ?>
         <div class="card">
             <h3>Organisationen</h3>
             <p>Verwaltung der Organisationen im Multi-Tenant-Betrieb (Anlegen, Löschen, API-Token einsehen).</p>
             <a href="organizations.php" class="btn" target="_blank">Öffnen</a>
         </div>
+<?php } ?>
 
         <div class="card">
             <h3>Coverage Report</h3>
