@@ -56,9 +56,15 @@ final class VaultController
         $pdo = Database::pdo();
         $pdo->exec("DELETE FROM vaults WHERE is_test = 1 AND created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)");
 
-        // Den zu angegebenen Tresor suchen
-        $stmt = $pdo->prepare('SELECT is_test FROM vaults WHERE hash_name = ?');
-        $stmt->execute([$vaultHash]);
+        // Den angegebenen Tresor suchen (mit Organisations-Isolation im Multi-Tenant-Modus)
+        $orgUuid = $request->orgUuid();
+        if ($orgUuid !== null) {
+            $stmt = $pdo->prepare('SELECT is_test FROM vaults WHERE hash_name = ? AND org_uuid = ?');
+            $stmt->execute([$vaultHash, $orgUuid]);
+        } else {
+            $stmt = $pdo->prepare('SELECT is_test FROM vaults WHERE hash_name = ? AND org_uuid IS NULL');
+            $stmt->execute([$vaultHash]);
+        }
         $isTestVault = $stmt->fetchColumn();
 
         // Falls es den Tresor gibt, soll er gelöscht werden.
@@ -68,8 +74,13 @@ final class VaultController
             }
 
             // Test-Tresor löschen (durch die Kaskadierung in der DB werden verknüpfte Daten mit gelöscht)
-            $stmt = $pdo->prepare('DELETE FROM vaults WHERE hash_name = ?');
-            $stmt->execute([$vaultHash]);
+            if ($orgUuid !== null) {
+                $stmt = $pdo->prepare('DELETE FROM vaults WHERE hash_name = ? AND org_uuid = ?');
+                $stmt->execute([$vaultHash, $orgUuid]);
+            } else {
+                $stmt = $pdo->prepare('DELETE FROM vaults WHERE hash_name = ? AND org_uuid IS NULL');
+                $stmt->execute([$vaultHash]);
+            }
         }
 
         // Antwort generieren (204 No Content)

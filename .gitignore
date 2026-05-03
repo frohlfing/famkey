@@ -55,9 +55,10 @@ secrets.json
 secrets.ini
 
 # 3. Backend (PHP/Web)
-Host/public/dev/.htaccess
-Host/public/dev/.htpasswd
-Host/coverage
+home
+host/public/dev/.htaccess
+host/public/dev/.htpasswd
+host/coverage
 Host/logs
 config.php
 sqlca.pem

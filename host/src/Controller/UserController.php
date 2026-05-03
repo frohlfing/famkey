@@ -155,23 +155,42 @@ final class UserController
         $vaultHash = $request->string('vault_hash');
         $userHash = $request->string('user_hash');
 
-        // Benutzer suchen
+        // Benutzer suchen (mit Organisations-Isolation im Multi-Tenant-Modus)
+        $orgUuid = $request->orgUuid();
         $pdo = Database::pdo();
-        $stmt = $pdo->prepare('
-            SELECT 
-                u.uuid AS user_uuid, 
-                u.vault_uuid, 
-                u.hash_name AS user_hash, 
-                u.salt, 
-                u.public_key, 
-                u.encrypted_private_key,
-                u.master_key_timestamp,
-                u.encrypted_friends
-            FROM users u
-            JOIN vaults v ON u.vault_uuid = v.uuid
-            WHERE v.hash_name = ? AND u.hash_name = ?
-        ');
-        $stmt->execute([$vaultHash, $userHash]);
+        if ($orgUuid !== null) {
+            $stmt = $pdo->prepare('
+                SELECT
+                    u.uuid AS user_uuid,
+                    u.vault_uuid,
+                    u.hash_name AS user_hash,
+                    u.salt,
+                    u.public_key,
+                    u.encrypted_private_key,
+                    u.master_key_timestamp,
+                    u.encrypted_friends
+                FROM users u
+                JOIN vaults v ON u.vault_uuid = v.uuid
+                WHERE v.hash_name = ? AND u.hash_name = ? AND v.org_uuid = ?
+            ');
+            $stmt->execute([$vaultHash, $userHash, $orgUuid]);
+        } else {
+            $stmt = $pdo->prepare('
+                SELECT
+                    u.uuid AS user_uuid,
+                    u.vault_uuid,
+                    u.hash_name AS user_hash,
+                    u.salt,
+                    u.public_key,
+                    u.encrypted_private_key,
+                    u.master_key_timestamp,
+                    u.encrypted_friends
+                FROM users u
+                JOIN vaults v ON u.vault_uuid = v.uuid
+                WHERE v.hash_name = ? AND u.hash_name = ? AND v.org_uuid IS NULL
+            ');
+            $stmt->execute([$vaultHash, $userHash]);
+        }
         $row = $stmt->fetch();
         if ($row === false) {
             $row = null; // Benutzer nicht gefunden
@@ -250,25 +269,37 @@ final class UserController
         // Header-Parameter
         $isTestRequest = !empty($request->server['HTTP_X_TEST']) ? 1 : 0;
 
+        $orgUuid = $request->orgUuid();
+
         try {
-            // Tresor-ID ermitteln
+            // Tresor-ID ermitteln (innerhalb der Organisation im Multi-Tenant-Modus)
             $pdo = Database::pdo();
-            $stmt = $pdo->prepare('SELECT uuid FROM vaults WHERE hash_name = ?');
-            $stmt->execute([$vaultHash]);
+            if ($orgUuid !== null) {
+                $stmt = $pdo->prepare('SELECT uuid FROM vaults WHERE hash_name = ? AND org_uuid = ?');
+                $stmt->execute([$vaultHash, $orgUuid]);
+            } else {
+                $stmt = $pdo->prepare('SELECT uuid FROM vaults WHERE hash_name = ? AND org_uuid IS NULL');
+                $stmt->execute([$vaultHash]);
+            }
             $vaultUuid = $stmt->fetchColumn();
 
             // Tresor anlegen, falls noch nicht vorhanden
             if (!$vaultUuid) {
                 $vaultUuid = Uuid::v4();
                 try {
-                    $stmtInsert = $pdo->prepare('INSERT INTO vaults (uuid, hash_name, is_test) VALUES (?, ?, ?)');
-                    $stmtInsert->execute([$vaultUuid, $vaultHash, $isTestRequest]);
+                    if ($orgUuid !== null) {
+                        $stmtInsert = $pdo->prepare('INSERT INTO vaults (uuid, hash_name, is_test, org_uuid) VALUES (?, ?, ?, ?)');
+                        $stmtInsert->execute([$vaultUuid, $vaultHash, $isTestRequest, $orgUuid]);
+                    } else {
+                        $stmtInsert = $pdo->prepare('INSERT INTO vaults (uuid, hash_name, is_test) VALUES (?, ?, ?)');
+                        $stmtInsert->execute([$vaultUuid, $vaultHash, $isTestRequest]);
+                    }
                 } catch (PDOException $e) {
                     if ($e->getCode() !== '23000') { // nicht "Can't write; duplicate key in table" (s. https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html)
                         throw $e;
                     }
                     // Race: Tresor existiert inzwischen – erneut lesen
-                    $stmt->execute([$vaultHash]);
+                    $stmt->execute($orgUuid !== null ? [$vaultHash, $orgUuid] : [$vaultHash]);
                     $vaultUuid = $stmt->fetchColumn();
                     if (!$vaultUuid) {
                         throw $e; // Tresor-ID konnte nicht ermittelt werden

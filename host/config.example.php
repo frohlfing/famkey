@@ -34,3 +34,7 @@ const LOG_MAX_DAYS = 7;
 
 // Maximal erlaubte Größe eines Anhangs (in Bytes)
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)
+//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)
+const MULTI_TENANT = false;

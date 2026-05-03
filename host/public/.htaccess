@@ -12,6 +12,11 @@ RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
 RewriteCond %{HTTPS} off
 RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Multi-Tenant: /org/{uuid}/api/... → api/index.php weiterleiten
+# REQUEST_URI bleibt erhalten, damit PHP die org_uuid extrahieren kann.
+RewriteCond %{REQUEST_URI} ^/org/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/api/
+RewriteRule ^ api/index.php [QSA,L]
+
 # Zugriff auf sensible Dateien blockieren (falls man sie doch versehentlich hier ablegt)
 <FilesMatch "\.(env|sql|log|ini)$">
     Order Allow,Deny

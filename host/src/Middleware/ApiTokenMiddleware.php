@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Middleware;
 
+use App\Core\Database;
 use App\Core\MiddlewareInterface;
 use App\Core\Request;
 use App\Core\Response;
@@ -10,55 +11,100 @@ use App\Core\Response;
 /**
  * Globaler, benutzerunabhängiger API-Schutz.
  *
- * Diese Middleware überprüft den übermittelten API-Token.
- * Fehlt der Token oder ist er ungültig, wird die Anfrage mit dem Statuscode 401 (Unauthorized) beendet.
+ * Verhält sich je nach Server-Modus (MULTI_TENANT in config.php) unterschiedlich:
  *
- * Folgende Token-Übermittlung wird unterstützt:
- * - Bearer: `Authorization: Bearer {api_token}`
- * - Header: `X-API-Token: {api_token}`
- * - Basic-Auth: Passwort == API-Token, z.B. `curl -u :{api_token}`
- * - Query: `api_token={api_token}`
+ * Single-Tenant (MULTI_TENANT = false):
+ *   Vergleicht den übermittelten Token direkt mit dem globalen API_TOKEN aus config.php.
+ *   Kein Datenbankzugriff. Geeignet für selbst gehostete Einzelfamilien-Server.
  *
+ * Multi-Tenant (MULTI_TENANT = true):
+ *   1. org_uuid wird aus dem URL-Pfad /org/{uuid}/api/... von Request::fromGlobals() extrahiert.
+ *   2. Organization wird in der Tabelle `organizations` nachgeschlagen (nicht gesperrt).
+ *   3. Der übermittelte Token wird mit organizations.api_token verglichen.
+ *   → Stimmen org_uuid und api_token überein, wird die Anfrage weitergeleitet.
  *
- * Beispiel (Curl):
- * <code>
- * curl "https://{host}/api" -H "Authorization: Bearer {api_token}"
- * </code>
+ * Unterstützte Token-Übermittlung:
+ *   Bearer: `Authorization: Bearer {api_token}`
+ *   Header: `X-API-Token: {api_token}`
+ *   Basic-Auth: Passwort == API-Token, z.B. `curl -u :{api_token}`
+ *   Query: `?api_token={api_token}`
  */
 final class ApiTokenMiddleware implements MiddlewareInterface
 {
     /** @inheritDoc */
     public function process(Request $request, callable $next): Response
     {
-        // 1) Bearer Token
-        $authHeader = $request->header('Authorization');
-        if ($authHeader === 'Bearer ' . API_TOKEN) {
+        if (MULTI_TENANT) {
+            return $this->processMultiTenant($request, $next);
+        }
+        return $this->processSingleTenant($request, $next);
+    }
+
+    private function processMultiTenant(Request $request, callable $next): Response
+    {
+        $orgUuid = $request->orgUuid();
+        if ($orgUuid === null) {
+            return Response::error(401, 'Kein Organisations-Pfad in der URL (/org/{uuid}/api/...).');
+        }
+
+        $token = $this->extractToken($request);
+        if ($token === null) {
+            return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');
+        }
+
+        $pdo  = Database::pdo();
+        $stmt = $pdo->prepare('SELECT api_token FROM organizations WHERE uuid = ? AND blocked_at IS NULL');
+        $stmt->execute([$orgUuid]);
+        $row = $stmt->fetch();
+
+        if ($row === false || $row['api_token'] !== $token) {
+            return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');
+        }
+
+        return $next($request);
+    }
+
+    private function processSingleTenant(Request $request, callable $next): Response
+    {
+        $token = $this->extractToken($request);
+        if ($token !== null && $token === API_TOKEN) {
             return $next($request);
+        }
+        return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');
+    }
+
+    /**
+     * Extrahiert den API-Token aus dem Request (ohne Validierung).
+     *
+     * Reihenfolge: Bearer → X-API-Token → Basic-Auth → Query-Parameter.
+     */
+    private function extractToken(Request $request): ?string
+    {
+        $authHeader = $request->header('Authorization') ?? '';
+
+        // 1) Bearer Token
+        if (str_starts_with($authHeader, 'Bearer ')) {
+            $t = substr($authHeader, 7);
+            if ($t !== '') return $t;
         }
 
         // 2) Custom Header
-        // todo das Request-Objekt sollte eine Funktion server(key) bereitstellen, die null zurückgibt, wenn der Parameter nicht existiert (sowie query(key)).
-        if ($request->header('X-API-Token') === API_TOKEN || (isset($request->server['HTTP_X_API_TOKEN']) && $request->server['HTTP_X_API_TOKEN'] === API_TOKEN)) {
-            return $next($request);
-        }
+        $t = $request->header('X-API-Token') ?? ($request->server['HTTP_X_API_TOKEN'] ?? null);
+        if (is_string($t) && $t !== '') return $t;
 
-        // 3) Basic Auth (curl -u :meinGeheimerToken123)
-        $authHeader = $request->header('Authorization');
+        // 3) Basic Auth (z.B. curl -u :{api_token})
         if (str_starts_with($authHeader, 'Basic ')) {
-            [, $pass] = explode(':', base64_decode(substr($authHeader, 6)));
-            if ($pass === API_TOKEN) {
-                return $next($request);
-            }
+            $parts = explode(':', base64_decode(substr($authHeader, 6)), 2);
+            $pass  = $parts[1] ?? '';
+            if ($pass !== '') return $pass;
         }
-        else if (isset($request->server['PHP_AUTH_USER']) && $request->server['PHP_AUTH_USER'] === API_TOKEN) {
-            return $next($request);
-        }
+        $phpAuthUser = $request->server['PHP_AUTH_USER'] ?? '';
+        if ($phpAuthUser !== '') return $phpAuthUser;
 
-        // 4) GET-Parameter ?api_token=...
-        if ($request->query('api_token') === API_TOKEN) {
-            return $next($request);
-        }
+        // 4) Query-Parameter (?api_token=...)
+        $t = $request->query('api_token');
+        if (is_string($t) && $t !== '') return $t;
 
-        return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');
+        return null;
     }
 }

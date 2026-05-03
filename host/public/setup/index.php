@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // ── Pfade ───────────────────────────────────────────────────────────────────
 $configPath    = __DIR__ . '/../../config.php';
-$migrationPath = __DIR__ . '/../../migrations/001_initial_schema.sql';
+$migrationDir  = __DIR__ . '/../../migrations';
 
 // ── Schritt-State ────────────────────────────────────────────────────────────
 $step   = (int)($_GET['step'] ?? 1);
@@ -24,7 +24,7 @@ function phpStr(string $v): string
 
 // ── Requirements prüfen ──────────────────────────────────────────────────────
 
-function checkRequirements(string $configPath, string $migrationPath): array
+function checkRequirements(string $configPath, string $migrationDir): array
 {
     $checks = [];
 
@@ -47,9 +47,9 @@ function checkRequirements(string $configPath, string $migrationPath): array
     $checks[] = ['config.php noch nicht vorhanden', $ok ? 'ok' : 'bereits vorhanden!', $ok,
         $ok ? '' : 'Eine config.php existiert bereits – Setup bitte nicht erneut ausführen.'];
 
-    $ok = file_exists($migrationPath);
-    $checks[] = ['Migrations-Datei vorhanden', $ok ? 'gefunden' : 'fehlt!', $ok,
-        $ok ? '' : 'Die Datei migrations/001_initial_schema.sql wurde nicht gefunden.'];
+    $ok = is_dir($migrationDir) && count(glob($migrationDir . '/*.sql') ?: []) > 0;
+    $checks[] = ['Migrations-Dateien vorhanden', $ok ? 'gefunden' : 'fehlt!', $ok,
+        $ok ? '' : 'Keine .sql-Dateien im Verzeichnis migrations/ gefunden.'];
 
     return $checks;
 }
@@ -99,13 +99,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
             }
             $pdo = new PDO($dsn, $dbUser, $dbPass, $pdoOptions);
 
-            // ── Migration ausführen ─────────────────────────────────────────
-            $sql = file_get_contents($migrationPath);
-            // Zeilenkommentare entfernen, dann nach ; splitten
-            $sql = preg_replace('/--[^\n]*\n/', "\n", $sql);
-            $statements = array_filter(array_map('trim', explode(';', $sql)));
-            foreach ($statements as $stmt) {
-                $pdo->exec($stmt);
+            // ── Alle Migrationen ausführen (sortiert nach Dateiname) ───────────
+            $migrationDir = __DIR__ . '/../../migrations';
+            $migrationFiles = glob($migrationDir . '/*.sql') ?: [];
+            sort($migrationFiles);
+            foreach ($migrationFiles as $mFile) {
+                $sql = file_get_contents($mFile);
+                $sql = preg_replace('/--[^\n]*\n/', "\n", $sql); // Zeilenkommentare entfernen
+                $statements = array_filter(array_map('trim', explode(';', $sql)));
+                foreach ($statements as $stmt) {
+                    $pdo->exec($stmt);
+                }
             }
 
             // ── config.php schreiben ────────────────────────────────────────
@@ -121,8 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 . "const SYNC_PROTOCOL_VERSION = 1;\n\n"
                 . "// Kleinste unterstützte Protokollversion\n"
                 . "const MIN_SYNC_PROTOCOL_VERSION = 1;\n\n"
-                . "// Datenbankschema-Version\n"
-                . "const DATABASE_SCHEMA_VERSION = 1;\n\n"
+                . "// Datenbankschema-Version (sollte identisch sein mit dem Wert aus der Tabelle `version`)\n"
+                . "const DATABASE_SCHEMA_VERSION = 2;\n\n"
                 . "// Datenbank\n"
                 . "const DB_HOST = " . phpStr($dbHost)  . ";\n"
                 . "const DB_NAME = " . phpStr($dbName)  . ";\n"
@@ -130,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 . "const DB_PASS = " . phpStr($dbPass)  . ";\n\n"
                 . "// SSL-Zertifikat für die DB (null = kein SSL)\n"
                 . "const DB_SSLCA = {$sslCaVal};\n\n"
-                . "// API-Token (geheim halten!)\n"
+                . "// API-Token (geheim halten! Nur für Single-Tenant-Betrieb.)\n"
                 . "const API_TOKEN = " . phpStr($apiToken) . ";\n\n"
                 . "// Rate Limit (max. Einträge pro Minute; 0 = kein Limit)\n"
                 . "const RATE_LIMIT = {$rateLimit};\n\n"
@@ -140,7 +144,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 . "const LOG_LEVEL   = " . phpStr($logLevel) . ";\n"
                 . "const LOG_MAX_DAYS = {$logMaxDays};\n\n"
                 . "// Maximal erlaubte Größe eines Anhangs (in Bytes)\n"
-                . "const MAX_ATTACHMENT_BYTES = {$maxBytes}; // {$maxAttachMb} MB\n";
+                . "const MAX_ATTACHMENT_BYTES = {$maxBytes}; // {$maxAttachMb} MB\n\n"
+                . "// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)\n"
+                . "//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)\n"
+                . "const MULTI_TENANT = false;\n";
 
             if (file_put_contents($configPath, $configContent) === false) {
                 throw new RuntimeException('config.php konnte nicht geschrieben werden.');
@@ -175,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 $defaultToken = strtolower(bin2hex(random_bytes(24)));
 
 // ── Requirements für Schritt 1 ────────────────────────────────────────────────
-$requirements = ($step === 1) ? checkRequirements($configPath, $migrationPath) : [];
+$requirements = ($step === 1) ? checkRequirements($configPath, $migrationDir) : [];
 $reqPassed    = allPassed($requirements);
 
 ?><!DOCTYPE html>

@@ -75,6 +75,14 @@ final readonly class Request
 
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $path = '/' . ltrim($path, '/');
+
+        // Multi-Tenant: /org/{uuid}/api/... → org_uuid extrahieren, Präfix entfernen
+        $attributes = [];
+        if (preg_match('#^/org/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)$#i', $path, $m)) {
+            $attributes['orgUuid'] = strtolower($m[1]);
+            $path = $m[2];
+        }
+
         if (str_starts_with($path, '/api/')) {
             $path = substr($path, 4); // entfernt "/api"
             $path = '/' . ltrim($path, '/');
@@ -91,6 +99,7 @@ final readonly class Request
             rawBody: $rawBody,
             cookies: $_COOKIE ?? [],
             server: $_SERVER ?? [],
+            attributes: $attributes,
         );
     }
 
@@ -123,6 +132,20 @@ final readonly class Request
         );
     }
     
+    /**
+     * Gibt die Organisations-UUID zurück (Multi-Tenant-Modus).
+     *
+     * Wird von Request::fromGlobals() aus dem URL-Pfad /org/{uuid}/api/... extrahiert.
+     * Ist null im Single-Tenant-Betrieb (MULTI_TENANT = false) oder wenn kein /org/-Präfix vorhanden.
+     *
+     * @return string|null
+     */
+    public function orgUuid(): ?string
+    {
+        $v = $this->attributes['orgUuid'] ?? null;
+        return is_string($v) && $v !== '' ? $v : null;
+    }
+
     /**
      * Gibt den Wert eines HTTP-Headers zurück.
      *
