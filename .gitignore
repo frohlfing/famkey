@@ -44,7 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# --- PriVault spezifisch ---
+# --- FamKey spezifisch ---
 
 # 1. Lokale Tresore
 *.db3
@@ -55,10 +55,14 @@ secrets.json
 secrets.ini
 
 # 3. Backend (PHP/Web)
-home
 host/public/dev/.htaccess
 host/public/dev/.htpasswd
 host/coverage
 Host/logs
 config.php
 sqlca.pem
+
+# 4. Homepage & Releases
+home
+#home/app
+#home/releases

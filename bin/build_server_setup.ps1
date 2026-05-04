@@ -5,7 +5,7 @@
  * bereinigt sie um unnötige Entwicklungs-Dateien und schnürt ein ZIP-Archiv.
  *
  * Ziel-Struktur im Archiv:
- * /famkey
+ * /server
  *   /migrations
  *   /public
  *   /src
@@ -60,8 +60,12 @@ Write-Host "  [+] src"
 Copy-Item -Path "$projectRoot/host/src" -Destination "$famKeyDir/src" -Recurse
 
 # Einzeldateien
+
 Write-Host "  [+] config.example.php"
 Copy-Item -Path "$projectRoot/host/config.example.php" -Destination "$famKeyDir/config.example.php"
+
+Write-Host "  [+] routes.php"
+Copy-Item -Path "$projectRoot/host/routes.php" -Destination "$famKeyDir/routes.php"
 
 Write-Host "  [+] LICENSE"
 Copy-Item -Path "$projectRoot/LICENSE" -Destination "$famKeyDir/LICENSE"

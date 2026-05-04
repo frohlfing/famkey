@@ -391,6 +391,13 @@ final class SyncController
                     return Response::error(422, '"deleted_at" muss ein gültiger ISO-Zeitstempel sein');
                 }
 
+                // Prüfen, ob der Eintrag überhaupt existiert (im selben Tresor)
+                $stmtCheckEntry = $pdo->prepare('SELECT uuid FROM entries WHERE uuid = ? AND vault_uuid = ?');
+                $stmtCheckEntry->execute([$entryUuid, $vaultUuid]);
+                if (!$stmtCheckEntry->fetch()) {
+                    continue;
+                }
+
                 // Muss Vollzugriff (Level 3) haben zum Löschen (vault_uuid-scoped)
                 $stmt = $pdo->prepare('SELECT access_level FROM permissions WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
                 $stmt->execute([$entryUuid, $userUuid, $vaultUuid]);

@@ -24,7 +24,7 @@ Installationsschritte
    Merke dir Datenbankname, Benutzername und Passwort.
 
 3. Dateien hochladen
-   Entpacke das Archiv und lade den Inhalt des Ordners webroot/ in das
+   Entpacke das Archiv und lade den Inhalt des Ordners famkey/ in das
    Web-Root deines Servers hoch (z.B. per WinSCP ode ein anderes FTP/SFTP-Programm).
 
 4. Setup-Assistenten starten
