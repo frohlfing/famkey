@@ -11,17 +11,20 @@ declare(strict_types=1);
 
 use App\Core\Bootstrap;
 use App\Core\Database;
+use App\Core\HTMLHelper;
 use App\Core\Uuid;
 
 require_once __DIR__ . '/../../src/Core/Bootstrap.php';
 Bootstrap::registerAutoloader();
 Bootstrap::loadConfig();
 
+/**
+ * Kurzschreibweise für HTML-Escaping in Templates.
+ */
 function h(string $s): string
 {
-    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    return HtmlHelper::h($s);
 }
-
 
 if (!MULTI_TENANT) {
     http_response_code(403);
@@ -63,20 +66,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action  = $_POST['action']   ?? '';
     $orgUuid = $_POST['org_uuid'] ?? '';
 
+    // Name für Fehlermeldungen vorladen (alle Aktionen außer create)
+    $orgName = $orgUuid;
+    if ($orgUuid !== '') {
+        $stmt = $pdo->prepare('SELECT name FROM organizations WHERE uuid = ?');
+        $stmt->execute([$orgUuid]);
+        $orgName = $stmt->fetchColumn() ?: $orgUuid;
+    }
+
     // Organisation anlegen
     if ($action === 'create') {
         $name = trim($_POST['name'] ?? '');
+        $slug = HTMLHelper::slugify($name);
         if ($name === '') {
             $errors[] = 'Name ist erforderlich.';
+        } else if ($slug === '') {
+            $errors[] = 'Name muss mindestens ein alphanumerisches Zeichen enthalten.';
         } else {
             $newOrgUuid  = Uuid::v4();
-            $newApiToken = Uuid::v4();
-            $pdo->prepare('INSERT INTO organizations (uuid, api_token, name) VALUES (?, ?, ?)')
-                ->execute([$newOrgUuid, $newApiToken, $name]);
+            $newApiToken = Uuid::v4n();
+            $pdo->prepare('INSERT INTO organizations (uuid, slug, api_token, name) VALUES (?, ?, ?, ?)')
+                ->execute([$newOrgUuid, $slug, $newApiToken, $name]);
             $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
             $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
             $infos[] = "Organisation angelegt: <strong>" . h($name) . "</strong><br>"
-                . "Server-Adresse: <code>" . h($baseUrl . '/org/' . $newOrgUuid) . "</code><br>"
+                . "Server-Adresse: <code>" . h($baseUrl . '/org/' . $slug) . "</code><br>"
                 . "API-Token: <code>" . h($newApiToken) . "</code>";
         }
     }
@@ -85,26 +99,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'block' && $orgUuid !== '') {
         $pdo->prepare('UPDATE organizations SET blocked_at = NOW(3) WHERE uuid = ? AND blocked_at IS NULL')
             ->execute([$orgUuid]);
-        $infos[] = "Organisation gesperrt: " . h($orgUuid);
+        $infos[] = "Organisation gesperrt: <strong>" . h($orgName) . "</strong>";
     }
 
     if ($action === 'unblock' && $orgUuid !== '') {
         $pdo->prepare('UPDATE organizations SET blocked_at = NULL WHERE uuid = ?')
             ->execute([$orgUuid]);
-        $infos[] = "Organisation entsperrt: " . h($orgUuid);
+        $infos[] = "Organisation entsperrt: <strong>" . h($orgName) . "</strong>";
+    }
+
+    // API-Token erneuern
+    if ($action === 'renew_token' && $orgUuid !== '') {
+        $newApiToken = Uuid::v4n();
+        $pdo->prepare('UPDATE organizations SET api_token = ? WHERE uuid = ?')
+            ->execute([$newApiToken, $orgUuid]);
+        $infos[] = "API-Token erneuert: <strong>" . h($orgName) . "</strong><br>"
+            . "Neuer API-Token: <code>" . h($newApiToken) . "</code>";
     }
 
     // Organisation löschen (löscht per FK-Kaskade auch alle verknüpften Tresore und Benutzer!)
     if ($action === 'delete' && $orgUuid !== '') {
         $pdo->prepare('DELETE FROM organizations WHERE uuid = ?')->execute([$orgUuid]);
-        $infos[] = "Organisation gelöscht: " . h($orgUuid);
+        $infos[] = "Organisation gelöscht: <strong>" . h($orgName) . "</strong>";
     }
 }
 
 // ── Daten laden ───────────────────────────────────────────────────────────────
 
 $orgs = $pdo->query('
-    SELECT o.uuid AS org_uuid, o.api_token, o.name, o.blocked_at, o.created_at,
+    SELECT o.uuid, o.slug, o.api_token, o.name, o.blocked_at, o.created_at,
            COUNT(v.uuid) AS vault_count
     FROM organizations o
     LEFT JOIN vaults v ON v.org_uuid = o.uuid
@@ -135,7 +158,7 @@ $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
         a:hover { text-decoration: underline; }
         code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
 
-/* ── Layout ── */
+        /* ── Layout ── */
         .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 24px; }
         .page-title { font-size: 20px; font-weight: 700; color: #e8f4fb; margin-bottom: 4px; }
         .page-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
@@ -199,11 +222,12 @@ $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
     <!-- Organisation anlegen -->
     <div class="card">
         <div class="card-title">Neue Organisation anlegen</div>
-        <div class="card-sub">Generiert eine neue UUID und einen API-Token. Der Name ist nur für den Admin sichtbar.</div>
+        <!--<div class="card-sub">Generiert eine neue UUID und einen API-Token. Der Name ist nur für den Admin sichtbar.</div>-->
+        <div class="card-sub">Aus dem Namen wird die Server-Adresse generiert.</div>
         <form method="post">
             <input type="hidden" name="action" value="create">
             <div class="field-row">
-                <input type="text" name="name" title="" placeholder="z.&thinsp;B. Familie Müller oder info@example.com" required maxlength="255">
+                <input type="text" name="name" title="" required maxlength="255">
                 <button class="btn btn-primary" type="submit">Anlegen</button>
             </div>
         </form>
@@ -221,7 +245,7 @@ $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>UUID / Server-Adresse</th>
+                        <th>Server-Adresse</th>
                         <th>API-Token</th>
                         <th>Tresore</th>
                         <th>Status</th>
@@ -234,11 +258,15 @@ $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
                     <?php $blocked = $o['blocked_at'] !== null; ?>
                     <tr style="<?= $blocked ? 'opacity:.5' : '' ?>">
                         <td><?= h($o['name']) ?></td>
+                        <td class="mono"><div class="sub"><?= h($baseUrl . '/org/' . $o['slug']) ?></div></td>
                         <td class="mono">
-                            <div><?= h($o['org_uuid']) ?></div>
-                            <div class="sub"><?= h($baseUrl . '/org/' . $o['org_uuid']) ?></div>
+                            <div><?= h($o['api_token']) ?></div>
+                            <form method="post" style="margin-top:5px;" onsubmit="return confirm('API-Token erneuern? Der alte Token wird sofort ungültig – alle konfigurierten Clients müssen aktualisiert werden.')">
+                                <input type="hidden" name="action" value="renew_token">
+                                <input type="hidden" name="org_uuid" value="<?= h($o['uuid']) ?>">
+                                <button class="btn" type="submit" style="font-size:11px; padding:2px 8px;">Erneuern</button>
+                            </form>
                         </td>
-                        <td class="mono"><?= h($o['api_token']) ?></td>
                         <td><?= (int)$o['vault_count'] ?></td>
                         <td>
                             <?php if ($blocked): ?>
@@ -253,19 +281,19 @@ $baseUrl = "$proto://{$_SERVER['HTTP_HOST']}";
                             <?php if ($blocked): ?>
                                 <form method="post" style="display:inline;">
                                     <input type="hidden" name="action" value="unblock">
-                                    <input type="hidden" name="org_uuid" value="<?= h($o['org_uuid']) ?>">
+                                    <input type="hidden" name="org_uuid" value="<?= h($o['uuid']) ?>">
                                     <button class="btn btn-ok" type="submit">Entsperren</button>
                                 </form>
                             <?php else: ?>
                                 <form method="post" style="display:inline;" onsubmit="return confirm('Organisation sperren? Alle Sync-Anfragen dieser Organisation werden mit 401 abgelehnt.')">
                                     <input type="hidden" name="action" value="block">
-                                    <input type="hidden" name="org_uuid" value="<?= h($o['org_uuid']) ?>">
+                                    <input type="hidden" name="org_uuid" value="<?= h($o['uuid']) ?>">
                                     <button class="btn btn-warn" type="submit">Sperren</button>
                                 </form>
                             <?php endif; ?>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Organisation löschen? Damit werden ALLE verknüpften Tresore und Benutzer unwiderruflich gelöscht!')">
                                 <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="org_uuid" value="<?= h($o['org_uuid']) ?>">
+                                <input type="hidden" name="org_uuid" value="<?= h($o['uuid']) ?>">
                                 <button class="btn btn-danger" type="submit">Löschen</button>
                             </form>
                         </td>

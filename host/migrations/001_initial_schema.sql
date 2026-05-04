@@ -4,12 +4,13 @@
 -- Tabelle für Organisationen (repräsentiert eine Familie/Verein/Arbeitsgruppe)
 CREATE TABLE `organizations` (
     `uuid` CHAR(36) NOT NULL,                       -- Universally Unique Identifier der Organisation
-    `name` VARCHAR(255) NOT NULL,                   -- Name der Organisation, eindeutig pro Server
+    `slug` VARCHAR(255) NOT NULL,                   -- Teil der Serveradresse, eindeutig pro Server
     `api_token` VARCHAR(36) NOT NULL,               -- API-Token der Organisation (UUID v4)
+    `name` VARCHAR(255) DEFAULT NULL,               -- Anzeigename der Organisation (optional)
     `blocked_at` DATETIME(3) DEFAULT NULL,          -- Zeitpunkt, seitdem die Organisation deaktiviert wurde
     `created_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt der Erstellung
     PRIMARY KEY (`uuid`),
-    UNIQUE KEY `uk_organizations_name` (`name`),
+    UNIQUE KEY `uk_organizations_slug` (`slug`),
     UNIQUE KEY `uk_organizations_api_token` (`api_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

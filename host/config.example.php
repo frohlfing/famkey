@@ -20,7 +20,11 @@ const DB_PASS = '';
 // SSL-Zertifikat für die DB (siehe https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql)
 const DB_SSLCA = null; // __DIR__ . '/sqlca.pem';
 
-// API-Tokens
+// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)
+//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)
+const MULTI_TENANT = false;
+
+// Globaler API-Tokens (nur bei Single-Tenant)
 const API_TOKEN = 'DEIN_API_TOKEN';
 
 // Rate Limit (maximale Anzahl Einträge pro Minute; 0 == kein Limit)
@@ -35,7 +39,3 @@ const LOG_MAX_DAYS = 7;
 
 // Maximal erlaubte Größe eines Anhangs (in Bytes)
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB
-
-// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)
-//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)
-const MULTI_TENANT = false;

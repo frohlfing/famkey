@@ -626,6 +626,30 @@ Für die Entwicklung unter Windows dient **XAMPP** als Server.
 Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
 
 ```
+<VirtualHost *:80>
+    ServerName famkey.test
+    ServerAlias 192.168.178.21
+
+    DocumentRoot "C:/Users/frank/Source/AndroidStudio/famkey/host/public"
+
+    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/host/public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    Alias /home "C:/Users/frank/Source/AndroidStudio/famkey/home/public"
+    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+	Alias /app "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app"
+    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+
 <VirtualHost *:443>
     ServerName favicon.test
     DocumentRoot "C:/Users/frank/Source/AndroidStudio/famkey/host/public"
@@ -644,6 +668,12 @@ Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
 		AllowOverride All
 		Require all granted
 	</Directory>
+	
+	Alias /app "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app"
+    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app">
+        AllowOverride All
+        Require all granted
+    </Directory>
 </VirtualHost>
 ```
 

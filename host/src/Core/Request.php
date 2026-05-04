@@ -76,10 +76,9 @@ final readonly class Request
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $path = '/' . ltrim($path, '/');
 
-        // Multi-Tenant: /org/{uuid}/api/... → org_uuid extrahieren, Präfix entfernen
-        $attributes = [];
-        if (preg_match('#^/org/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)$#i', $path, $m)) {
-            $attributes['orgUuid'] = strtolower($m[1]);
+        // Multi-Tenant: /org/{slug}/api/... → org_slug extrahieren, Präfix entfernen
+        if (preg_match('#^/org/([a-z0-9][a-z0-9-]{0,63})(/.*)$#', $path, $m)) {
+            $attributes['orgSlug'] = $m[1];
             $path = $m[2];
         }
 
@@ -132,11 +131,39 @@ final readonly class Request
         );
     }
     
+    // /**
+    //  * Gibt die Organisations-UUID zurück (Multi-Tenant-Modus).
+    //  *
+    //  * Wird von Request::fromGlobals() aus dem URL-Pfad /org/{uuid}/api/... extrahiert.
+    //  * Ist null im Single-Tenant-Betrieb (wenn MULTI_TENANT = false oder wenn kein /org/-Präfix vorhanden).
+    //  *
+    //  * @return string|null
+    //  */
+    // public function orgUuid(): ?string
+    // {
+    //     $v = $this->attributes['orgUuid'] ?? null;
+    //     return is_string($v) && $v !== '' ? $v : null;
+    // }
+
+     /**
+     * Gibt den URL-Slug der Organisation zurück (Multi-Tenant-Modus).
+     *
+     * Wird von Request::fromGlobals() aus dem URL-Pfad /org/{slug}/api/... extrahiert.
+     * Ist null im Single-Tenant-Betrieb (wenn MULTI_TENANT = false oder wenn kein /org/-Präfix vorhanden).
+     *
+     * @return string|null
+     */
+    public function orgSlug(): ?string
+    {
+        $v = $this->attributes['orgSlug'] ?? null;
+        return is_string($v) && $v !== '' ? $v : null;
+    }
+
     /**
      * Gibt die Organisations-UUID zurück (Multi-Tenant-Modus).
      *
-     * Wird von Request::fromGlobals() aus dem URL-Pfad /org/{uuid}/api/... extrahiert.
-     * Ist null im Single-Tenant-Betrieb (wenn MULTI_TENANT = false oder wenn kein /org/-Präfix vorhanden).
+     * Wird von der ApiTokenMiddleware nach dem Slug-Lookup in der DB als Attribut gesetzt.
+     * Ist null, solange die Middleware nicht durchlaufen wurde oder im Single-Tenant-Betrieb.
      *
      * @return string|null
      */

@@ -18,10 +18,10 @@ use App\Core\Response;
  *   Kein Datenbankzugriff. Geeignet für selbst gehostete Einzelfamilien-Server.
  *
  * Multi-Tenant (MULTI_TENANT = true):
- *   1. org_uuid wird aus dem URL-Pfad /org/{uuid}/api/... von Request::fromGlobals() extrahiert.
- *   2. Organization wird in der Tabelle `organizations` nachgeschlagen (nicht gesperrt).
- *   3. Der übermittelte Token wird mit organizations.api_token verglichen.
- *   → Stimmen org_uuid und api_token überein, wird die Anfrage weitergeleitet.
+ *   1. org_slug wird aus dem URL-Pfad /org/{slug}/api/... von Request::fromGlobals() extrahiert.
+ *   2. Organisation wird in der Tabelle `organizations` nachgeschlagen (nicht gesperrt).
+ *   3. Der übermittelte API-Token wird mit organizations.api_token verglichen.
+ *   → Stimmen Organisation und API-Token überein, wird die Anfrage weitergeleitet.
  *
  * Unterstützte Token-Übermittlung:
  *   Bearer: `Authorization: Bearer {api_token}`
@@ -42,9 +42,9 @@ final class ApiTokenMiddleware implements MiddlewareInterface
 
     private function processMultiTenant(Request $request, callable $next): Response
     {
-        $orgUuid = $request->orgUuid();
-        if ($orgUuid === null) {
-            return Response::error(401, 'Kein Organisations-Pfad in der URL (/org/{uuid}/api/...).');
+        $orgSlug = $request->orgSlug();
+        if ($orgSlug === null) {
+            return Response::error(401, 'Kein Organisations-Pfad in der URL (/org/{slug}/api/...).');
         }
 
         $token = $this->extractToken($request);
@@ -53,15 +53,16 @@ final class ApiTokenMiddleware implements MiddlewareInterface
         }
 
         $pdo  = Database::pdo();
-        $stmt = $pdo->prepare('SELECT api_token FROM organizations WHERE uuid = ? AND blocked_at IS NULL');
-        $stmt->execute([$orgUuid]);
+        $stmt = $pdo->prepare('SELECT uuid, api_token FROM organizations WHERE slug = ? AND blocked_at IS NULL');
+        $stmt->execute([$orgSlug]);
         $row = $stmt->fetch();
 
         if ($row === false || $row['api_token'] !== $token) {
             return Response::error(401, 'Der API-Token fehlt bzw. ist ungültig.');
         }
 
-        return $next($request);
+        // return $next($request);
+        return  $next($request->withAttribute('orgUuid', $row['uuid']));
     }
 
     private function processSingleTenant(Request $request, callable $next): Response

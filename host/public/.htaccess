@@ -8,14 +8,18 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} ^(.*)
 RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
 
-# HTTPS erzwingen (Hetzner Standard, 301 = Moved Permanently!)
+# HTTPS erzwingen – nur für Hostnamen, nicht für IP-Adressen (lokale Entwicklung via IP)
 RewriteCond %{HTTPS} off
+RewriteCond %{HTTP_HOST} !^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$
 RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Multi-Tenant: /org/{uuid}/api/... → api/index.php weiterleiten
-# REQUEST_URI bleibt erhalten, damit PHP die org_uuid extrahieren kann.
-RewriteCond %{REQUEST_URI} ^/org/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/api/
-RewriteRule ^ api/index.php [QSA,L]
+# Multi-Tenant-Regel (REQUEST_URI bleibt dabei erhalten, PHP liest den org_slug daraus)
+# - RewriteCond prüft, ob der URI mit /org/{slug}/ beginnt
+# - RewriteRule schneidet den Präfix org/{slug}/ ab und leitet intern auf $1 weiter — den Rest des Pfads
+# - [QSA] hängt den Query-String (?domain=...) an
+# - [L] beendet die Regelkette
+RewriteCond %{REQUEST_URI} ^/org/[a-z0-9][a-z0-9-]{0,63}/
+RewriteRule ^org/[a-z0-9][a-z0-9-]{0,63}/(.*)$ $1 [QSA,L]
 
 # Zugriff auf sensible Dateien blockieren (falls man sie doch versehentlich hier ablegt)
 <FilesMatch "\.(env|sql|log|ini)$">

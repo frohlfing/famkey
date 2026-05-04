@@ -24,7 +24,7 @@ Future<String?> downloadFavicon(String url) async {
   if (kIsWeb) {
     // Sync-Server als CORS-Proxy verwenden.
     final sessionService = getIt<SessionService>();
-    final host = sessionService.settings?.host ?? 'https://FamKey.frank-rohlfing.de'; // ist bereits normalisiert (ohne Slash am Ende, z.B. "https://FamKey.test")
+    final host = sessionService.settings?.host ?? 'https://famkey.de'; // ist bereits normalisiert (ohne Slash am Ende)
     faviconUrl = '$host/favicons.php?domain=$domain';
   } else {
     // Nativ: direkt ohne Proxy

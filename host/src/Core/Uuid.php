@@ -43,4 +43,18 @@ final class Uuid
 
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
+
+    /**
+     * Erzeugt eine UUID Version 4 im N-Format.
+     *
+     * Das N-Format besteht aus 32 hexadezimalen Zeichen ohne Bindestriche,
+     * z.B. "550e8400e29b41d4a716446655440000".
+     *
+     * Geeignet für Tokens oder kompakte technische Identifikatoren, bei denen
+     * die kanonische UUID-Schreibweise mit Bindestrichen nicht gewünscht ist.
+     */
+    public static function v4n(): string
+    {
+        return str_replace('-', '', self::v4());
+    }
 }
