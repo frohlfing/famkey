@@ -751,7 +751,8 @@ FamKey/                                        # Projekt-Root
  │    │    │    ├── .htpasswd                  # Apache Passwortdatei
  │    │    │    └── index.php                  # Adminseite
  │    │    ├── setup/                          # Setup-Skript zur Installation des Sync-Servers beim Hoster (der Ordner wird nach der Installation automatisch gelöscht)
- │    │    ├── .htaccess                       # Apache Sicherheitsregeln
+ │    │    ├── .htaccess                       # Apache Sicherheitsregeln, URL-Rewriting
+ │    │    ├── favicons.php                    # Favicon-Proxy
  │    │    └── index.html                      # Startseite
  │    ├── src/                                 # PHP-Quellcode (PSR-4-ähnlich)
  │    │    ├── Controller/                     # Controller-Klassen

@@ -1,14 +1,13 @@
 <?php
 declare(strict_types=1);
 
-// ── Pfade ───────────────────────────────────────────────────────────────────
-$configPath    = __DIR__ . '/../../config.php';
-$migrationDir  = __DIR__ . '/../../migrations';
+// ── Pfade ────────────────────────────────────────────────────────────────────
+$configPath   = __DIR__ . '/../../config.php';
+$migrationDir = __DIR__ . '/../../migrations';
 
 // ── Schritt-State ────────────────────────────────────────────────────────────
 $step   = (int)($_GET['step'] ?? 1);
 $errors = [];
-$info   = [];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +19,13 @@ function h(string $s): string
 function phpStr(string $v): string
 {
     return "'" . str_replace(['\\', "'"], ['\\\\', "\\'"], $v) . "'";
+}
+
+// Ersetzt den Wert einer PHP-Konstante in einem Quelltext.
+// const NAME = <alt>;  →  const NAME = <neu>;
+function setConst(string $src, string $name, string $newValue): string
+{
+    return preg_replace('/^(const\s+' . preg_quote($name, '/') . '\s*=\s*)[^;]+(;)/m', '$1' . $newValue . '$2', $src, 1) ?? $src;
 }
 
 // ── Requirements prüfen ──────────────────────────────────────────────────────
@@ -47,7 +53,7 @@ function checkRequirements(string $configPath, string $migrationDir): array
     $checks[] = ['config.php noch nicht vorhanden', $ok ? 'ok' : 'bereits vorhanden!', $ok,
         $ok ? '' : 'Eine config.php existiert bereits – Setup bitte nicht erneut ausführen.'];
 
-    $ok = is_dir($migrationDir) && count(glob($migrationDir . '/*.sql') ?: []) > 0;
+    $ok = is_dir($migrationDir) && count(array_filter(glob($migrationDir . '/*.sql') ?: [], fn($f) => basename($f) >= '001')) > 0;
     $checks[] = ['Migrations-Dateien vorhanden', $ok ? 'gefunden' : 'fehlt!', $ok,
         $ok ? '' : 'Keine .sql-Dateien im Verzeichnis migrations/ gefunden.'];
 
@@ -62,92 +68,89 @@ function allPassed(array $checks): bool
 // ── POST: Install durchführen ────────────────────────────────────────────────
 
 $installSuccess = false;
-$generatedToken = '';
 $devProtected   = false;
+$selfDelete     = false;
+$skippedDb      = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 
-    $dbHost          = trim($_POST['db_host']          ?? 'localhost');
-    $dbPort          = max(1, (int)($_POST['db_port']  ?? 3306));
-    $dbName          = trim($_POST['db_name']          ?? '');
-    $dbUser          = trim($_POST['db_user']          ?? '');
-    $dbPass          =      $_POST['db_pass']          ?? '';
-    $dbSslCa         = trim($_POST['db_sslca']         ?? '');
-    $apiToken        = trim($_POST['api_token']        ?? '');
-    $rateLimit       = max(0, (int)($_POST['rate_limit']        ?? 200));
-    $maxAttachMb     = max(1, (int)($_POST['max_attachment_mb'] ?? 25));
-    $logLevel        = in_array($_POST['log_level'] ?? '', ['DEBUG','INFO','WARN','ERROR'], true)
-                         ? $_POST['log_level'] : 'WARN';
-    $logMaxDays      = max(1, (int)($_POST['log_max_days'] ?? 7));
-    $debug           = isset($_POST['debug']);
-    $selfDelete      = isset($_POST['self_delete']);
-    $devUser         = trim($_POST['dev_user'] ?? 'admin');
-    $devPass         =      $_POST['dev_pass'] ?? '';
+    $skipDb      = isset($_POST['skip_db']);
+    $skipApp     = isset($_POST['skip_app']);
+    $skipLogging = isset($_POST['skip_logging']);
+    $skipDev     = isset($_POST['skip_dev']);
+    $selfDelete  = !isset($_POST['skip_cleanup']);
 
-    if ($dbName   === '') $errors[] = 'Datenbankname ist erforderlich.';
-    if ($dbUser   === '') $errors[] = 'Datenbankbenutzer ist erforderlich.';
-    if ($apiToken === '') $errors[] = 'API-Token ist erforderlich.';
-    if ($devPass  !== '' && $devUser === '') $errors[] = 'Dev-Benutzername ist erforderlich, wenn ein Passwort gesetzt wird.';
+    $dbHost      = trim($_POST['db_host']  ?? 'localhost');
+    $dbPort      = max(1, (int)($_POST['db_port']  ?? 3306));
+    $dbName      = trim($_POST['db_name']  ?? '');
+    $dbUser      = trim($_POST['db_user']  ?? '');
+    $dbPass      =      $_POST['db_pass']  ?? '';
+    $dbSslCa     = trim($_POST['db_sslca'] ?? '');
+
+    $apiToken    = trim($_POST['api_token']        ?? '');
+    $rateLimit   = max(0, (int)($_POST['rate_limit']        ?? 200));
+    $maxAttachMb = max(1, (int)($_POST['max_attachment_mb'] ?? 25));
+
+    $logLevel    = in_array($_POST['log_level'] ?? '', ['DEBUG','INFO','WARN','ERROR'], true)
+                     ? $_POST['log_level'] : 'WARN';
+    $logMaxDays  = max(1, (int)($_POST['log_max_days'] ?? 7));
+    $debug       = isset($_POST['debug']);
+
+    $devUser     = trim($_POST['dev_user'] ?? 'admin');
+    $devPass     =      $_POST['dev_pass'] ?? '';
+
+    if (!$skipDb  && $dbName   === '') $errors[] = 'Datenbankname ist erforderlich.';
+    if (!$skipDb  && $dbUser   === '') $errors[] = 'Datenbankbenutzer ist erforderlich.';
+    if (!$skipApp && $apiToken === '') $errors[] = 'API-Token ist erforderlich.';
+    if (!$skipDev && $devPass !== '' && $devUser === '') $errors[] = 'Dev-Benutzername ist erforderlich, wenn ein Passwort gesetzt wird.';
 
     if (empty($errors)) {
         try {
-            // ── DB-Verbindung testen ────────────────────────────────────────
-            $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
-            $pdoOptions = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
-            if ($dbSslCa !== '') {
-                $pdoOptions[PDO::MYSQL_ATTR_SSL_CA] = $dbSslCa;
-                $pdoOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
-            }
-            $pdo = new PDO($dsn, $dbUser, $dbPass, $pdoOptions);
-
-            // ── Alle Migrationen ausführen (sortiert nach Dateiname) ───────────
-            $migrationFiles = glob($migrationDir . '/*.sql') ?: [];
-            sort($migrationFiles);
-            foreach ($migrationFiles as $mFile) {
-                $sql = file_get_contents($mFile);
-                $sql = preg_replace('/--[^\n]*\n/', "\n", $sql); // Zeilenkommentare entfernen
-                $statements = array_filter(array_map('trim', explode(';', $sql)));
-                foreach ($statements as $stmt) {
-                    $pdo->exec($stmt);
+            // ── DB-Verbindung testen + Migrationen ausführen ─────────────────
+            if (!$skipDb) {
+                $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
+                $pdoOptions = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
+                if ($dbSslCa !== '') {
+                    $pdoOptions[PDO::MYSQL_ATTR_SSL_CA] = $dbSslCa;
+                    $pdoOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
                 }
+                $pdo = new PDO($dsn, $dbUser, $dbPass, $pdoOptions);
+                $migrationFiles = array_filter(glob($migrationDir . '/*.sql') ?: [], fn($f) => basename($f) >= '001');
+                sort($migrationFiles);
+                foreach ($migrationFiles as $mFile) {
+                    $sql = file_get_contents($mFile);
+                    $sql = preg_replace('/--[^\n]*\n/', "\n", $sql);
+                    foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
+                        $pdo->exec($stmt);
+                    }
+                }
+            } else {
+                $skippedDb = true;
             }
 
-            // ── config.php schreiben ────────────────────────────────────────
-            $sslCaVal   = $dbSslCa !== '' ? phpStr($dbSslCa) : 'null';
-            $debugVal   = $debug ? 'true' : 'false';
-            $maxBytes   = $maxAttachMb * 1024 * 1024;
-            $generated  = date('Y-m-d H:i:s');
+            // ── config.php aus config.example.php generieren ─────────────────
+            $configContent = file_get_contents(__DIR__ . '/../../config.example.php');
+            $configContent = preg_replace('/^<\?php/', "<?php\n// Generiert durch FamKey Setup am " . date('Y-m-d H:i:s'), $configContent, 1);
 
-            $configContent = "<?php\n"
-                . "/** @noinspection SpellCheckingInspection */\n"
-                . "// Generiert durch FamKey Setup am $generated\n\n"
-                . "// Sync-Protokollversion\n"
-                . "const SYNC_PROTOCOL_VERSION = 1;\n\n"
-                . "// Kleinste unterstützte Protokollversion\n"
-                . "const MIN_SYNC_PROTOCOL_VERSION = 1;\n\n"
-                . "// Datenbankschema-Version (sollte identisch sein mit dem Wert aus der Tabelle `version`)\n"
-                . "const DATABASE_SCHEMA_VERSION = 2;\n\n"
-                . "// Datenbank\n"
-                . "const DB_HOST = " . phpStr($dbHost)  . ";\n"
-                . "const DB_NAME = " . phpStr($dbName)  . ";\n"
-                . "const DB_USER = " . phpStr($dbUser)  . ";\n"
-                . "const DB_PASS = " . phpStr($dbPass)  . ";\n\n"
-                . "// SSL-Zertifikat für die DB (null = kein SSL)\n"
-                . "const DB_SSLCA = $sslCaVal;\n\n"
-                . "// API-Token (geheim halten! Nur für Single-Tenant-Betrieb.)\n"
-                . "const API_TOKEN = " . phpStr($apiToken) . ";\n\n"
-                . "// Rate Limit (max. Einträge pro Minute; 0 = kein Limit)\n"
-                . "const RATE_LIMIT = $rateLimit;\n\n"
-                . "// Debug-Mode\n"
-                . "const DEBUG = $debugVal;\n\n"
-                . "// Logging\n"
-                . "const LOG_LEVEL   = " . phpStr($logLevel) . ";\n"
-                . "const LOG_MAX_DAYS = $logMaxDays;\n\n"
-                . "// Maximal erlaubte Größe eines Anhangs (in Bytes)\n"
-                . "const MAX_ATTACHMENT_BYTES = $maxBytes; // $maxAttachMb MB\n\n"
-                . "// Server-Modus: false = Single-Tenant (self-hosted, globaler API_TOKEN)\n"
-                . "//               true  = Multi-Tenant (famkey.de, Organisationen per URL-Pfad)\n"
-                . "const MULTI_TENANT = false;\n";
+            if (!$skipDb) {
+                $configContent = setConst($configContent, 'DB_HOST', phpStr($dbHost));
+                $configContent = setConst($configContent, 'DB_NAME', phpStr($dbName));
+                $configContent = setConst($configContent, 'DB_USER', phpStr($dbUser));
+                $configContent = setConst($configContent, 'DB_PASS', phpStr($dbPass));
+                $configContent = setConst($configContent, 'DB_SSLCA', $dbSslCa !== '' ? phpStr($dbSslCa) : 'null');
+            }
+            if (!$skipApp) {
+                $maxBytes = $maxAttachMb * 1024 * 1024;
+                $configContent = setConst($configContent, 'API_TOKEN', phpStr($apiToken));
+                $configContent = setConst($configContent, 'RATE_LIMIT', (string)$rateLimit);
+                $configContent = preg_replace('/^const MAX_ATTACHMENT_BYTES\s*=.*$/m',
+                    "const MAX_ATTACHMENT_BYTES = $maxBytes; // $maxAttachMb MB", $configContent);
+            }
+            if (!$skipLogging) {
+                $configContent = setConst($configContent, 'DEBUG', $debug ? 'true' : 'false');
+                $configContent = setConst($configContent, 'LOG_LEVEL', phpStr($logLevel));
+                $configContent = setConst($configContent, 'LOG_MAX_DAYS', (string)$logMaxDays);
+            }
 
             if (file_put_contents($configPath, $configContent) === false) {
                 throw new RuntimeException('config.php konnte nicht geschrieben werden.');
@@ -157,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
             $devDir       = dirname(__DIR__) . '/dev';
             $htaccessPath = $devDir . '/.htaccess';
             $htpasswdPath = $devDir . '/.htpasswd';
-            if ($devPass !== '') {
+            if (!$skipDev && $devPass !== '') {
                 $hash = password_hash($devPass, PASSWORD_BCRYPT);
                 file_put_contents($htpasswdPath, "$devUser:$hash\n");
                 file_put_contents($htaccessPath,
@@ -181,7 +184,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 foreach ($files as $file) {
                     $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
                 }
-                // Selbst-Löschung des aktuellen Scripts läuft nach der Response
                 register_shutdown_function(fn() => @rmdir($setupDir));
             }
 
@@ -209,6 +211,7 @@ $reqPassed    = allPassed($requirements);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FamKey – Setup</title>
+  <link rel="icon" href="../favicon.png" type="image/png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -224,9 +227,9 @@ $reqPassed    = allPassed($requirements);
       justify-content: flex-start; padding: 40px 16px 60px;
     }
     .card {
-      width: 100%; max-width: 560px;
+      width: 100%; max-width: 680px;
       background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 36px 32px;
+      border-radius: var(--radius); padding: 36px 36px;
     }
     .logo { text-align: center; margin-bottom: 28px; }
     .logo svg { width: 52px; height: 52px; filter: drop-shadow(0 0 16px rgba(96,125,139,.4)); }
@@ -239,8 +242,8 @@ $reqPassed    = allPassed($requirements);
       display: flex; align-items: center; justify-content: center;
       background: var(--bg-card2); border: 1px solid var(--border); color: var(--text-muted);
     }
-    .step-dot { background: var(--primary-dark); border-color: var(--primary); color: #fff; }
-    .step-dot   { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .step-dot.active { background: var(--primary-dark); border-color: var(--primary); color: #fff; }
+    .step-dot.done   { background: var(--ok); border-color: var(--ok); color: #fff; }
     .step-line { flex: 1; height: 1px; background: var(--border); align-self: center; max-width: 40px; }
 
     h2 { font-size: 1.1rem; font-weight: 700; color: #e8f4fb; margin-bottom: 6px; }
@@ -261,8 +264,19 @@ $reqPassed    = allPassed($requirements);
     .req-list li .hint { font-size: .78rem; color: var(--err); display: block; margin-top: 3px; }
 
     /* Form */
-    fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 18px; }
-    legend { padding: 0 8px; font-size: .78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    fieldset { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 18px; }
+    legend {
+      padding: 0 8px; font-size: .78rem; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      display: flex; align-items: center; gap: 10px; width: calc(100% - 16px);
+    }
+    .skip-label {
+      margin-left: auto; font-weight: 400; font-size: .72rem;
+      text-transform: none; letter-spacing: 0; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .skip-label input[type=checkbox] { width: auto; accent-color: var(--primary); }
+    fieldset.skipped .field { opacity: 0.35; pointer-events: none; }
     .field { margin-bottom: 14px; }
     label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
     input[type=text], input[type=password], input[type=number], select {
@@ -275,6 +289,15 @@ $reqPassed    = allPassed($requirements);
     .hint-text { font-size: .75rem; color: var(--text-muted); margin-top: 4px; }
     .token-row { display: flex; gap: 8px; }
     .token-row input { flex: 1; font-family: "Cascadia Code", Consolas, monospace; font-size: .8rem; }
+    .pw-row { display: flex; gap: 8px; align-items: stretch; }
+    .pw-row input { flex: 1; }
+    .btn-eye {
+      padding: 0 10px; background: var(--bg-card2); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 6px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; transition: border-color .15s;
+    }
+    .btn-eye:hover { border-color: var(--primary); color: var(--primary-light); }
+    .btn-eye svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .btn-regen {
       padding: 8px 12px; background: var(--bg-card2); border: 1px solid var(--border);
       color: var(--text-muted); border-radius: 6px; cursor: pointer; font-size: .78rem;
@@ -310,6 +333,7 @@ $reqPassed    = allPassed($requirements);
     .success-list li:last-child { border-bottom: none; }
     .success-list li strong { color: var(--text); }
     .success-list li .ok-icon { color: var(--ok); }
+    .success-list li .skip-icon { color: var(--text-muted); }
 
     code {
       background: rgba(0,0,0,.35); border: 1px solid var(--border);
@@ -388,28 +412,34 @@ $reqPassed    = allPassed($requirements);
 
   <form method="post" action="?step=3">
 
-    <fieldset>
-      <legend>Datenbank</legend>
+    <fieldset id="fs-db">
+      <legend>
+        Datenbank
+        <label class="skip-label">
+          <input type="checkbox" name="skip_db" onchange="skipSection(this,'fs-db')">
+          Überspringen
+        </label>
+      </legend>
 
       <div class="field field-row">
         <div>
           <label for="db_host">Host</label>
-          <input type="text" id="db_host" name="db_host" value="<?= h($_POST['db_host'] ?? 'localhost') ?>" required>
+          <input type="text" id="db_host" name="db_host" value="<?= h($_POST['db_host'] ?? 'localhost') ?>">
         </div>
         <div>
           <label for="db_port">Port</label>
-          <input type="number" id="db_port" name="db_port" value="<?= h($_POST['db_port'] ?? '3306') ?>" min="1" max="65535" required>
+          <input type="number" id="db_port" name="db_port" value="<?= h($_POST['db_port'] ?? '3306') ?>" min="1" max="65535">
         </div>
       </div>
 
       <div class="field">
         <label for="db_name">Datenbankname</label>
-        <input type="text" id="db_name" name="db_name" value="<?= h($_POST['db_name'] ?? 'famkey') ?>" required>
+        <input type="text" id="db_name" name="db_name" value="<?= h($_POST['db_name'] ?? 'famkey') ?>">
       </div>
 
       <div class="field">
         <label for="db_user">Benutzer</label>
-        <input type="text" id="db_user" name="db_user" value="<?= h($_POST['db_user'] ?? '') ?>" required autocomplete="username">
+        <input type="text" id="db_user" name="db_user" value="<?= h($_POST['db_user'] ?? '') ?>" autocomplete="username">
       </div>
 
       <div class="field">
@@ -424,21 +454,27 @@ $reqPassed    = allPassed($requirements);
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>App-Einstellungen</legend>
+    <fieldset id="fs-app">
+      <legend>
+        App-Einstellungen
+        <label class="skip-label">
+          <input type="checkbox" name="skip_app" onchange="skipSection(this,'fs-app')">
+          Überspringen
+        </label>
+      </legend>
 
       <div class="field">
         <label for="api_token">API-Token</label>
         <div class="token-row">
           <input type="text" id="api_token" name="api_token"
                  value="<?= h($_POST['api_token'] ?? $defaultToken) ?>"
-                 required spellcheck="false" autocomplete="off">
+                 spellcheck="false" autocomplete="off">
           <button type="button" class="btn-regen"
                   onclick="document.getElementById('api_token').value='<?= bin2hex(random_bytes(24)) ?>'">
             Neu&nbsp;generieren
           </button>
         </div>
-        <p class="hint-text">Geheimen Token aufschreiben – wird in der FamKey-App unter <em>Einstellungen → Sync-Server</em> eingetragen.</p>
+        <p class="hint-text">Geheimen Token aufschreiben – wird in der FamKey-App unter <em>Einstellungen → Sync-Server</em> abgefragt.</p>
       </div>
 
       <div class="field">
@@ -452,21 +488,25 @@ $reqPassed    = allPassed($requirements);
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>Logging</legend>
-      <div class="field field-row">
-        <div>
-          <label for="log_level">Log-Level</label>
-          <select id="log_level" name="log_level">
-            <?php foreach (['DEBUG','INFO','WARN','ERROR'] as $l): ?>
-            <option value="<?= $l ?>" <?= ($_POST['log_level'] ?? 'WARN') === $l ? 'selected' : '' ?>><?= $l ?></option>
-            <?php endforeach ?>
-          </select>
-        </div>
-        <div>
-          <label for="log_max_days">Log aufbewahren (Tage)</label>
-          <input type="number" id="log_max_days" name="log_max_days" value="<?= h($_POST['log_max_days'] ?? '7') ?>" min="1">
-        </div>
+    <fieldset id="fs-logging">
+      <legend>
+        Logging
+        <label class="skip-label">
+          <input type="checkbox" name="skip_logging" onchange="skipSection(this,'fs-logging')">
+          Überspringen
+        </label>
+      </legend>
+      <div class="field">
+	    <label for="log_level">Log-Level</label>
+		<select id="log_level" name="log_level">
+		  <?php foreach (['DEBUG','INFO','WARN','ERROR'] as $l): ?>
+		  <option value="<?= $l ?>" <?= ($_POST['log_level'] ?? 'WARN') === $l ? 'selected' : '' ?>><?= $l ?></option>
+		  <?php endforeach ?>
+		</select>
+	  </div>
+      <div class="field">
+        <label for="log_max_days">Log aufbewahren (Tage)</label>
+        <input type="number" id="log_max_days" name="log_max_days" value="<?= h($_POST['log_max_days'] ?? '7') ?>" min="1">
       </div>
       <div class="field">
         <label class="checkbox-row">
@@ -477,27 +517,41 @@ $reqPassed    = allPassed($requirements);
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>Dev-Bereich</legend>
+    <fieldset id="fs-dev">
+      <legend>
+        Dev-Bereich
+        <label class="skip-label">
+          <input type="checkbox" name="skip_dev" onchange="skipSection(this,'fs-dev')">
+          Überspringen
+        </label>
+      </legend>
       <div class="field">
         <label for="dev_user">Benutzername</label>
         <input type="text" id="dev_user" name="dev_user" value="<?= h($_POST['dev_user'] ?? 'admin') ?>" autocomplete="off">
       </div>
       <div class="field">
         <label for="dev_pass">Passwort</label>
-        <input type="password" id="dev_pass" name="dev_pass" value="" autocomplete="new-password">
-        <p class="hint-text">Leer lassen, um den Dev-Bereich vollständig zu sperren (empfohlen für Produktiv-Server).</p>
+        <div class="pw-row">
+          <input type="password" id="dev_pass" name="dev_pass" value="" autocomplete="new-password">
+          <button type="button" class="btn-eye" onclick="togglePw('dev_pass',this)" title="Passwort anzeigen">
+            <svg id="dev_pass-eye-open" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="dev_pass-eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+        <p class="hint-text">Leer lassen, um den Dev-Bereich vollständig zu sperren.</p>
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>Nach der Installation</legend>
-      <div class="field">
-        <label class="checkbox-row">
-          <input type="checkbox" name="self_delete" checked>
-          Setup-Ordner nach erfolgreicher Installation löschen
+    <fieldset id="fs-cleanup">
+      <legend>
+        Nach der Installation
+        <label class="skip-label">
+          <input type="checkbox" name="skip_cleanup" onchange="skipSection(this,'fs-cleanup')">
+          Überspringen
         </label>
-        <p class="hint-text">Empfohlen: Verhindert unbeabsichtigte Neu-Installation.</p>
+      </legend>
+      <div class="field">
+        <p class="hint-text">Setup-Ordner löschen – verhindert unbeabsichtigte Neu-Installation.</p>
       </div>
     </fieldset>
 
@@ -506,6 +560,21 @@ $reqPassed    = allPassed($requirements);
       <button type="submit" class="btn btn-primary">Installation starten &rarr;</button>
     </div>
   </form>
+
+  <script>
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      document.getElementById(id + '-eye-open').style.display   = show ? 'none' : '';
+      document.getElementById(id + '-eye-closed').style.display = show ? '' : 'none';
+    }
+    function skipSection(cb, id) {
+      const fs = document.getElementById(id);
+      fs.classList.toggle('skipped', cb.checked);
+      fs.querySelectorAll('input:not([name^="skip_"]), select, textarea').forEach(el => el.disabled = cb.checked);
+    }
+  </script>
 
 <?php elseif ($step === 3 && !empty($errors)): ?>
   <!-- ══ Schritt 3: Fehler ══════════════════════════════════════════════════ -->
@@ -521,15 +590,19 @@ $reqPassed    = allPassed($requirements);
   <p class="subtitle" style="text-align:center">FamKey ist bereit.</p>
 
   <ul class="success-list">
+    <?php if (!$skippedDb): ?>
     <li><span class="ok-icon">✓</span> <span>Datenbank eingerichtet und <strong>Schema migriert</strong></span></li>
-    <li><span class="ok-icon">✓</span> <span><strong>config.php</strong> wurde geschrieben</span></li>
+    <?php else: ?>
+    <li><span class="skip-icon">–</span> <span>Datenbank übersprungen</span></li>
+    <?php endif ?>
+    <li><span class="ok-icon">✓</span> <span><strong>config.php</strong> geschrieben</span></li>
     <?php if ($devProtected): ?>
-    <li><span class="ok-icon">✓</span> <span>Dev-Bereich mit <strong>HTTP-Basisauthentifizierung</strong> geschützt</span></li>
+    <li><span class="ok-icon">✓</span> <span>Dev-Bereich <strong>geschützt</strong> (HTTP-Basisauthentifizierung)</span></li>
     <?php else: ?>
     <li><span class="ok-icon">✓</span> <span>Dev-Bereich <strong>gesperrt</strong> – kein Zugriff von außen</span></li>
     <?php endif ?>
-    <?php if (isset($selfDelete) && $selfDelete): ?>
-    <li><span class="ok-icon">✓</span> <span>Setup-Ordner <strong>gelöscht</strong></span></li>
+    <?php if ($selfDelete): ?>
+    <li><span class="ok-icon">✓</span> <span>Setup <strong>gelöscht</strong></span></li>
     <?php endif ?>
   </ul>
 

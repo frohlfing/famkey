@@ -36,6 +36,11 @@ Merke dir Datenbankname, Benutzername und Passwort.
 Entpacke das Archiv `famkey_server.zip` und lade den Inhalt des Ordners `famkey/`
 auf deinen Server hoch (z.B. per WinSCP oder einem anderen FTP/SFTP-Programm).
 
+### 4. Start-Verzeichnis für den Web-Bowser festlegen
+
+Lege über das Verwaltungs-Panel deines Hosters das Web-Root-Verzeichnis auf 
+das Unterverzeichnis `public` fest.
+
 ### 4. Setup-Assistenten starten
 
 Rufe im Browser `https://deine-domain.de/setup` auf.
@@ -151,19 +156,19 @@ und `public/dev/.htpasswd` (mit `htpasswd` erzeugen).
 
 ```
 host/
-├── config.php            # Lokale Konfiguration (nicht im Git)
-├── config.example.php    # Vorlage für config.php
-├── routes.php            # URL-Routing
 ├── migrations/           # SQL-Migrationsskripte
-├── public/               # Web-Root
+├── public/               # Web-Root (Ziel der Domain/Subdomain)
 │   ├── api/              # REST-API-Endpunkte
 │   ├── dev/              # Verwaltungs- und Entwicklungswerkzeuge (passwortgeschützt)
 │   ├── setup/            # Ersteinrichtungs-Assistent (nach Setup löschen!)
 │   ├── .htaccess         # URL-Rewriting
-│   ├── favicons.php      # Favicon-Handler
-│   └── index.html        # Startseite (Weiterleitung)
-└── src/                  # PHP-Bibliotheken und Klassen
-    ├── Controller/
-    ├── Core/
-    └── Middleware/
+│   ├── favicons.php      # Favicon-Proxy
+│   └── index.html        # Startseite
+├── src/                  # PHP-Bibliotheken und Klassen
+│   ├── Controller/       # Controller-Klassen
+│   ├── Core/             # Framework-Kern
+│   └── Middleware/       # Request/Response-Middleware
+├── config.php            # Lokale Konfiguration (nicht im Git)
+├── config.example.php    # Vorlage für config.php
+└── routes.php            # URL-Routing
 ```
