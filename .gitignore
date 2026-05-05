@@ -53,6 +53,7 @@ app.*.map.json
 local.properties
 secrets.json
 secrets.ini
+env.ps1
 
 # 3. Backend (PHP/Web)
 host/public/dev/.htaccess
@@ -61,8 +62,3 @@ host/coverage
 Host/logs
 config.php
 sqlca.pem
-
-# 4. Homepage & Releases
-home
-#home/app
-#home/releases

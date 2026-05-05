@@ -1,14 +1,21 @@
 <#
  * deploy_all.ps1 – Automatischer Full-Build für alle Plattformen
  *
- * 1. Liest Version aus pubspec.yaml.
+ * 1. Liest Version aus pubspec.yaml und die Umgebungsvariablen aus env.ps1.
  * 2. Baut Windows, Android (APK), Web und Server-Paket – jeweils nur wenn das Ziel-Artefakt für diese Version noch nicht existiert.
- * 3. Kopiert alle Artefakte nach home/public/releases/<version>.
- * 4. Kopiert die Web-App zusätzlich nach home/public/app, damit sie auf der Homepage direkt gestartet werden kann.
+ * 3. Kopiert alle Artefakte nach $env:FAMKEY_HOME_PUBLIC/releases/<version>.
+ * 4. Kopiert die Web-App zusätzlich nach $env:FAMKEY_HOME_PUBLIC/app, damit sie auf der Homepage direkt gestartet werden kann.
  #>
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
+
+$envFile = "$projectRoot/env.ps1"
+if (Test-Path $envFile) { . $envFile }
+if (-not $env:FAMKEY_HOME_PUBLIC) {
+    Write-Error "FAMKEY_HOME_PUBLIC nicht gesetzt. Bitte env.ps1 anlegen (Vorlage: env.example.ps1)."
+    exit 1
+}
 
 # 1. Version aus pubspec.yaml extrahieren
 $pubspec = Get-Content "pubspec.yaml" -Raw
@@ -21,7 +28,7 @@ if ($pubspec -match "version:\s*([0-9.]+)\+([0-9]+)") {
     exit 1
 }
 
-$releaseDir = "$projectRoot/home/public/releases/$fullVersion"
+$releaseDir = "$env:FAMKEY_HOME_PUBLIC/releases/$fullVersion"
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 Write-Host "--- FamKey v$fullVersion ---" -ForegroundColor Cyan
@@ -52,8 +59,7 @@ if (Test-Path "$releaseDir/famkey_web.zip") {
     flutter build web --release --base-href "/app/" | Out-Null
     Compress-Archive -Path "$projectRoot/build/web/*" -DestinationPath "$releaseDir/famkey_web.zip" -Force
 }
-# home/public/app immer aktuell halten
-$webDest = "$projectRoot/home/public/app"
+$webDest = "$env:FAMKEY_HOME_PUBLIC/app"
 if (Test-Path $webDest) { Remove-Item $webDest -Recurse -Force }
 New-Item -ItemType Directory -Path $webDest -Force | Out-Null
 if (Test-Path "$projectRoot/build/web/index.html") {
@@ -66,8 +72,7 @@ Write-Host "[4/4] Server-Paket..." -ForegroundColor Yellow
 if (Test-Path "$releaseDir/famkey_server.zip") {
     Write-Host "      Bereits vorhanden, übersprungen." -ForegroundColor DarkGray
 } else {
-    & "$PSScriptRoot/build_server_setup.ps1" | Out-Null
-    Copy-Item "$projectRoot/famkey_server_setup.zip" -Destination "$releaseDir/famkey_server.zip" -Force
+    & "$PSScriptRoot/build_server_setup.ps1" -ZipFile "$releaseDir/famkey_server.zip" | Out-Null
 }
 
-Write-Host "`nOK Fertig! Artefakte in home/public/releases/$fullVersion/" -ForegroundColor Green
+Write-Host "`nOK Fertig! Artefakte in $env:FAMKEY_HOME_PUBLIC/releases/$fullVersion/" -ForegroundColor Green

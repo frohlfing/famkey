@@ -1,23 +1,19 @@
-
 <#
-.SYNOPSIS
-    Aktualisiert PHP in XAMPP und installiert Xdebug automatisch.
-
-.DESCRIPTION
-    Dieses Skript führt folgende Schritte aus:
-    1. Lädt neueste PHP-Version herunter (oder nutzt vorhandene)
-    2. Installiert PHP in XAMPP (übersprungen wenn bereits installiert)
-    3. Korrigiert php.ini automatisch
-    4. Installiert passende Xdebug-Version
-    5. Testet die Installation
-
-.EXAMPLE
-    # Neueste PHP-Version installieren:
-    .\xampp_upgrade_php.ps1
-
-    # Bestimmte PHP-Version installieren:
-    .\xampp_upgrade_php.ps1 -PhpVersion 8.5.5
-#>
+ * Aktualisiert PHP in XAMPP und installiert Xdebug automatisch.
+ *
+ * Dieses Skript führt folgende Schritte aus:
+ *   1. Lädt neueste PHP-Version herunter (oder nutzt vorhandene)
+ *   2. Installiert PHP in XAMPP (übersprungen wenn bereits installiert)
+ *   3. Korrigiert php.ini automatisch
+ *   4. Installiert passende Xdebug-Version
+ *   5. Testet die Installation
+ *
+ * Neueste PHP-Version installieren:
+ *   .\xampp_upgrade_php.ps1
+ *
+ * Bestimmte PHP-Version installieren:
+ *   .\xampp_upgrade_php.ps1 -PhpVersion 8.5.5
+ #>
 
 param(
     [string]$PhpVersion

@@ -1,22 +1,43 @@
 <#
- * Erstellt das Deployment-Paket für den Server
+ * build_server_setup.ps1 – Erstellt das Deployment-Paket für den Self-Hosted-Server
  *
  * Dieses Skript sammelt alle notwendigen Dateien aus dem Host-Verzeichnis,
- * bereinigt sie um unnötige Entwicklungs-Dateien und schnürt ein ZIP-Archiv.
+ * bereinigt sie um Entwicklungs-Dateien (.htaccess/.htpasswd im dev-Ordner)
+ * und schnürt ein ZIP-Archiv, das Nutzer zum Selbst-Hosten herunterladen können.
+ *
+ * Wird aufgerufen von: bin/deploy.ps1 (Schritt 4/4)
+ * Kann aber auch eigenständig ausgeführt werden:
+ *   .\bin\build_server_setup.ps1
+ *   .\bin\build_server_setup.ps1 -ZipFile "C:\Pfad\zur\ausgabe.zip"
+ *
+ * Parameter:
+ *   -ZipFile  (optional) Zielpfad der ZIP-Datei.
+ *             Standard: <projektRoot>/famkey_server.zip
  *
  * Ziel-Struktur im Archiv:
- * /server
- *   /migrations
+ * /famkey
+ *   /migrations      – Datenbankmigrationen
  *   /public
- *   /src
+ *     /api           – REST-API-Endpunkte
+ *     /dev           – Entwicklungs-Hilfswerkzeuge (ohne Auth-Dateien)
+ *     /setup         – Ersteinrichtungs-Assistent
+ *     .htaccess
+ *     favicons.php
+ *     index.html
+ *   /src             – PHP-Bibliotheken und Klassen
  *   config.example.php
+ *   routes.php
  *   LICENSE
  #>
 
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$stagingDir = Join-Path $projectRoot "build_server"
-$famKeyDir = Join-Path $stagingDir "famkey"
-$zipFile = Join-Path $projectRoot "famkey_server_setup.zip"
+param(
+    [string]$ZipFile  # Zielpfad der ZIP-Datei; Standard: <projektRoot>/famkey_server.zip
+)
+
+$projectRoot = Split-Path -Parent $PSScriptRoot  # Wurzel des famkey-Projekts (Elternverzeichnis von bin/)
+$stagingDir  = Join-Path $projectRoot "build_server"         # Temporäres Arbeitsverzeichnis; wird nach dem Build gelöscht
+$famKeyDir   = Join-Path $stagingDir  "famkey"               # Unterverzeichnis im Staging, das direkt ins ZIP gepackt wird
+$zipFile     = if ($ZipFile) { $ZipFile } else { Join-Path $projectRoot "famkey_server.zip" }  # Pfad der fertigen ZIP-Datei
 
 # ------------------------------------------------------------------------
 # 1. Vorbereitung

@@ -539,7 +539,7 @@ for await (const [name, handle] of driftDir.entries()) {
 
 ## 5. Backend (PHP) unter Windows
 
-Für die Entwicklung unter Windows dient **XAMPP** als Server.
+Für die Entwicklung unter Windows dient **XAMPP** als Webserver.
 
 ### 5.1 Lokalen Webserver einrichten
 
@@ -608,20 +608,26 @@ Für die Entwicklung unter Windows dient **XAMPP** als Server.
 
 ### 5.2. SSL-Zertifikat installieren.
 
-    ```shell
-    cd C:\xampp\apache\bin
-    
-    .\openssl.exe req -x509 -nodes -newkey rsa:2048 `
-     -keyout "C:\xampp\apache\conf\ssl.key\famkey.test.key" `
-     -out "C:\xampp\apache\conf\ssl.crt\famkey.test.crt" `
-     -days 365 `
-     -config "C:\xampp\apache\conf\openssl.cnf" `
-     -subj "/CN=famkey.test" `
-     -addext "basicConstraints=CA:FALSE" `
-     -addext "subjectAltName=DNS:famkey.test"
-    ```
+```shell
+cd C:\xampp\apache\bin
 
-### 5.3 Apache‑VHost (VirtualHost) hinzufügen
+.\openssl.exe req -x509 -nodes -newkey rsa:2048 `
+ -keyout "C:\xampp\apache\conf\ssl.key\famkey.test.key" `
+ -out "C:\xampp\apache\conf\ssl.crt\famkey.test.crt" `
+ -days 365 `
+ -config "C:\xampp\apache\conf\openssl.cnf" `
+ -subj "/CN=famkey.test" `
+ -addext "basicConstraints=CA:FALSE" `
+ -addext "subjectAltName=DNS:famkey.test"
+```
+
+Damit der Browser dem selbstsignierten Zertifikat vertraut, muss es in den Browser-Zertifikatsspeicher importiert werden:
+- Doppelklick auf `C:\xampp\apache\conf\ssl.crt\famkey.test.crt`, 
+   - Zertifikat installieren..., 
+      - Lokaler Computer
+      - Zertifikatsspeicher: Vertrauenswürdige Stammzertifizierungsstellen
+
+### 5.3 VirtualHost hinzufügen
 
 Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
 
@@ -636,22 +642,11 @@ Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
         AllowOverride All
         Require all granted
     </Directory>
-
-    Alias /home "C:/Users/frank/Source/AndroidStudio/famkey/home/public"
-    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public">
-        AllowOverride All
-        Require all granted
-    </Directory>
-
-	Alias /app "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app"
-    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app">
-        AllowOverride All
-        Require all granted
-    </Directory>
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName favicon.test
+    ServerName famkey.test
+    
     DocumentRoot "C:/Users/frank/Source/AndroidStudio/famkey/host/public"
 
     SSLEngine on
@@ -662,27 +657,22 @@ Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
         AllowOverride All
         Require all granted
     </Directory>
-	
-	Alias /home "C:/Users/frank/Source/AndroidStudio/famkey/home/public"
-	<Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public">
-		AllowOverride All
-		Require all granted
-	</Directory>
-	
-	Alias /app "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app"
-    <Directory "C:/Users/frank/Source/AndroidStudio/famkey/home/public/app">
-        AllowOverride All
-        Require all granted
-    </Directory>
 </VirtualHost>
 ```
-
 Apache neu starten
 
-- Die Webseite ist jetzt erreichbar unter: https://famkey.test/
-- Und die Homepage unter: https://famkey.test/home/
+### 5.4 Eintrag in die Hosts-Datei
 
-### 5.4 MySQL-Datenbank anlegen
+`C:\Windows\System32\drivers\etc\hosts` als Administrator öffnen:
+
+```
+127.0.0.1      famkey.test
+```
+
+Der Sync-Server ist jetzt erreichbar unter: https://famkey.test/
+Zum Testen via Android-Handy funktioniert auch: http://192.168.178.21/ (ohne SSL).
+
+### 5.5 MySQL-Datenbank anlegen
 
 1. phpMyAdmin starten:
    http://localhost/phpmyadmin// (User: root, kein Passwort)
@@ -692,11 +682,6 @@ Apache neu starten
     - Server connection collation: utf8mb4_unicode_ci
 
 3. SQL-Datei Host/migrations/001_initial_schema.sql importieren
-
-### 5.5 WinSCP installieren
-
-Wird für den Dateitransfer via FTP/SFTP auf das Produktivsystem benötigt.
-Alternativ kann auch ein Git-Deployment eingerichtet werden.
 
 ---
 
@@ -747,9 +732,9 @@ Alternativ kann auch ein Git-Deployment eingerichtet werden.
 FamKey/                                        # Projekt-Root
  ├── android/                                  # Android-spezifische Dateien (Gradle, Manifest, Ressourcen)
  ├── assets/                                   # Assests der App (z.B. app_icon.png)
+ ├── bin/                                      # PowerShell-Skripte (z.B. zum Bauen der Releases)
  ├── coverage/                                 # Entsteht durch flutter test --coverage
  ├── docs/                                     # Projektdokumentation (Markdown)
- ├── home/                                     # Homepage (https//famkey.de)
  ├── host/                                     # Backend (PHP)
  │    ├── coverage/                            # Automatisch generierte Code-Coverage-Daten
  │    │    ├── clover.xml                      # Clover-Report (XML) für IDE 
@@ -772,9 +757,9 @@ FamKey/                                        # Projekt-Root
  │    │    ├── Controller/                     # Controller-Klassen
  │    │    ├── Core/                           # Framework-Kern
  │    │    └── Middleware/                     # Request/Response-Middleware
- │    ├── routes.php                           # Zentrale Routenregistrierung
- │    ├── secrets.example.php                  # Beispiel-Konfiguration (dient als Vorlage für config.php)
+ │    ├── config.example.php                   # Beispiel-Konfiguration (dient als Vorlage für config.php)
  │    ├── config.php                           # Lokale Konfiguration mit Zugangsdaten/Secrets (nicht im Git-Repository)
+ │    ├── routes.php                           # Zentrale Routenregistrierung
  │    └── sqlca.pem                            # CA-Zertifikat für TLS zur DB (z.B. Hetzner), s. https://docs.hetzner.com/de/konsoleh/account-management/databases/mysql/
  ├── lib/                                      # App-spezifischer Flutter-Code
  │    ├── core/                                # Kern-Logik
@@ -822,6 +807,8 @@ FamKey/                                        # Projekt-Root
  ├── .metadata                                 # Flutter-Projekt-Metadaten
  ├── pubspec.yaml                              # Dependencies der App
  ├── analysis_options.yaml                     # Linting-/Analyzer-Regeln
+ ├── env.example.ps1                           # Beispiel-Datei (dient als Vorlage für env.ps1)   
+ ├── env.ps1                                   # Umgebungsvariablen für PowerShell-Skripte   
  ├── LICENSE                                   # Lizenzhinweis   
  ├── pubspec.yaml                              # Paketinformation
  └── README.md                                 # Landingpage für das Git-Repository

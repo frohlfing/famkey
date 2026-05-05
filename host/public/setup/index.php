@@ -63,6 +63,7 @@ function allPassed(array $checks): bool
 
 $installSuccess = false;
 $generatedToken = '';
+$devProtected   = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 
@@ -80,10 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
     $logMaxDays      = max(1, (int)($_POST['log_max_days'] ?? 7));
     $debug           = isset($_POST['debug']);
     $selfDelete      = isset($_POST['self_delete']);
+    $devUser         = trim($_POST['dev_user'] ?? 'admin');
+    $devPass         =      $_POST['dev_pass'] ?? '';
 
     if ($dbName   === '') $errors[] = 'Datenbankname ist erforderlich.';
     if ($dbUser   === '') $errors[] = 'Datenbankbenutzer ist erforderlich.';
     if ($apiToken === '') $errors[] = 'API-Token ist erforderlich.';
+    if ($devPass  !== '' && $devUser === '') $errors[] = 'Dev-Benutzername ist erforderlich, wenn ein Passwort gesetzt wird.';
 
     if (empty($errors)) {
         try {
@@ -147,6 +151,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
 
             if (file_put_contents($configPath, $configContent) === false) {
                 throw new RuntimeException('config.php konnte nicht geschrieben werden.');
+            }
+
+            // ── Dev-Bereich absichern ───────────────────────────────────────
+            $devDir       = dirname(__DIR__) . '/dev';
+            $htaccessPath = $devDir . '/.htaccess';
+            $htpasswdPath = $devDir . '/.htpasswd';
+            if ($devPass !== '') {
+                $hash = password_hash($devPass, PASSWORD_BCRYPT);
+                file_put_contents($htpasswdPath, "$devUser:$hash\n");
+                file_put_contents($htaccessPath,
+                    'AuthUserFile "' . $htpasswdPath . '"' . "\n" .
+                    'AuthName "FamKey Dev"' . "\n" .
+                    'AuthType Basic' . "\n" .
+                    'Require valid-user' . "\n"
+                );
+                $devProtected = true;
+            } else {
+                file_put_contents($htaccessPath, "Require all denied\n");
             }
 
             // ── Selbst löschen ──────────────────────────────────────────────
@@ -456,6 +478,19 @@ $reqPassed    = allPassed($requirements);
     </fieldset>
 
     <fieldset>
+      <legend>Dev-Bereich</legend>
+      <div class="field">
+        <label for="dev_user">Benutzername</label>
+        <input type="text" id="dev_user" name="dev_user" value="<?= h($_POST['dev_user'] ?? 'admin') ?>" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="dev_pass">Passwort</label>
+        <input type="password" id="dev_pass" name="dev_pass" value="" autocomplete="new-password">
+        <p class="hint-text">Leer lassen, um den Dev-Bereich vollständig zu sperren (empfohlen für Produktiv-Server).</p>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Nach der Installation</legend>
       <div class="field">
         <label class="checkbox-row">
@@ -488,6 +523,11 @@ $reqPassed    = allPassed($requirements);
   <ul class="success-list">
     <li><span class="ok-icon">✓</span> <span>Datenbank eingerichtet und <strong>Schema migriert</strong></span></li>
     <li><span class="ok-icon">✓</span> <span><strong>config.php</strong> wurde geschrieben</span></li>
+    <?php if ($devProtected): ?>
+    <li><span class="ok-icon">✓</span> <span>Dev-Bereich mit <strong>HTTP-Basisauthentifizierung</strong> geschützt</span></li>
+    <?php else: ?>
+    <li><span class="ok-icon">✓</span> <span>Dev-Bereich <strong>gesperrt</strong> – kein Zugriff von außen</span></li>
+    <?php endif ?>
     <?php if (isset($selfDelete) && $selfDelete): ?>
     <li><span class="ok-icon">✓</span> <span>Setup-Ordner <strong>gelöscht</strong></span></li>
     <?php endif ?>
