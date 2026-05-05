@@ -268,7 +268,7 @@ class MasterPasswordNotifier extends Notifier<MasterPasswordState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Speichern: $e', stack: st);
+      log.fatal('Fehler beim Speichern: $e', stack: st);
       state = state.copyWith(status: MasterPasswordActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {

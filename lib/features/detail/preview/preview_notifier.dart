@@ -60,7 +60,7 @@ class PreviewNotifier extends Notifier<PreviewState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: PreviewActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -77,7 +77,7 @@ class PreviewNotifier extends Notifier<PreviewState> {
       await downloadAppFile(state.file);
       state = state.copyWith(status: PreviewActionStatus.success);
     } catch (e, st) {
-      Logger().fatal('Fehler beim Herunterladen der Datei: $e', stack: st);
+      log.fatal('Fehler beim Herunterladen der Datei: $e', stack: st);
       state = state.copyWith(status: PreviewActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -103,7 +103,7 @@ class PreviewNotifier extends Notifier<PreviewState> {
       state = state.copyWith(status: PreviewActionStatus.success);
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Drucken des Anhangs: $e', stack: st);
+      log.fatal('Fehler beim Drucken des Anhangs: $e', stack: st);
       state = state.copyWith(status: PreviewActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

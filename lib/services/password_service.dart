@@ -160,7 +160,7 @@ class PasswordService {
         _hibpCache[e.key] = (body: m['body'] as String, ts: m['ts'] as int);
       }
     } catch (e) {
-      Logger().fatal('HIBP-Cache: Fehler beim Laden: $e');
+      log.fatal('HIBP-Cache: Fehler beim Laden: $e');
       _hibpCache = {};
     }
   }
@@ -171,7 +171,7 @@ class PasswordService {
       final m = _hibpCache.map((k, v) => MapEntry(k, {'body': v.body, 'ts': v.ts}));
       await _hibpCacheFile.writeAsString(json.encode(m));
     } catch (e) {
-      Logger().fatal('HIBP-Cache: Fehler beim Speichern: $e');
+      log.fatal('HIBP-Cache: Fehler beim Speichern: $e');
     }
   }
 
@@ -236,10 +236,10 @@ class PasswordService {
       return 0; // Nicht gefunden → sicher
 
     } on DioException catch (e) {
-      Logger().fatal('HIBP-Anfrage fehlgeschlagen: ${e.message}');
+      log.fatal('HIBP-Anfrage fehlgeschlagen: ${e.message}');
       return -1; // -1 = Prüfung nicht möglich (kein Netzwerk o.ä.)
     } catch (e) {
-      Logger().fatal('HIBP: Unbekannter Fehler: $e');
+      log.fatal('HIBP: Unbekannter Fehler: $e');
       return -1;
     }
   }

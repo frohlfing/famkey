@@ -5,7 +5,7 @@ import 'package:famkey/core/app_file.dart';
 import 'package:famkey/core/env.dart';
 
 /// Globale Zugriffsvariable (Kurzform für Logger())
-final log = Logger(); // todo Logger() überall ersetzen
+final log = Logger();
 
 enum LogLevel {
   debug,

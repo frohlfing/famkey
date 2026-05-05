@@ -14,20 +14,17 @@ class ImportState {
   /// Die Formulardaten.
   final ImportFormData formData;
 
-  /// Die ursprünglichen Formulardaten (für den Dirty-Check).
-  final ImportFormData originalFormData; // todo wird nicht benötigt
-
   /// Gesamtzahl für die Fortschrittsanzeige.
-  final int totalCount; // todo umbenennen in total
+  final int total;
 
   // /// Aktueller Wert der Fortschrittsanzeige.
   // final int currentCount;
 
   /// Die Anzahl der Einträge, die tatsächlich importiert wurden.
-  final int addedCount; // todo umbenennen in added
+  final int added;
 
   /// Die Anzahl der Einträge, die aufgrund von Duplikaten übersprungen wurden.
-  final int skippedCount; // todo umbenennen in skipped
+  final int skipped;
 
   /// Wird gesetzt, wenn der Benutzer den Import abbrechen möchte.
   final bool isAborting;
@@ -44,19 +41,15 @@ class ImportState {
   bool get isBusy =>
     status == ImportActionStatus.progress;
 
-  /// Gibt an, ob der Benutzer ein Feld verändert hat.
-  bool get isDirty => formData != originalFormData; // todo wird nicht benötigt
-
   /// Aktueller Wert für die Fortschrittsanzeige.
-  int get currentCount => addedCount + skippedCount; // todo umbenennen in progress
+  int get currentCount => added + skipped;
 
   /// Konstruktor
   const ImportState({
     this.formData = const ImportFormData(),
-    this.originalFormData = const ImportFormData(),
-    this.totalCount = 0,
-    this.addedCount = 0,
-    this.skippedCount = 0,
+    this.total = 0,
+    this.added = 0,
+    this.skipped = 0,
     this.isAborting = false,
     this.status = ImportActionStatus.initial,
     this.error = const AppError.none(),
@@ -65,21 +58,19 @@ class ImportState {
   /// Status aktualisieren (immutable)
   ImportState copyWith({
     ImportFormData? formData,
-    ImportFormData? originalFormData,
-    int? totalCount,
+    int? total,
     int? currentCount,
-    int? addedCount,
-    int? skippedCount,
+    int? added,
+    int? skipped,
     bool? isAborting,
     ImportActionStatus? status,
     AppError? error,
   }) {
     return ImportState(
       formData: formData ?? this.formData,
-      originalFormData: originalFormData ?? this.originalFormData,
-      totalCount: totalCount ?? this.totalCount,
-      addedCount: addedCount ?? this.addedCount,
-      skippedCount: skippedCount ?? this.skippedCount,
+      total: total ?? this.total,
+      added: added ?? this.added,
+      skipped: skipped ?? this.skipped,
       isAborting: isAborting ?? this.isAborting,
       status: status ?? this.status,
       error: error ?? this.error,

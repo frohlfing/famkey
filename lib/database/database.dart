@@ -230,7 +230,7 @@ class Settings extends Table {
   // --- Aussehen ---
 
   /// Der Name, der in der UI als Platzhalter für Einträge ohne explizite Kategorie verwendet wird.
-  TextColumn get categoryPlaceholder => text()(); // todo umbenennen in unnamedCategory
+  TextColumn get categoryPlaceholder => text()();
 }
 
 @DriftDatabase(tables: [Users, Entries, Permissions, Attachments, Tombstones, Settings])

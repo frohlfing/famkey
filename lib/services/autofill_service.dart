@@ -50,7 +50,6 @@ import 'package:famkey/services/autofill_service/autofill_service_windows.dart';
 /// `lib/services/autofill_service/autofill_service_android.dart`.
 abstract class AutofillService {
 
-  // todo Zirkelbezug! Nicht schön!
   /// Gibt die zur aktuellen Plattform passende Implementierung zurück.
   ///
   /// Dieses Muster heißt "Factory": statt `new AutofillService()` ruft man

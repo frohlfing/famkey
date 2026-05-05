@@ -12,6 +12,7 @@ class ConfigService {
 
   static const String _keyLastVault = 'last_vault_name';
   static const String _keyShowOnlyMine = 'show_only_mine';
+  static const String _keyAllCategoriesCollapsed = 'all_categories_collapsed';
   static const String _keyTheme = 'theme';
   static const String _keyLogLevel = 'log_level';
   static const String _keyLogDays = 'log_days';
@@ -20,7 +21,6 @@ class ConfigService {
   static const String _keyAutoLockMinutes = 'auto_lock_minutes';
   static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
   static const String _keyAutofillEnabled = 'autofill_enabled';
-  static const String _keyAutofillRelockAfterFill = 'autofill_relock_after_fill';
   static const String _keyAutofillHotkey = 'autofill_hotkey';
 
   final SharedPreferences _prefs;
@@ -43,11 +43,14 @@ class ConfigService {
   set lastVaultName(String value) => _prefs.setString(_keyLastVault, value);
 
   /// Zeigt an, ob in der Hauptliste aktuell nur die eigenen Einträge angezeigt werden sollen.
-  // todo diese Einstellung wird in der Hauptansicht noch nicht berücksichtigt.
-  // todo Weitere Einstellung: Bei Start alle Kategorien aufklappen
   bool get showOnlyMine => _prefs.getBool(_keyShowOnlyMine) ?? false;
 
   set showOnlyMine(bool value) => _prefs.setBool(_keyShowOnlyMine, value);
+
+  /// Zeigt an, ob alle Kategorien in der Hauptliste eingeklappt sind.
+  bool get allCategoriesCollapsed => _prefs.getBool(_keyAllCategoriesCollapsed) ?? false;
+
+  set allCategoriesCollapsed(bool value) => _prefs.setBool(_keyAllCategoriesCollapsed, value);
 
   /// Das aktuell vom Benutzer gewählte Farbschema (Theme).
   ThemeMode get themeMode {

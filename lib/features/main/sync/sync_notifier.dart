@@ -141,7 +141,7 @@ class SyncNotifier extends Notifier<SyncState> {
 
         if (isOnboarding || (isKeyConflict && isServerNewer)) {
           // Der Server ist aktueller -> Dialog für die Identitätsübernahme öffnen
-          Logger().info(isOnboarding ? 'Erste Synchronisation. Starte Adoption.' : 'Das lokale Master-Passwort ist veraltet. Starte Adoption.');
+          log.info(isOnboarding ? 'Erste Synchronisation. Starte Adoption.' : 'Das lokale Master-Passwort ist veraltet. Starte Adoption.');
           state = state.copyWith(
             status: SyncStatus.askForAdoption,
             adoptionUserIdentity: UserIdentity(
@@ -154,7 +154,7 @@ class SyncNotifier extends Notifier<SyncState> {
           return; // Sync-Prozess hier abbrechen; nach der Adoption wird die Synchronisation erneut gestartet
         } else if (isKeyConflict && !isServerNewer) {
           // Das lokale Master-Passwort ist aktueller -> Server aktualisieren
-          Logger().info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
+          log.info('Das Master-Passwort wurde lokal geändert. Aktualisiere Server.');
           await _webService.changePassword(user.uuid, settings.salt, user.publicKey, settings.encryptedPrivateKey, settings.masterKeyTimestamp);
         }
 
@@ -168,7 +168,7 @@ class SyncNotifier extends Notifier<SyncState> {
         // Benutzernamen-Rename propagieren: wenn lokaler Name vom syncedName abweicht
         final freshUser = _sessionService.user!;
         if (freshUser.syncedName.isNotEmpty && freshUser.name != freshUser.syncedName) {
-          Logger().info('Benutzername wurde umbenannt. Propagiere neuen Namen zum Server.');
+          log.info('Benutzername wurde umbenannt. Propagiere neuen Namen zum Server.');
           await _webService.patchUserName(freshUser.uuid, freshUser.name);
           final renamedUser = freshUser.copyWith(syncedName: freshUser.name);
           await _databaseService.saveUser(renamedUser);
@@ -208,11 +208,11 @@ class SyncNotifier extends Notifier<SyncState> {
 
     } on DioException catch (de) { // Exception des HTTP-Clients
       final error = WebService.convertDioError(de);
-      Logger().error(error.text);
+      log.error(error.text);
       state = state.copyWith(status: SyncStatus.failure, error: error);
       
     } catch (e, st) {
-      Logger().fatal("Fehler beim Synchronisieren: $e", stack: st);
+      log.fatal("Fehler beim Synchronisieren: $e", stack: st);
       state = state.copyWith(status: SyncStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

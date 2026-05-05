@@ -170,6 +170,16 @@ class _MainPageState extends ConsumerState<MainPage> {
             ),
 
             actions: [
+              Consumer(
+                builder: (ctx, ref, _) {
+                  final allCollapsed = ref.watch(mainProvider.select((s) => s.allCategoriesCollapsed));
+                  return IconButton(
+                    icon: Icon(allCollapsed ? Icons.unfold_more : Icons.unfold_less),
+                    tooltip: allCollapsed ? 'Alle Kategorien aufklappen' : 'Alle Kategorien zuklappen',
+                    onPressed: isBusy ? null : ref.read(mainProvider.notifier).toggleAllCategories,
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Neuer Eintrag',

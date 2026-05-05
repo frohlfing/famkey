@@ -2,7 +2,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_error.dart';
-import 'package:famkey/core/app_file_factory.dart';
 import 'package:famkey/core/env.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
@@ -17,9 +16,9 @@ import 'package:famkey/services/password_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:uuid/uuid.dart';
 
-final loginProvider = NotifierProvider<LoginNotifier, LoginState>(
-  LoginNotifier.new,
-);
+final loginProvider = NotifierProvider<LoginNotifier, LoginState>(() {
+  return LoginNotifier();
+});
 
 class LoginNotifier extends Notifier<LoginState> {
 
@@ -88,7 +87,7 @@ class LoginNotifier extends Notifier<LoginState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Laden: $e", stack: st);
+      log.fatal("Fehler beim Laden: $e", stack: st);
       state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -124,7 +123,7 @@ class LoginNotifier extends Notifier<LoginState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Bereinigen: $e", stack: st);
+      log.fatal("Fehler beim Bereinigen: $e", stack: st);
       state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -258,8 +257,8 @@ class LoginNotifier extends Notifier<LoginState> {
             salt: base64.encode(salt),
             encryptedPrivateKey: encryptedPrivKey,
             masterKeyTimestamp: DateTime.now().toUtc(),
-            host: kDebugMode ? 'https://famkey.test' : '', // todo später wieder auskommentieren!!!!
-            apiToken: kDebugMode ? '9f6c4a38-a036-44c1-9f97-b62fff12b56d' : '', // todo später wieder auskommentieren!!!!
+            host: '',
+            apiToken: '',
             lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), // 1970‑01‑01 00:00:00 UTC
             useBiometric: false,
             pwLength: defaultPwLength,
@@ -312,7 +311,7 @@ class LoginNotifier extends Notifier<LoginState> {
         return;
       }
 
-      Logger().fatal('Fehler beim Login: $e', stack: st);
+      log.fatal('Fehler beim Login: $e', stack: st);
       state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
@@ -354,7 +353,7 @@ class LoginNotifier extends Notifier<LoginState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern des Master-Keys im biometrischen Secure-Store: $e", stack: st);
+      log.fatal("Fehler beim Speichern des Master-Keys im biometrischen Secure-Store: $e", stack: st);
       state = state.copyWith(status: LoginActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {
@@ -399,7 +398,7 @@ class LoginNotifier extends Notifier<LoginState> {
         state = state.copyWith(hasBiometricKey: hasBiometric);
       }
     }).catchError((e) {
-      Logger().error("Fehler beim Biometrie-Check: $e");
+      log.error("Fehler beim Biometrie-Check: $e");
     });
   }
 

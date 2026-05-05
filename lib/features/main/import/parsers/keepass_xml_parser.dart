@@ -226,7 +226,7 @@ class KeepassXmlParser implements Parser {
     final updatedAt = _parseUpdatedAt(entry);
 
     // Zeitstempel der letzten Passwortänderung ermitteln
-    final passwordTimestamp = _parsePasswordTimestamp(entry);
+    final passwordTimestamp = _parsePasswordTimestamp(entry, strings['Password']);
 
     // Anhänge des Eintrags verarbeiten
     final attachments = await _parseAttachments(entry);
@@ -335,21 +335,21 @@ class KeepassXmlParser implements Parser {
   ///
   /// Die Historie ist chronologisch sortiert.
   /// ```
-  DateTime? _parsePasswordTimestamp(XmlElement entry) {
-    // Wir suchen den letzten Eintrag in der Historie mit einer Passwortänderung.
-    DateTime? passwordTimestamp;
+  DateTime? _parsePasswordTimestamp(XmlElement entry, String? currentPassword) {
+    // Wir suchen den neuesten History-Eintrag, dessen Passwort sich vom aktuellen unterscheidet.
+    // Das ist der Zeitpunkt der letzten echten Passwortänderung.
     final history = entry.findElements('History').firstOrNull;
     if (history != null) {
       for (final hist in history.findElements('Entry').toList().reversed) {
-        if (_parseStringElements(hist).containsKey('Password')) {
-          // todo Prüfen, ob das Passwort ein anderes ist als das aktuelle!
+        final strings = _parseStringElements(hist);
+        if (strings.containsKey('Password') && strings['Password'] != currentPassword) {
           final timeStr = hist.findElements('Times').firstOrNull?.findElements('LastModificationTime').firstOrNull?.innerText;
-          passwordTimestamp = DateTime.tryParse(timeStr ?? '')?.toUtc();
-          if (passwordTimestamp != null) break;
+          final ts = DateTime.tryParse(timeStr ?? '')?.toUtc();
+          if (ts != null) return ts;
         }
       }
     }
-    return passwordTimestamp;
+    return null;
   }
 
   /// Parst die Anhänge für einen einzelnen Eintrag.

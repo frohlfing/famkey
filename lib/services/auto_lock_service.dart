@@ -4,8 +4,6 @@ import 'package:famkey/services/clipboard_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
 
-// todo umbenennen in LockService
-
 /// Sperrt den Tresor automatisch nach konfigurierbarer Inaktivitätsdauer.
 ///
 /// Der Timer wird bei jeder Benutzeraktion (Pointer, Tastatur) zurückgesetzt.

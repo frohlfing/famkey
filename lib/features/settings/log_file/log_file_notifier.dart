@@ -47,7 +47,7 @@ class LogFileNotifier extends Notifier<LogFileState> {
       );
 
     } catch (e, st) {
-      Logger().error('Fehler beim Laden der Logdatei: $e', context: {'stack': st.toString()});
+      log.error('Fehler beim Laden der Logdatei: $e', context: {'stack': st.toString()});
       state = state.copyWith(
         status: LogFileStatus.failure,
         error: AppError(ErrorCode.unknown, text: 'Logdatei konnte nicht gelesen werden.'),
@@ -73,7 +73,7 @@ class LogFileNotifier extends Notifier<LogFileState> {
       );
 
     } catch (e, st) {
-      Logger().error('Fehler beim Laden der Logdatei: $e', context: {'stack': st.toString()});
+      log.error('Fehler beim Laden der Logdatei: $e', context: {'stack': st.toString()});
       state = state.copyWith(
         status: LogFileStatus.failure,
         error: AppError(ErrorCode.unknown, text: 'Logdatei konnte nicht gelesen werden.'),

@@ -2,8 +2,6 @@
 import 'package:famkey/core/sync_protocol.dart';
 import 'package:famkey/database/database.dart';
 
-// todo evtl eine setup.dart, global.dart oder config.dart anlegen und dort diese Werte speichern
-
 /// Zentrale Versionierungsinformationen.
 ///
 /// Alle Werte stammen aus ihren jeweiligen Single Sources of Truth.

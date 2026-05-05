@@ -72,7 +72,7 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: PasswordGeneratorActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -120,7 +120,7 @@ class PasswordGeneratorNotifier extends Notifier<PasswordGeneratorState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: PasswordGeneratorActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

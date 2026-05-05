@@ -45,10 +45,6 @@ void main() async {
       return true; // handled (verhindert Absturz)
     };
 
-    // todo überdenken, warum env und Logger Singleton ist, der Rest ein Service. Auch Service ist im Grunde ein Singleton.
-    //  Unterschied: vom Singleton wird sofort eine Instanz erstellt.
-    // Konsequent ist das nicht, oder lässt argumentieren/begründen, warum Logger und Env kein Service ist?
-
     // Dienste registrieren
     await setupServiceLocator();
 

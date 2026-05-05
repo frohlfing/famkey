@@ -206,11 +206,11 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
               if (status == ImportActionStatus.progress)
                 Consumer(
                   builder: (ctx, ref, _) {
-                    final totalCount   = ref.watch(importProvider.select((s) => s.totalCount));
+                    final total   = ref.watch(importProvider.select((s) => s.total));
                     final currentCount = ref.watch(importProvider.select((s) => s.currentCount));
                     final isAborting   = ref.watch(importProvider.select((s) => s.isAborting));
 
-                    if (totalCount == 0) {
+                    if (total == 0) {
                       return const Center(
                         child: Column(
                           children: [
@@ -227,10 +227,10 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       child: Column(
                         children: [
                           const SizedBox(height: 24),
-                          LinearProgressIndicator(value: currentCount / totalCount),
+                          LinearProgressIndicator(value: currentCount / total),
                           const SizedBox(height: 16),
                           Text(
-                            '$currentCount von $totalCount Einträgen verarbeitet (${(currentCount / totalCount * 100).toStringAsFixed(0)}%)',
+                            '$currentCount von $total Einträgen verarbeitet (${(currentCount / total * 100).toStringAsFixed(0)}%)',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(height: 16),
@@ -249,8 +249,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
               if (status == ImportActionStatus.success)
                 Consumer(
                   builder: (ctx, ref, _) {
-                    final addedCount = ref.watch(importProvider.select((s) => s.addedCount));
-                    final skippedCount = ref.watch(importProvider.select((s) => s.skippedCount));
+                    final added = ref.watch(importProvider.select((s) => s.added));
+                    final skipped = ref.watch(importProvider.select((s) => s.skipped));
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Row(
@@ -267,9 +267,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 8),
-                                Text('✳️ Hinzugefügt: $addedCount ${addedCount == 1 ? 'Eintrag' : 'Einträge'}'),
-                                if (skippedCount > 0)
-                                  Text('⚠️ Übersprungen: $skippedCount ${skippedCount == 1 ? 'Duplikat' : 'Duplikate'}'),
+                                Text('✳️ Hinzugefügt: $added ${added == 1 ? 'Eintrag' : 'Einträge'}'),
+                                if (skipped > 0)
+                                  Text('⚠️ Übersprungen: $skipped ${skipped == 1 ? 'Duplikat' : 'Duplikate'}'),
                               ],
                             ),
                           ),

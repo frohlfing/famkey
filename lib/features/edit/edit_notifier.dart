@@ -151,7 +151,7 @@ class EditNotifier extends Notifier<EditState> {
       }
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -197,7 +197,7 @@ class EditNotifier extends Notifier<EditState> {
 
       // 6. Neuen AES-Key speziell für diesen Eintrag generieren und per RSA verschlüsseln, falls _entryKey == null
       _entryKey ??= _cryptoService.generateAesKey();
-      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey); // todo überspringen, wenn sich nichts geändert hat
+      final encryptedEntryKey = await _cryptoService.encryptRsa(_entryKey!, _sessionService.user!.publicKey);
 
       // 7. encryptedData bauen und mit dem entryKey verschlüsseln
       final entryPayload = EntryPayload(
@@ -245,7 +245,7 @@ class EditNotifier extends Notifier<EditState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -273,7 +273,7 @@ class EditNotifier extends Notifier<EditState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Löschen: $e', stack: st);
+      log.fatal('Fehler beim Löschen: $e', stack: st);
       state = state.copyWith(status: EditActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

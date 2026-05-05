@@ -40,6 +40,9 @@ class MainState {
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isBusy => status == MainActionStatus.progress;
 
+  /// Gibt an, ob alle Kategorien eingeklappt sind.
+  bool get allCategoriesCollapsed => groupedEntries.isNotEmpty && collapsedCategories.containsAll(groupedEntries.keys);
+
   /// Sortierte Liste aller vorhandenen Kategorienamen – für die Vorschlagsliste im Edit-Dialog.
   List<String> get categories => groupedEntries.keys.toList()..sort();
 

@@ -171,7 +171,7 @@ class VaultNameNotifier extends Notifier<VaultNameState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: VaultNameActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {

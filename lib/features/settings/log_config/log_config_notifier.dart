@@ -58,7 +58,7 @@ class LogConfigNotifier extends Notifier<LogConfigState> {
     }
 
     catch (e, st) {
-      Logger().error('Fehler beim Laden der Konfiguration: $e', context: {'stack': st.toString()});
+      log.error('Fehler beim Laden der Konfiguration: $e', context: {'stack': st.toString()});
       state = state.copyWith(status: LogConfigStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

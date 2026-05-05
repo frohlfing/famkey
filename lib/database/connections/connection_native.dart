@@ -23,14 +23,6 @@ QueryExecutor openConnection(String name, String password) {
       }
     }
 
-    if (kDebugMode) {
-      // Brauchen wir, um die DB per Database Navigator öffnen zu können
-      debugPrint("🔑 DB-Passwort: $password"); // todo Löschen!!!
-      debugPrint("ℹ️ App-Version: ${await AppVersion.fullVersion}");
-      debugPrint("ℹ️ DB-Schema: ${AppVersion.databaseSchemaVersion}");
-      debugPrint("ℹ️ Sync-Protokoll: ${AppVersion.syncProtocolVersion}");
-    }
-
     // Datenbank öffnen
     final path = p.join(env.vaultStoragePath, '$name.db3'); // WICHTIG: Zentralen Speicherpfad aus dem ConfigService nutzen!
     final rawDb = sqlite3.open(path);

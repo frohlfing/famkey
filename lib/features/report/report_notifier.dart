@@ -177,7 +177,7 @@ class ReportNotifier extends Notifier<ReportState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden des Reports: $e', stack: st);
+      log.fatal('Fehler beim Laden des Reports: $e', stack: st);
       state = state.copyWith(
         status: ReportActionStatus.failure,
         error: AppError(ErrorCode.unknown),
@@ -332,7 +332,7 @@ class ReportNotifier extends Notifier<ReportState> {
         excludedEntries:  _excludedEntries,
       );
     } catch (e, st) {
-      Logger().fatal('Fehler beim Neuprüfen des Eintrags $entryId: $e', stack: st);
+      log.fatal('Fehler beim Neuprüfen des Eintrags $entryId: $e', stack: st);
     }
   }
 
@@ -417,7 +417,7 @@ class ReportNotifier extends Notifier<ReportState> {
         excludedEntries:  _excludedEntries,
       );
     } catch (e, st) {
-      Logger().fatal('Fehler beim Umschalten von reportExcluded für Eintrag $entryId: $e', stack: st);
+      log.fatal('Fehler beim Umschalten von reportExcluded für Eintrag $entryId: $e', stack: st);
     }
   }
 

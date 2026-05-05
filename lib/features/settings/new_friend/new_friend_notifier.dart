@@ -126,7 +126,7 @@ class NewFriendNotifier extends Notifier<NewFriendState> {
       state = state.copyWith(status: NewFriendActionStatus.failure, error: WebService.convertDioError(de));
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: NewFriendActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

@@ -5,7 +5,7 @@ import 'package:famkey/database/database.dart'; // Pfad ggf. anpassen
 class FriendDialog {
 
   /// Öffnet den Dialog und gibt bei Bestätigung den ausgewählten Freund zurück.
-  static Future<UserEntity?> show(BuildContext context, List<UserEntity> available) async { // todo async kann hier weggelassen werden
+  static Future<UserEntity?> show(BuildContext context, List<UserEntity> available) {
     return showDialog<UserEntity>(
       context: context,
       barrierDismissible: false, // wird nicht geschlossen, wenn man außerhalb des Dialoges klickt

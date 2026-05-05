@@ -129,7 +129,7 @@ class DetailNotifier extends Notifier<DetailState> {
         status: DetailActionStatus.loaded,
       );
     } catch (e, st) {
-      Logger().fatal("Fehler beim Laden: $e", stack: st);
+      log.fatal("Fehler beim Laden: $e", stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -181,7 +181,6 @@ class DetailNotifier extends Notifier<DetailState> {
   }
 
   /// Öffnet die URL in einem neuen Browser-Tab.
-  // todo gehört das nicht in die UI?
   Future<void> openUrl() async {
     if (state.url.isEmpty) return;
     final uri = Uri.parse(state.url.startsWith('http') ? state.url : 'https://${state.url}');
@@ -191,7 +190,7 @@ class DetailNotifier extends Notifier<DetailState> {
         state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown, text: 'Die URL konnte nicht geöffnet werden.'));
       }
     } catch (e, st) {
-      Logger().fatal('Fehler beim Öffnen der URL ${state.url}: $e', stack: st);
+      log.fatal('Fehler beim Öffnen der URL ${state.url}: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -267,7 +266,7 @@ class DetailNotifier extends Notifier<DetailState> {
         status: DetailActionStatus.attachmentAdded,
       );
     } catch (e, st) {
-      Logger().fatal('Fehler beim Hinzufügen eines Anhangs: $e', stack: st);
+      log.fatal('Fehler beim Hinzufügen eines Anhangs: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -294,7 +293,7 @@ class DetailNotifier extends Notifier<DetailState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
+      log.fatal('Fehler beim Öffnen des Anhangs: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -314,7 +313,7 @@ class DetailNotifier extends Notifier<DetailState> {
         status: DetailActionStatus.attachmentDeleted,
       );
     } catch (e, st) {
-      Logger().fatal('Fehler beim Löschen: $e', stack: st);
+      log.fatal('Fehler beim Löschen: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -368,7 +367,7 @@ class DetailNotifier extends Notifier<DetailState> {
         status: DetailActionStatus.shareUpdated,
       );
     } catch (e, st) {
-      Logger().fatal('Fehler beim Teilen: $e', stack: st);
+      log.fatal('Fehler beim Teilen: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -427,7 +426,7 @@ class DetailNotifier extends Notifier<DetailState> {
         status: newLevel > 0 ? DetailActionStatus.shareUpdated : DetailActionStatus.accessRevoked,
       );
     } catch (e, st) {
-      Logger().fatal('Rechte konnten nicht geändert werden: $e', stack: st);
+      log.fatal('Rechte konnten nicht geändert werden: $e', stack: st);
       state = state.copyWith(status: DetailActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

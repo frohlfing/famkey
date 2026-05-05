@@ -123,7 +123,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -157,7 +157,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _sessionService.clearSession();
       state = SettingsState().copyWith(status: SettingsActionStatus.deleted);
     } catch (e, st) {
-      Logger().fatal('Fehler beim lokalen Löschen des Tresors: $e', stack: st);
+      log.fatal('Fehler beim lokalen Löschen des Tresors: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -199,10 +199,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
     } on DioException catch (de) {
       final error = WebService.convertDioError(de);
-      Logger().error(error.text);
+      log.error(error.text);
       state = state.copyWith(status: SettingsActionStatus.failure, error: error);
     } catch (e, st) {
-      Logger().fatal('Fehler beim serverseitigen Löschen des Tresors: $e', stack: st);
+      log.fatal('Fehler beim serverseitigen Löschen des Tresors: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -235,10 +235,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
       state = SettingsState().copyWith(status: SettingsActionStatus.deleted);
     } on DioException catch (de) {
       final error = WebService.convertDioError(de);
-      Logger().error(error.text);
+      log.error(error.text);
       state = state.copyWith(status: SettingsActionStatus.failure, error: error);
     } catch (e, st) {
-      Logger().fatal('Fehler beim vollständigen Löschen des Tresors: $e', stack: st);
+      log.fatal('Fehler beim vollständigen Löschen des Tresors: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -268,7 +268,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // 3. Falls Biometrie deaktiviert wurde, SecureStore leeren
       if (_settings!.useBiometric && !useBiometric) {
         await _biometricService.removeMasterKey(_sessionService.vaultName);
-        Logger().info("Biometrie-Key entfernt, da Option deaktiviert wurde.");
+        log.info("Biometrie-Key entfernt, da Option deaktiviert wurde.");
       }
 
       // 4. Basiskonfiguration in der DB speichern.
@@ -285,7 +285,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -399,7 +399,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern der Verifizierung: $e", stack: st);
+      log.fatal("Fehler beim Speichern der Verifizierung: $e", stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -463,7 +463,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Löschen fehlgeschlagen: $e', stack: st);
+      log.fatal('Löschen fehlgeschlagen: $e', stack: st);
       state = state.copyWith(status: SettingsActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

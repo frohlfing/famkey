@@ -8,5 +8,3 @@
 class SyncProtocol {
   static const int version = 1;
 }
-
-// todo evtl eine setup.dart, global.dart oder config.dart anlegen und dort diesen Werte speichern

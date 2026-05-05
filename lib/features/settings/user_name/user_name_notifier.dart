@@ -65,7 +65,7 @@ class UserNameNotifier extends Notifier<UserNameState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: UserNameActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -112,7 +112,7 @@ class UserNameNotifier extends Notifier<UserNameState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: UserNameActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

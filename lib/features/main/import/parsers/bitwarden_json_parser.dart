@@ -67,7 +67,12 @@ class BitwardenJsonParser implements Parser {
     if (items == null) {
       throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` fehlt.', path: _file.path);
     }
-    return await Future.wait(items.map((item) => _parseItem(item))); // Future.wait, da das Laden von Anhängen asynchron ist
+    return await Future.wait(items.map((itemData) { // Future.wait, da das Laden von Anhängen asynchron ist
+      if (itemData is! Map<String, dynamic>) {
+        throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _file.path);
+      }
+      return _parseItem(itemData);
+    }));
   }
 
   /// Erstellt eine Map von Item-IDs zu ihrer Zeilennummer, indem die Datei einmalig am Anfang durchlaufen wird.
@@ -132,21 +137,16 @@ class BitwardenJsonParser implements Parser {
   ///   ...
   /// }
   /// ```
-  Future<ParsedEntry> _parseItem(dynamic itemData) async {
-    if (itemData is! Map<String, dynamic>) {
-      throw ParserError('Die Bitwarden-Datei ist fehlerhaft. `items` beinhaltet ungültige Daten.', path: _file.path);
-    }
-    final Map<String, dynamic> item = itemData; // todo item as Map<String, dynamic>? übergeben
+  Future<ParsedEntry> _parseItem(Map<String, dynamic> item) async {
 
     // UUID und ihre Zeilennummer ermitteln
     final (uuid, lineNumber) = _parseUuid(item);
 
     // Login für Benutzername und Passwort nehmen
     final login = item['login'] as Map<String, dynamic>?;
-    // todo login.totp und login.fido2Credentials als Notiz übernehmen?
 
     // Zeitstempel der letzten Passwortänderung ermitteln
-    final passwordTimestamp = _parsePasswordTimestamp(item);
+    final passwordTimestamp = _parsePasswordTimestamp(item['passwordHistory'] as List?);
 
     // Ordner für die Kategorie nehmen
     final folderId = item['folderId'] as String?;
@@ -156,7 +156,7 @@ class BitwardenJsonParser implements Parser {
     final updatedAt = _parseUpdatedAt(item);
 
     // Anhänge des Eintrags verarbeiten
-    final attachments = await _parseAttachments(item);
+    final attachments = await _parseAttachments(item['attachments'] as List?);
 
     return ParsedEntry(
       uuid,
@@ -166,7 +166,7 @@ class BitwardenJsonParser implements Parser {
       password: login?['password'] as String?, // Passwort nicht trimmen!
       passwordTimestamp: passwordTimestamp,
       url: (login?['uris'] as List?)?.firstOrNull?['uri']?.trim() as String?,
-      notes: item['notes'] as String?,
+      notes: _buildNotes(item['notes'] as String?, login?['totp'] as String?),
       updatedAt: updatedAt,
       attachments: attachments,
       lineNumber: lineNumber,
@@ -227,6 +227,14 @@ class BitwardenJsonParser implements Parser {
     return DateTime.tryParse(revisionDateStr ?? '')?.toUtc();
   }
 
+  /// Kombiniert Notiz und TOTP-Secret zu einem einzigen Notiz-String.
+  String? _buildNotes(String? notes, String? totp) {
+    if (totp == null || totp.isEmpty) return notes;
+    final totpLine = 'TOTP: $totp';
+    if (notes == null || notes.isEmpty) return totpLine;
+    return '$notes\n$totpLine';
+  }
+
   /// Ermittelt den Zeitstempel der letzten Passwortänderung für einen Eintrag.
   ///
   /// Struktur der JSON-Datei (nur die relevanten Teile):
@@ -239,14 +247,10 @@ class BitwardenJsonParser implements Parser {
   ///   ...
   /// ]
   /// ```
-  DateTime? _parsePasswordTimestamp(Map<String, dynamic> item) { // todo item['passwordHistory'] as List? übergeben
-    DateTime? passwordTimestamp;
-    final passwordHistory = item['passwordHistory'] as List?;
-    if (passwordHistory != null && passwordHistory.isNotEmpty) {
-      final lastChangeDate = passwordHistory.first['lastUsedDate'] as String?;
-      passwordTimestamp = DateTime.tryParse(lastChangeDate ?? '')?.toUtc();
-    }
-    return passwordTimestamp;
+  DateTime? _parsePasswordTimestamp(List? passwordHistory) {
+    if (passwordHistory == null || passwordHistory.isEmpty) return null;
+    final lastChangeDate = passwordHistory.first['lastUsedDate'] as String?;
+    return DateTime.tryParse(lastChangeDate ?? '')?.toUtc();
   }
 
   /// Parst die Anhänge für einen einzelnen Eintrag.
@@ -262,9 +266,8 @@ class BitwardenJsonParser implements Parser {
   /// ]
   /// ```
   /// Die Dateianhänge sind im Unterordner "files" abgelegt.
-  Future<List<ParsedAttachment>?> _parseAttachments(Map<String, dynamic> item) async { // todo item['attachments'] as List? übergeben
+  Future<List<ParsedAttachment>?> _parseAttachments(List? attachmentsMeta) async {
     final attachments = <ParsedAttachment>[];
-    final attachmentsMeta = item['attachments'] as List?;
     if (attachmentsMeta == null) return attachments;
 
     final baseDir = p.join(p.dirname(_file.path), 'files');

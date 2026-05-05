@@ -75,7 +75,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Laden: $e', stack: st);
+      log.fatal('Fehler beim Laden: $e', stack: st);
       state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -136,7 +136,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -207,7 +207,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       state = state.copyWith(status: SyncServerActionStatus.failure, error: WebService.convertDioError(de));
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Verbindungstest: $e", stack: st);
+      log.fatal("Fehler beim Verbindungstest: $e", stack: st);
       state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

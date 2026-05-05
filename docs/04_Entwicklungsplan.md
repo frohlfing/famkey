@@ -69,6 +69,10 @@
 
 ## 2. Todos / Feinschliff
 - todos erledigten
+- Delegation-Pattern anwenden
+- DetailActionStatus -> DetailStatus
+- MasterPasswordFormData -> MasterPasswordForm
+- Autofill und AUtoType in Settings sauber trennen
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)

@@ -9,6 +9,7 @@ import 'package:famkey/features/main/main_state.dart';
 import 'package:famkey/models/payloads/index_payload.dart';
 import 'package:famkey/services/auto_lock_service.dart';
 import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
@@ -16,14 +17,9 @@ import 'package:famkey/services/session_service.dart';
 /// Kombiniert einen Datenbank-Eintrag mit seinen entschlüsselten Anzeigedaten.
 typedef EntryWithIndex = ({EntryEntity entry, IndexPayload index});
 
-final mainProvider = NotifierProvider<MainNotifier, MainState>(
-  MainNotifier.new,
-);
-
-// todo wenn es das selbe ist, diese Syntax nehmen (auch bei LoginNotifier)
-//final mainProvider = NotifierProvider<MainNotifier, MainState>(() {
-//  return MainNotifier();
-//});
+final mainProvider = NotifierProvider<MainNotifier, MainState>(() {
+  return MainNotifier();
+});
 
 class MainNotifier extends Notifier<MainState> {
 
@@ -33,6 +29,7 @@ class MainNotifier extends Notifier<MainState> {
 
   late final AutoLockService _autoLockService;
   late final ClipboardService _clipboardService;
+  late final ConfigService _configService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
@@ -57,6 +54,7 @@ class MainNotifier extends Notifier<MainState> {
     // Dienste aus getIt holen
     _autoLockService = getIt();
     _clipboardService = getIt();
+    _configService = getIt();
     _cryptoService = getIt();
     _databaseService = getIt();
     _sessionService = getIt();
@@ -92,15 +90,19 @@ class MainNotifier extends Notifier<MainState> {
       final hasFriends = await _databaseService.hasFriends();
 
       // UI-State aktualisieren
+      final grouped = _groupEntries(onlyMyEntries: _configService.showOnlyMine);
+      final collapsed = _configService.allCategoriesCollapsed ? grouped.keys.toSet() : const <String>{};
       state = state.copyWith(
-        groupedEntries: _groupEntries(),
+        groupedEntries: grouped,
+        collapsedCategories: collapsed,
         vaultName: _sessionService.vaultName,
         hasFriends: hasFriends,
+        onlyMyEntries: _configService.showOnlyMine,
         status: MainActionStatus.loaded,
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Laden: $e", stack: st);
+      log.fatal("Fehler beim Laden: $e", stack: st);
       state = state.copyWith(status: MainActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -131,15 +133,16 @@ class MainNotifier extends Notifier<MainState> {
   void setSearchQuery(String value) {
     state = state.copyWith(
       searchQuery: value,
-      groupedEntries: _groupEntries(searchQuery: value),
+      groupedEntries: _groupEntries(searchQuery: value, onlyMyEntries: state.onlyMyEntries),
     );
   }
 
   /// Setter für "Nur-Meine"-Filter
   void setOnlyMyEntries(bool value) {
+    _configService.showOnlyMine = value;
     state = state.copyWith(
       onlyMyEntries: value,
-      groupedEntries: _groupEntries(onlyMyEntries: value),
+      groupedEntries: _groupEntries(searchQuery: state.searchQuery, onlyMyEntries: value),
     );
   }
 
@@ -153,7 +156,7 @@ class MainNotifier extends Notifier<MainState> {
     final filtered = _allEntries.where((e) {
       final idx = e.index;
       final matchesSearch = q.isEmpty ||
-          idx.title.toLowerCase().contains(q) || // todo Werte im index bereits in kleinbuchstaben umwandeln
+          idx.title.toLowerCase().contains(q) ||
           idx.url.toLowerCase().contains(q) ||
           idx.notes.toLowerCase().contains(q) ||
           e.entry.uuid.contains(q);
@@ -178,6 +181,14 @@ class MainNotifier extends Notifier<MainState> {
     } else {
       collapsed.add(category);
     }
+    state = state.copyWith(collapsedCategories: collapsed);
+  }
+
+  /// Klappt alle Kategorien auf oder zu (Toggle).
+  void toggleAllCategories() {
+    final allCollapsed = state.allCategoriesCollapsed;
+    final collapsed = allCollapsed ? const <String>{} : state.groupedEntries.keys.toSet();
+    _configService.allCategoriesCollapsed = !allCollapsed;
     state = state.copyWith(collapsedCategories: collapsed);
   }
 }

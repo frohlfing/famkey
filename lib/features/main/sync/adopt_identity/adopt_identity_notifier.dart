@@ -235,7 +235,7 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
+      log.fatal("Fehler bei der Identitätsübernahme: $e", stack: st);
       state = state.copyWith(status: AdoptIdentityActionStatus.failure, error: AppError(ErrorCode.unknown));
 
     } finally {

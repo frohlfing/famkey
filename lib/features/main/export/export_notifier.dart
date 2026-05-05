@@ -174,7 +174,7 @@ class ExportNotifier extends Notifier<ExportState> {
         // "Geteilt mit" auflisten
         final sharedWith = <ExportFriend>[];
         final friends = await _databaseService.getNotHiddenFriendsWithAccessLevel(entry.id);
-        for (final friend in friends) {
+        for (final friend in friends.where((f) => f.accessLevel > 0)) {
           sharedWith.add((
             uuid: friend.user.uuid,
             username: friend.user.name,
@@ -236,7 +236,7 @@ class ExportNotifier extends Notifier<ExportState> {
       );
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Generieren des Exports: $e', stack: st);
+      log.fatal('Fehler beim Generieren des Exports: $e', stack: st);
       state = state.copyWith(status: ExportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -275,7 +275,6 @@ class ExportNotifier extends Notifier<ExportState> {
     writeln('Enthält $totalCount Einträge.');
     writeln('');
 
-    // todo placeholder bei der Sortierung berücksichtigen
     final sortedCats = byCategory.keys.toList()..sort();
 
     for (final category in sortedCats) {
@@ -324,7 +323,7 @@ class ExportNotifier extends Notifier<ExportState> {
         if (sharedWith.isNotEmpty) {
           writeln('- **Geteilt mit**:');
           for (final friend in sharedWith) {
-            writeln('  - ${friend.username} (${friend.accessLevel == 2 ? 'Schreibzugriff' : 'Lesezugriff'})');   // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
+            writeln('  - ${friend.username} (${friend.accessLevel >= 2 ? 'Schreibzugriff' : 'Lesezugriff'})');
           }
         }
 
@@ -357,7 +356,7 @@ class ExportNotifier extends Notifier<ExportState> {
       state = state.copyWith(status: ExportActionStatus.loaded);
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Drucken: $e', stack: st);
+      log.fatal('Fehler beim Drucken: $e', stack: st);
       state = state.copyWith(status: ExportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
@@ -390,7 +389,7 @@ class ExportNotifier extends Notifier<ExportState> {
       state = state.copyWith(status: ExportActionStatus.success);
 
     } catch (e, st) {
-      Logger().fatal('Fehler beim Exportieren: $e', stack: st);
+      log.fatal('Fehler beim Exportieren: $e', stack: st);
       state = state.copyWith(
         status: ExportActionStatus.failure,
         error: AppError(ErrorCode.unknown),

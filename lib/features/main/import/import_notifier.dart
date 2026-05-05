@@ -85,9 +85,9 @@ class ImportNotifier extends Notifier<ImportState> {
 
     // 1. UI-State aktualisieren
     state = state.copyWith(
-      totalCount: 0,
-      addedCount: added,
-      skippedCount: skipped,
+      total: 0,
+      added: added,
+      skipped: skipped,
       isAborting: false,
       status: ImportActionStatus.progress,
       error: AppError.none(),
@@ -124,12 +124,12 @@ class ImportNotifier extends Notifier<ImportState> {
         }
         final text = '${e.message}${e.lineNumber != null ? ' (Zeile ${e.lineNumber})' : ''}';
         state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.valueInvalid, text: text, field: e.field));
-        Logger().error('ParserError: ${e.message}', context: {'path': e.path, 'line': e.lineNumber, 'error': e.originalErrorMessage});
+        log.error('ParserError: ${e.message}', context: {'path': e.path, 'line': e.lineNumber, 'error': e.originalErrorMessage});
         return;
       }
 
       // Gesamtanzahl für die Fortschrittsanzeige im State setzen
-      state = state.copyWith(totalCount: parsedPayload.length);
+      state = state.copyWith(total: parsedPayload.length);
 
       // Geparsten Einträge durchlaufen und Batch aufbauen...
       final ImportBatch batch = [];
@@ -145,7 +145,7 @@ class ImportNotifier extends Notifier<ImportState> {
           final existing = await _databaseService.getEntryByUuid(uuid);
           if (existing != null) {
             skipped++;
-            state = state.copyWith(skippedCount: skipped);
+            state = state.copyWith(skipped: skipped);
             continue; // Springe zum nächsten Eintrag in der Schleife
           }
         }
@@ -281,7 +281,7 @@ class ImportNotifier extends Notifier<ImportState> {
                   updatedAt:  DateTime.now().toUtc(),
                 ));
               } catch (e) {
-                Logger().error('Import: User ${friend.uuid} konnte nicht angelegt werden: $e');
+                log.error('Import: User ${friend.uuid} konnte nicht angelegt werden: $e');
                 continue;
               }
             }
@@ -291,7 +291,7 @@ class ImportNotifier extends Notifier<ImportState> {
             try {
               encryptedFriendKey = await _cryptoService.encryptRsa(entryKey, localUser.publicKey);
             } catch (e) {
-              Logger().error('Import: RSA-Verschlüsselung für ${friend.uuid} fehlgeschlagen: $e');
+              log.error('Import: RSA-Verschlüsselung für ${friend.uuid} fehlgeschlagen: $e');
               continue;
             }
 
@@ -320,7 +320,7 @@ class ImportNotifier extends Notifier<ImportState> {
 
         // Fortschritt aktualisieren
         added++;
-        state = state.copyWith(addedCount: added);
+        state = state.copyWith(added: added);
       }
 
       // 14. Batch in Datenbank schreiben
@@ -333,7 +333,7 @@ class ImportNotifier extends Notifier<ImportState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Importieren: $e", stack: st);
+      log.fatal("Fehler beim Importieren: $e", stack: st);
       state = state.copyWith(status: ImportActionStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

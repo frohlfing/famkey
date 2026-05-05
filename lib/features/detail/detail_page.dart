@@ -380,7 +380,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                   Consumer(
                     builder: (ctx, ref, _) {
                       final canManageShares = ref.watch(detailProvider.select((s) => s.canManageShares));
-                      final sharedFriends = ref.watch(detailProvider.select((s) => s.sharedFriends));
+                      final sharedFriends = ref.watch(detailProvider.select((s) => s.sharedFriends)); // alle Freunde mit accessLevel > 0
                       if (!canManageShares && sharedFriends.isEmpty) return const SizedBox.shrink();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +402,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                             )
                           else
                             ...sharedFriends.map((friend) {
-                              final isWritable = friend.accessLevel == 2; // todo prüfen: was ist mit AccessLevel == 0 nach Rechteentzug?
+                              final isWritable = friend.accessLevel >= 2;
                               Widget leadingIcon = Stack(
                                 alignment: Alignment.bottomRight,
                                 children: [

@@ -74,7 +74,7 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
       );
 
     } catch (e, st) {
-      Logger().fatal("Fehler beim Speichern: $e", stack: st);
+      log.fatal("Fehler beim Speichern: $e", stack: st);
       state = state.copyWith(status: AutofillHotkeyStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }

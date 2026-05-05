@@ -35,7 +35,6 @@ class AdoptIdentityState {
     status == AdoptIdentityActionStatus.progress;
 
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
-  // todo wird vermutlich nicht benötigt
   bool get isDirty =>
     formData.newPassword.isNotEmpty ||
     formData.password.isNotEmpty;
