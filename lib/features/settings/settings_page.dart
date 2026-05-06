@@ -272,7 +272,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 const Divider(height: 32),
 
                 // ------------------------------------------------------------------------
-                // --- Autofill (nur für Android und Windows) ---
+                // --- Autofill (für Android) und Autotype (für Windows) ---
                 // ------------------------------------------------------------------------
 
                 if (isAutofillSupported) ...[
@@ -290,23 +290,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                             value: isAutofillEnabled,
                             onChanged: notifier.toggleAutofill,
                           ),
-                          // if (isAutofillEnabled) ...[
-                          //   Padding(
-                          //     padding: const EdgeInsets.only(left: 32),
-                          //     child: Consumer(
-                          //       builder: (ctx, ref, _) {
-                          //         final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
-                          //         return SwitchListTile(
-                          //           secondary: const Icon(Icons.lock_reset_outlined),
-                          //           title: const Text('Tresor nach Autofill wieder sperren'),
-                          //           subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
-                          //           value: relock,
-                          //           onChanged: notifier.setAutofillRelockAfterFill,
-                          //         );
-                          //       },
-                          //     ),
-                          //   ),
-                          // ],
                         ],
                       );
                     },
@@ -315,29 +298,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 ],
 
                 if (isAutotypeSupported) ...[
-                  _buildSectionTitle('Auto-Type'),
+                  _buildSectionTitle('Autotype'),
                   Consumer(
                     builder: (ctx, ref, _) {
-                      final autofillEnabled = ref.watch(settingsProvider.select((s) => s.autofillEnabled));
+                      final isAutotypeEnabled = ref.watch(settingsProvider.select((s) => s.isAutotypeEnabled));
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SwitchListTile(
                             secondary: const Icon(Icons.text_fields_outlined),
-                            title: const Text('Auto-Type verwenden'),
+                            title: const Text('Autotype verwenden'),
                             subtitle: Text('Benutzername und Passwort per Tastenkürzel in beliebige Fenster einfügen.'),
-                            value: autofillEnabled,
+                            value: isAutotypeEnabled,
                             onChanged: notifier.toggleAutofill,
                           ),
-                          if (autofillEnabled) ...[
+                          if (isAutotypeEnabled) ...[
                             Padding(
                               padding: const EdgeInsets.only(left: 32),
                               child: Consumer(
                                 builder: (ctx, ref, _) {
-                                  final hotkey = ref.watch(settingsProvider.select((s) => s.autofillHotkey));
+                                  final hotkey = ref.watch(settingsProvider.select((s) => s.autotypeHotkey));
                                   return _buildText(
                                     'Tastenkürzel',
-                                    (state) => state.autofillHotkey,
+                                    (state) => state.autotypeHotkey,
                                     icon: Icons.keyboard_outlined,
                                     onPressed: () => _showHotkeyDialog(hotkey),
                                     tooltip: 'Tastenkürzel ändern',
@@ -352,21 +335,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                                 style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant), //TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ),
-                            // Padding(
-                            //   padding: const EdgeInsets.only(left: 32, top: 4),
-                            //   child: Consumer(
-                            //     builder: (ctx, ref, _) {
-                            //       final relock = ref.watch(settingsProvider.select((s) => s.autofillRelockAfterFill));
-                            //       return SwitchListTile(
-                            //         secondary: const Icon(Icons.lock_reset_outlined),
-                            //         title: const Text('Tresor nach Autofill wieder sperren'),
-                            //         subtitle: const Text('Nur wenn der Tresor zuvor gesperrt war.'),
-                            //         value: relock,
-                            //         onChanged: notifier.setAutofillRelockAfterFill,
-                            //       );
-                            //     },
-                            //   ),
-                            // ),
                           ],
                         ],
                       );
@@ -1009,7 +977,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     }
   }
 
-  /// Öffnet den Dialog zum Ändern des Auto-Type-Tastenkürzels.
+  /// Öffnet den Dialog zum Ändern des Autotype-Tastenkürzels.
   Future<void> _showHotkeyDialog(String current) async {
     final ok = await AutotypeHotkeyDialog.show(context);
     if (ok == true) {

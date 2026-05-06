@@ -31,7 +31,7 @@ class AutotypeHotkeyNotifier extends Notifier<AutotypeHotkeyState> {
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
     if (state.isBusy) return;
-    final hotkey = _configService.autofillHotkey;
+    final hotkey = _configService.autotypeHotkey;
     state = const AutotypeHotkeyState().copyWith(
       hotkey: hotkey,
       originalHotkey: hotkey,
@@ -43,7 +43,7 @@ class AutotypeHotkeyNotifier extends Notifier<AutotypeHotkeyState> {
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
-  /// Speichert das Auto-Type-Tastenkürzel.
+  /// Speichert das Autotype-Tastenkürzel.
   Future<void> save() async {
     if (state.isBusy) return;
 
@@ -65,7 +65,7 @@ class AutotypeHotkeyNotifier extends Notifier<AutotypeHotkeyState> {
       }
 
       // 4. Hotkey in die Konfiguration schreiben
-      _configService.autofillHotkey = hotkey;
+      _configService.autotypeHotkey = hotkey;
 
       // 5. State aktualisieren
       state = state.copyWith(

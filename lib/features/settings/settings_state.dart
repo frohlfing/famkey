@@ -32,13 +32,44 @@ class SettingsState {
   /// Gibt an, ob Fingerabdruck bzw. Gesichtserkennung als Anmeldeoption zur Verfügung steht.
   final bool useBiometric;
 
-  // --- Server ---
+  /// Capabilities - Kann die Biometrie-Seite geöffnet werden?
+  final bool canOpenBiometricSettings;
 
-  /// Der Benutzername.
-  final String userName;
+  // --- Timeouts ---
+
+  /// Inaktivitätsdauer in Sekunden bis zur automatischen Sperre. 0 = nie.
+  final int autoLockSeconds;
+
+  /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. 0 = nie.
+  final int clipboardClearSeconds;
+
+  // --- Autofill ---
+
+  /// Gibt an, ob Autofill auf dieser Plattform verfügbar ist.
+  final bool isAutofillSupported;
+
+  /// Gibt an, ob FamKey aktuell als Autofill-Anbieter im Android-System aktiv ist.
+  /// Wird über MethodChannel abgefragt und spiegelt den Systemzustand wider.
+  final bool isAutofillEnabled;
+
+  // --- Autotype ---
+
+  /// Gibt an, ob Autotype auf dieser Plattform verfügbar ist (Windows only).
+  final bool isAutotypeSupported;
+
+  /// Gibt an, ob der Nutzer Autotype verwenden möchte.
+  final bool isAutotypeEnabled;
+
+  /// Das Tastenkürzel für Autotype.
+  final String autotypeHotkey;
+
+  // --- Sync-Server ---
 
   /// Gibt an, ob der Benutzer bereits mit dem Server synchronisiert wurde (registriert ist).
   final bool isRegistered;
+
+  /// Der Benutzername.
+  final String userName;
 
   /// Die URL des Sync-Servers
   final String host;
@@ -73,39 +104,6 @@ class SettingsState {
   /// Anzeigename für eine leere Kategorie.
   final String categoryPlaceholder;
 
-  // --- Capabilities ---
-  /// Capabilities - Kann die App-Info-Seite geöffnet werden?
-  final bool canOpenAppSettings;
-
-  /// Capabilities - Kann die Biometrie-Seite geöffnet werden?
-  final bool canOpenBiometricSettings;
-
-  /// Gibt an, ob Autofill auf dieser Plattform verfügbar ist (Android only).
-  final bool isAutofillSupported;
-
-  /// Gibt an, ob Auto-Type auf dieser Plattform verfügbar ist (Windows only).
-  final bool isAutotypeSupported;
-
-  // --- Autofill ---
-
-  /// Gibt an, ob der Nutzer Autofill verwenden möchte (ConfigService-Einstellung, beide Plattformen).
-  final bool autofillEnabled;
-
-  /// Gibt an, ob FamKey aktuell als Autofill-Anbieter im Android-System aktiv ist.
-  /// Wird über MethodChannel abgefragt und spiegelt den Systemzustand wider.
-  final bool isAutofillEnabled;
-
-  /// Das Tastenkürzel für Auto-Type (nur Windows).
-  final String autofillHotkey;
-
-  // --- Timeouts ---
-
-  /// Inaktivitätsdauer in Sekunden bis zur automatischen Sperre. null = nie.
-  final int? autoLockSeconds;
-
-  /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie.
-  final int? clipboardClearSeconds;
-
   // --- Logging ---
 
   /// Log-Level
@@ -116,6 +114,11 @@ class SettingsState {
 
   /// Maximale Dateigröße in Bytes
   final int logSize;
+
+  // --- App-Info ---
+
+  /// Kann die App-Info-Seite geöffnet werden?
+  final bool canOpenAppSettings;
 
   // --- Action-Status und -Error ---
 
@@ -128,14 +131,13 @@ class SettingsState {
   // --- Getter ---
 
   String get autoLockLabel {
-    if (autoLockSeconds == null) return 'Nie';
-    final s = autoLockSeconds!;
-    if (s < 60) return 'Nach $s Sekunden';
-    final m = s ~/ 60;
+    if (autoLockSeconds == 0) return 'Nie';
+    if (autoLockSeconds < 60) return 'Nach $autoLockSeconds Sekunden';
+    final m = autoLockSeconds ~/ 60;
     return m == 1 ? 'Nach 1 Minute' : 'Nach $m Minuten';
   }
 
-  String get clipboardClearLabel => clipboardClearSeconds == null ? 'Nie' : 'Nach $clipboardClearSeconds Sekunden';
+  String get clipboardClearLabel => clipboardClearSeconds == 0 ? 'Nie' : 'Nach $clipboardClearSeconds Sekunden';
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
   bool get isBusy =>
@@ -152,8 +154,16 @@ class SettingsState {
     this.vaultStoragePath = '',
     this.vaultName = '',
     this.useBiometric = false,
-    this.userName = '',
+    this.canOpenBiometricSettings = false,
+    this.autoLockSeconds = 0,
+    this.clipboardClearSeconds = 0,
+    this.isAutofillSupported = false,
+    this.isAutofillEnabled = false,
+    this.isAutotypeSupported = false,
+    this.isAutotypeEnabled = true,
+    this.autotypeHotkey = 'Strg+Shift+A',
     this.isRegistered = false,
+    this.userName = '',
     this.host = '',
     this.friends = const [],
     this.fingerprints = const {},
@@ -163,18 +173,10 @@ class SettingsState {
     this.pwAvoidIlO0 = false,
     this.themeMode = ThemeMode.system,
     this.categoryPlaceholder = '',
-    this.canOpenAppSettings = false,
-    this.canOpenBiometricSettings = false,
-    this.isAutofillSupported = false,
-    this.isAutotypeSupported = false,
-    this.autofillEnabled = true,
-    this.isAutofillEnabled = false,
-    this.autofillHotkey = 'Strg+Shift+A',
-    this.autoLockSeconds,
-    this.clipboardClearSeconds,
     this.logLevel = LogLevel.info,
     this.logDays = 7,
     this.logSize = 512 * 1024,
+    this.canOpenAppSettings = false,
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -185,8 +187,16 @@ class SettingsState {
     String? vaultStoragePath,
     String? vaultName,
     bool? useBiometric,
-    String? userName,
+    bool? canOpenBiometricSettings,
+    int? autoLockSeconds,
+    int? clipboardClearSeconds,
+    bool? isAutofillSupported,
+    bool? isAutofillEnabled,
+    bool? isAutotypeSupported,
+    bool? isAutotypeEnabled,
+    String? autotypeHotkey,
     bool? isRegistered,
+    String? userName,
     String? host,
     List<UserEntity>? friends,
     Map<int, String>? fingerprints,
@@ -196,18 +206,10 @@ class SettingsState {
     bool? pwAvoidIlO0,
     ThemeMode? themeMode,
     String? categoryPlaceholder,
-    bool? canOpenAppSettings,
-    bool? canOpenBiometricSettings,
-    bool? isAutofillSupported,
-    bool? isAutotypeSupported,
-    bool? autofillEnabled,
-    bool? isAutofillEnabled,
-    String? autofillHotkey,
-    Object? autoLockSeconds = _keep,
-    Object? clipboardClearSeconds = _keep,
     LogLevel? logLevel,
     int? logDays,
     int? logSize,
+    bool? canOpenAppSettings,
     SettingsActionStatus? status,
     AppError? error,
   }) {
@@ -215,8 +217,16 @@ class SettingsState {
       vaultStoragePath: vaultStoragePath ?? this.vaultStoragePath,
       vaultName: vaultName ?? this.vaultName,
       useBiometric: useBiometric ?? this.useBiometric,
-      userName: userName ?? this.userName,
+      canOpenBiometricSettings: canOpenBiometricSettings ?? this.canOpenBiometricSettings,
+      autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
+      clipboardClearSeconds: clipboardClearSeconds ?? this.clipboardClearSeconds,
+      isAutofillSupported: isAutofillSupported ?? this.isAutofillSupported,
+      isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
+      isAutotypeSupported: isAutotypeSupported ?? this.isAutotypeSupported,
+      isAutotypeEnabled: isAutotypeEnabled ?? this.isAutotypeEnabled,
+      autotypeHotkey: autotypeHotkey ?? this.autotypeHotkey,
       isRegistered: isRegistered ?? this.isRegistered,
+      userName: userName ?? this.userName,
       host: host ?? this.host,
       friends: friends ?? this.friends,
       fingerprints: fingerprints ?? this.fingerprints,
@@ -226,22 +236,12 @@ class SettingsState {
       pwAvoidIlO0: pwAvoidIlO0 ?? this.pwAvoidIlO0,
       themeMode: themeMode ?? this.themeMode,
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
-      canOpenAppSettings: canOpenAppSettings ?? this.canOpenAppSettings,
-      canOpenBiometricSettings: canOpenBiometricSettings ?? this.canOpenBiometricSettings,
-      isAutofillSupported: isAutofillSupported ?? this.isAutofillSupported,
-      isAutotypeSupported: isAutotypeSupported ?? this.isAutotypeSupported,
-      autofillEnabled: autofillEnabled ?? this.autofillEnabled,
-      isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
-      autofillHotkey: autofillHotkey ?? this.autofillHotkey,
-      autoLockSeconds: autoLockSeconds == _keep ? this.autoLockSeconds : autoLockSeconds as int?,
-      clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,
       logLevel: logLevel ?? this.logLevel,
       logDays: logDays ?? this.logDays,
       logSize: logSize ?? this.logSize,
+      canOpenAppSettings: canOpenAppSettings ?? this.canOpenAppSettings,
       status: status ?? this.status,
       error: error ?? this.error,
     );
   }
 }
-
-const _keep = Object();

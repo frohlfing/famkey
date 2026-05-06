@@ -7,7 +7,7 @@ import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_state.d
 import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/widgets/confirm_dialog.dart';
 
-/// Ein modaler Dialog zum Ändern des Auto-Type-Tastenkürzels.
+/// Ein modaler Dialog zum Ändern des Autotype-Tastenkürzels.
 class AutotypeHotkeyDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
@@ -101,7 +101,7 @@ class _AutotypeHotkeyDialogState extends ConsumerState<AutotypeHotkeyDialog> {
     final notifier = ref.read(autotypeHotkeyProvider.notifier);
 
     return AlertDialog(
-      title: const Text('Auto-Type Tastenkürzel'),
+      title: const Text('Autotype Tastenkürzel'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0), // Abstand zum Bildschirmrand verringern
       content: SizedBox(
         width: 450,

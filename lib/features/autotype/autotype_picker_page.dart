@@ -11,7 +11,7 @@ import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/widgets/snack.dart';
 
-/// Die Flutter-Seite zur Eintrags-Auswahl beim Auto-Type-Vorgang (nur Windows, Szenario B).
+/// Die Flutter-Seite zur Eintrags-Auswahl beim Autotype-Vorgang (nur Windows, Szenario B).
 ///
 /// # Wann erscheint diese Seite?
 ///
@@ -173,7 +173,7 @@ class _AutotypePickerPageState extends State<AutotypePickerPage> {
   }
 
   /// Entschlüsselt den gewählten Eintrag vollständig, zeigt den Bestätigungsdialog
-  /// und startet anschließend den Auto-Type-Vorgang.
+  /// und startet anschließend den Autotype-Vorgang.
   ///
   /// # Entschlüsselungs-Ablauf (RSA + AES – identisch zum Android-Picker)
   ///
@@ -243,7 +243,7 @@ class _AutotypePickerPageState extends State<AutotypePickerPage> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Auto-Type'),
+          title: const Text('Autotype'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +285,7 @@ class _AutotypePickerPageState extends State<AutotypePickerPage> {
         return;
       }
 
-      log.debug('Auto-Type bestätigt');
+      log.debug('Autotype bestätigt');
 
       // typeCredentials() schickt via MethodChannel die Zugangsdaten an C++.
       // C++ bringt das Zielfenster in den Vordergrund und tippt die Sequenz.
@@ -298,7 +298,7 @@ class _AutotypePickerPageState extends State<AutotypePickerPage> {
       } else {
         // Fehlschlag: Zielfenster existiert nicht mehr → Fehlermeldung anzeigen.
         // Picker bleibt offen, damit der Nutzer es manuell schließen kann.
-        Snack.show(context, 'Auto-Type fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
+        Snack.show(context, 'Autotype fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
       }
     } catch (_) {
       if (mounted) Snack.show(context, 'Fehler beim Entschlüsseln des Eintrags.');
@@ -310,7 +310,7 @@ class _AutotypePickerPageState extends State<AutotypePickerPage> {
     return Scaffold(
       appBar: AppBar(
         // Fenstertitel im AppBar, damit der Nutzer sieht, für welches Fenster er tippt.
-        title: Text(_windowTitle.isNotEmpty ? 'Auto-Type: $_windowTitle' : 'Auto-Type'),
+        title: Text(_windowTitle.isNotEmpty ? 'Autotype: $_windowTitle' : 'Autotype'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),

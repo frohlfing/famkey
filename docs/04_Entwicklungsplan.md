@@ -76,6 +76,7 @@
 ## 2. Todos / Feinschliff
 - DetailActionStatus -> DetailStatus
 - MasterPasswordFormData -> MasterPasswordForm
+- userName oder username
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)

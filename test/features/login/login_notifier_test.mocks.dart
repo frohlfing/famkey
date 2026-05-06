@@ -188,7 +188,7 @@ class MockConfigService extends _i1.Mock implements _i6.ConfigService {
           as bool);
 
   @override
-  String get autofillHotkey =>
+  String get autotypeHotkey =>
       (super.noSuchMethod(
             Invocation.getter(#autofillHotkey),
             returnValue: _i7.dummyValue<String>(
@@ -259,7 +259,7 @@ class MockConfigService extends _i1.Mock implements _i6.ConfigService {
   );
 
   @override
-  set autofillHotkey(String? value) => super.noSuchMethod(
+  set autotypeHotkey(String? value) => super.noSuchMethod(
     Invocation.setter(#autofillHotkey, value),
     returnValueForMissingStub: null,
   );

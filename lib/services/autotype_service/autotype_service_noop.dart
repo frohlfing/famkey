@@ -1,6 +1,6 @@
 import 'package:famkey/services/autotype_service.dart';
 
-/// Platzhalter-Implementierung für Plattformen ohne Auto-Type-Unterstützung (Android, Web).
+/// Platzhalter-Implementierung für Plattformen ohne Autotype-Unterstützung (Android, Web).
 class AutotypeServiceNoop implements AutotypeService {
   @override
   bool get isSupported => false;

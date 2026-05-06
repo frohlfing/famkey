@@ -133,7 +133,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
               if (env.isWindows)
                 IconButton(
                   icon: const Icon(Icons.keyboard_outlined),
-                  tooltip: 'Auto-Type: Credentials einfügen',
+                  tooltip: 'Autotype: Credentials einfügen',
                   onPressed: isBusy ? null : _handleAutotype,
                 ),
               if (canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
@@ -614,7 +614,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Auto-Type'),
+        title: const Text('Autotype'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,7 +646,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
     final ok = await autoTypeService.typeCredentials(username, password);
     if (mounted && !ok) {
-      Snack.show(context, 'Auto-Type fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
+      Snack.show(context, 'Autotype fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
     }
   }
 

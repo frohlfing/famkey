@@ -29,9 +29,8 @@ class ClipboardClearNotifier extends Notifier<ClipboardClearState> {
   /// Lädt die aktuelle Einstellung aus der Konfiguration.
   Future<void> load() async {
     if (state.isBusy) return;
-    final seconds = _configService.clipboardClearSeconds;
     state = ClipboardClearState(
-      selectedValue: seconds ?? 0,
+      selectedValue: _configService.clipboardClearSeconds ?? 0,
       status: ClipboardClearActionStatus.loaded,
     );
   }
@@ -44,8 +43,7 @@ class ClipboardClearNotifier extends Notifier<ClipboardClearState> {
   void save() {
     if (state.isBusy) return;
     state = state.copyWith(status: ClipboardClearActionStatus.progress, error: AppError.none());
-    final seconds = state.selectedValue == 0 ? null : state.selectedValue;
-    _configService.clipboardClearSeconds = seconds;
+    _configService.clipboardClearSeconds = state.selectedValue == 0 ? null : state.selectedValue;
     state = state.copyWith(status: ClipboardClearActionStatus.saved);
   }
 

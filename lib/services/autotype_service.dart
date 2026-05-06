@@ -2,7 +2,7 @@ import 'package:famkey/core/env.dart';
 import 'package:famkey/services/autotype_service/autotype_service_noop.dart';
 import 'package:famkey/services/autotype_service/autotype_service_windows.dart';
 
-/// Windows-spezifischer Service für Auto-Type.
+/// Windows-spezifischer Service für Autotype.
 ///
 /// Simuliert Tastatureingaben, um Zugangsdaten in beliebige Windows-Fenster
 /// einzutragen (Win32 SendInput-API via MethodChannel).
@@ -17,7 +17,7 @@ abstract class AutotypeService {
 
   factory AutotypeService() => env.isWindows ? AutotypeServiceWindows() : AutotypeServiceNoop();
 
-  /// Gibt an, ob Auto-Type auf dieser Plattform verfügbar ist.
+  /// Gibt an, ob Autotype auf dieser Plattform verfügbar ist.
   bool get isSupported;
 
   /// Initialisiert den MethodChannel-Handler und registriert den globalen Hotkey.

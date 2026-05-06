@@ -6,7 +6,7 @@ import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/session_service.dart';
 
-/// Windows-Implementierung des Auto-Type-Mechanismus.
+/// Windows-Implementierung des Autotype-Mechanismus.
 ///
 /// ═══════════════════════════════════════════════════════════════════════════
 /// WARUM KEIN "ECHTES" AUTOFILL WIE AUF ANDROID?
@@ -18,10 +18,10 @@ import 'package:famkey/services/session_service.dart';
 /// Benutzernamen und das Passwort in das aktive Fenster, genau so wie es ein
 /// Mensch tun würde – nur viel schneller.
 ///
-/// Diese Technik heißt **Auto-Type**.
+/// Diese Technik heißt **Autotype**.
 ///
 /// ═══════════════════════════════════════════════════════════════════════════
-/// GROSSES BILD: Wie funktioniert Auto-Type auf Windows?
+/// GROSSES BILD: Wie funktioniert Autotype auf Windows?
 /// ═══════════════════════════════════════════════════════════════════════════
 ///
 /// Der Ablauf verläuft über drei Schichten:
@@ -64,7 +64,7 @@ import 'package:famkey/services/session_service.dart';
 /// wiederfinden, in den Vordergrund bringen oder ihm Tastaturereignisse schicken.
 ///
 /// FamKey speichert das HWND des zuletzt aktiven Nicht-FamKey-Fensters
-/// in der C++-Variable `g_previousHwnd`. Das ist das Ziel des Auto-Type.
+/// in der C++-Variable `g_previousHwnd`. Das ist das Ziel des Autotype.
 ///
 /// # Wie verfolgt FamKey das aktive Fenster?
 ///
@@ -80,7 +80,7 @@ import 'package:famkey/services/session_service.dart';
 /// **Szenario A — Button in der Detailansicht:**
 ///
 /// ```
-///   FamKey (Detailansicht)              C++ (Auto-Type)
+///   FamKey (Detailansicht)              C++ (Autotype)
 ///   ────────────────────────              ───────────────
 ///
 ///   Nutzer klickt Tastatur-Icon
@@ -178,7 +178,7 @@ class AutotypeServiceWindows implements AutotypeService {
       if (call.method == 'onHotkey') {
         final args = call.arguments as Map<Object?, Object?>?;
         final windowTitle = args?['windowTitle'] as String? ?? '';
-        log.debug('Auto-Type Hotkey empfangen');
+        log.debug('Autotype Hotkey empfangen');
 
         // Nur navigieren wenn eingeloggt – indexKey ist nur gesetzt wenn eine Session aktiv ist.
         // Ist der Nutzer nicht eingeloggt, ist FamKey durch den Hotkey schon im Vordergrund
@@ -204,7 +204,7 @@ class AutotypeServiceWindows implements AutotypeService {
   /// Änderung in den Einstellungen). Ausgelagert, damit keine Duplizierung entsteht.
   Future<void> _registerFromConfig() async {
     final configService = getIt<ConfigService>();
-    final hotkey = configService.autofillHotkey;
+    final hotkey = configService.autotypeHotkey;
     final parsed = _parseHotkey(hotkey);
     if (parsed != null) {
       try {
@@ -361,20 +361,20 @@ class AutotypeServiceWindows implements AutotypeService {
   /// `NO_TARGET_WINDOW` zurück.
   @override
   Future<bool> typeCredentials(String username, String password) async {
-    log.debug('Auto-Type starten');
+    log.debug('Autotype starten');
     try {
       await _autoTypeChannel.invokeMethod<void>('typeCredentials', {
         'username': username,
         'password': password,
       });
-      log.debug('Auto-Type erfolgreich');
+      log.debug('Autotype erfolgreich');
       return true;
     } on PlatformException catch (e) {
       // PlatformException kommt von C++ (z.B. NO_TARGET_WINDOW).
-      log.warn('Auto-Type fehlgeschlagen', context: {'code': e.code, 'message': e.message});
+      log.warn('Autotype fehlgeschlagen', context: {'code': e.code, 'message': e.message});
       return false;
     } catch (e) {
-      log.warn('Auto-Type Fehler', context: {'error': e.toString()});
+      log.warn('Autotype Fehler', context: {'error': e.toString()});
       return false;
     }
   }

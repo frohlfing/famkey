@@ -70,10 +70,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     // Initialer State
     return SettingsState().copyWith(
-      canOpenAppSettings: _infoService.canOpenSettings,
       canOpenBiometricSettings: _biometricService.canOpenSettings,
       isAutofillSupported: _autofillService.isSupported,
       isAutotypeSupported: _autotypeService.isSupported,
+      canOpenAppSettings: _infoService.canOpenSettings,
     );
   }
 
@@ -102,24 +102,25 @@ class SettingsNotifier extends Notifier<SettingsState> {
         vaultStoragePath: env.vaultStoragePath,
         vaultName: _sessionService.vaultName,
         useBiometric: _settings!.useBiometric,
-        userName: _sessionService.user?.name ?? '',
+        autoLockSeconds: _configService.autoLockSeconds ?? 0,
+        clipboardClearSeconds: _configService.clipboardClearSeconds ?? 0,
+        isAutofillEnabled: isAutofillEnabled,
+        isAutotypeEnabled: _configService.isAutotypeEnabled,
+        autotypeHotkey: _configService.autotypeHotkey,
         isRegistered: _settings!.lastSyncAt.year > 1970,
+        userName: _sessionService.user?.name ?? '',
         host: _settings!.host,
-        pwLength: _settings!.pwLength,
-        pwSpecialChars: _settings!.pwSpecialChars,
-        pwAvoidIlO0: _settings!.pwAvoidIlO0,
         friends: friends,
         fingerprints: fingerprints,
         friendNeedsRekeying: friendNeedsRekeying,
+        pwLength: _settings!.pwLength,
+        pwSpecialChars: _settings!.pwSpecialChars,
+        pwAvoidIlO0: _settings!.pwAvoidIlO0,
         themeMode: _configService.themeMode,
         categoryPlaceholder: _settings!.categoryPlaceholder,
-        autofillEnabled: _configService.autofillEnabled,
-        isAutofillEnabled: isAutofillEnabled,
-        autofillHotkey: _configService.autofillHotkey,
-        autoLockSeconds: _configService.autoLockSeconds,
-        clipboardClearSeconds: _configService.clipboardClearSeconds,
         logLevel: _configService.logLevel,
         logDays: _configService.logDays,
+        logSize: _configService.logSize,
         status: SettingsActionStatus.loaded,
       );
 
@@ -313,8 +314,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       return;
     }
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-    _configService.autofillEnabled = value;
-    state = state.copyWith(autofillEnabled: value, status: SettingsActionStatus.saved);
+    _configService.isAutotypeEnabled = value;
+    state = state.copyWith(isAutotypeEnabled: value, status: SettingsActionStatus.saved);
   }
 
   /// Aktualisiert den Android-Systemzustand von Autofill (nach Rückkehr aus Systemeinstellungen).
