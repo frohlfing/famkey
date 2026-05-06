@@ -6,6 +6,7 @@ import 'package:famkey/widgets/confirm_dialog.dart';
 
 /// Ein modaler Dialog zum Konfigurieren des Passwortgenerators.
 class PasswordGeneratorDialog extends ConsumerStatefulWidget {
+
   /// Initiale Parameter
   // (keine)
 

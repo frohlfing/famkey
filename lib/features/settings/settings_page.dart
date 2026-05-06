@@ -4,8 +4,8 @@ import 'package:famkey/core/env.dart';
 import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_dialog.dart';
 import 'package:famkey/features/settings/category_placeholder/category_placeholder_dialog.dart';
 import 'package:famkey/features/settings/log_config/log_config_dialog.dart';
-import 'package:famkey/features/settings/timeouts/autolock_dialog.dart';
-import 'package:famkey/features/settings/timeouts/clipboard_clear_dialog.dart';
+import 'package:famkey/features/settings/autolock_dialog/autolock_dialog.dart';
+import 'package:famkey/features/settings/clipboard_clear/clipboard_clear_dialog.dart';
 import 'package:famkey/features/settings/log_file/log_file_dialog.dart';
 import 'package:famkey/features/settings/master_password/master_password_dialog.dart';
 import 'package:famkey/features/settings/new_friend/new_friend_dialog.dart';
@@ -991,22 +991,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
     await LogFileDialog.show(context);
   }
 
-  // todo dem Dialog das Laden und Speichern überlassen
   /// Öffnet den Dialog zum Ändern der Auto-Sperre.
   Future<void> _showAutolockDialog() async {
-    final current = ref.read(settingsProvider).autoLockMinutes;
-    final result = await AutolockDialog.show(context, initialValue: current);
-    if (result == null || !mounted) return;
-    ref.read(settingsProvider.notifier).saveAutolockMinutes(result == 0 ? null : result);
+    final ok = await AutolockDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) ref.read(settingsProvider.notifier).load();
+    }
   }
 
-  // todo dem Dialog das Laden und Speichern überlassen
   /// Öffnet den Dialog zum Ändern des Zwischenablage-Timeouts.
   Future<void> _showClipboardClearDialog() async {
-    final current = ref.read(settingsProvider).clipboardClearSeconds;
-    final result = await ClipboardClearDialog.show(context, initialValue: current);
-    if (result == null || !mounted) return;
-    ref.read(settingsProvider.notifier).saveClipboardClearSeconds(result == 0 ? null : result);
+    final ok = await ClipboardClearDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) ref.read(settingsProvider.notifier).load();
+    }
   }
 
   /// Öffnet den Dialog zum Ändern des Auto-Type-Tastenkürzels.

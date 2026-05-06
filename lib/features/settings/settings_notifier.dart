@@ -7,7 +7,6 @@ import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/settings/settings_state.dart';
-import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/services/autofill_service.dart';
 import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/biometric_service.dart';
@@ -29,7 +28,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
-  late final AutolockService _autoLockService;
   late final AutofillService _autofillService;
   late final AutotypeService _autotypeService;
   late final BiometricService _biometricService;
@@ -59,7 +57,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   @override
   SettingsState build() {
     // Dienste aus getIt holen
-    _autoLockService = getIt<AutolockService>();
     _autofillService = getIt<AutofillService>();
     _autotypeService = getIt<AutotypeService>();
     _biometricService = getIt<BiometricService>();
@@ -297,23 +294,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // ------------------------------------------------------------------------
   // --- Timeouts ---
   // ------------------------------------------------------------------------
-
-  /// Speichert die Auto-Sperre-Einstellung (null = nie).
-  void saveAutolockMinutes(int? minutes) {
-    if (state.isBusy) return;
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-    _configService.autoLockMinutes = minutes;
-    _autoLockService.configure(minutes);
-    state = state.copyWith(autoLockMinutes: minutes, status: SettingsActionStatus.saved);
-  }
-
-  /// Speichert die Zwischenablage-Timeout-Einstellung (null = nie).
-  void saveClipboardClearSeconds(int? seconds) {
-    if (state.isBusy) return;
-    state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
-    _configService.clipboardClearSeconds = seconds;
-    state = state.copyWith(clipboardClearSeconds: seconds, status: SettingsActionStatus.saved);
-  }
 
   /// Kopiert den Text in die Zwischenablage und startet den Clear-Timer.
   void copyToClipboard(String text) {
