@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_file.dart';
-import 'package:famkey/core/app_file_factory.dart';
 import 'package:famkey/widgets/confirm_dialog.dart';
 import 'package:famkey/widgets/password_field.dart';
 import 'import_form_data.dart';
@@ -345,7 +344,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     try {
       // Datei auswählen
       final state = ref.read(importProvider);
-      final picker = createAppFilePicker();
+      final picker = AppFilePicker();
       final files = await picker.pickFiles(
         allowedExtensions: state.formData.format.allowedExtensions,
       );

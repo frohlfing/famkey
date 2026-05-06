@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import '../../../../core/app_file.dart';
-import '../../../../core/app_file_factory.dart';
 import '../parser.dart';
 
 /// Ein Parser für unverschlüsselte Bitwarden JSON-Exportdateien.
@@ -280,7 +279,7 @@ class BitwardenJsonParser implements Parser {
 
       var attachmentPath = p.join(baseDir, fileName);
       try {
-        final file = createAppFile(attachmentPath);
+        final file = AppFile(attachmentPath);
         if (!await file.exists()) {
           final lineNumber = await _findLineNumberOfText(_file.path, '"fileName": "$fileName"');
           throw ParserError('Anhang "$fileName" nicht gefunden. Datei im Unterordner "files" erwartet.', path: _file.path, lineNumber: lineNumber);
@@ -300,7 +299,7 @@ class BitwardenJsonParser implements Parser {
   /// Verwendet einen Stream, um die Datei effizient zu lesen.
   Future<int?> _findLineNumberOfText(String filePath, String searchText) async {
     try {
-      final file = createAppFile(filePath);
+      final file = AppFile(filePath);
       int lineNumber = 1;
       await for (final line in file.openReadLines()) {
         if (line.contains(searchText)) return lineNumber;

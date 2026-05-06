@@ -4,7 +4,6 @@ import 'package:crypto/crypto.dart' as crypto_hash;
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:famkey/core/app_file.dart';
-import 'package:famkey/core/app_file_factory.dart';
 import 'package:famkey/core/env.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:zxcvbn/zxcvbn.dart';
@@ -146,7 +145,7 @@ class PasswordService {
   Future<void> _loadHibpCache() async {
     try {
       final path = p.join(env.storagePath, 'hibp_cache.json');
-      _hibpCacheFile = createAppFile(path);
+      _hibpCacheFile = AppFile(path);
 
       if (!await _hibpCacheFile.exists()) {
         _hibpCache = {};

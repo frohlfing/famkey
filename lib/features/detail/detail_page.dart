@@ -1,7 +1,7 @@
 ﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/app_file.dart';
 import 'package:famkey/core/env.dart';
 import 'package:famkey/core/helper.dart';
 import 'package:famkey/core/service_locator.dart';
@@ -552,7 +552,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     setState(() => _isPickingFile = true); // Mit setState wird erst die anonymen Funktion aufgerufen, danach wird das Widget als "dirty" markiert (wodurch im nächsten Frame die build-Methode neu rendert)
     try {
       // Datei auswählen
-      final picker = createAppFilePicker();
+      final picker = AppFilePicker();
       final files = await picker.pickFiles();
       if (!mounted || files.isEmpty) return;
 

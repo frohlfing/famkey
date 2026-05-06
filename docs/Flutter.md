@@ -97,9 +97,9 @@ Hier ist die Umsetzung für einen `DummyService`:
     
     ```dart
     // Bedingte Importe der Implementierungs-Logik
-    import 'dummy_service_stub.dart'
-      if (dart.library.io) 'dummy_service_io.dart'
-      if (dart.library.js_interop) 'dummy_service_web.dart';
+    import 'dummy_service/dummy_service_stub.dart'
+      if (dart.library.io) 'dummy_service/dummy_service_io.dart'
+      if (dart.library.js_interop) 'dummy_service/dummy_service_web.dart';
     
     abstract class DummyService {
       // Der Factory-Konstruktor delegiert an eine Top-Level-Funktion, die in allen importierten Dateien existiert.
@@ -109,13 +109,13 @@ Hier ist die Umsetzung für einen `DummyService`:
     }
     ```
 
-2. Der Stub: `dummy_service_stub.dart`
+2. Der Stub: `dummy_service/dummy_service_stub.dart`
 
     Diese Datei dient als Sicherheitsnetz für Plattformen, die nicht explizit abgedeckt sind, und verhindert Analyse-Fehler 
     in der IDE.
     
     ```dart
-    import 'dummy_service.dart';
+    import '../dummy_service.dart';
     
     // Die Funktion wirft standardmäßig einen Fehler
     DummyService createDummyService() => throw UnsupportedError(
@@ -123,14 +123,14 @@ Hier ist die Umsetzung für einen `DummyService`:
     );
     ```
 
-3. Die Native-Implementierung: `dummy_service_native.dart`
+3. Die Native-Implementierung: `dummy_service/dummy_service_native.dart`
 
     Hier können Bibliotheken wie `dart:io` sicher importiert werden, da diese Datei nur für Mobile- oder Desktop-Builds
     herangezogen wird.
     
     ```dart
     import 'dart:io';
-    import 'dummy_service.dart';
+    import '../dummy_service.dart';
     
     class DummyServiceNative implements DummyService {
       @override
@@ -141,14 +141,14 @@ Hier ist die Umsetzung für einen `DummyService`:
     DummyService createDummyService() => DummyServiceNative();
     ```
 
-4. Die Web-Implementierung: `dummy_service_web.dart`
+4. Die Web-Implementierung: `dummy_service/dummy_service_web.dart`
 
     Für die Wasm-Kompatibilität wird hier auf `dart.library.js_interop` geprüft und modernes `package:web` verwendet.
     
     ```dart
     import 'package:web/web.dart' as web;
     import 'dart:js_interop';
-    import 'dummy_service.dart';
+    import '../dummy_service.dart';
     
     class DummyServiceWeb implements DummyService {
       @override

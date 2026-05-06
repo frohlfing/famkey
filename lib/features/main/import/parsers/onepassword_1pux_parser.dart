@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/app_file.dart';
-import '../../../../core/app_file_factory.dart';
 import '../parser.dart';
 
 /// Ein Parser für 1Password 1PUX Exportdateien.
@@ -56,7 +55,7 @@ class OnePassword1PuxParser implements Parser {
     // Datei öffnen und Inhalt lesen
     Uint8List bytes;
     try {
-      bytes = await createAppFile(_file.path).readAsBytes();
+      bytes = await AppFile(_file.path).readAsBytes();
     } catch (e) {
       throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }
@@ -444,7 +443,7 @@ class OnePassword1PuxParser implements Parser {
     if (archiveFile == null) {
       throw ParserError('Die 1pux-Datei ist fehlerhaft. Dateianhang mit ID "$documentId" ist nicht eingebettet.', path: _file.path, lineNumber: lineNumber);
     }
-    final binary = archiveFile.content as Uint8List;
+    final binary = archiveFile.content;
     return ParsedAttachment(binary, filename: fileName);
   }
 

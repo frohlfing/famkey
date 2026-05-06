@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 import '../../../../core/app_file.dart';
-import '../../../../core/app_file_factory.dart';
 import '../parser.dart';
 
 /// Ein Parser für KeePass XML (2.x) Exportdateien.
@@ -51,7 +50,7 @@ class KeepassXmlParser implements Parser {
     // Datei öffnen und Inhalt lesen
     String fileContent;
     try {
-      fileContent = await createAppFile(_file.path).readAsString();
+      fileContent = await AppFile(_file.path).readAsString();
     } catch (e) {
       throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }
@@ -138,7 +137,7 @@ class KeepassXmlParser implements Parser {
   /// Verwendet einen Stream, um die Datei effizient zu lesen.
   Future<int?> _findLineNumberOfText(String filePath, String searchText) async {
     try {
-      final file = createAppFile(filePath);
+      final file = AppFile(filePath);
       int lineNumber = 1;
       await for (final line in file.openReadLines()) {
         if (line.contains(searchText)) return lineNumber;

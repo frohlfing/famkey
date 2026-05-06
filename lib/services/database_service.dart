@@ -1,7 +1,7 @@
 ﻿import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
 import 'package:path/path.dart' as p;
-import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/app_file.dart';
 import 'package:famkey/database/database.dart';
 import '../core/env.dart';
 
@@ -73,7 +73,7 @@ class DatabaseService {
 
   /// Liest das Salt aus der Salt-Datei.
   Future<Uint8List?> getSalt(String vaultName) async {
-    final saltFile = createAppFile(_getSaltPath(vaultName));
+    final saltFile = AppFile(_getSaltPath(vaultName));
     if (await saltFile.exists()) {
       return saltFile.readAsBytes();
     }
@@ -82,7 +82,7 @@ class DatabaseService {
 
   /// Speichert das Salt in die Salt-Datei.
   Future<void> saveSalt(String vaultName, Uint8List saltBytes) {
-    final saltFile = createAppFile(_getSaltPath(vaultName));
+    final saltFile = AppFile(_getSaltPath(vaultName));
     return saltFile.writeAsBytes(saltBytes);
   }
 
@@ -107,7 +107,7 @@ class DatabaseService {
   /// Prüft, ob eine Datenbankdatei für den angegebenen Tresornamen bereits existiert.
   Future<bool> databaseExists(String vaultName) {
     final path = getDatabasePath(vaultName);
-    return createAppFile(path).exists();
+    return AppFile(path).exists();
   }
 
   /// Listet existierende Tresore auf.
@@ -115,7 +115,7 @@ class DatabaseService {
     final path = env.vaultStoragePath;
     if (path.isEmpty) return [];
 
-    final dir = createAppDirectory(path);
+    final dir = AppDirectory(path);
     if (!await dir.exists()) return [];
     final files = await dir.list(recursive: true);
 
@@ -150,7 +150,7 @@ class DatabaseService {
   /// Wird z.B. vor kritischen Operationen wie `rekey` aufgerufen.
   Future<void> createBackup() async {
     _ensureDbPathInitialized();
-    final file = createAppFile(_currentDbPath!);
+    final file = AppFile(_currentDbPath!);
     if (await file.exists()) {
       await file.copy('$_currentDbPath.bak');
     }
@@ -160,7 +160,7 @@ class DatabaseService {
   Future<void> removeBackup() async {
     _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
-    final backupFile = createAppFile(backupPath);
+    final backupFile = AppFile(backupPath);
     if (await backupFile.exists()) {
       try {
         await backupFile.delete();
@@ -175,7 +175,7 @@ class DatabaseService {
   Future<void> restoreBackup() async {
     _ensureDbPathInitialized();
     final backupPath = '$_currentDbPath.bak';
-    final backupFile = createAppFile(backupPath);
+    final backupFile = AppFile(backupPath);
     if (!await backupFile.exists()) {
       debugPrint("Es konnte keine Backup-Datei gefunden werden.");
       return;
@@ -197,15 +197,15 @@ class DatabaseService {
     final newPath = getDatabasePath(newName);
 
     // DB umbenennen
-    final oldFile = createAppFile(oldPath);
+    final oldFile = AppFile(oldPath);
     if (await oldFile.exists()) await oldFile.rename(newPath);
 
     // Salt umbenennen
-    final oldSalt = createAppFile('$oldPath.salt');
+    final oldSalt = AppFile('$oldPath.salt');
     if (await oldSalt.exists()) await oldSalt.rename('$newPath.salt');
 
     // Backup der Datei umbenennen
-    final oldBak = createAppFile('$oldPath.bak');
+    final oldBak = AppFile('$oldPath.bak');
     if (await oldBak.exists()) await oldBak.rename('$newPath.bak');
 
     _currentDbPath = newPath;
@@ -218,10 +218,10 @@ class DatabaseService {
     await close();
 
     if (path != null) {
-      final dbFile = createAppFile(path);
+      final dbFile = AppFile(path);
       if (await dbFile.exists()) await dbFile.delete();
 
-      final saltFile = createAppFile('$path.salt');
+      final saltFile = AppFile('$path.salt');
       if (await saltFile.exists()) await saltFile.delete();
     }
   }

@@ -3,13 +3,23 @@ import 'dart:typed_data';
 
 import 'package:famkey/core/helper.dart';
 
+import 'app_file/app_file_stub.dart'
+  if (dart.library.ffi) 'app_file/app_file_native.dart'
+  if (dart.library.js_interop) 'app_file/app_file_web.dart';
+
+export 'app_file/app_file_stub.dart'
+  if (dart.library.ffi) 'app_file/app_file_native.dart'
+  if (dart.library.js_interop) 'app_file/app_file_web.dart'
+  show downloadAppFile, createTempAppFile, createTempAppDirectory;
+
 /// Plattformunabhängige Abstraktion für Dateizugriffe.
 ///
 /// - Nativ (Android, iOS, Windows, macOS, Linux): `dart:io File`
 /// - Web: Origin-Private File System (OPFS)
-///
-/// Instanzen werden ausschließlich über [createAppFile] erzeugt.
 abstract class AppFile {
+
+  /// Erzeugt eine Instanz für den angegebenen Pfad (plattformspezifisch).
+  factory AppFile(String path) => createAppFile(path);
 
   /// Gibt eine nicht existierende Datei zurück.
   const factory AppFile.none() = _AppFileNone;
@@ -185,6 +195,9 @@ class AppFileMemory implements AppFile {
 /// Plattformunabhängige Abstraktion für ein Verzeichnis.
 abstract class AppDirectory {
 
+  /// Erzeugt eine Instanz für den angegebenen Pfad (plattformspezifisch).
+  factory AppDirectory(String path) => createAppDirectory(path);
+
   /// Vollständiger Pfad (native) oder logischer Pfad (Web).
   String get path;
 
@@ -201,9 +214,10 @@ abstract class AppDirectory {
 }
 
 /// Plattformunabhängige Abstraktion für den Datei-Picker.
-///
-/// Instanzen werden ausschließlich über [createAppFilePicker] erzeugt.
 abstract class AppFilePicker {
+
+  /// Erzeugt eine Instanz (plattformspezifisch).
+  factory AppFilePicker() => createAppFilePicker();
 
   /// Öffnet den Datei-Picker und lässt den Benutzer eine oder mehrere Dateien auswählen.
   ///

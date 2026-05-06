@@ -1,6 +1,6 @@
 ﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_error.dart';
-import 'package:famkey/core/app_file_factory.dart';
+import 'package:famkey/core/app_file.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/features/settings/log_file/log_file_state.dart';
 import 'package:famkey/services/config_service.dart';
@@ -36,7 +36,7 @@ class LogFileNotifier extends Notifier<LogFileState> {
     try {
       final path = Logger().logPath;
       if (path == null) throw Exception('Logdatei wurde nicht initialisiert');
-      final file = createAppFile(path);
+      final file = AppFile(path);
       final exists = await file.exists();
       //final content = exists ? (await file.readAsLines()).join('\n') : '';
       final content = exists ? await file.readAsString() : '';
@@ -63,7 +63,7 @@ class LogFileNotifier extends Notifier<LogFileState> {
     try {
       final path = Logger().logPath;
       if (path == null) throw Exception('Logdatei wurde nicht initialisiert');
-      final file = createAppFile(path);
+      final file = AppFile(path);
       final exists = await file.exists();
       if (exists) await file.writeAsString('');
 

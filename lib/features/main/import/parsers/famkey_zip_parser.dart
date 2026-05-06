@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../../core/app_file.dart';
-import '../../../../core/app_file_factory.dart';
 import '../parser.dart';
 
 /// Ein Parser für FamKey ZIP-Exportdateien.
@@ -54,7 +53,7 @@ class FamKeyZipParser implements Parser {
     // 1. Datei lesen
     final Uint8List bytes;
     try {
-      bytes = await createAppFile(_file.path).readAsBytes();
+      bytes = await AppFile(_file.path).readAsBytes();
     } catch (e) {
       throw ParserError('Die Datei konnte nicht geöffnet werden.', path: _file.path, originalErrorMessage: e.toString());
     }

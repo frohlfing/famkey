@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:famkey/core/app_file_factory.dart';
 import 'package:famkey/core/app_file.dart';
 import 'package:famkey/core/env.dart';
 
@@ -72,7 +71,7 @@ class Logger {
     _initialized = true;
     configure(level: level, days: days, size: size);
     final path = p.join(env.storagePath, 'FamKey.log');
-    _logFile = createAppFile(path);
+    _logFile = AppFile(path);
     await _cleanupOldEntries();
   }
 
