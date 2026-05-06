@@ -116,7 +116,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         autofillEnabled: _configService.autofillEnabled,
         isAutofillEnabled: isAutofillEnabled,
         autofillHotkey: _configService.autofillHotkey,
-        autoLockMinutes: _configService.autoLockMinutes,
+        autoLockSeconds: _configService.autoLockSeconds,
         clipboardClearSeconds: _configService.clipboardClearSeconds,
         logLevel: _configService.logLevel,
         logDays: _configService.logDays,

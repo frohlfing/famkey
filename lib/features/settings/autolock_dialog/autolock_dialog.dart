@@ -27,12 +27,12 @@ class _AutolockDialogState extends ConsumerState<AutolockDialog> {
 
   static const _options = [
     (value: 0, label: 'Nie'),
-    (value: 1, label: 'Nach 1 Minute'),
-    (value: 2, label: 'Nach 2 Minuten'),
-    (value: 3, label: 'Nach 3 Minuten'),
-    (value: 4, label: 'Nach 4 Minuten'),
-    (value: 5, label: 'Nach 5 Minuten'),
-    (value: 10, label: 'Nach 10 Minuten'),
+    (value: 30, label: 'Nach 30 Sekunden'),
+    (value: 60, label: 'Nach 1 Minute'),
+    (value: 120, label: 'Nach 2 Minuten'),
+    (value: 180, label: 'Nach 3 Minuten'),
+    (value: 300, label: 'Nach 5 Minuten'),
+    (value: 600, label: 'Nach 10 Minuten'),
   ];
 
   // ------------------------------------------------------------------------

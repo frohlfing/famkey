@@ -32,9 +32,9 @@ class AutolockNotifier extends Notifier<AutolockState> {
   /// Lädt die aktuelle Einstellung aus der Konfiguration.
   Future<void> load() async {
     if (state.isBusy) return;
-    final minutes = _configService.autoLockMinutes;
+    final seconds = _configService.autoLockSeconds;
     state = AutolockState(
-      selectedValue: minutes ?? 0,
+      selectedValue: seconds ?? 0,
       status: AutolockActionStatus.loaded,
     );
   }
@@ -47,9 +47,9 @@ class AutolockNotifier extends Notifier<AutolockState> {
   void save() {
     if (state.isBusy) return;
     state = state.copyWith(status: AutolockActionStatus.progress, error: AppError.none());
-    final minutes = state.selectedValue == 0 ? null : state.selectedValue;
-    _configService.autoLockMinutes = minutes;
-    _autoLockService.configure(minutes);
+    final seconds = state.selectedValue == 0 ? null : state.selectedValue;
+    _configService.autoLockSeconds = seconds;
+    _autoLockService.configure(seconds);
     state = state.copyWith(status: AutolockActionStatus.saved);
   }
 

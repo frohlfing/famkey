@@ -19,8 +19,8 @@
 
 ### 1.2 Meilenstein 2: Backend & Sync
 - ✅ API-Referenz definieren
-- ✅ Laragon mit Xdebug (für PHP-Debugging) installieren
-- ✅ MySQL DB auf dem Serve erstellen
+- ✅ XAMPP (mit PHP 8.4 oder aktueller) und Xdebug (für PHP-Debugging) installieren
+- ✅ MySQL DB auf dem Server erstellen
 - ✅ Microframework für Webservice in PHP erstellen
 - ✅ Sync-Algorithmus integrieren
 - ✅ Verbindungsparameter in Einstellungen speichern
@@ -59,20 +59,23 @@
 - ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
  
 ### 1.5 Meilenstein 5: Androide App
-- ✅ Emulator installieren
+- ✅ Emulator  installieren
 - ✅ Layout anpassen
 - ❌ PlayStore-Bereitstellung
 
 ### 1.6 Meilenstein 6: WebAssembly (WASM)
 - ✅ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr).
-- ❌ WASM auf dem Sync-Server bereitstellen
+- Platform-Weichen erstellen, ow notwendig
+- Web-App testen
+ 
+### 1.7 Meilenstein 7: Homepage
+- ✅ Homepage erstellen
+- ✅ Sync-Server für Multi-Tenant-Betrieb (pro Organisation einen virtuellen Server)
+- ✅ Deployment-Skript erstellen, Apps und WASM auf der Homepage bereitstellen
 
 ## 2. Todos / Feinschliff
-- todos erledigten
-- Delegation-Pattern anwenden
 - DetailActionStatus -> DetailStatus
 - MasterPasswordFormData -> MasterPasswordForm
-- Autofill und AUtoType in Settings sauber trennen
 
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)

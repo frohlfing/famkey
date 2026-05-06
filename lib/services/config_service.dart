@@ -18,7 +18,8 @@ class ConfigService {
   static const String _keyLogDays = 'log_days';
   static const String _keyLogSize = 'log_size';
   static const String _keyHibpCacheDays = 'hibp_cache_days';
-  static const String _keyAutolockMinutes = 'autolock_minutes';
+  static const String _keyAutolockMinutes = 'autolock_minutes'; // nur noch für Migration
+  static const String _keyAutolockSeconds = 'autolock_seconds';
   static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
   static const String _keyAutofillEnabled = 'autofill_enabled';
   static const String _keyAutofillHotkey = 'autofill_hotkey';
@@ -80,13 +81,18 @@ class ConfigService {
 
   set hibpCacheDays(int value) => _prefs.setInt(_keyHibpCacheDays, value);
 
-  /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie (Standard).
-  int? get autoLockMinutes {
-    final val = _prefs.getInt(_keyAutolockMinutes) ?? 0;
+  /// Inaktivitätsdauer in Sekunden bis zur automatischen Sperre. null = nie (Standard).
+  /// Migriert einmalig aus dem alten autolock_minutes-Key (Minuten × 60).
+  int? get autoLockSeconds {
+    if (!_prefs.containsKey(_keyAutolockSeconds)) {
+      final oldMinutes = _prefs.getInt(_keyAutolockMinutes) ?? 0;
+      _prefs.setInt(_keyAutolockSeconds, oldMinutes * 60);
+    }
+    final val = _prefs.getInt(_keyAutolockSeconds) ?? 0;
     return val == 0 ? null : val;
   }
 
-  set autoLockMinutes(int? value) => _prefs.setInt(_keyAutolockMinutes, value ?? 0);
+  set autoLockSeconds(int? value) => _prefs.setInt(_keyAutolockSeconds, value ?? 0);
 
   /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie. Standard: 30 s.
   int? get clipboardClearSeconds {

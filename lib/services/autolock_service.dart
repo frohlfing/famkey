@@ -16,20 +16,20 @@ class AutolockService {
   final ClipboardService _clipboardService;
 
   Timer? _timer;
-  int? _minutes;
+  int? _seconds;
 
   AutolockService(this._sessionService, this._databaseService, this._clipboardService);
 
   /// Aktiviert oder deaktiviert den Timer.
-  /// [minutes] == null deaktiviert die Auto-Sperre.
-  void configure(int? minutes) {
-    _minutes = minutes;
+  /// [seconds] == null deaktiviert die Auto-Sperre.
+  void configure(int? seconds) {
+    _seconds = seconds;
     _resetTimer();
   }
 
   /// Setzt den Timer zurück. Wird bei jeder Benutzeraktion aufgerufen.
   void resetTimer() {
-    if (_minutes == null) return;
+    if (_seconds == null) return;
     _resetTimer();
   }
 
@@ -37,14 +37,14 @@ class AutolockService {
   void stop() {
     _timer?.cancel();
     _timer = null;
-    _minutes = null;
+    _seconds = null;
   }
 
   void _resetTimer() {
     _timer?.cancel();
     _timer = null;
-    if (_minutes == null) return;
-    _timer = Timer(Duration(minutes: _minutes!), _lock);
+    if (_seconds == null) return;
+    _timer = Timer(Duration(seconds: _seconds!), _lock);
   }
 
   void _lock() {

@@ -100,8 +100,8 @@ class SettingsState {
 
   // --- Timeouts ---
 
-  /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie.
-  final int? autoLockMinutes;
+  /// Inaktivitätsdauer in Sekunden bis zur automatischen Sperre. null = nie.
+  final int? autoLockSeconds;
 
   /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie.
   final int? clipboardClearSeconds;
@@ -127,7 +127,13 @@ class SettingsState {
 
   // --- Getter ---
 
-  String get autoLockLabel => autoLockMinutes == null ? 'Nie' : 'Nach ${autoLockMinutes == 1 ? '1 Minute' : '$autoLockMinutes Minuten'}';
+  String get autoLockLabel {
+    if (autoLockSeconds == null) return 'Nie';
+    final s = autoLockSeconds!;
+    if (s < 60) return 'Nach $s Sekunden';
+    final m = s ~/ 60;
+    return m == 1 ? 'Nach 1 Minute' : 'Nach $m Minuten';
+  }
 
   String get clipboardClearLabel => clipboardClearSeconds == null ? 'Nie' : 'Nach $clipboardClearSeconds Sekunden';
 
@@ -164,7 +170,7 @@ class SettingsState {
     this.autofillEnabled = true,
     this.isAutofillEnabled = false,
     this.autofillHotkey = 'Strg+Shift+A',
-    this.autoLockMinutes,
+    this.autoLockSeconds,
     this.clipboardClearSeconds,
     this.logLevel = LogLevel.info,
     this.logDays = 7,
@@ -174,7 +180,7 @@ class SettingsState {
   });
 
   /// Status aktualisieren (immutable).
-  /// Für nullable int-Felder (autoLockMinutes, clipboardClearSeconds) mit clearAutolockMinutes/clearClipboardClearSeconds auf null setzen.
+  /// Für nullable int-Felder (autoLockSeconds, clipboardClearSeconds) mit clearAutoLockSeconds/clearClipboardClearSeconds auf null setzen.
   SettingsState copyWith({
     String? vaultStoragePath,
     String? vaultName,
@@ -197,7 +203,7 @@ class SettingsState {
     bool? autofillEnabled,
     bool? isAutofillEnabled,
     String? autofillHotkey,
-    Object? autoLockMinutes = _keep,
+    Object? autoLockSeconds = _keep,
     Object? clipboardClearSeconds = _keep,
     LogLevel? logLevel,
     int? logDays,
@@ -227,7 +233,7 @@ class SettingsState {
       autofillEnabled: autofillEnabled ?? this.autofillEnabled,
       isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
       autofillHotkey: autofillHotkey ?? this.autofillHotkey,
-      autoLockMinutes: autoLockMinutes == _keep ? this.autoLockMinutes : autoLockMinutes as int?,
+      autoLockSeconds: autoLockSeconds == _keep ? this.autoLockSeconds : autoLockSeconds as int?,
       clipboardClearSeconds: clipboardClearSeconds == _keep ? this.clipboardClearSeconds : clipboardClearSeconds as int?,
       logLevel: logLevel ?? this.logLevel,
       logDays: logDays ?? this.logDays,

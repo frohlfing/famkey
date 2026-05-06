@@ -1201,8 +1201,8 @@ class MockConfigService extends _i1.Mock implements _i13.ConfigService {
   );
 
   @override
-  set autoLockMinutes(int? value) => super.noSuchMethod(
-    Invocation.setter(#autoLockMinutes, value),
+  set autoLockSeconds(int? value) => super.noSuchMethod(
+    Invocation.setter(#autoLockSeconds, value),
     returnValueForMissingStub: null,
   );
 

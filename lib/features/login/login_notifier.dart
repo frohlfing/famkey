@@ -281,7 +281,7 @@ class LoginNotifier extends Notifier<LoginState> {
       );
 
       // 10a. Auto-Sperre konfigurieren
-      _autoLockService.configure(_configService.autoLockMinutes);
+      _autoLockService.configure(_configService.autoLockSeconds);
 
       // 11. Status ermitteln
       // Falls mit Passwort eingeloggt und Biometrie gewünscht, aber noch nicht hinterlegt: Nachfragen, ob Biometrie aktiviert werden soll
