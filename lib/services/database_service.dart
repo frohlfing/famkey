@@ -39,6 +39,9 @@ class DatabaseService {
   /// Gibt zurück, ob die Datenbankverbindung initialisiert ist.
   bool get isInitialized => _db != null;
 
+  /// Aktuelle Schema-Version der lokalen SQLite-Datenbank.
+  int get schemaVersion => AppDatabase.version;
+
   /// Baut die Verbindung zur Datenbank auf.
   Future<void> initialize(String vaultName, Uint8List masterKey) async {
     if (_db != null) return; // Bereits verbunden

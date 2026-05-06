@@ -1,13 +1,13 @@
 ﻿import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_error.dart';
-import 'package:famkey/core/app_version.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/settings/sync_server/sync_server_form_data.dart';
 import 'package:famkey/features/settings/sync_server/sync_server_state.dart';
 import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/info_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/services/web_service.dart';
 
@@ -22,6 +22,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
   // ------------------------------------------------------------------------
 
   late final DatabaseService _databaseService;
+  late final InfoService _infoService;
   late final SessionService _sessionService;
   late final WebService _webService;
 
@@ -44,6 +45,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
   SyncServerState build() {
     // Dienste aus getIt holen
     _databaseService = getIt<DatabaseService>();
+    _infoService = getIt<InfoService>();
     _sessionService = getIt<SessionService>();
     _webService = getIt<WebService>();
 
@@ -191,11 +193,11 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
         state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.noSyncService));
         return;
       }
-      if (AppVersion.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
+      if (_infoService.syncProtocolVersion < serverVersion.minSyncProtocolVersion) {
         state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.appIsOutdated));
         return;
       }
-      if (AppVersion.syncProtocolVersion > serverVersion.syncProtocolVersion) {
+      if (_infoService.syncProtocolVersion > serverVersion.syncProtocolVersion) {
         state = state.copyWith(status: SyncServerActionStatus.failure, error: AppError(ErrorCode.serverIsOutdated));
         return;
       }

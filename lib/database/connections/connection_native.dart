@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:famkey/core/app_version.dart';
 import 'package:famkey/core/env.dart';
 
 /// Baut eine Datenbankverbindung zu SQLite für eine Desktop- oder Mobile-Platform auf.

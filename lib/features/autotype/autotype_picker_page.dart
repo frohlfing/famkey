@@ -5,7 +5,7 @@ import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/models/payloads/entry_payload.dart';
 import 'package:famkey/models/payloads/index_payload.dart';
-import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
@@ -52,15 +52,15 @@ import 'package:famkey/widgets/snack.dart';
 /// - **Genau 1 Treffer:** Bestätigungsdialog direkt öffnen, kein Listenumweg.
 /// - **Mehrere Treffer:** Liste zeigen, Nutzer wählt manuell.
 /// - **Kein Treffer:** Alle Einträge + Hinweis, dass nichts passte.
-class AutoTypePickerPage extends StatefulWidget {
-  const AutoTypePickerPage({super.key});
+class AutotypePickerPage extends StatefulWidget {
+  const AutotypePickerPage({super.key});
 
   @override
-  State<AutoTypePickerPage> createState() => _AutoTypePickerPageState();
+  State<AutotypePickerPage> createState() => _AutotypePickerPageState();
 }
 
-class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
-  late final AutofillService _autofillService;
+class _AutotypePickerPageState extends State<AutotypePickerPage> {
+  late final AutotypeService _autotypeService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
@@ -93,7 +93,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
   @override
   void initState() {
     super.initState();
-    _autofillService = getIt();
+    _autotypeService = getIt();
     _cryptoService = getIt();
     _databaseService = getIt();
     _sessionService = getIt();
@@ -108,7 +108,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
       // den Fenstertitel als argument übergeben. ModalRoute.of(context) liefert die aktuelle
       // Route; settings.arguments ist das mitgegebene Objekt.
       _windowTitle = ModalRoute.of(context)?.settings.arguments as String? ?? '';
-      log.debug('AutoTypePicker geöffnet');
+      log.debug('AutotypePicker geöffnet');
       _entriesFuture = _loadEntries();
     }
   }
@@ -289,7 +289,7 @@ class _AutoTypePickerPageState extends State<AutoTypePickerPage> {
 
       // typeCredentials() schickt via MethodChannel die Zugangsdaten an C++.
       // C++ bringt das Zielfenster in den Vordergrund und tippt die Sequenz.
-      final ok = await _autofillService.typeCredentials(payload.username, payload.password);
+      final ok = await _autotypeService.typeCredentials(payload.username, payload.password);
       if (!mounted) return;
 
       if (ok) {

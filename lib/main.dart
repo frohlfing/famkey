@@ -7,7 +7,7 @@ import 'package:famkey/core/env.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/navigator_key.dart';
 import 'package:famkey/core/service_locator.dart';
-import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/features/report/report_page.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/features/detail/detail_page.dart';
@@ -19,6 +19,7 @@ import 'package:famkey/features/autotype/autotype_picker_page.dart';
 import 'package:famkey/features/settings/settings_notifier.dart';
 import 'package:famkey/features/settings/settings_page.dart';
 import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 
 // @formatter:off
 void main() async {
@@ -62,9 +63,10 @@ void main() async {
       ),
     );
 
-    // AutofillService initialisieren (nach runApp, damit der MethodChannel bereit ist)
+    // Plattform-Services initialisieren (nach runApp, damit der MethodChannel bereit ist)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await getIt<AutofillService>().init();
+      await getIt<AutotypeService>().init();
     });
 
   }, (error, stack) async {
@@ -112,7 +114,7 @@ class FamKeyApp extends ConsumerWidget {
       builder: (context, child) {
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => getIt<AutoLockService>().resetTimer(),
+          onPointerDown: (_) => getIt<AutolockService>().resetTimer(),
           child: Stack(
           children: [
             child!,
@@ -165,7 +167,7 @@ class FamKeyApp extends ConsumerWidget {
         '/': (context) => const LoginPage(),
         '/main': (context) => const MainPage(),
         '/autofill-picker': (context) => const AutofillPickerPage(),
-        '/autotype-picker': (context) => const AutoTypePickerPage(),
+        '/autotype-picker': (context) => const AutotypePickerPage(),
         '/report': (context) => const ReportPage(),
         '/settings': (context) => const SettingsPage(),
       },

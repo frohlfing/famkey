@@ -1,15 +1,15 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_error.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
-import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_state.dart';
+import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_state.dart';
 import 'package:famkey/services/config_service.dart';
 
-final autofillHotkeyProvider = NotifierProvider<AutofillHotkeyNotifier, AutofillHotkeyState>(() {
-  return AutofillHotkeyNotifier();
+final autotypeHotkeyProvider = NotifierProvider<AutotypeHotkeyNotifier, AutotypeHotkeyState>(() {
+  return AutotypeHotkeyNotifier();
 });
 
-class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
+class AutotypeHotkeyNotifier extends Notifier<AutotypeHotkeyState> {
 
   // ------------------------------------------------------------------------
   // --- Services ---
@@ -22,20 +22,20 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
   // ------------------------------------------------------------------------
 
   /// Initialisiert einen Notifier.
-    @override
-  AutofillHotkeyState build() {
+  @override
+  AutotypeHotkeyState build() {
     _configService = getIt<ConfigService>();
-    return AutofillHotkeyState();
+    return AutotypeHotkeyState();
   }
 
   /// Lädt die Daten für die Anzeige.
   Future<void> load() async {
     if (state.isBusy) return;
     final hotkey = _configService.autofillHotkey;
-    state = const AutofillHotkeyState().copyWith(
+    state = const AutotypeHotkeyState().copyWith(
       hotkey: hotkey,
       originalHotkey: hotkey,
-      status: AutofillHotkeyStatus.loaded,
+      status: AutotypeHotkeyStatus.loaded,
     );
   }
 
@@ -43,7 +43,7 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
   // --- Speichern ---
   // ------------------------------------------------------------------------
 
-  /// Speichert den Platzhalter für die Kategorie.
+  /// Speichert das Auto-Type-Tastenkürzel.
   Future<void> save() async {
     if (state.isBusy) return;
 
@@ -53,14 +53,14 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
     // 2. UI-State aktualisieren
     state = state.copyWith(
       hotkey: hotkey,
-      status: AutofillHotkeyStatus.progress, error: AppError.none(),
+      status: AutotypeHotkeyStatus.progress, error: AppError.none(),
     );
 
     try {
 
       // 3. Benutzereingabe validieren
       if (hotkey.isEmpty) {
-        state = state.copyWith(status: AutofillHotkeyStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'hotkey'));
+        state = state.copyWith(status: AutotypeHotkeyStatus.failure, error: AppError(ErrorCode.valueRequired, field: 'hotkey'));
         return;
       }
 
@@ -70,12 +70,12 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
       // 5. State aktualisieren
       state = state.copyWith(
         originalHotkey: hotkey,
-        status: AutofillHotkeyStatus.saved,
+        status: AutotypeHotkeyStatus.saved,
       );
 
     } catch (e, st) {
       log.fatal("Fehler beim Speichern: $e", stack: st);
-      state = state.copyWith(status: AutofillHotkeyStatus.failure, error: AppError(ErrorCode.unknown));
+      state = state.copyWith(status: AutotypeHotkeyStatus.failure, error: AppError(ErrorCode.unknown));
     }
   }
 
@@ -88,5 +88,5 @@ class AutofillHotkeyNotifier extends Notifier<AutofillHotkeyState> {
     final error = state.error.field == 'hotkey' ? AppError.none() : null;
     state = state.copyWith(hotkey: value, error: error);
   }
-  
+
 }

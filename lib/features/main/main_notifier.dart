@@ -7,7 +7,7 @@ import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/main/main_state.dart';
 import 'package:famkey/models/payloads/index_payload.dart';
-import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/services/clipboard_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
@@ -27,7 +27,7 @@ class MainNotifier extends Notifier<MainState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
-  late final AutoLockService _autoLockService;
+  late final AutolockService _autoLockService;
   late final ClipboardService _clipboardService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
@@ -91,7 +91,7 @@ class MainNotifier extends Notifier<MainState> {
 
       // UI-State aktualisieren
       final grouped = _groupEntries(onlyMyEntries: _configService.showOnlyMine);
-      final collapsed = _configService.allCategoriesCollapsed ? grouped.keys.toSet() : const <String>{};
+      final collapsed = _configService.categoriesCollapsed ? grouped.keys.toSet() : const <String>{};
       state = state.copyWith(
         groupedEntries: grouped,
         collapsedCategories: collapsed,
@@ -188,7 +188,7 @@ class MainNotifier extends Notifier<MainState> {
   void toggleAllCategories() {
     final allCollapsed = state.allCategoriesCollapsed;
     final collapsed = allCollapsed ? const <String>{} : state.groupedEntries.keys.toSet();
-    _configService.allCategoriesCollapsed = !allCollapsed;
+    _configService.categoriesCollapsed = !allCollapsed;
     state = state.copyWith(collapsedCategories: collapsed);
   }
 }

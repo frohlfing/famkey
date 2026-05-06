@@ -7,14 +7,15 @@ import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/settings/settings_state.dart';
-import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/biometric_service.dart';
 import 'package:famkey/services/clipboard_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
-import 'package:famkey/services/system_settings_service.dart';
+import 'package:famkey/services/info_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/services/web_service.dart';
 
@@ -28,15 +29,16 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
-  late final AutoLockService _autoLockService;
+  late final AutolockService _autoLockService;
   late final AutofillService _autofillService;
+  late final AutotypeService _autotypeService;
   late final BiometricService _biometricService;
   late final ClipboardService _clipboardService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
+  late final InfoService _infoService;
   late final SessionService _sessionService;
-  late final SystemSettingsService _systemSettingsService;
   late final WebService _webService;
 
   // ------------------------------------------------------------------------
@@ -57,22 +59,24 @@ class SettingsNotifier extends Notifier<SettingsState> {
   @override
   SettingsState build() {
     // Dienste aus getIt holen
-    _autoLockService = getIt<AutoLockService>();
+    _autoLockService = getIt<AutolockService>();
     _autofillService = getIt<AutofillService>();
+    _autotypeService = getIt<AutotypeService>();
     _biometricService = getIt<BiometricService>();
     _clipboardService = getIt<ClipboardService>();
     _configService = getIt<ConfigService>();
     _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
+    _infoService = getIt<InfoService>();
     _sessionService = getIt<SessionService>();
-    _systemSettingsService = getIt<SystemSettingsService>();
     _webService = getIt<WebService>();
 
     // Initialer State
     return SettingsState().copyWith(
-      canOpenAppSettings: _systemSettingsService.canOpenAppSettings,
-      canOpenBiometricSettings: _systemSettingsService.canOpenBiometricSettings,
-      canOpenAutofillSettings: _systemSettingsService.canOpenAutofillSettings,
+      canOpenAppSettings: _infoService.canOpenSettings,
+      canOpenBiometricSettings: _biometricService.canOpenSettings,
+      isAutofillSupported: _autofillService.isSupported,
+      isAutotypeSupported: _autotypeService.isSupported,
     );
   }
 
@@ -295,7 +299,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // ------------------------------------------------------------------------
 
   /// Speichert die Auto-Sperre-Einstellung (null = nie).
-  void saveAutoLockMinutes(int? minutes) {
+  void saveAutolockMinutes(int? minutes) {
     if (state.isBusy) return;
     state = state.copyWith(status: SettingsActionStatus.progress, error: AppError.none());
     _configService.autoLockMinutes = minutes;
@@ -487,19 +491,19 @@ class SettingsNotifier extends Notifier<SettingsState> {
   // --- Buttons für Systemeinstellungen ---
   // ------------------------------------------------------------------------
 
-  /// Öffnet die Systemeinstellungen für Biometrie.
+  /// Öffnet die Biometrie-Einstellungen in den Systemeinstellungen.
   Future<void> openBiometricSettings() async {
-    await _systemSettingsService.openBiometricSettings();
+    await _biometricService.openSystemSettings();
   }
 
-  /// Öffnet die Android-Systemeinstellungen für den Autofill-Anbieter.
+  /// Öffnet die Autofill-Einstellungen in den Android-Systemeinstellungen.
   Future<void> openAutofillSettings() async {
-    await _systemSettingsService.openAutofillSettings();
+    await _autofillService.openSystemSettings();
   }
 
   /// Öffnet die App-Info-Seite in den Systemeinstellungen.
   Future<void> openAppSettings() async {
-    await _systemSettingsService.openAppSettings();
+    await _infoService.openSystemSettings();
   }
 
 }

@@ -12,13 +12,13 @@ class ConfigService {
 
   static const String _keyLastVault = 'last_vault_name';
   static const String _keyShowOnlyMine = 'show_only_mine';
-  static const String _keyAllCategoriesCollapsed = 'all_categories_collapsed';
+  static const String _keyCategoriesCollapsed = 'categories_collapsed';
   static const String _keyTheme = 'theme';
   static const String _keyLogLevel = 'log_level';
   static const String _keyLogDays = 'log_days';
   static const String _keyLogSize = 'log_size';
   static const String _keyHibpCacheDays = 'hibp_cache_days';
-  static const String _keyAutoLockMinutes = 'auto_lock_minutes';
+  static const String _keyAutolockMinutes = 'autolock_minutes';
   static const String _keyClipboardClearSeconds = 'clipboard_clear_seconds';
   static const String _keyAutofillEnabled = 'autofill_enabled';
   static const String _keyAutofillHotkey = 'autofill_hotkey';
@@ -48,9 +48,9 @@ class ConfigService {
   set showOnlyMine(bool value) => _prefs.setBool(_keyShowOnlyMine, value);
 
   /// Zeigt an, ob alle Kategorien in der Hauptliste eingeklappt sind.
-  bool get allCategoriesCollapsed => _prefs.getBool(_keyAllCategoriesCollapsed) ?? false;
+  bool get categoriesCollapsed => _prefs.getBool(_keyCategoriesCollapsed) ?? false;
 
-  set allCategoriesCollapsed(bool value) => _prefs.setBool(_keyAllCategoriesCollapsed, value);
+  set categoriesCollapsed(bool value) => _prefs.setBool(_keyCategoriesCollapsed, value);
 
   /// Das aktuell vom Benutzer gewählte Farbschema (Theme).
   ThemeMode get themeMode {
@@ -82,11 +82,11 @@ class ConfigService {
 
   /// Inaktivitätsdauer in Minuten bis zur automatischen Sperre. null = nie (Standard).
   int? get autoLockMinutes {
-    final val = _prefs.getInt(_keyAutoLockMinutes) ?? 0;
+    final val = _prefs.getInt(_keyAutolockMinutes) ?? 0;
     return val == 0 ? null : val;
   }
 
-  set autoLockMinutes(int? value) => _prefs.setInt(_keyAutoLockMinutes, value ?? 0);
+  set autoLockMinutes(int? value) => _prefs.setInt(_keyAutolockMinutes, value ?? 0);
 
   /// Dauer in Sekunden bis zum automatischen Leeren der Zwischenablage. null = nie. Standard: 30 s.
   int? get clipboardClearSeconds {

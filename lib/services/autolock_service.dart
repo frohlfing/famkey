@@ -9,7 +9,7 @@ import 'package:famkey/services/session_service.dart';
 /// Der Timer wird bei jeder Benutzeraktion (Pointer, Tastatur) zurückgesetzt.
 /// Läuft er ab, werden Session und Datenbankverbindung getrennt und die
 /// App navigiert zur Login-Seite.
-class AutoLockService {
+class AutolockService {
 
   final SessionService _sessionService;
   final DatabaseService _databaseService;
@@ -18,7 +18,7 @@ class AutoLockService {
   Timer? _timer;
   int? _minutes;
 
-  AutoLockService(this._sessionService, this._databaseService, this._clipboardService);
+  AutolockService(this._sessionService, this._databaseService, this._clipboardService);
 
   /// Aktiviert oder deaktiviert den Timer.
   /// [minutes] == null deaktiviert die Auto-Sperre.

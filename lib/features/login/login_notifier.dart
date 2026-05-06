@@ -7,7 +7,7 @@ import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/login/login_state.dart';
-import 'package:famkey/services/auto_lock_service.dart';
+import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/services/biometric_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
@@ -26,7 +26,7 @@ class LoginNotifier extends Notifier<LoginState> {
   // --- Services ---
   // ------------------------------------------------------------------------
 
-  late final AutoLockService _autoLockService;
+  late final AutolockService _autoLockService;
   late final BiometricService _biometricService;
   late final ConfigService _configService;
   late final CryptoService _cryptoService;

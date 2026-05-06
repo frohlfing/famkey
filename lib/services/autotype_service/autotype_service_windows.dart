@@ -1,12 +1,10 @@
-﻿import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/navigator_key.dart';
 import 'package:famkey/core/service_locator.dart';
-import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/session_service.dart';
-
-// todo umbenennen in AutotypeService
 
 /// Windows-Implementierung des Auto-Type-Mechanismus.
 ///
@@ -32,7 +30,7 @@ import 'package:famkey/services/session_service.dart';
 ///   Flutter (Dart)              MethodChannel              C++ (Win32 API)
 ///   ──────────────              ─────────────              ───────────────
 ///
-///   AutofillServiceWindows ──►  "typeCredentials"  ──►  AutoType::TypeCredentials()
+///   AutotypeServiceWindows ──►  "typeCredentials"  ──►  Autotype::TypeCredentials()
 ///                                                         │
 ///                                                         ├─ Zielfenster in Vordergrund
 ///                                                         │  SetForegroundWindow(g_previousHwnd)
@@ -41,7 +39,7 @@ import 'package:famkey/services/session_service.dart';
 ///                                                         ├─ 100 ms warten (Tab-Event verarbeiten)
 ///                                                         └─ SendInput: Passwort + Enter
 ///
-///   AutofillServiceWindows ◄──  "onHotkey"         ◄──  WM_HOTKEY in MessageHandler
+///   AutotypeServiceWindows ◄──  "onHotkey"         ◄──  WM_HOTKEY in MessageHandler
 ///   (navigiert zu /autotype-picker)                        │
 ///                                                         └─ RegisterHotKey() hat dieses
 ///                                                            Ereignis registriert
@@ -88,14 +86,14 @@ import 'package:famkey/services/session_service.dart';
 ///   Nutzer klickt Tastatur-Icon
 ///         │
 ///         ▼
-///   getLastWindowTitle()    ──────────►  AutoType::GetLastWindowTitle()
+///   getLastWindowTitle()    ──────────►  Autotype::GetLastWindowTitle()
 ///                           ◄──────────  Titel aus g_previousHwnd
 ///         │
 ///         ▼
 ///   Dialog: "Eintrag X wird in 'Firefox' getippt" – Bestätigen?
 ///         │
 ///         ▼ (Nutzer bestätigt)
-///   typeCredentials()       ──────────►  AutoType::TypeCredentials()
+///   typeCredentials()       ──────────►  Autotype::TypeCredentials()
 ///                                         SetForegroundWindow(Firefox)
 ///                                         SendInput: "frank" + Tab + "4711" + Enter
 ///
@@ -121,17 +119,17 @@ import 'package:famkey/services/session_service.dart';
 ///   (mit Fenstertitel als Argument)
 ///         │
 ///         ▼
-///   AutoTypePickerPage: Einträge nach Fenstertitel filtern
+///   AutotypePickerPage: Einträge nach Fenstertitel filtern
 ///   Nutzer wählt Eintrag → Bestätigungsdialog
 ///         │
 ///         ▼
-///   typeCredentials()       ──────────►  AutoType::TypeCredentials()
+///   typeCredentials()       ──────────►  Autotype::TypeCredentials()
 ///                                         SetForegroundWindow(Browser)
 ///                                         SendInput: credentials
 ///
 ///   Browser: Formular ausgefüllt ✓
 /// ```
-class AutofillServiceWindows implements AutofillService {
+class AutotypeServiceWindows implements AutotypeService {
 
   // Win32 MOD_*-Flags für RegisterHotKey (aus winuser.h).
   // Diese Konstanten sind bitmaskiert: jedes Flag belegt ein einzelnes Bit.
@@ -156,10 +154,12 @@ class AutofillServiceWindows implements AutofillService {
   /// C++ → Dart: `onHotkey` (wenn der globale Hotkey gedrückt wurde).
   static const _autoTypeChannel = MethodChannel('de.frohlfing.famkey/autotype');
 
+  @override
+  bool get isSupported => true;
+
   /// Richtet den MethodChannel-Handler ein und registriert den Hotkey bei C++.
   ///
-  /// Diese Methode wird einmalig beim App-Start aufgerufen (analog zu
-  /// `AutofillServiceAndroid.init()`).
+  /// Diese Methode wird einmalig beim App-Start aufgerufen.
   ///
   /// **Schritt 1 – `onHotkey`-Handler:**
   /// C++ schickt `onHotkey` an Flutter, wenn der Nutzer den konfigurierten
@@ -378,23 +378,4 @@ class AutofillServiceWindows implements AutofillService {
       return false;
     }
   }
-
-  // Die folgenden Properties und Methoden sind Android-spezifisch und werden
-  // auf Windows nicht benötigt. Sie müssen trotzdem implementiert werden, weil
-  // AutofillService als gemeinsames Interface sie für alle Plattformen vorschreibt.
-
-  @override
-  String? get pendingDomain => null;
-
-  @override
-  bool get hasAutofillRequest => false;
-
-  @override
-  Future<void> complete(String username, String password) async {}
-
-  @override
-  Future<void> cancel() async {}
-
-  @override
-  Future<bool> isAutofillEnabled() async => false;
 }

@@ -1,20 +1,20 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/service_locator.dart';
-import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_notifier.dart';
-import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_state.dart';
-import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_notifier.dart';
+import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_state.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/widgets/confirm_dialog.dart';
 
-/// Ein modaler Dialog zum Ändern Auto-Type-Tastenkürzels.
-class AutofillHotkeyDialog extends ConsumerStatefulWidget {
+/// Ein modaler Dialog zum Ändern des Auto-Type-Tastenkürzels.
+class AutotypeHotkeyDialog extends ConsumerStatefulWidget {
 
   /// Initiale Parameter
   // (keine)
 
   /// Konstruktor
-  const AutofillHotkeyDialog({super.key});
+  const AutotypeHotkeyDialog({super.key});
 
   /// Statische Methode zum Anzeigen des Dialogs.
   /// Gibt [true] zurück, wenn gespeichert wurde, andernfalls [false] oder [null].
@@ -22,22 +22,22 @@ class AutofillHotkeyDialog extends ConsumerStatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // User muss explizit Speichern oder Abbrechen
-      builder: (_) => const AutofillHotkeyDialog(),
+      builder: (_) => const AutotypeHotkeyDialog(),
     );
   }
 
   @override
-  ConsumerState<AutofillHotkeyDialog> createState() => _AutofillHotkeyDialogState();
+  ConsumerState<AutotypeHotkeyDialog> createState() => _AutotypeHotkeyDialogState();
 }
 
-class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
+class _AutotypeHotkeyDialogState extends ConsumerState<AutotypeHotkeyDialog> {
 
   // ------------------------------------------------------------------------
   // --- TextEditingController ---
   // ------------------------------------------------------------------------
 
   final _controller = TextEditingController();
-  
+
   // ------------------------------------------------------------------------
   // --- Initialisierung & Lifecycle ---
   // ------------------------------------------------------------------------
@@ -50,9 +50,9 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Hotkey deregistrieren, damit die Kombination als normales Key-Event
       // an Flutter weitergeleitet wird und onKeyEvent sie erkennen kann.
-      getIt<AutofillService>().unregisterHotkey();
+      getIt<AutotypeService>().unregisterHotkey();
       // Daten laden
-      final notifier = ref.read(autofillHotkeyProvider.notifier);
+      final notifier = ref.read(autotypeHotkeyProvider.notifier);
       await notifier.load();
     });
   }
@@ -64,7 +64,7 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
     // Hotkey aus der (ggf. aktualisierten) ConfigService-Konfiguration neu registrieren.
     // Bei Speichern: neuer Hotkey ist bereits in ConfigService → neuer Hotkey wird aktiv.
     // Bei Abbrechen: alter Hotkey ist noch in ConfigService → alter Hotkey bleibt aktiv.
-    getIt<AutofillService>().reregisterHotkey();
+    getIt<AutotypeService>().reregisterHotkey();
     super.dispose();
   }
 
@@ -76,11 +76,9 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
   Widget build(BuildContext context) {
 
     // Listener für Status-Änderungen
-    ref.listen(autofillHotkeyProvider.select((s) => s.status), (previous, next) {
-      //final state = ref.read(autofillHotkeyProvider);
-
+    ref.listen(autotypeHotkeyProvider.select((s) => s.status), (previous, next) {
       switch (next) {
-        case AutofillHotkeyStatus.saved:
+        case AutotypeHotkeyStatus.saved:
           Navigator.of(context).pop(true); // Zurück zur Detailseite
           break;
 
@@ -90,17 +88,17 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
     });
 
     // Listener, der die Controller nur bei Initialladung oder Generierung füllt
-    ref.listen(autofillHotkeyProvider, (previous, next) {
+    ref.listen(autotypeHotkeyProvider, (previous, next) {
       if (previous == next) return;
       final value = next.hotkey;
       if (_controller.text != value) _controller.text = value;
     });
 
     // Gezielte Watches für maximale Performance
-    final isBusy = ref.watch(autofillHotkeyProvider.select((s) => s.isBusy));
+    final isBusy = ref.watch(autotypeHotkeyProvider.select((s) => s.isBusy));
 
     // Notifier holen
-    final notifier = ref.read(autofillHotkeyProvider.notifier);
+    final notifier = ref.read(autotypeHotkeyProvider.notifier);
 
     return AlertDialog(
       title: const Text('Auto-Type Tastenkürzel'),
@@ -115,7 +113,7 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
             // --- Hotkey ---
             Consumer(
               builder: (ctx, ref, _) {
-                final errorText = ref.watch(autofillHotkeyProvider.select((state) => state.error.field == 'hotkey' ? state.error.text : null));
+                final errorText = ref.watch(autotypeHotkeyProvider.select((state) => state.error.field == 'hotkey' ? state.error.text : null));
                 return Focus(
                   onKeyEvent: (node, event) {
                     _handleTextFieldKeyEvent(event);
@@ -141,7 +139,7 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
 
             // --- Allgemeine Fehlermeldung (error.field == null) ---
             Consumer(builder: (context, ref, _) {
-              final error = ref.watch(autofillHotkeyProvider.select((s) => s.error));
+              final error = ref.watch(autotypeHotkeyProvider.select((s) => s.error));
               if (error.text.isEmpty || error.field != null) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -206,12 +204,12 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
 
     // Controller und State aktualisieren
     _controller.text = hotkeyString;
-    ref.read(autofillHotkeyProvider.notifier).setHotkey(hotkeyString);
+    ref.read(autotypeHotkeyProvider.notifier).setHotkey(hotkeyString);
   }
 
   /// Speichert erst die Änderungen, wenn gewünscht und springt dann zurück.
   Future<void> _handleCancel() async {
-    final state = ref.read(autofillHotkeyProvider);
+    final state = ref.read(autotypeHotkeyProvider);
     if (state.isDirty) {
       final confirmed = await ConfirmDialog.show(
         context,
@@ -224,7 +222,7 @@ class _AutofillHotkeyDialogState extends ConsumerState<AutofillHotkeyDialog> {
       if (!mounted) return;
 
       if (confirmed == true) {
-        final notifier = ref.read(autofillHotkeyProvider.notifier);
+        final notifier = ref.read(autotypeHotkeyProvider.notifier);
         notifier.save(); // Statt Cancel die Save-Action ausführen
         return;
       }

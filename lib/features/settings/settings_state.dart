@@ -80,8 +80,11 @@ class SettingsState {
   /// Capabilities - Kann die Biometrie-Seite geöffnet werden?
   final bool canOpenBiometricSettings;
 
-  /// Capabilities - Kann die Autofill-Seite geöffnet werden?
-  final bool canOpenAutofillSettings;
+  /// Gibt an, ob Autofill auf dieser Plattform verfügbar ist (Android only).
+  final bool isAutofillSupported;
+
+  /// Gibt an, ob Auto-Type auf dieser Plattform verfügbar ist (Windows only).
+  final bool isAutotypeSupported;
 
   // --- Autofill ---
 
@@ -156,7 +159,8 @@ class SettingsState {
     this.categoryPlaceholder = '',
     this.canOpenAppSettings = false,
     this.canOpenBiometricSettings = false,
-    this.canOpenAutofillSettings = false,
+    this.isAutofillSupported = false,
+    this.isAutotypeSupported = false,
     this.autofillEnabled = true,
     this.isAutofillEnabled = false,
     this.autofillHotkey = 'Strg+Shift+A',
@@ -170,7 +174,7 @@ class SettingsState {
   });
 
   /// Status aktualisieren (immutable).
-  /// Für nullable int-Felder (autoLockMinutes, clipboardClearSeconds) mit clearAutoLockMinutes/clearClipboardClearSeconds auf null setzen.
+  /// Für nullable int-Felder (autoLockMinutes, clipboardClearSeconds) mit clearAutolockMinutes/clearClipboardClearSeconds auf null setzen.
   SettingsState copyWith({
     String? vaultStoragePath,
     String? vaultName,
@@ -188,7 +192,8 @@ class SettingsState {
     String? categoryPlaceholder,
     bool? canOpenAppSettings,
     bool? canOpenBiometricSettings,
-    bool? canOpenAutofillSettings,
+    bool? isAutofillSupported,
+    bool? isAutotypeSupported,
     bool? autofillEnabled,
     bool? isAutofillEnabled,
     String? autofillHotkey,
@@ -217,7 +222,8 @@ class SettingsState {
       categoryPlaceholder: categoryPlaceholder ?? this.categoryPlaceholder,
       canOpenAppSettings: canOpenAppSettings ?? this.canOpenAppSettings,
       canOpenBiometricSettings: canOpenBiometricSettings ?? this.canOpenBiometricSettings,
-      canOpenAutofillSettings: canOpenAutofillSettings ?? this.canOpenAutofillSettings,
+      isAutofillSupported: isAutofillSupported ?? this.isAutofillSupported,
+      isAutotypeSupported: isAutotypeSupported ?? this.isAutotypeSupported,
       autofillEnabled: autofillEnabled ?? this.autofillEnabled,
       isAutofillEnabled: isAutofillEnabled ?? this.isAutofillEnabled,
       autofillHotkey: autofillHotkey ?? this.autofillHotkey,

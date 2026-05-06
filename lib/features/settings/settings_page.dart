@@ -1,10 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/env.dart';
-import 'package:famkey/features/settings/autofill_hotkey/autofill_hotkey_dialog.dart';
+import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_dialog.dart';
 import 'package:famkey/features/settings/category_placeholder/category_placeholder_dialog.dart';
 import 'package:famkey/features/settings/log_config/log_config_dialog.dart';
-import 'package:famkey/features/settings/timeouts/auto_lock_dialog.dart';
+import 'package:famkey/features/settings/timeouts/autolock_dialog.dart';
 import 'package:famkey/features/settings/timeouts/clipboard_clear_dialog.dart';
 import 'package:famkey/features/settings/log_file/log_file_dialog.dart';
 import 'package:famkey/features/settings/master_password/master_password_dialog.dart';
@@ -140,6 +140,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
     // Gezielte Watches für maximale Performance
     final isBusy = ref.watch(settingsProvider.select((s) => s.isBusy));
+    final isAutofillSupported = ref.watch(settingsProvider.select((s) => s.isAutofillSupported));
+    final isAutotypeSupported = ref.watch(settingsProvider.select((s) => s.isAutotypeSupported));
+    final canOpenAppSettings = ref.watch(settingsProvider.select((s) => s.canOpenAppSettings));
+    final canOpenBiometricSettings = ref.watch(settingsProvider.select((s) => s.canOpenBiometricSettings));
 
     // Notifier holen
     final notifier = ref.read(settingsProvider.notifier);
@@ -221,7 +225,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                           value: useBiometric,
                           onChanged: isBusy ? null : notifier.saveBiometricSettings,
                         ),
-                        if (useBiometric && !env.isWeb) ...[ // todo UI sollte nicht entscheiden, ob Biometrie genutzt wird oder nicht - env.isSupportedBiometric oder state.isSupportedBiometric ist besser
+                        if (useBiometric && canOpenBiometricSettings) ...[
                           Padding(
                             padding: const EdgeInsets.only(left: 48, top: 12, bottom: 12),
                             child: _buildSystemButton(
@@ -251,7 +255,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                   'Automatische Sperre',
                   (state) => state.autoLockLabel,
                   icon: Icons.lock_clock_outlined,
-                  onPressed: _showAutoLockDialog,
+                  onPressed: _showAutolockDialog,
                   tooltip: 'Automatische Sperre ändern',
                 ),
 
@@ -271,7 +275,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 // --- Autofill (nur für Android und Windows) ---
                 // ------------------------------------------------------------------------
 
-                if (env.isAndroid) ...[ // todo UI sollte nicht entscheiden, ob Autofill genutzt wird oder nicht - env.isSupportedAutofill oder state.isSupportedAutofill ist besser
+                if (isAutofillSupported) ...[
                   _buildSectionTitle('Autofill'),
                   Consumer(
                     builder: (ctx, ref, _) {
@@ -310,7 +314,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                   const Divider(height: 32),
                 ],
 
-                if (env.isWindows) ...[ // todo UI sollte nicht entscheiden, ob Autofill genutzt wird oder nicht - env.isSupportedAutoType oder state.isSupportedAutoType ist besser
+                if (isAutotypeSupported) ...[
                   _buildSectionTitle('Auto-Type'),
                   Consumer(
                     builder: (ctx, ref, _) {
@@ -623,7 +627,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 // --- Systemeinstellungen ---
                 // ------------------------------------------------------------------------
 
-                if (!env.isWeb) ...[ // im Browser nicht verfügbar
+                if (canOpenAppSettings) ...[
                   _buildSectionTitle('Systemeinstellungen'),
                   const SizedBox(height: 16),
 
@@ -989,11 +993,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
   // todo dem Dialog das Laden und Speichern überlassen
   /// Öffnet den Dialog zum Ändern der Auto-Sperre.
-  Future<void> _showAutoLockDialog() async {
+  Future<void> _showAutolockDialog() async {
     final current = ref.read(settingsProvider).autoLockMinutes;
-    final result = await AutoLockDialog.show(context, initialValue: current);
+    final result = await AutolockDialog.show(context, initialValue: current);
     if (result == null || !mounted) return;
-    ref.read(settingsProvider.notifier).saveAutoLockMinutes(result == 0 ? null : result);
+    ref.read(settingsProvider.notifier).saveAutolockMinutes(result == 0 ? null : result);
   }
 
   // todo dem Dialog das Laden und Speichern überlassen
@@ -1007,7 +1011,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
   /// Öffnet den Dialog zum Ändern des Auto-Type-Tastenkürzels.
   Future<void> _showHotkeyDialog(String current) async {
-    final ok = await AutofillHotkeyDialog.show(context);
+    final ok = await AutotypeHotkeyDialog.show(context);
     if (ok == true) {
       _hasChanged = true;
       if (mounted) {

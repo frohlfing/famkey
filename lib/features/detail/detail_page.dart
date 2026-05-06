@@ -11,7 +11,7 @@ import 'package:famkey/features/detail/detail_state.dart';
 import 'package:famkey/features/detail/preview/preview_dialog.dart';
 import 'package:famkey/widgets/confirm_dialog.dart';
 import 'package:famkey/features/detail/friend_dialog.dart';
-import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/widgets/password_strength_bar.dart';
 import 'package:famkey/widgets/snack.dart';
 
@@ -134,7 +134,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
                 IconButton(
                   icon: const Icon(Icons.keyboard_outlined),
                   tooltip: 'Auto-Type: Credentials einfügen',
-                  onPressed: isBusy ? null : _handleAutoType,
+                  onPressed: isBusy ? null : _handleAutotype,
                 ),
               if (canEdit) // Bearbeiten-Button ausblenden, wenn nur Leserecht
                 IconButton(
@@ -591,7 +591,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
   /// Tippt Benutzername und Passwort per Win32-SendInput in das zuletzt aktive Fenster.
   /// Zeigt zuerst einen Bestätigungsdialog mit dem Zielfenstertitel.
-  Future<void> _handleAutoType() async {
+  Future<void> _handleAutotype() async {
     final state = ref.read(detailProvider);
     final username = state.username;
     final password = state.password;
@@ -601,8 +601,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       return;
     }
 
-    final autofillService = getIt<AutofillService>();
-    final windowTitle = await autofillService.getLastWindowTitle();
+    final autoTypeService = getIt<AutotypeService>();
+    final windowTitle = await autoTypeService.getLastWindowTitle();
 
     if (!mounted) return;
 
@@ -644,7 +644,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
     if (confirmed != true || !mounted) return;
 
-    final ok = await autofillService.typeCredentials(username, password);
+    final ok = await autoTypeService.typeCredentials(username, password);
     if (mounted && !ok) {
       Snack.show(context, 'Auto-Type fehlgeschlagen: Zielfenster nicht mehr verfügbar.');
     }

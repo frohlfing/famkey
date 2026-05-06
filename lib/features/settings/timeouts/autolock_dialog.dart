@@ -4,23 +4,23 @@ import 'package:flutter/material.dart';
 ///
 /// Gibt den gewählten Wert zurück (0 = Nie, 1–10 = Minuten).
 /// Gibt null zurück, wenn der Nutzer den Dialog abbricht.
-class AutoLockDialog extends StatefulWidget {
-  const AutoLockDialog({super.key, required this.initialValue});
+class AutolockDialog extends StatefulWidget {
+  const AutolockDialog({super.key, required this.initialValue});
 
   final int? initialValue;
 
   static Future<int?> show(BuildContext context, {int? initialValue}) {
     return showDialog<int>(
       context: context,
-      builder: (_) => AutoLockDialog(initialValue: initialValue),
+      builder: (_) => AutolockDialog(initialValue: initialValue),
     );
   }
 
   @override
-  State<AutoLockDialog> createState() => _AutoLockDialogState();
+  State<AutolockDialog> createState() => _AutolockDialogState();
 }
 
-class _AutoLockDialogState extends State<AutoLockDialog> {
+class _AutolockDialogState extends State<AutolockDialog> {
 
   static const _options = [
     (value: 0, label: 'Nie'),

@@ -1,9 +1,11 @@
 ﻿import 'dart:convert';
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:famkey/core/env.dart';
 import 'package:famkey/core/logger.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Implementierung für die Biometrie-Unterstützung (FaceID / Fingerabdruck).
 ///
@@ -82,6 +84,24 @@ class BiometricService {
   Future<void> removeMasterKey(String vaultName) async {
     await _storage.delete(key: _getKeyName(vaultName));
     log.debug('Master-Schlüssel wurde aus dem Keystore des Geräts gelöscht.');
+  }
+
+  /// Gibt an, ob die Biometrie-Einstellungsseite auf dieser Plattform geöffnet werden kann.
+  bool get canOpenSettings => !env.isWeb;
+
+  /// Öffnet die Biometrie- bzw. Anmeldeoptionen-Seite in den Systemeinstellungen.
+  ///
+  /// - **Windows:** Öffnet „ms-settings:signinoptions" (Windows Hello / PIN / Fingerabdruck).
+  /// - **Android / iOS:** Öffnet die Sicherheitseinstellungen über `app_settings`.
+  /// - **Web:** Kein Systemzugriff – [canOpenSettings] ist `false`, diese Methode ist ein No-Op.
+  Future<void> openSystemSettings() async {
+    if (env.isWeb) return;
+    if (env.isWindows) {
+      final uri = Uri.parse('ms-settings:signinoptions');
+      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    } else {
+      await AppSettings.openAppSettings(type: AppSettingsType.security);
+    }
   }
 
 }

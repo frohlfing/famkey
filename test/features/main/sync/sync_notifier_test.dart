@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:famkey/core/app_version.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/main/sync/sync_notifier.dart';
@@ -14,6 +13,7 @@ import 'package:famkey/models/dtos/version_response.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/info_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/services/web_service.dart';
 
@@ -42,6 +42,7 @@ void main() {
     getIt.reset();
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
+    getIt.registerSingleton<InfoService>(InfoService());
     getIt.registerSingleton<SessionService>(mockSession);
     getIt.registerSingleton<WebService>(mockWeb);
 
@@ -101,7 +102,7 @@ void main() {
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'FamKey',
-        syncProtocolVersion: AppVersion.syncProtocolVersion - 1,
+        syncProtocolVersion: 1 - 1,
         minSyncProtocolVersion: 1,
       ));
 
@@ -117,7 +118,7 @@ void main() {
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'FamKey v1 REST-API',
-        syncProtocolVersion: AppVersion.syncProtocolVersion,
+        syncProtocolVersion: 1,
         minSyncProtocolVersion: 1,
       ));
 
@@ -169,7 +170,7 @@ void main() {
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'FamKey v1 REST-API',
-        syncProtocolVersion: AppVersion.syncProtocolVersion,
+        syncProtocolVersion: 1,
         minSyncProtocolVersion: 1,
       ));
 
@@ -213,7 +214,7 @@ void main() {
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'FamKey v1 REST-API',
-        syncProtocolVersion: AppVersion.syncProtocolVersion,
+        syncProtocolVersion: 1,
         minSyncProtocolVersion: 1,
       ));
 
@@ -256,7 +257,7 @@ void main() {
 
       when(mockWeb.getServerVersion()).thenAnswer((_) async => VersionResponse(
         service: 'FamKey v1 REST-API',
-        syncProtocolVersion: AppVersion.syncProtocolVersion,
+        syncProtocolVersion: 1,
         minSyncProtocolVersion: 1,
       ));
 

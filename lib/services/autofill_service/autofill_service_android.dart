@@ -116,6 +116,10 @@ import 'package:url_launcher/url_launcher.dart';
 /// beide Seiten erkennen. Der Aufruf ist asynchron (`await`), weil er die Grenze
 /// zwischen zwei Threads überquert.
 class AutofillServiceAndroid implements AutofillService {
+
+  @override
+  bool get isSupported => true;
+
   /// Bidirektionaler MethodChannel zum Kotlin-`FamKeyAutofillService`.
   ///
   /// Dieser Name muss auf beiden Seiten exakt gleich sein:
@@ -231,6 +235,14 @@ class AutofillServiceAndroid implements AutofillService {
     _pendingDomain = null;
   }
 
+  /// Öffnet die Android-Systemeinstellungen zur Auswahl des Autofill-Anbieters.
+  @override
+  Future<void> openSystemSettings() async {
+    try {
+      await _channel.invokeMethod<void>('openAutofillSettings');
+    } catch (_) {}
+  }
+
   /// Fragt Android, ob FamKey als Autofill-Provider ausgewählt ist.
   ///
   /// Der Nutzer muss in den Android-Einstellungen unter "Passwörter & Autofill"
@@ -245,19 +257,4 @@ class AutofillServiceAndroid implements AutofillService {
     }
   }
 
-  // Die folgenden Methoden sind Windows-spezifisch und werden auf Android nicht benötigt.
-  // Sie existieren hier nur, weil AutofillService als gemeinsames Interface alle Methoden
-  // enthält und diese Implementierung den Vertrag erfüllen muss.
-
-  @override
-  Future<void> unregisterHotkey() async {}
-
-  @override
-  Future<void> reregisterHotkey() async {}
-
-  @override
-  Future<String> getLastWindowTitle() async => '';
-
-  @override
-  Future<bool> typeCredentials(String username, String password) async => false;
 }
