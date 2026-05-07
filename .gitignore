@@ -59,6 +59,6 @@ env.ps1
 host/public/dev/.htaccess
 host/public/dev/.htpasswd
 host/coverage
-Host/logs
+host/logs
 config.php
 sqlca.pem
