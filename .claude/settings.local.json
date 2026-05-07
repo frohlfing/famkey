@@ -12,7 +12,12 @@
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\frank\\\\Source\\\\AndroidStudio\\\\famkey\\\\home\\\\public\\\\releases\\\\1.0.0.1\" | ForEach-Object { \"$\\($_.Name\\)  \\($\\([math]::Round\\($_.Length/1MB,1\\)\\) MB\\)\" })",
       "PowerShell(Get-ChildItem *)",
       "PowerShell(Remove-Item *)",
-      "Bash(grep \"lib\\\\\\\\\")"
+      "Bash(grep \"lib\\\\\\\\\")",
+      "Bash(flutter test *)",
+      "Bash(Select-String -Pattern \"^\\\\d{2}:\\\\d{2}.*\\\\[E\\\\]|Bad state:|Error:|^\\\\s+test\\\\\\\\|^  \")",
+      "Bash(dart run *)",
+      "Bash(dart pub *)",
+      "Bash(dir *)"
     ]
   }
 }

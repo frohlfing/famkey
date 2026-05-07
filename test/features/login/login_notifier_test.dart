@@ -8,6 +8,7 @@ import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/login/login_notifier.dart';
 import 'package:famkey/features/login/login_state.dart';
+import 'package:famkey/services/autolock_service.dart';
 import 'package:famkey/services/biometric_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
@@ -18,6 +19,7 @@ import 'package:famkey/services/session_service.dart';
 import 'login_notifier_test.mocks.dart';
 
 @GenerateMocks([
+  AutolockService,
   BiometricService,
   ConfigService,
   CryptoService,
@@ -27,6 +29,7 @@ import 'login_notifier_test.mocks.dart';
 ])
 void main() {
   late ProviderContainer container;
+  late MockAutolockService mockAutolock;
   late MockBiometricService mockBio;
   late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
@@ -34,7 +37,8 @@ void main() {
   late MockPasswordService mockPw;
   late MockSessionService mockSession;
 
-  setUp(() {
+  setUp(() async {
+    mockAutolock = MockAutolockService();
     mockBio = MockBiometricService();
     mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
@@ -42,7 +46,8 @@ void main() {
     mockPw = MockPasswordService();
     mockSession = MockSessionService();
 
-    getIt.reset();
+    await getIt.reset();
+    getIt.registerSingleton<AutolockService>(mockAutolock);
     getIt.registerSingleton<BiometricService>(mockBio);
     getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
@@ -53,6 +58,7 @@ void main() {
     // Standard-Stubs für häufig aufgerufene Methoden
     when(mockPw.estimateStrength(any)).thenReturn(0);
     when(mockConfig.lastVaultName).thenReturn('');
+    when(mockConfig.autoLockSeconds).thenReturn(null);
     // Behebt MissingStubError: Wird von setVaultName im Hintergrund gerufen
     when(mockBio.containsMasterKey(any)).thenAnswer((_) async => false);
 

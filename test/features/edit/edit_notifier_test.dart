@@ -10,6 +10,9 @@ import 'package:famkey/database/database.dart';
 import 'package:famkey/features/edit/edit_notifier.dart';
 import 'package:famkey/features/edit/edit_state.dart';
 import 'package:famkey/models/payloads/entry_payload.dart';
+import 'package:famkey/services/autolock_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/password_service.dart';
@@ -17,21 +20,30 @@ import 'package:famkey/services/session_service.dart';
 
 import 'edit_notifier_test.mocks.dart';
 
-@GenerateMocks([CryptoService, DatabaseService, PasswordService, SessionService])
+@GenerateMocks([AutolockService, ClipboardService, ConfigService, CryptoService, DatabaseService, PasswordService, SessionService])
 void main() {
   late ProviderContainer container;
+  late MockAutolockService mockAutolock;
+  late MockClipboardService mockClipboard;
+  late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
   late MockPasswordService mockPw;
   late MockSessionService mockSession;
 
-  setUp(() {
+  setUp(() async {
+    mockAutolock = MockAutolockService();
+    mockClipboard = MockClipboardService();
+    mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockPw = MockPasswordService();
     mockSession = MockSessionService();
 
-    getIt.reset();
+    await getIt.reset();
+    getIt.registerSingleton<AutolockService>(mockAutolock);
+    getIt.registerSingleton<ClipboardService>(mockClipboard);
+    getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<PasswordService>(mockPw);
@@ -82,7 +94,7 @@ void main() {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
-      when(mockCrypto.decryptRsa(any, Uint8List(0))).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));
       when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(payloadJson)));
       when(mockPw.estimateStrength(any)).thenReturn(3);
 
@@ -137,7 +149,7 @@ void main() {
       when(mockSession.privateKey).thenReturn(Uint8List(32));
       when(mockDb.getEntry(10)).thenAnswer((_) async => entry);
       when(mockDb.getPermissionByEntryIdAndUserId(10, 1)).thenAnswer((_) async => PermissionEntity(id: 1, entryId: 10, userId: 1, encryptedKey: 'K', accessLevel: 3));
-      when(mockCrypto.decryptRsa(any, Uint8List(0))).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decryptRsa(any, any)).thenAnswer((_) async => Uint8List(32));
       when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List.fromList(utf8.encode(json.encode(createTestPayload().toJson()))));
 
       final notifier = container.read(editProvider.notifier);

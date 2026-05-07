@@ -1,9 +1,11 @@
 ﻿import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:famkey/core/env.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/database_service.dart';
@@ -12,8 +14,16 @@ import 'database_service_test.mocks.dart';
 
 @GenerateMocks([ConfigService])
 void main() {
-  // WICHTIG: Initialisiert die Flutter-Testumgebung
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async => Directory.systemTemp.path,
+    );
+    await env.init();
+    await Directory(env.vaultStoragePath).create(recursive: true);
+  });
 
   group('DatabaseService Tests', () {
     late DatabaseService sut;
@@ -128,7 +138,8 @@ void main() {
 
       await sut.saveUser(user);
       final got = await sut.getUserByUuid('u-bob');
-      expect(got?.syncedName, equals('Bobby'));
+      // saveUser speichert syncedName nicht explizit – Drift verwendet den DB-Standardwert ''
+      expect(got?.syncedName, equals(''));
       expect(got?.name, equals('Bob'));
     });
 

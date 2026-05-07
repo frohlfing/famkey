@@ -1,9 +1,11 @@
-﻿import 'dart:typed_data';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:famkey/core/env.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
@@ -12,10 +14,13 @@ import 'package:famkey/features/settings/delete_vault/delete_vault_state.dart';
 import 'package:famkey/features/settings/settings_notifier.dart';
 import 'package:famkey/features/settings/settings_state.dart';
 import 'package:famkey/services/autofill_service.dart';
+import 'package:famkey/services/autotype_service.dart';
 import 'package:famkey/services/biometric_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
 import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
+import 'package:famkey/services/info_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/services/web_service.dart';
 
@@ -23,38 +28,59 @@ import 'settings_notifier_test.mocks.dart';
 
 @GenerateMocks([
   AutofillService,
+  AutotypeService,
   BiometricService,
+  ClipboardService,
   ConfigService,
   CryptoService,
   DatabaseService,
+  InfoService,
   SessionService,
   WebService,
 ])
 void main() {
   late ProviderContainer container;
   late MockAutofillService mockAutofill;
+  late MockAutotypeService mockAutotype;
   late MockBiometricService mockBio;
+  late MockClipboardService mockClipboard;
   late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
+  late MockInfoService mockInfo;
   late MockSessionService mockSession;
   late MockWebService mockWeb;
 
-  setUp(() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async => Directory.systemTemp.path,
+    );
+    await env.init();
+  });
+
+  setUp(() async {
     mockAutofill = MockAutofillService();
+    mockAutotype = MockAutotypeService();
     mockBio = MockBiometricService();
+    mockClipboard = MockClipboardService();
     mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
+    mockInfo = MockInfoService();
     mockSession = MockSessionService();
     mockWeb = MockWebService();
 
-    getIt.reset();
+    await getIt.reset();
     getIt.registerSingleton<AutofillService>(mockAutofill);
+    getIt.registerSingleton<AutotypeService>(mockAutotype);
     getIt.registerSingleton<BiometricService>(mockBio);
+    getIt.registerSingleton<ClipboardService>(mockClipboard);
     getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
+    getIt.registerSingleton<InfoService>(mockInfo);
     getIt.registerSingleton<SessionService>(mockSession);
     getIt.registerSingleton<WebService>(mockWeb);
 
@@ -63,11 +89,23 @@ void main() {
     when(mockDb.getUserIdsWithEmptyEntryKeys()).thenAnswer((_) async => []);
     when(mockSession.vaultName).thenReturn('MyVault');
     when(mockSession.user).thenReturn(null);
-    // ConfigService-Stubs (werden in load() und setThemeMode() benötigt)
+    // Stubs für SettingsNotifier.build()
+    when(mockBio.canOpenSettings).thenReturn(false);
+    when(mockAutofill.isSupported).thenReturn(false);
+    when(mockAutotype.isSupported).thenReturn(false);
+    when(mockInfo.canOpenSettings).thenReturn(false);
+    // ConfigService-Stubs (werden in build(), load() und setThemeMode() benötigt)
     when(mockConfig.themeMode).thenReturn(ThemeMode.system);
     when(mockConfig.logLevel).thenReturn(LogLevel.info);
     when(mockConfig.logDays).thenReturn(7);
+    when(mockConfig.logSize).thenReturn(0);
+    when(mockConfig.autoLockSeconds).thenReturn(null);
+    when(mockConfig.clipboardClearSeconds).thenReturn(null);
+    when(mockConfig.isAutotypeEnabled).thenReturn(false);
+    when(mockConfig.autotypeHotkey).thenReturn('');
     when(mockConfig.lastVaultName).thenReturn('MyVault');
+    // AutofillService-Stubs für load()
+    when(mockAutofill.isAutofillEnabled()).thenAnswer((_) async => false);
 
     container = ProviderContainer();
   });

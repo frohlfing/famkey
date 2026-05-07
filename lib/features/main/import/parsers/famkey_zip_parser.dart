@@ -304,7 +304,6 @@ class FamKeyZipParser implements Parser {
   ///
   /// Der Vergleich ist case-insensitiv.
   bool _headersMatch(List<String> actual, List<String> expected) {
-    debugPrint('${actual.length} != ${expected.length}');
     if (actual.length != expected.length) return false;
     for (int i = 0; i < expected.length; i++) {
       debugPrint('${actual[i]} != ${expected[i]}');

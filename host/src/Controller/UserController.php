@@ -267,7 +267,8 @@ final class UserController
         $masterKeyTimestamp = Time::iso8601ToMysql($request->date('master_key_timestamp'));
 
         // Header-Parameter
-        $isTestRequest = !empty($request->server['HTTP_X_TEST']) ? 1 : 0;
+        //$isTestRequest = !empty($request->server['HTTP_X_TEST']) ? 1 : 0;
+        $isTestRequest = !empty($request->header('X-Test')) ? 1 : 0;
 
         $orgUuid = $request->orgUuid();
 

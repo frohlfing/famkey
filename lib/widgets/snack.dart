@@ -15,12 +15,4 @@ class Snack {
         ),
       );
   }
-
-  /// Zeigt eine Exception in der SnackBar an.
-  static void showException(BuildContext context, dynamic ex, {StackTrace? stackTrace, String? label}) {
-    final logLabel = label ?? "Error";
-    debugPrint("❌ $logLabel: $ex");
-    if (stackTrace != null) debugPrintStack(stackTrace: stackTrace);
-    Snack.show(context, "Ein unerwarteter Fehler ist aufgetreten.");
-  }
 }

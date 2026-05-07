@@ -1,7 +1,8 @@
 ﻿import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart'; // Hinzugefügt für debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:famkey/core/app_file.dart';
+import 'package:famkey/core/logger.dart';
 import 'package:famkey/database/database.dart';
 import '../core/env.dart';
 
@@ -136,7 +137,6 @@ class DatabaseService {
         .map((f) => f.name.replaceAll('.db3', ''))
         .toList();
 
-    debugPrint("Vaults: $vaults");
     return vaults;
   }
 
@@ -180,14 +180,13 @@ class DatabaseService {
     final backupPath = '$_currentDbPath.bak';
     final backupFile = AppFile(backupPath);
     if (!await backupFile.exists()) {
-      debugPrint("Es konnte keine Backup-Datei gefunden werden.");
       return;
     }
     await backupFile.copy(_currentDbPath!);
     try {
       await backupFile.delete();
     } catch (_) {
-      debugPrint("Backup-File konnte kopiert, aber nicht gelöscht werden.");
+      log.warn("Backup-File konnte kopiert, aber nicht gelöscht werden.", context: {'backupPath': backupPath});
     }
   }
 

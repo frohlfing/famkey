@@ -2,7 +2,7 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
+import 'package:famkey/core/logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -16,9 +16,9 @@ QueryExecutor openConnection(String name, String password) {
       final dllPath = p.join(Directory.current.path, 'native', 'sqlcipher', 'windows', 'sqlite3mc_x64.dll');
       if (File(dllPath).existsSync()) {
         open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
-        debugPrint('✅ SQLiteMC DLL registriert');
+        log.debug('SQLiteMC DLL registriert');
       } else {
-        debugPrint('❌ SQLiteMC DLL nicht gefunden: $dllPath');
+        log.fatal('SQLiteMC DLL nicht gefunden', context: {'dllPath': dllPath});
       }
     }
 

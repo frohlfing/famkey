@@ -33,13 +33,13 @@ void main() {
   late MockSessionService mockSession;
   late MockWebService mockWeb;
 
-  setUp(() {
+  setUp(() async {
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockSession = MockSessionService();
     mockWeb = MockWebService();
 
-    getIt.reset();
+    await getIt.reset();
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<InfoService>(InfoService());

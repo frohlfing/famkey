@@ -8,6 +8,9 @@ import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
 import 'package:famkey/features/main/main_notifier.dart';
 import 'package:famkey/features/main/main_state.dart';
+import 'package:famkey/services/autolock_service.dart';
+import 'package:famkey/services/clipboard_service.dart';
+import 'package:famkey/services/config_service.dart';
 import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
@@ -18,29 +21,42 @@ Uint8List indexBytes(String category, String title, String url, String notes) {
   return Uint8List.fromList(utf8.encode(json.encode(map)));
 }
 
-@GenerateMocks([DatabaseService, SessionService, CryptoService])
+@GenerateMocks([AutolockService, ClipboardService, ConfigService, CryptoService, DatabaseService, SessionService])
 void main() {
   late ProviderContainer container;
+  late MockAutolockService mockAutolock;
+  late MockClipboardService mockClipboard;
+  late MockConfigService mockConfig;
   late MockCryptoService mockCrypto;
   late MockDatabaseService mockDb;
   late MockSessionService mockSession;
 
-  setUp(() {
+  setUp(() async {
+    mockAutolock = MockAutolockService();
+    mockClipboard = MockClipboardService();
+    mockConfig = MockConfigService();
     mockCrypto = MockCryptoService();
     mockDb = MockDatabaseService();
     mockSession = MockSessionService();
 
-    getIt.reset();
+    await getIt.reset();
+    getIt.registerSingleton<AutolockService>(mockAutolock);
+    getIt.registerSingleton<ClipboardService>(mockClipboard);
+    getIt.registerSingleton<ConfigService>(mockConfig);
     getIt.registerSingleton<CryptoService>(mockCrypto);
     getIt.registerSingleton<DatabaseService>(mockDb);
     getIt.registerSingleton<SessionService>(mockSession);
 
     // Standard-Stubs für SessionService (behebt MissingStubError)
     when(mockSession.indexKey).thenReturn(Uint8List(32));
-    when(mockSession.indexKey).thenReturn(Uint8List(32));
     when(mockSession.settings).thenReturn(null);
     when(mockSession.vaultName).thenReturn('TestVault');
     when(mockSession.user).thenReturn(null);
+    // Standard-Stubs für ConfigService
+    when(mockConfig.showOnlyMine).thenReturn(false);
+    when(mockConfig.categoriesCollapsed).thenReturn(false);
+    // Standard-Stubs für DatabaseService
+    when(mockDb.hasFriends()).thenAnswer((_) async => false);
 
     container = ProviderContainer();
   });

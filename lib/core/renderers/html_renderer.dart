@@ -174,7 +174,6 @@ class HtmlRenderer implements Renderer {
         }
 
         // Alle externen Navigationen (http, https, file, ftp, ...) blockieren
-        debugPrint('[HtmlRenderer] Externe Navigation blockiert: $url');
         return NavigationActionPolicy.CANCEL;
       },
 

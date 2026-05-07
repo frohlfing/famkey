@@ -6,12 +6,6 @@ import 'package:flutter/foundation.dart';
 ///
 /// Parameter `password` wird hier bewusst ignoriert, da die SQLite-Datei nicht verschlüsselt ist (technisch nicht möglich).
 QueryExecutor openConnection(String name, String password) {
-  // Hinweis: Keine DB-Verschlüsselung auf Web-Plattform (kein SQLCipher).
-  // Die Sicherheit liegt ausschließlich in der AES-Verschlüsselung der Inhalte.
-  if (kDebugMode) {
-    debugPrint("⚠️ Web-Plattform: DB-Verschlüsselung (SQLCipher) deaktiviert.");
-  }
-
   return LazyDatabase(() async {
     final result = await WasmDatabase.open(
       databaseName: name,

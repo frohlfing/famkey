@@ -70,37 +70,33 @@ class WebService {
             final timestamp = (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000).toString();
             final payload = '$_userUuid:$timestamp';
 
-            try {
-              // Signatur erstellen (CryptoService nutzen)
-              var signature = await _cryptoService.signData(Uint8List.fromList(utf8.encode(payload)), _privateKeyBytes!);
+            // Signatur erstellen (CryptoService nutzen)
+            var signature = await _cryptoService.signData(Uint8List.fromList(utf8.encode(payload)), _privateKeyBytes!);
 
-              // Sicherstellen, dass die Signatur für Header valide ist (keine Zeilenumbrüche)
-              options.headers['X-User-Uuid'] = _userUuid;
-              options.headers['X-Timestamp'] = timestamp;
-              options.headers['X-Signature'] = signature.replaceAll('\r', '').replaceAll('\n', '').trim();
-            } catch (e) {
-              debugPrint("❌ [SIGN] FEHLER IM INTERCEPTOR: $e");
-            }
+            // Sicherstellen, dass die Signatur für Header valide ist (keine Zeilenumbrüche)
+            options.headers['X-User-Uuid'] = _userUuid;
+            options.headers['X-Timestamp'] = timestamp;
+            options.headers['X-Signature'] = signature.replaceAll('\r', '').replaceAll('\n', '').trim();
           }
           return handler.next(options);
         },
       ),
     );
 
-    // Log-Ausgabe für Debug-Zwecke
-    if (kDebugMode) {
-      _dio.interceptors.add(
-        LogInterceptor(
-          request: true,
-          requestHeader: true,
-          requestBody: true,
-          responseHeader: true,
-          responseBody: true,
-          error: true,
-          logPrint: (obj) => debugPrint(obj.toString()),
-        ),
-      );
-    }
+    // // Log-Ausgabe für Debug-Zwecke
+    // if (kDebugMode) {
+    //   _dio.interceptors.add(
+    //     LogInterceptor(
+    //       request: true,
+    //       requestHeader: true,
+    //       requestBody: true,
+    //       responseHeader: true,
+    //       responseBody: true,
+    //       error: true,
+    //       logPrint: (obj) => debugPrint(obj.toString()),
+    //     ),
+    //   );
+    // }
   }
 
   // --- Konfiguration ---

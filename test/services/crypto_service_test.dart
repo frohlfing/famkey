@@ -1,9 +1,31 @@
 ﻿import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:dargon2_flutter/dargon2_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:famkey/services/crypto_service.dart';
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    if (Platform.isWindows) {
+      // argon2.dll muss vorab aus dem Build-Verzeichnis geladen werden,
+      // damit DArgon2Flutter.init() es findet (sucht sonst nur im Systemverzeichnis).
+      for (final candidate in [
+        p.join(Directory.current.path, 'build', 'windows', 'x64', 'runner', 'Debug', 'argon2.dll'),
+        p.join(Directory.current.path, 'build', 'windows', 'x64', 'runner', 'Release', 'argon2.dll'),
+      ]) {
+        if (File(candidate).existsSync()) {
+          DynamicLibrary.open(candidate);
+          break;
+        }
+      }
+    }
+    DArgon2Flutter.init();
+  });
+
   group('CryptoService Tests', () {
     late CryptoService sut;
 
@@ -140,7 +162,7 @@ void main() {
        final key1 = await sut.deriveKeyFromKey(inputMaterial, salt, info);
        final key2 = await sut.deriveKeyFromKey(inputMaterial, salt, info);
 
-       expect(utf8.decode(key1).length, equals(32));
+       expect(key1.length, equals(32));
        expect(key1, equals(key2));
     });
   });
