@@ -70,6 +70,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       isAutofillSupported: _autofillService.isSupported,
       isAutotypeSupported: _autotypeService.isSupported,
       canOpenAppSettings: _infoService.canOpenSettings,
+      syncProtocolVersion: _infoService.syncProtocolVersion,
+      schemaVersion: _infoService.schemaVersion,
     );
   }
 
@@ -92,6 +94,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
       // Autofill-Status abfragen (Android: Systemzustand via MethodChannel)
       final isAutofillEnabled = await _autofillService.isAutofillEnabled();
+
+      // App-Version laden (async)
+      final appVersion = await _infoService.version;
 
       // UI-State aktualisieren
       state = state.copyWith(
@@ -117,6 +122,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         logLevel: _configService.logLevel,
         logDays: _configService.logDays,
         logSize: _configService.logSize,
+        appVersion: appVersion,
         status: SettingsActionStatus.loaded,
       );
 

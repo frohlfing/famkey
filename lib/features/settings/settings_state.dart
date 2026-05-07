@@ -120,6 +120,15 @@ class SettingsState {
   /// Kann die App-Info-Seite geöffnet werden?
   final bool canOpenAppSettings;
 
+  /// Angezeigte App-Version (aus pubspec.yaml, z.B. "1.0.0").
+  final String appVersion;
+
+  /// Versionsnummer des Sync-Protokolls zwischen App und Server.
+  final int syncProtocolVersion;
+
+  /// Aktuelle Schema-Version der lokalen SQLite-Datenbank.
+  final int schemaVersion;
+
   // --- Action-Status und -Error ---
 
   /// Der Status der letzten Aktion.
@@ -177,6 +186,9 @@ class SettingsState {
     this.logDays = 7,
     this.logSize = 512 * 1024,
     this.canOpenAppSettings = false,
+    this.appVersion = '',
+    this.syncProtocolVersion = 0,
+    this.schemaVersion = 0,
     this.status = SettingsActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -210,6 +222,9 @@ class SettingsState {
     int? logDays,
     int? logSize,
     bool? canOpenAppSettings,
+    String? appVersion,
+    int? syncProtocolVersion,
+    int? schemaVersion,
     SettingsActionStatus? status,
     AppError? error,
   }) {
@@ -240,6 +255,9 @@ class SettingsState {
       logDays: logDays ?? this.logDays,
       logSize: logSize ?? this.logSize,
       canOpenAppSettings: canOpenAppSettings ?? this.canOpenAppSettings,
+      appVersion: appVersion ?? this.appVersion,
+      syncProtocolVersion: syncProtocolVersion ?? this.syncProtocolVersion,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
       status: status ?? this.status,
       error: error ?? this.error,
     );

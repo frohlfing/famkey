@@ -25,7 +25,7 @@ function phpStr(string $v): string
 // const NAME = <alt>;  →  const NAME = <neu>;
 function setConst(string $src, string $name, string $newValue): string
 {
-    return preg_replace('/^(const\s+' . preg_quote($name, '/') . '\s*=\s*)[^;]+(;)/m', '$1' . $newValue . '$2', $src, 1) ?? $src;
+    return preg_replace('/^(const\s+' . preg_quote($name, '/') . '\s*=\s*)[^;]+(;)/m', '${1}' . $newValue . '${2}', $src, 1) ?? $src;
 }
 
 // ── Requirements prüfen ──────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
                 $pdoOptions = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
                 if ($dbSslCa !== '') {
-                    $pdoOptions[PDO::MYSQL_ATTR_SSL_CA] = $dbSslCa;
+                    $pdoOptions[PDO::MYSQL_ATTR_SSL_CA] = dirname($configPath) . '/' . basename($dbSslCa);
                     $pdoOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
                 }
                 $pdo = new PDO($dsn, $dbUser, $dbPass, $pdoOptions);
@@ -137,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 3) {
                 $configContent = setConst($configContent, 'DB_NAME', phpStr($dbName));
                 $configContent = setConst($configContent, 'DB_USER', phpStr($dbUser));
                 $configContent = setConst($configContent, 'DB_PASS', phpStr($dbPass));
-                $configContent = setConst($configContent, 'DB_SSLCA', $dbSslCa !== '' ? phpStr($dbSslCa) : 'null');
+                $configContent = setConst($configContent, 'DB_SSLCA', $dbSslCa !== '' ? "__DIR__ . '/" . addslashes(basename($dbSslCa)) . "'" : 'null');
             }
             if (!$skipApp) {
                 $maxBytes = $maxAttachMb * 1024 * 1024;
@@ -449,8 +449,8 @@ $reqPassed    = allPassed($requirements);
 
       <div class="field">
         <label for="db_sslca">SSL-CA-Zertifikat <span style="font-weight:400">(optional, z.&nbsp;B. für Hetzner)</span></label>
-        <input type="text" id="db_sslca" name="db_sslca" value="<?= h($_POST['db_sslca'] ?? '') ?>" placeholder="Pfad zur .pem-Datei, z. B. sqlca.pem">
-        <p class="hint-text">Nur nötig, wenn dein Hoster eine TLS-Verbindung zur DB vorschreibt.</p>
+        <input type="text" id="db_sslca" name="db_sslca" value="<?= h($_POST['db_sslca'] ?? '') ?>" placeholder="z. B. sqlca.pem">
+        <p class="hint-text">Nur nötig, wenn dein Hoster eine TLS-Verbindung zur DB vorschreibt. Die Datei muss neben der <code>config.php</code> abgelegt werden.</p>
       </div>
     </fieldset>
 

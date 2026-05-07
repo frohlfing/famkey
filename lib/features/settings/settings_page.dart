@@ -591,7 +591,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
                 // ------------------------------------------------------------------------
 
                 if (canOpenAppSettings) ...[
-                  _buildSectionTitle('Systemeinstellungen'),
+                  _buildSectionTitle('Infos'),
+                  const SizedBox(height: 16),
+
+                  _buildText('App-Version', (s) => s.appVersion, icon: Icons.tag),
+                  _buildText('Sync-Protokollversion', (s) => s.syncProtocolVersion.toString(), icon: Icons.sync),
+                  _buildText('DB-Schema-Version', (s) => s.schemaVersion.toString(), icon: Icons.storage),
+
                   const SizedBox(height: 16),
 
                   _buildSystemButton(

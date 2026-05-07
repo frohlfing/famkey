@@ -94,6 +94,9 @@ void main() {
     when(mockAutofill.isSupported).thenReturn(false);
     when(mockAutotype.isSupported).thenReturn(false);
     when(mockInfo.canOpenSettings).thenReturn(false);
+    when(mockInfo.syncProtocolVersion).thenReturn(1);
+    when(mockInfo.schemaVersion).thenReturn(1);
+    when(mockInfo.version).thenAnswer((_) async => '1.0.0');
     // ConfigService-Stubs (werden in build(), load() und setThemeMode() benötigt)
     when(mockConfig.themeMode).thenReturn(ThemeMode.system);
     when(mockConfig.logLevel).thenReturn(LogLevel.info);

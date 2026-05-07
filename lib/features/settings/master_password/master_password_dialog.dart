@@ -177,8 +177,7 @@ class _MasterPasswordDialogState extends ConsumerState<MasterPasswordDialog> {
                     SwitchListTile(
                       value: regenerateKeyPair,
                       onChanged: isBusy ? null : notifier.setRegenerateKeyPair,
-                      title: const Text('Neues RSA-Schlüsselpaar erzeugen'),
-                      subtitle: const Text('Notfall-Reset'),
+                      title: const Text('Neuen RSA-Schlüssel erzeugen'),
                       contentPadding: EdgeInsets.zero,
                     ),
                     if (regenerateKeyPair)

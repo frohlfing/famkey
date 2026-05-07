@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 use App\Core\Bootstrap;
 use App\Core\Database;
-use App\Core\HTMLHelper;
+use App\Core\HtmlHelper;
 use App\Core\Uuid;
 
 require_once __DIR__ . '/../../src/Core/Bootstrap.php';
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Organisation anlegen
     if ($action === 'create') {
         $name = trim($_POST['name'] ?? '');
-        $slug = HTMLHelper::slugify($name);
+        $slug = HtmlHelper::slugify($name);
         if ($name === '') {
             $errors[] = 'Name ist erforderlich.';
         } else if ($slug === '') {
@@ -131,7 +131,7 @@ $orgs = $pdo->query('
            COUNT(v.uuid) AS vault_count
     FROM organizations o
     LEFT JOIN vaults v ON v.org_uuid = o.uuid
-    GROUP BY o.uuid, o.api_token, o.name, o.blocked_at, o.created_at
+    GROUP BY o.uuid, o.slug, o.api_token, o.name, o.blocked_at, o.created_at
     ORDER BY o.created_at DESC
 ')->fetchAll();
 
