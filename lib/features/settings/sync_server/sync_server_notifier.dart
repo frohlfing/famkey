@@ -73,6 +73,7 @@ class SyncServerNotifier extends Notifier<SyncServerState> {
       state = state.copyWith(
         formData: formData,
         originalFormData: formData,
+        isRegistered: _settings!.lastSyncAt.year > 1970,
         status: SyncServerActionStatus.loaded,
       );
 

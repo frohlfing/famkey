@@ -127,6 +127,31 @@ class _SyncServerDialogState extends ConsumerState<SyncServerDialog> {
                 },
               ),
 
+              // --- Warnung bei Serverwechsel mit vorhandenen Sync-Daten ---
+              Consumer(builder: (context, ref, _) {
+                final showWarning = ref.watch(syncServerProvider.select((s) => s.hostChanged && s.isRegistered));
+                if (!showWarning) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Auf dem bisherigen Server befinden sich noch synchronisierte Daten. '
+                          'Diese bleiben dort verschlüsselt erhalten und werden nicht automatisch gelöscht. '
+                          'Nutze zuerst "Tresor löschen" → "Nur Server-Daten löschen", um sie zu entfernen.',
+                          softWrap: true,
+                          style: TextStyle(color: Colors.orange[800]),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+
               const SizedBox(height: 16),
 
               // --- API-Token ---

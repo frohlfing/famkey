@@ -25,6 +25,9 @@ class SyncServerState {
   /// Der Fehler der letzten Aktion.
   final AppError error;
 
+  /// Gibt an, ob auf dem bisherigen Server synchronisierte Daten vorhanden sind.
+  final bool isRegistered;
+
   // --- Getter ---
 
   /// Gibt an, ob gerade eine Hintergrundaktion läuft.
@@ -34,10 +37,14 @@ class SyncServerState {
   /// Gibt an, ob der Benutzer ein Feld verändert hat.
   bool get isDirty => formData != originalFormData;
 
+  /// Gibt an, ob der Benutzer die Serveradresse gegenüber dem gespeicherten Wert geändert hat.
+  bool get hostChanged => formData.host != originalFormData.host;
+
   /// Konstruktor
   const SyncServerState({
     this.formData = const SyncServerFormData(),
     this.originalFormData = const SyncServerFormData(),
+    this.isRegistered = false,
     this.status = SyncServerActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -46,12 +53,14 @@ class SyncServerState {
   SyncServerState copyWith({
     SyncServerFormData? formData,
     SyncServerFormData? originalFormData,
+    bool? isRegistered,
     SyncServerActionStatus? status,
     AppError? error,
   }) {
     return SyncServerState(
       formData: formData ?? this.formData,
       originalFormData: originalFormData ?? this.originalFormData,
+      isRegistered: isRegistered ?? this.isRegistered,
       status: status ?? this.status,
       error: error ?? this.error,
     );

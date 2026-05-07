@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/env.dart';
 import 'package:famkey/features/settings/autotype_hotkey/autotype_hotkey_dialog.dart';
 import 'package:famkey/features/settings/category_placeholder/category_placeholder_dialog.dart';
+import 'package:famkey/features/settings/delete_vault/delete_vault_dialog.dart';
 import 'package:famkey/features/settings/log_config/log_config_dialog.dart';
 import 'package:famkey/features/settings/autolock_dialog/autolock_dialog.dart';
 import 'package:famkey/features/settings/clipboard_clear/clipboard_clear_dialog.dart';
@@ -99,12 +100,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
       switch (next) {
         case SettingsActionStatus.saved:
           _hasChanged = true;
-          //Snack.show(context, 'Gespeichert!', success: true);
-          break;
-
-        case SettingsActionStatus.deleted:
-          Snack.show(context, 'Tresor gelöscht!', success: true);
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); // Loginseite öffnen (und Navigations‑Stack zurücksetzen)
           break;
 
         case SettingsActionStatus.friendAdded:
@@ -615,20 +610,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
                 // --- Buttons für Löschen ---
                 Center(
-                  child: Consumer(
-                    builder: (ctx, ref, _) {
-                      final isRegistered = ref.watch(settingsProvider.select((s) => s.isRegistered));
-                      return ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade800,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        ),
-                        onPressed: () => _showDeleteVaultDialog(isRegistered),
-                        icon: const Icon(Icons.delete_outlined),
-                        label: const Text('Tresor löschen'),
-                      );
-                    },
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade800,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    ),
+                    onPressed: () => _showDeleteVaultDialog(),
+                    icon: const Icon(Icons.delete_outlined),
+                    label: const Text('Tresor löschen'),
                   ),
                 ),
 
@@ -723,6 +713,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
   // --- Handler ---
   // ------------------------------------------------------------------------
 
+  /// Öffnet den Dialog zum Löschen des Tresors.
+  /// Bei Server-only-Löschung (ok == true) werden die Einstellungen neu geladen.
+  /// Bei lokaler Löschung navigiert der Dialog selbst zur Login-Seite.
+  Future<void> _showDeleteVaultDialog() async {
+    final ok = await DeleteVaultDialog.show(context);
+    if (ok == true) {
+      _hasChanged = true;
+      if (mounted) ref.read(settingsProvider.notifier).load();
+    }
+  }
+
   /// Benennt den Tresor um.
   Future<void> _showVaultNameDialog() async {
     final ok = await VaultNameDialog.show(context);
@@ -733,118 +734,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
         notifier.load();
       }
     }
-  }
-
-  // todo Dialog auslagern
-  /// Zeigt einen Dialog mit drei Löschvarianten.
-  Future<void> _showDeleteVaultDialog(bool isRegistered) async {
-    final notifier = ref.read(settingsProvider.notifier);
-
-    if (!isRegistered) {
-      // Noch nicht gesynct → nur lokales Löschen sinnvoll
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Tresor löschen'),
-          content: const Text('Alle lokalen Daten dieses Tresors werden unwiderruflich entfernt.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Löschen'),
-            ),
-          ],
-        ),
-      );
-      if (mounted && confirmed == true) notifier.deleteVaultLocal();
-      return;
-    }
-
-    // Bereits gesynct → drei Optionen
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tresor löschen'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dieser Tresor wurde bereits synchronisiert. '
-              'Bitte wähle, was gelöscht werden soll:',
-            ),
-            const SizedBox(height: 20),
-            _buildDeleteOption(
-              ctx,
-              icon: Icons.cloud_off_outlined,
-              label: 'Nur auf dem Server löschen',
-              description: 'Lokale Daten bleiben erhalten. Beim nächsten Sync wird der Tresor neu registriert.',
-              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultServer(); },
-            ),
-            const SizedBox(height: 12),
-            _buildDeleteOption(
-              ctx,
-              icon: Icons.phone_android_outlined,
-              label: 'Nur auf diesem Gerät löschen',
-              description: 'Die Daten auf dem Server bleiben erhalten.',
-              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultLocal(); },
-            ),
-            const SizedBox(height: 12),
-            _buildDeleteOption(
-              ctx,
-              icon: Icons.delete_forever_outlined,
-              label: 'Server und Gerät löschen',
-              description: 'Alle Daten werden unwiderruflich entfernt.',
-              isDestructive: true,
-              onPressed: () { Navigator.pop(ctx); notifier.deleteVaultBoth(); },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
-        ],
-      ),
-    );
-  }
-
-  /// Hilfsmethode: Baut eine einzelne Lösch-Option im Dialog.
-  Widget _buildDeleteOption(BuildContext ctx, {
-    required IconData icon,
-    required String label,
-    required String description,
-    required VoidCallback onPressed,
-    bool isDestructive = false,
-  }) {
-    final color = isDestructive ? Colors.red.shade800 : Colors.blueGrey.shade700;
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                  const SizedBox(height: 2),
-                  Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   /// Ändert das Master-Passwort.

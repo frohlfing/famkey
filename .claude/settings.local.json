@@ -11,7 +11,8 @@
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\frank\\\\Source\\\\AndroidStudio\\\\famkey\\\\home\\\\public\\\\releases\\\\\" -Recurse | Select-Object FullName, @{N='MB';E={[math]::Round\\($_.Length/1MB,1\\)}})",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\frank\\\\Source\\\\AndroidStudio\\\\famkey\\\\home\\\\public\\\\releases\\\\1.0.0.1\" | ForEach-Object { \"$\\($_.Name\\)  \\($\\([math]::Round\\($_.Length/1MB,1\\)\\) MB\\)\" })",
       "PowerShell(Get-ChildItem *)",
-      "PowerShell(Remove-Item *)"
+      "PowerShell(Remove-Item *)",
+      "Bash(grep \"lib\\\\\\\\\")"
     ]
   }
 }

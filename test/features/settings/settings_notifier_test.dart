@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:famkey/core/app_error.dart';
 import 'package:famkey/core/logger.dart';
 import 'package:famkey/core/service_locator.dart';
 import 'package:famkey/database/database.dart';
+import 'package:famkey/features/settings/delete_vault/delete_vault_notifier.dart';
+import 'package:famkey/features/settings/delete_vault/delete_vault_state.dart';
 import 'package:famkey/features/settings/settings_notifier.dart';
 import 'package:famkey/features/settings/settings_state.dart';
 import 'package:famkey/services/autofill_service.dart';
@@ -163,10 +164,10 @@ void main() {
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
 
-      final notifier = container.read(settingsProvider.notifier);
+      final notifier = container.read(deleteVaultProvider.notifier);
       await notifier.deleteVaultLocal();
 
-      expect(container.read(settingsProvider).status, equals(SettingsActionStatus.deleted));
+      expect(container.read(deleteVaultProvider).status, equals(DeleteVaultActionStatus.deleted));
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
       verify(mockBio.removeMasterKey('MyVault')).called(1);
       verify(mockSession.clearSession()).called(1);
@@ -191,7 +192,7 @@ void main() {
       when(mockWeb.deleteVault('u1')).thenAnswer((_) async => {});
       when(mockDb.saveSettings(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
 
-      final notifier = container.read(settingsProvider.notifier);
+      final notifier = container.read(deleteVaultProvider.notifier);
       await notifier.load(); // setzt _settings
       await notifier.deleteVaultServer();
 
@@ -199,8 +200,8 @@ void main() {
       // lastSyncAt muss auf Epoch zurückgesetzt worden sein
       verify(mockDb.saveSettings(argThat(predicate<SettingsEntity>(
               (s) => s.lastSyncAt.millisecondsSinceEpoch == 0)))).called(1);
-      expect(container.read(settingsProvider).isRegistered, isFalse);
-      expect(container.read(settingsProvider).status, equals(SettingsActionStatus.saved));
+      expect(container.read(deleteVaultProvider).isRegistered, isFalse);
+      expect(container.read(deleteVaultProvider).status, equals(DeleteVaultActionStatus.saved));
     });
 
     test('5.3.1 deleteVaultBoth: Löscht Server und Gerät', () async {
@@ -223,7 +224,7 @@ void main() {
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
 
-      final notifier = container.read(settingsProvider.notifier);
+      final notifier = container.read(deleteVaultProvider.notifier);
       await notifier.load();
       await notifier.deleteVaultBoth();
 
@@ -231,7 +232,7 @@ void main() {
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
       verify(mockBio.removeMasterKey('MyVault')).called(1);
       verify(mockSession.clearSession()).called(1);
-      expect(container.read(settingsProvider).status, equals(SettingsActionStatus.deleted));
+      expect(container.read(deleteVaultProvider).status, equals(DeleteVaultActionStatus.deleted));
     });
 
     test('6.1.1 deleteFriend: Löscht Freund physisch, wenn keine Verknüpfungen existieren', () async {

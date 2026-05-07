@@ -52,26 +52,26 @@
 - ✅ Zwischenablage nach x Sekunden leeren
 - ✅ Notfall-Reset
 - ✅ Auto-Fill (unter Android per Systemfunktion, unter Windows per Auto-Type, für Web keine Unterstützung)
-- ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
-- ❌ DB-Viewer im Entwickler-Menü hinzufügen
-- ❌ Skripte zum Deployen, siehe https://copilot.microsoft.com/shares/hAWk4uv75JWVbYepVZiCg
-- ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
-- ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
  
 ### 1.5 Meilenstein 5: Androide App
 - ✅ Emulator  installieren
 - ✅ Layout anpassen
-- ❌ PlayStore-Bereitstellung
 
 ### 1.6 Meilenstein 6: WebAssembly (WASM)
-- ✅ Damit auch die iPhones und iPads die App verwenden können, ohne dass ich ein Entwickler-Abo von Apple kaufen muss (100 €/Jahr).
-- Platform-Weichen erstellen, ow notwendig
-- Web-App testen
+- ✅ Platform-Weichen (nativ/web) erstellen, wo notwendig
+- ✅ Web-App testen
  
 ### 1.7 Meilenstein 7: Homepage
 - ✅ Homepage erstellen
 - ✅ Sync-Server für Multi-Tenant-Betrieb (pro Organisation einen virtuellen Server)
 - ✅ Deployment-Skript erstellen, Apps und WASM auf der Homepage bereitstellen
+
+### 1.8 Meilenstein 8: Version 1.1
+- ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
+- ❌ DB-Viewer im Entwickler-Menü hinzufügen
+- ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)
+- ❌ Zusätzlicher Schutz mit TOTPs (Time-based One-Time Passcodes) aus gängigen Authenticator-Apps (zweiter Factor)
+- ❌ PlayStore-Bereitstellung
 
 ## 2. Todos / Feinschliff
 - DetailActionStatus -> DetailStatus
