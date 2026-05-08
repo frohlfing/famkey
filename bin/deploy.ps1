@@ -1,4 +1,4 @@
-<#
+﻿<#
  * deploy_all.ps1 – Automatischer Full-Build für alle Plattformen
  *
  * 1. Liest Version aus pubspec.yaml und die Umgebungsvariablen aus env.ps1.
@@ -41,6 +41,7 @@ if (Test-Path "$releaseDir/famkey_windows.zip") {
 } else {
     flutter build windows --release | Out-Null
     $winSource = "$projectRoot/build/windows/x64/runner/Release"
+    Copy-Item "$projectRoot/sqlite3mc_x64.dll" -Destination $winSource -Force
     Compress-Archive -Path "$winSource/*" -DestinationPath "$releaseDir/famkey_windows.zip" -Force
 }
 

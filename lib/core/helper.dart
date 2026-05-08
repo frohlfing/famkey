@@ -16,30 +16,64 @@ import '../services/session_service.dart';
 /// Google setzen diesen Header nicht. Für die Web-Appliance wird daher der eigene Sync-Server als Proxy verwendet:
 /// Er ruft das Favicon serverseitig ab und leitet es mit korrektem CORS-Header zurück an den Client.
 /// Auf nativen Plattformen entfällt dieser Umweg (kein CORS auf nativem Code).
+// Future<String?> downloadFavicon(String url) async {
+//   final domain = Uri.parse(url.startsWith('http') ? url : 'https://$url').host;
+//   if (domain.isEmpty) return null;
+//
+//   String faviconUrl;
+//   if (kIsWeb) {
+//     // Sync-Server als CORS-Proxy verwenden.
+//     final sessionService = getIt<SessionService>();
+//     final host = sessionService.settings?.host ?? 'https://famkey.de'; // ist bereits normalisiert (ohne Slash am Ende)
+//     faviconUrl = '$host/favicons.php?domain=$domain';
+//   } else {
+//     // Nativ: direkt ohne Proxy
+//     faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
+//   }
+//
+//   final dio = Dio();
+//
+//   try {
+//     final response = await dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
+//     if (response.data != null && response.data!.isNotEmpty) {
+//       return base64.encode(response.data!);
+//     }
+//   } catch (_) {}
+//
+//   return null;
+// }
+
 Future<String?> downloadFavicon(String url) async {
-  final domain = Uri.parse(url.startsWith('http') ? url : 'https://$url').host;
+  final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+  final domain = uri.host;
   if (domain.isEmpty) return null;
 
-  String faviconUrl;
-  if (kIsWeb) {
-    // Sync-Server als CORS-Proxy verwenden.
+  if (kIsWeb) { // Web-Appliance
+    // CORS-Proxy verwenden, um auf den Google-Service zuzugreifen (Browser blockiert direkte Cross-Origin-Anfragen).
     final sessionService = getIt<SessionService>();
     final host = sessionService.settings?.host ?? 'https://famkey.de'; // ist bereits normalisiert (ohne Slash am Ende)
-    faviconUrl = '$host/favicons.php?domain=$domain';
-  } else {
-    // Nativ: direkt ohne Proxy
-    faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
+    return await _getFavicon('$host/favicons.php?domain=$domain');
   }
 
-  final dio = Dio();
+  // Nativ (Android oder Windows):
+  // Google-Favicon-Dienst nutzen
+  var icon = await _getFavicon('https://www.google.com/s2/favicons?domain=$domain&sz=64');
 
+  // Fallback - für Webseiten, die Google (noch) nicht gecrawlt hat: Versuchen, von der Webseite direkt das Favicon herunterzuladen.
+  icon ??= await _getFavicon('${uri.scheme}://$domain/favicon.ico');
+
+  return icon;
+}
+
+/// Lädt das Favicon einer Website und gibt es als Base64-String zurück.
+Future<String?> _getFavicon(String url) async {
+  final dio = Dio();
   try {
-    final response = await dio.get<List<int>>(faviconUrl, options: Options(responseType: ResponseType.bytes));
+    final response = await dio.get<List<int>>(url, options: Options(responseType: ResponseType.bytes));
     if (response.data != null && response.data!.isNotEmpty) {
       return base64.encode(response.data!);
     }
   } catch (_) {}
-
   return null;
 }
 

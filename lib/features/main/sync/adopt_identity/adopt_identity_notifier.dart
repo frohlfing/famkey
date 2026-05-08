@@ -192,12 +192,13 @@ class AdoptIdentityNotifier extends Notifier<AdoptIdentityState> {
           await _biometricService.saveMasterKey(_sessionService.vaultName, newMasterKey);
         }
 
-        // 13. User-UUID übernehmen, falls geändert
+        // 13. User-UUID und Public-Key übernehmen, falls geändert
+        // Beide Felder müssen synchron gesetzt werden: UUID identifiziert den Benutzer auf dem Server,
+        // Public-Key muss zum neuen Private-Key passen (sonst OAEP-Fehler beim nächsten Speichern).
         if (_sessionService.user == null) throw Exception("Der Benutzer liegt nicht in der Session.");
         UserEntity user = _sessionService.user!;
-        if (user.uuid != _userIdentity!.userUuid) {
-          // Wenn ein Zweitgerät das erste mal synchronisiert wird, muss auch die UUID des Benutzers übernommen werden.
-          user = user.copyWith(uuid: _userIdentity!.userUuid);
+        if (user.uuid != _userIdentity!.userUuid || user.publicKey != _userIdentity!.publicKey) {
+          user = user.copyWith(uuid: _userIdentity!.userUuid, publicKey: _userIdentity!.publicKey);
           user = await _databaseService.saveUser(user);
         }
 

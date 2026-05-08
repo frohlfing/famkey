@@ -161,7 +161,7 @@ class DetailNotifier extends Notifier<DetailState> {
     final dateStr = DateFormat("dd.MM.yyyy").format(passwordTimestamp.toLocal());
 
     // Ein Jahr hat durchschnittlich 365.25 Tage. Ein Monat hat somit durchschnittlich 30.4375 Tage.
-    final days = DateTime.now().difference(passwordTimestamp).inDays;
+    final days = DateTime.now().toUtc().difference(passwordTimestamp).inDays;
     if (days == 0) return 'Heute geändert.';
     if (days == 1) return 'Gestern geändert.';
     if (days < 14) return 'Geändert am $dateStr (vor $days Tagen).'; // 2 bis 13 Tagen (weniger als 2 Wochen)

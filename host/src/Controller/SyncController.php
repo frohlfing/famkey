@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Core\Database;
+use App\Core\Logger;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Time;
@@ -93,6 +94,7 @@ final class SyncController
 
         // Optionalen Zeitfilter holen
         $since = Time::iso8601ToMysql($request->date('since'));
+        Logger::debug('pullSync: Parameter', ['userUuid' => $userUuid, 'since' => $since]);
 
         // Aktuelle Zeit festhalten
         $now = Time::getUTC();
@@ -111,13 +113,15 @@ final class SyncController
         $updates = [];
 
         // Alle geänderten Einträge aus der Datenbank laden.
+        // Filter auf received_at (Server-Empfangszeit) statt updated_at (Client-Zeit),
+        // damit Einträge auch dann ausgeliefert werden, wenn updated_at älter als $since ist.
         $stmt = $pdo->prepare("
             SELECT e.uuid, e.encrypted_data, p.encrypted_key, p.access_level, e.creator_uuid, e.updater_uuid,
-                   DATE_FORMAT(e.updated_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS updated_at 
+                   DATE_FORMAT(e.updated_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS updated_at
             FROM entries e
             JOIN permissions p ON e.uuid = p.entry_uuid AND e.vault_uuid = p.vault_uuid
-            WHERE e.vault_uuid = ? AND p.user_uuid = ? AND e.updated_at > ?
-            ORDER BY e.updated_at, e.uuid
+            WHERE e.vault_uuid = ? AND p.user_uuid = ? AND e.received_at > ?
+            ORDER BY e.received_at, e.uuid
             ");
         $stmt->execute([$vaultUuid, $userUuid, $since]);
 
@@ -156,13 +160,19 @@ final class SyncController
         // -- Deletes --
 
         // Alle gelöschten Einträge aus der Datenbank laden und für die Antwort merken.
+        // Filter auf received_at (Server-Empfangszeit) statt deleted_at (Client-Zeit),
+        // damit Grabsteine auch dann ausgeliefert werden, wenn deleted_at älter als $since ist.
         $stmt = $pdo->prepare("
-            SELECT entry_uuid, DATE_FORMAT(deleted_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS deleted_at  
-            FROM tombstones 
-            WHERE vault_uuid = ? AND deleted_at > ?
+            SELECT entry_uuid, DATE_FORMAT(deleted_at, '%Y-%m-%dT%H:%i:%s.%fZ') AS deleted_at
+            FROM tombstones
+            WHERE vault_uuid = ? AND received_at > ?
             ");
         $stmt->execute([$vaultUuid, $since]);
         $deletes = $stmt->fetchAll();
+        Logger::debug('pullSync: Ergebnis', ['updates' => count($updates), 'deletes' => count($deletes)]);
+        if (!empty($deletes)) {
+            Logger::debug('pullSync: Tombstones', ['items' => array_map(fn($d) => ['entry_uuid' => $d['entry_uuid'], 'deleted_at' => $d['deleted_at']], $deletes)]);
+        }
 
         // Antwort generieren
         return Response::json([
@@ -262,6 +272,13 @@ final class SyncController
             return Response::error(404, 'Tresor konnte für die angegebene user_uuid nicht ermittelt werden');
         }
 
+        // Serverzeit einmalig vor der Transaktion festhalten.
+        // Dieser Wert wird als received_at für alle INSERT/UPDATE-Statements verwendet
+        // UND als server_time zurückgegeben. Da beides dieselbe PHP-Uhr-Ablesung ist,
+        // gilt stets received_at <= server_time → kein Feedback-Loop beim nächsten Pull.
+        $now = Time::getUTC();
+        $nowMysql = Time::iso8601ToMysql($now);
+
         $pdo->beginTransaction();
         try {
 
@@ -314,17 +331,20 @@ final class SyncController
                     }
                     // Update, wenn veraltet
                     if ($currUpdatedAt < $updatedAt) {
-                        $stmt = $pdo->prepare('UPDATE entries SET encrypted_data = ?, updater_uuid = ?, updated_at = ? WHERE uuid = ? AND vault_uuid = ?');
-                        $stmt->execute([$encryptedData, $userUuid, $updatedAt, $entryUuid, $vaultUuid]);
+                        $stmt = $pdo->prepare('UPDATE entries SET encrypted_data = ?, updater_uuid = ?, updated_at = ?, received_at = ? WHERE uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$encryptedData, $userUuid, $updatedAt, $nowMysql, $entryUuid, $vaultUuid]);
                         $stmt = $pdo->prepare('UPDATE permissions SET encrypted_key = ?, access_level = ? WHERE entry_uuid = ? AND user_uuid = ? AND vault_uuid = ?');
                         $stmt->execute([$encryptedKey, $accessLevel, $entryUuid, $userUuid, $vaultUuid]);
                         $wasChanged = true;
+                        Logger::debug('pushSync: Eintrag aktualisiert', ['entryUuid' => $entryUuid, 'currUpdatedAt' => $currUpdatedAt, 'newUpdatedAt' => $updatedAt]);
+                    } else {
+                        Logger::warn('pushSync: Update übersprungen – nicht neuer als Server', ['entryUuid' => $entryUuid, 'currUpdatedAt' => $currUpdatedAt, 'incomingUpdatedAt' => $updatedAt]);
                     }
                 } else {
                     // Eintrag nicht gefunden → INSERT
                     $accessLevel = 3; // Ersteller hat Vollzugriff
-                    $stmt = $pdo->prepare('INSERT INTO entries (uuid, vault_uuid, encrypted_data, creator_uuid, updater_uuid, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
-                    $stmt->execute([$entryUuid, $vaultUuid, $encryptedData, $userUuid, $userUuid, $updatedAt]);
+                    $stmt = $pdo->prepare('INSERT INTO entries (uuid, vault_uuid, encrypted_data, creator_uuid, updater_uuid, updated_at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                    $stmt->execute([$entryUuid, $vaultUuid, $encryptedData, $userUuid, $userUuid, $updatedAt, $nowMysql]);
                     $stmt = $pdo->prepare('INSERT INTO permissions (entry_uuid, user_uuid, vault_uuid, encrypted_key, access_level) VALUES (?, ?, ?, ?, ?)');
                     $stmt->execute([$entryUuid, $userUuid, $vaultUuid, $encryptedKey, $accessLevel]);
                     $wasChanged = true;
@@ -390,11 +410,13 @@ final class SyncController
                     $pdo->rollBack();
                     return Response::error(422, '"deleted_at" muss ein gültiger ISO-Zeitstempel sein');
                 }
+                Logger::debug('pushSync: Delete empfangen', ['entryUuid' => $entryUuid, 'deletedAt' => $deletedAt, 'rawDeletedAt' => $tomb['deleted_at']]);
 
                 // Prüfen, ob der Eintrag überhaupt existiert (im selben Tresor)
                 $stmtCheckEntry = $pdo->prepare('SELECT uuid FROM entries WHERE uuid = ? AND vault_uuid = ?');
                 $stmtCheckEntry->execute([$entryUuid, $vaultUuid]);
                 if (!$stmtCheckEntry->fetch()) {
+                    Logger::warn('pushSync: Eintrag für Delete nicht gefunden – übersprungen', ['entryUuid' => $entryUuid, 'vaultUuid' => $vaultUuid]);
                     continue;
                 }
 
@@ -413,12 +435,13 @@ final class SyncController
                 $currDeletedAt = $stmt->fetchColumn();
                 if ($currDeletedAt) {
                     if ($currDeletedAt < $deletedAt) {
-                        $stmt = $pdo->prepare('UPDATE tombstones SET deleted_at = ? WHERE entry_uuid = ? AND vault_uuid = ?');
-                        $stmt->execute([$deletedAt, $entryUuid, $vaultUuid]);
+                        $stmt = $pdo->prepare('UPDATE tombstones SET deleted_at = ?, received_at = ? WHERE entry_uuid = ? AND vault_uuid = ?');
+                        $stmt->execute([$deletedAt, $nowMysql, $entryUuid, $vaultUuid]);
                     }
                 } else {
-                    $stmt = $pdo->prepare('INSERT INTO tombstones (entry_uuid, vault_uuid, deleted_at) VALUES (?, ?, ?)');
-                    $stmt->execute([$entryUuid, $vaultUuid, $deletedAt]);
+                    $stmt = $pdo->prepare('INSERT INTO tombstones (entry_uuid, vault_uuid, deleted_at, received_at) VALUES (?, ?, ?, ?)');
+                    $stmt->execute([$entryUuid, $vaultUuid, $deletedAt, $nowMysql]);
+                    Logger::debug('pushSync: Tombstone angelegt', ['entryUuid' => $entryUuid, 'deletedAt' => $deletedAt]);
                 }
 
                 // Entry löschen (vault_uuid-scoped)
@@ -429,8 +452,10 @@ final class SyncController
             // Änderungen committen
             $pdo->commit();
 
-            // Antwort generieren (204 No Content)
-            return Response::empty();
+            // Serverzeit zurückgeben — derselbe $now-Wert, der auch als received_at verwendet wurde.
+            // Dadurch gilt stets received_at == server_time → beim nächsten Pull (since = server_time)
+            // werden soeben gepushte Einträge nicht nochmal geliefert (received_at > since ist FALSE).
+            return Response::json(['server_time' => $now]);
 
         } catch (Throwable $e) {
             $pdo->rollBack();

@@ -90,7 +90,7 @@ class MainNotifier extends Notifier<MainState> {
       final hasFriends = await _databaseService.hasFriends();
 
       // UI-State aktualisieren
-      final grouped = _groupEntries(onlyMyEntries: _configService.showOnlyMine);
+      final grouped = _groupEntries(searchQuery: state.searchQuery, onlyMyEntries: _configService.showOnlyMine);
       final collapsed = _configService.categoriesCollapsed ? grouped.keys.toSet() : const <String>{};
       state = state.copyWith(
         groupedEntries: grouped,
@@ -152,7 +152,7 @@ class MainNotifier extends Notifier<MainState> {
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';
     final q = searchQuery.toLowerCase();
 
-    // Filter anwenden
+    // 1. Filter anwenden
     final filtered = _allEntries.where((e) {
       final idx = e.index;
       final matchesSearch = q.isEmpty ||
@@ -162,15 +162,26 @@ class MainNotifier extends Notifier<MainState> {
           e.entry.uuid.contains(q);
       if (!onlyMyEntries) return matchesSearch;
       return matchesSearch && e.entry.creatorId == _sessionService.user?.id;
-    });
+    }).toList(); // In Liste umwandeln, um danach sortieren zu können
 
-    // Gruppieren
+    // 2. Gruppieren
     for (final e in filtered) {
       final category = e.index.category.isEmpty ? placeholder : e.index.category;
       groups.putIfAbsent(category, () => []).add(e);
     }
 
-    return groups;
+    // 3. Kategorien sortieren UND Einträge innerhalb der Kategorien sortieren
+    final sortedKeys = groups.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final Map<String, List<EntryWithIndex>> sortedGroups = {};
+    for (final key in sortedKeys) {
+      final entries = groups[key]!;
+      // Hier sortieren wir die Einträge innerhalb der Kategorie nach Titel
+      entries.sort((a, b) => a.index.title.toLowerCase().compareTo(b.index.title.toLowerCase()));
+      sortedGroups[key] = entries;
+    }
+
+    return sortedGroups;
   }
 
   /// Klappt eine Kategorie auf/zu.

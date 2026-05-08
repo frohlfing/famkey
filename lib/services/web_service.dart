@@ -2,6 +2,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:famkey/core/app_error.dart';
+//import 'package:famkey/core/logger.dart';
 import 'package:famkey/models/dtos/sync_dtos.dart';
 import 'package:famkey/models/dtos/user_response.dart';
 import 'package:famkey/models/dtos/version_response.dart';
@@ -100,7 +101,7 @@ class WebService {
     //       responseHeader: true,
     //       responseBody: true,
     //       error: true,
-    //       logPrint: (obj) => debugPrint(obj.toString()),
+    //       logPrint: (obj) => log.debug(obj.toString()),
     //     ),
     //   );
     // }
@@ -230,8 +231,12 @@ class WebService {
   /// Überträgt lokale Änderungen zum Server.
   ///
   /// `request` ist das Payload mit den zu synchronisierenden Daten.
-  Future<void> pushSync(String userUuid, SyncPushRequest request) async {
-    await _dio.post('users/$userUuid/entries/sync', data: request.toJson());
+  /// Gibt die Serverzeit zum Zeitpunkt des Pushs zurück, damit der Client
+  /// `lastSyncAt` auf einen Wert nach dem Push setzen kann.
+  Future<DateTime> pushSync(String userUuid, SyncPushRequest request) async {
+    final response = await _dio.post('users/$userUuid/entries/sync', data: request.toJson());
+    final data = response.data as Map<String, dynamic>;
+    return DateTime.tryParse(data['server_time'] as String? ?? '')?.toUtc() ?? DateTime.now().toUtc();
   }
 
   // ------------------------------------------------------------------------

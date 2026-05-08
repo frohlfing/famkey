@@ -3,7 +3,6 @@
 Der Ordner `native/` enthält alle nativen Artefakte, die nicht direkt Teil des Flutter-Codes sind.
 
 ## Inhalt
-- `sqlcipher/windows/sqlite3mc_x64.dll` – SQLite3 Multiple Ciphers 2.2.7 für Windows (basiert auf SQLite 3.51.2)
 - `sqlcipher/windows/sqlite-jdbc-3.51.2.0.jar` – SQLCipher‑fähiger JDBC‑Treiber (für Database Navigator in der IDE)
 
 ## Zweck

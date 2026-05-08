@@ -49,15 +49,21 @@ CREATE TABLE `users` (
 -- mehreren Tresoren vorkommen (z.B. nach einem Backup-Import in einen anderen Tresor).
 -- Daher ist der Primärschlüssel ein Composite aus (uuid, vault_uuid).
 -- Alle Queries filtern grundsätzlich auf (uuid, vault_uuid).
+--
+-- received_at: Zeitpunkt, zu dem der Server den Eintrag zuletzt erhalten hat (INSERT oder UPDATE).
+-- Wird vom Server gesetzt und dient als Filtergrundlage für pullSync (statt updated_at).
+-- Dadurch werden Einträge auch dann korrekt ausgeliefert, wenn updated_at (Client-Zeit)
+-- älter als lastSyncAt des empfangenden Geräts ist.
 CREATE TABLE `entries` (
     `uuid` VARCHAR(36) NOT NULL,                     -- Universally Unique Identifier des Eintrags (nur innerhalb eines Tresors eindeutig)
     `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
     `encrypted_data` LONGTEXT,                       -- Daten zum Eintrag (AES verschlüsselt)
     `creator_uuid` VARCHAR(36) NOT NULL,             -- UUID des Benutzers, der den Eintrag erstellt hat
     `updater_uuid` VARCHAR(36) NOT NULL,             -- UUID des Benutzers, der den Eintrag zuletzt aktualisiert hat
-    `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), -- Zeitpunkt der letzten Änderung
+    `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), -- Zeitpunkt der letzten Änderung (Client-Zeit)
+    `received_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt des letzten Server-Empfangs (für pullSync-Filter); wird von PHP explizit gesetzt
     PRIMARY KEY (`uuid`, `vault_uuid`),                                                    -- Composite PK: uuid eindeutig pro Tresor
-    INDEX `idx_entries_vault_uuid_updated_at` (`vault_uuid`, `updated_at`),               -- für pullSync
+    INDEX `idx_entries_vault_uuid_received_at` (`vault_uuid`, `received_at`),             -- für pullSync
     INDEX `idx_entries_updater_uuid_updated_at` (`updater_uuid`, `updated_at`),           -- für Rate-Limiting-Abfrage
     FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
@@ -93,12 +99,18 @@ CREATE TABLE `attachments` (
 --
 -- Composite PK (entry_uuid, vault_uuid), weil dieselbe entry_uuid in zwei Tresoren
 -- unabhängig voneinander gelöscht werden kann.
+--
+-- received_at: Zeitpunkt, zu dem der Server den Grabstein zuletzt erhalten hat (INSERT oder UPDATE).
+-- Wird vom Server gesetzt und dient als Filtergrundlage für pullSync (statt deleted_at).
+-- Dadurch werden Grabsteine auch dann korrekt ausgeliefert, wenn deleted_at (Client-Zeit)
+-- älter als lastSyncAt des empfangenden Geräts ist.
 CREATE TABLE `tombstones` (
     `entry_uuid` VARCHAR(36) NOT NULL,               -- UUID des gelöschten Eintrags (nur innerhalb eines Tresors eindeutig)
     `vault_uuid` VARCHAR(36) NOT NULL,               -- Referenz auf vaults.uuid
-    `deleted_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt der Löschung
+    `deleted_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt der Löschung (Client-Zeit)
+    `received_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3), -- Zeitpunkt des letzten Server-Empfangs (für pullSync-Filter); wird von PHP explizit gesetzt
     PRIMARY KEY (`entry_uuid`, `vault_uuid`),
-    INDEX `idx_tombstones_vault_uuid_deleted_at` (`vault_uuid`, `deleted_at`),
+    INDEX `idx_tombstones_vault_uuid_received_at` (`vault_uuid`, `received_at`),
     FOREIGN KEY (`vault_uuid`) REFERENCES `vaults`(`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

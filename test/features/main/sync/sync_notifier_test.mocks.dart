@@ -1036,13 +1036,13 @@ class MockWebService extends _i1.Mock implements _i12.WebService {
           as _i8.Future<_i5.SyncPullResponse>);
 
   @override
-  _i8.Future<void> pushSync(String? userUuid, _i5.SyncPushRequest? request) =>
+  _i8.Future<DateTime> pushSync(String? userUuid, _i5.SyncPushRequest? request) =>
       (super.noSuchMethod(
             Invocation.method(#pushSync, [userUuid, request]),
             returnValue: _i8.Future<void>.value(),
             returnValueForMissingStub: _i8.Future<void>.value(),
           )
-          as _i8.Future<void>);
+          as _i8.Future<DateTime>);
 
   @override
   _i8.Future<Map<String, dynamic>> downloadAttachment(String? attachmentUuid) =>

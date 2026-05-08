@@ -213,6 +213,12 @@ class SyncNotifier extends Notifier<SyncState> {
       await _pushFriends();
 
       // 7. Zeitstempel setzen und Session aktualisieren
+      // lastSyncAt ist immer die Pull-Serverzeit – nie die Push-Zeit.
+      // Invariante: alles mit received_at <= lastSyncAt wurde gesehen.
+      // Würde lastSyncAt auf die Push-Zeit gesetzt, könnten Tombstones anderer Geräte, die zwischen
+      // Pull und Push auf dem Server eintrafen, dauerhaft übersprungen werden.
+      // Der Feedback-Loop (eigene gepushte Einträge kommen im nächsten Pull zurück) endet automatisch
+      // nach einem Zyklus, sobald T_pull_neu > T_push_alt gilt.
       final updatedSettings = settings.copyWith(lastSyncAt: serverTime);
       await _databaseService.saveSettings(updatedSettings);
       _sessionService.setSettings(updatedSettings);
@@ -329,14 +335,27 @@ class SyncNotifier extends Notifier<SyncState> {
 
     // 1. Neue und geänderte Einträge vom Server herunterladen
     final lastSyncAt = _sessionService.settings!.lastSyncAt;
+    log.debug('_pullEntries gestartet', context: {'lastSyncAt': lastSyncAt.toIso8601String()});
     final pullResponse = await _webService.pullSync(userUuid, lastSyncAt);
+    log.debug('_pullEntries: Serverantwort erhalten', context: {
+      'serverTime': pullResponse.serverTime.toIso8601String(),
+      'updates': pullResponse.updates.length,
+      'deletes': pullResponse.deletes.length,
+    });
 
     // 2. Gelöschte Einträge lokal entfernen
     for (var tombstoneDto in pullResponse.deletes) {
+      log.debug('_pullEntries: Tombstone vom Server empfangen', context: {
+        'uuid': tombstoneDto.entryUuid,
+        'deletedAt': tombstoneDto.deletedAt.toIso8601String(),
+      });
       final entry = await _databaseService.getEntryByUuid(tombstoneDto.entryUuid);
       if (entry != null) {
         await _databaseService.deleteEntry(entry.id, deletedAt: tombstoneDto.deletedAt);
         deleted++;
+        log.debug('_pullEntries: Eintrag lokal gelöscht', context: {'uuid': tombstoneDto.entryUuid});
+      } else {
+        log.debug('_pullEntries: Tombstone empfangen aber Eintrag nicht lokal gefunden', context: {'uuid': tombstoneDto.entryUuid});
       }
     }
 
@@ -388,8 +407,22 @@ class SyncNotifier extends Notifier<SyncState> {
       final existing = await _databaseService.getEntryByUuid(entryDto.entryUuid);
       if (existing == null) {
         added++;
+        log.debug('_pullEntries: neuer Eintrag vom Server', context: {'uuid': entryDto.entryUuid, 'serverUpdatedAt': entryDto.updatedAt.toUtc().toIso8601String()});
       } else {
         updated++;
+        if (existing.updatedAt.isAfter(entryDto.updatedAt)) {
+          log.debug('_pullEntries: KONFLIKT – lokaler Eintrag ist neuer, wird durch Server überschrieben', context: {
+            'uuid': entryDto.entryUuid,
+            'localUpdatedAt': existing.updatedAt.toUtc().toIso8601String(),
+            'serverUpdatedAt': entryDto.updatedAt.toIso8601String(),
+          });
+        } else {
+          log.debug('_pullEntries: vorhandener Eintrag wird aktualisiert', context: {
+            'uuid': entryDto.entryUuid,
+            'localUpdatedAt': existing.updatedAt.toUtc().toIso8601String(),
+            'serverUpdatedAt': entryDto.updatedAt.toIso8601String(),
+          });
+        }
       }
 
       // 5.4 Eintrag speichern
@@ -482,8 +515,14 @@ class SyncNotifier extends Notifier<SyncState> {
     final localUpdates = await _databaseService.getEntriesSince(lastSyncAt);
     final localDeletes = await _databaseService.getTombstonesSince(lastSyncAt);
     final unsyncedAttachments = await _databaseService.getAttachmentsUnsynced();
+    log.debug('_pushEntries gestartet', context: {
+      'lastSyncAt': lastSyncAt.toIso8601String(),
+      'localUpdates': localUpdates.length,
+      'localDeletes': localDeletes.length,
+    });
     if (localUpdates.isEmpty && localDeletes.isEmpty && unsyncedAttachments.isEmpty) {
-      return; // nichts zu tun
+      log.debug('_pushEntries: nichts zu tun');
+      return;
     }
 
     // Vorbereitung: UUID Map laden, um IDs aufzulösen
@@ -501,7 +540,15 @@ class SyncNotifier extends Notifier<SyncState> {
 
       // Nur pushen, wenn Schreibrechte (Level >= 2) gegeben sind
       // Level 2 = Schreiben, Level 3 = Besitzer
-      if (myPerm == null || myPerm.accessLevel < 2) continue;
+      if (myPerm == null || myPerm.accessLevel < 2) {
+        log.debug('_pushEntries: Eintrag übersprungen (kein Schreibrecht)', context: {
+          'uuid': entry.uuid,
+          'updatedAt': entry.updatedAt.toUtc().toIso8601String(),
+          'accessLevel': myPerm?.accessLevel,
+          'permFound': myPerm != null,
+        });
+        continue;
+      }
 
       // Dateianhänge
       final localAttachmentsForEntry = await _databaseService.getAttachmentsByEntryId(entry.id);
@@ -518,6 +565,11 @@ class SyncNotifier extends Notifier<SyncState> {
         );
       }).nonNulls.toList(); // Nur bekannte UUIDs, nulls filtern
 
+      log.debug('_pushEntries: Eintrag wird gepusht', context: {
+        'uuid': entry.uuid,
+        'updatedAt': entry.updatedAt.toUtc().toIso8601String(),
+        'accessLevel': myPerm.accessLevel,
+      });
       pushUpdates.add(
         SyncEntryDto(
           entryUuid: entry.uuid,
@@ -534,11 +586,19 @@ class SyncNotifier extends Notifier<SyncState> {
     }
 
     // 2. Zu pushende Deletes ermitteln
-    final pushDeletes = localDeletes.map((d) => SyncDeleteDto(entryUuid: d.entryUuid, deletedAt: d.deletedAt)).toList();
+    final pushDeletes = localDeletes.map((d) {
+      log.debug('_pushEntries: Tombstone wird gepusht', context: {
+        'uuid': d.entryUuid,
+        'deletedAt': d.deletedAt.toUtc().toIso8601String(),
+      });
+      return SyncDeleteDto(entryUuid: d.entryUuid, deletedAt: d.deletedAt);
+    }).toList();
 
     // 3. Updates und Deletes an den Server pushen
     if (pushUpdates.isNotEmpty || pushDeletes.isNotEmpty) {
-      await _webService.pushSync(userUuid, SyncPushRequest(updates: pushUpdates, deletes: pushDeletes));
+      log.debug('_pushEntries: sende an Server', context: {'updates': pushUpdates.length, 'deletes': pushDeletes.length});
+      final pushServerTime = await _webService.pushSync(userUuid, SyncPushRequest(updates: pushUpdates, deletes: pushDeletes));
+      log.debug('_pushEntries: Server hat pushSync akzeptiert', context: {'pushServerTime': pushServerTime.toIso8601String()});
     }
 
     // 4. Unsynced Attachments hochladen (darf erst nach dem Push erfolgen, damit der Anhang an den Eintrag gehängt werden kann)
@@ -563,6 +623,7 @@ class SyncNotifier extends Notifier<SyncState> {
         ),
       );
     }
+
   }
 
   /// Verschlüsselt die Freunde und lädt sie auf den Server hoch.

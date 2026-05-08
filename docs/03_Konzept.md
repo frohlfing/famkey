@@ -144,6 +144,21 @@ Dateianhänge werden mit dem Entry-Key verschlüsselt und separat hochgeladen. B
     - **Identifikation:** Ein Tresor wird durch seinen **Namen** (z.B. "Familie", "Firma") identifiziert.
     - **Isolation:** Ein Sync-Vorgang ruft immer nur Daten für eine spezifische `vault_id` ab.
 
+**Wichtige Voraussetzung:**
+1. Alle Zeitangaben sind intern UTC. Nur die UX zeigt lokale Zeit an.
+2. lastSyncAt ist die Web-Serverzeit beim Beginn des Sync-Prozesses. Sie wird am ENDE der Synchronisation lokal gespeichert Als Filter für den nächsten Sync).
+3. Die SQL-Statements bekommen die Zeit des Webservers als Parameter. Die Zeit des MySQL-Servers wird nicht verwendet.
+
+**Szenario:** 
+a) PC synct um 08:00. 
+b) Handy löscht "Netflix" um 08:10, synct aber noch nicht. 
+c) PC synct um 08:20. 
+d) Handy Synct um 08:30. Der Grabstein "Netxlix" mit 8:10 liegt auf dem Server. 
+e) PC synct (alles ab 08:20) -> Grabstein wird übersehen. 
+
+Wenn ja, dann zeigt das Szenario deutlich, dass das Konzept unausgereift ist. Lösung: Der Server pflegt zusätzlich received_at.
+
+
 ### 2.5 Adoption (Onboarding mit Zweitgerät oder Master-Key auf dem Server ist aktueller)
 1. Nutzer gibt Tresor-Namen und Benutzernamen ein.
 2. **Check:** App fragt Server: "Gibt es User 'Frank' in Tresor 'Familie'?"

@@ -117,7 +117,7 @@ class Logger {
     if (env.isTest) return;
 
     // Zeile generieren
-    final timestamp = DateTime.now().toIso8601String();
+    final timestamp = DateTime.now().toUtc().toIso8601String();
     var line = '[$timestamp] $level: $message';
     if (context != null && context.isNotEmpty) {
       line += ' ${context.toString()}';
@@ -156,7 +156,7 @@ class Logger {
     var lines = await _logFile.readAsLines();
 
     // --- 1. Altersbasierter Cleanup ---
-    final cutoff = DateTime.now().subtract(Duration(days: _days));
+    final cutoff = DateTime.now().toUtc().subtract(Duration(days: _days));
     lines = lines.where((line) {
       if (!line.startsWith('[')) return true;
       final end = line.indexOf(']');

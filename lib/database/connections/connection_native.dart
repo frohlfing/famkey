@@ -13,7 +13,7 @@ QueryExecutor openConnection(String name, String password) {
   return LazyDatabase(() async {
     // DLL-Bindung für SQLCipher
     if (Platform.isWindows) {
-      final dllPath = p.join(Directory.current.path, 'native', 'sqlcipher', 'windows', 'sqlite3mc_x64.dll');
+      final dllPath = p.join(Directory.current.path, 'sqlite3mc_x64.dll');
       if (File(dllPath).existsSync()) {
         open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open(dllPath));
         log.debug('SQLiteMC DLL registriert');

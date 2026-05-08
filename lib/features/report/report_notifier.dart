@@ -237,7 +237,7 @@ class ReportNotifier extends Notifier<ReportState> {
 
   /// Baut die Altersverteilung der Passwörter für das Balkendiagramm.
   List<AgeBucket> _buildAgeBuckets(List<ReportEntry> entries) {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     int bucket0 = 0; // < 30 Tage
     int bucket1 = 0; // 30–90 Tage

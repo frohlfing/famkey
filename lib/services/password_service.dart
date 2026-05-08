@@ -207,7 +207,7 @@ class PasswordService {
       final suffix = sha1Hex.substring(5);
 
       // Cache prüfen
-      final nowTs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final nowTs = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final cached = _hibpCache[prefix];
       String body;
       if (cached != null && (nowTs - cached.ts) < cacheDays * 86400) {

@@ -121,7 +121,7 @@ class SyncEntryDto {
       'friends': friends.map((e) => e.toJson()).toList(),
       'creator_uuid': creatorUuid,
       'updater_uuid': updaterUuid,
-      'updated_at': updatedAt.toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
     };
   }
 }
@@ -149,7 +149,7 @@ class SyncDeleteDto {
   Map<String, dynamic> toJson() {
     return {
       'entry_uuid': entryUuid,
-      'deleted_at': deletedAt.toIso8601String(),
+      'deleted_at': deletedAt.toUtc().toIso8601String(),
     };
   }
 }

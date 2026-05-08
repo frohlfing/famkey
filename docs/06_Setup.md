@@ -132,7 +132,7 @@ Troubleshooting:
 SQLCipher (basiert auf SQLite 3.51.2) wird benötigt, um unter Windows die SQLite-DB verschlüsseln zu können.
 
 - Download: https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.2.7 (`sqlite3mc-2.2.7-sqlite-3.51.2-win64.zip`)
-- `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\FamKey\` kopieren
+- `sqlite3mc_x64.dll` aus dem Archiv nach `C:\Users\frank\Source\AndroidStudio\famKey\` kopieren
 
 ### 2.6 Datenbank-Tool für Android Studio
 
@@ -254,7 +254,7 @@ So aktivierst du Hyper‑V:
 Hardware-Profile für den Emulator
 https://developer.samsung.com/galaxy-emulator-skin/galaxy-s.html
 
-### 3.5 Troubleshooting
+### 3.5 ADB für Troubleshooting
 
 Android Studio und Flutter nutzen das Tool ADB (Android Debug Bridge), um deine‑App auf den Emulator zu deployen.
 
@@ -280,12 +280,6 @@ Das CLI-Tool kann dies:
         List of devices attached
         emulator-5554   device
       ```
-
-- APK auf Emulator deployen (siehe `/FamKey/bin/deploy-FamKey.ps1`):
-  ```shell
-  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe uninstall com.companyname.FamKey | Out-Null
-  C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r C:\Users\frank\Source\Rider\FamKey\FamKey\bin\Debug\net8.0-android\android-x64\com.companyname.FamKey-Signed.apk
-  ```
 
 ### 3.6 Auf einem physischen Gerät (Samsung Galaxy S25) testen
 
@@ -314,7 +308,7 @@ Das CLI-Tool kann dies:
    C:\Users\frank\AppData\Local\Android\Sdk\platform-tools\adb.exe devices
    <device-id>    device
 
-6) In Rider: "Samsung Galaxy S25" als Target Device auswählen
+6) In AndroidStudio: "Samsung Galaxy S25" als Target Device auswählen
    Run → Edit Configurations → Target Device
 
 ### 3.7 Gradle-Konfiguration
@@ -477,6 +471,20 @@ eingecheckt. Wiederholen wenn:
 - `dargon2_flutter_mobile` auf eine neue Version aktualisiert wird (neue C-Quellen)
 - Das NDK auf eine neue Version aktualisiert wird
 - Ein neues Ziel-ABI hinzukommt (z.B. `x86_64` für Emulator-Support)
+
+### 3.10 Android-Manifest-Einstellungen
+
+Standardmäßig hat die Release-Version kein Netzwerkzugriff.
+
+Das INTERNET-Permission steht nur im debug-Manifest, fehlt aber im main-Manifest. Flutter fügt es beim
+Debug-Build automatisch aus dem Debug-Overlay hinzu — beim Release-APK landet es nicht in der App.
+
+Fix: Permission ins Main-Manifest `android/app/src/main/AndroidManifest.xml` eintragen:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+```
 
 ---
 
@@ -799,7 +807,6 @@ FamKey/                                        # Projekt-Root
  ├── native/                                   # Native Bibliotheken (z.B. SQLite3MC)
  │    └── sqlcipher/                           # SQLCipher (SQLite mit Verschlüsselungsfunktion)
  │         └── windows/
- │              ├── sqlite3mc_x64.dll          # SQLite3 Multiple Ciphers 2.2.7 (basiert auf SQLite 3.51.2) 
  │              └── sqlite-jdbc-3.51.2.0.jar   # SQLCipher‑fähiger JDBC‑Treiber (für Database Navigator)
  ├── test/                                     # Widget- und Unit-Tests der App
  ├── web/                                      # Web-spezifische Dateien
@@ -812,7 +819,8 @@ FamKey/                                        # Projekt-Root
  ├── env.ps1                                   # Umgebungsvariablen für PowerShell-Skripte   
  ├── LICENSE                                   # Lizenzhinweis   
  ├── pubspec.yaml                              # Paketinformation
- └── README.md                                 # Landingpage für das Git-Repository
+ ├── README.md                                 # Landingpage für das Git-Repository
+ └── sqlite3mc_x64.dll                         # SQLite3 Multiple Ciphers 2.2.7 für Windows (basiert auf SQLite 3.51.2) 
 </pre>
 
 ---
