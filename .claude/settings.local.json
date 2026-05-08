@@ -17,7 +17,10 @@
       "Bash(Select-String -Pattern \"^\\\\d{2}:\\\\d{2}.*\\\\[E\\\\]|Bad state:|Error:|^\\\\s+test\\\\\\\\|^  \")",
       "Bash(dart run *)",
       "Bash(dart pub *)",
-      "Bash(dir *)"
+      "Bash(dir *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\frank\\\\Source\\\\AndroidStudio\\\\famkey\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"deleted_at\\\\|deleted_flag\\\\|soft.*delete\")"
     ]
   }
 }

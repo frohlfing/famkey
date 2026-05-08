@@ -719,6 +719,12 @@ class DatabaseService {
     return (_db!.select(_db!.tombstones)..where((t) => t.deletedAt.isBiggerThanValue(since))).get();
   }
 
+  /// Lädt den Löschmarker für einen bestimmten Eintrag anhand seiner UUID.
+  Future<TombstoneEntity?> getTombstoneByUuid(String entryUuid) {
+    _ensureDbInitialized();
+    return (_db!.select(_db!.tombstones)..where((t) => t.entryUuid.equals(entryUuid))).getSingleOrNull();
+  }
+
   // /// Speichert einen Löschmarker, um die Entfernung eines Eintrags synchronisieren zu können.
   // Future<TombstoneEntity> saveTombstone(TombstoneEntity tombstone) async {
   //   _ensureDbInitialized();

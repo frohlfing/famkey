@@ -111,15 +111,27 @@ class SyncNotifier extends Notifier<SyncState> {
       var userResponse = await _webService.findUser(_sessionService.vaultName, syncedUserName);
       if (userResponse == null) {
         // Benutzer existiert noch nicht → Erstregistrierung (auch nach Tresor-Umbenennung)
-        userResponse = await _webService.registerUser(
-          vaultName: _sessionService.vaultName,
-          userName: syncedUserName,
-          userUuid: user.uuid,
-          salt: settings.salt,
-          publicKey: user.publicKey,
-          encryptedPrivateKey: settings.encryptedPrivateKey,
-          masterKeyTimestamp: settings.masterKeyTimestamp,
-        );
+        try {
+          userResponse = await _webService.registerUser(
+            vaultName: _sessionService.vaultName,
+            userName: syncedUserName,
+            userUuid: user.uuid,
+            salt: settings.salt,
+            publicKey: user.publicKey,
+            encryptedPrivateKey: settings.encryptedPrivateKey,
+            masterKeyTimestamp: settings.masterKeyTimestamp,
+          );
+        } on DioException catch (de) {
+          // 409: UUID existiert bereits, aber Hash-Name stimmt nicht überein.
+          // Ursache: ein vorheriger Sync hat patchUserName auf dem Server ausgeführt,
+          // aber syncedName lokal nicht persistiert (Sync danach abgebrochen).
+          // Reparatur: Server-Hash auf den lokalen syncedName zurücksetzen.
+          if (de.response?.statusCode != 409) rethrow;
+          log.warn('Sync-Reparatur: UUID existiert bereits unter anderem Hash (Desync nach Umbenennung). Setze Server-Hash zurück.');
+          await _webService.patchUserName(user.uuid, syncedUserName);
+          userResponse = await _webService.findUser(_sessionService.vaultName, syncedUserName);
+          if (userResponse == null) throw Exception("Benutzer konnte nach Reparatur nicht gefunden werden.");
+        }
 
         // Die UUID des Benutzers muss gleich sein!
         if (userResponse.userUuid != user.uuid) throw Exception("Die vom Server erhaltene UUID entspricht nicht dem lokalen Benutzer.");
@@ -316,7 +328,8 @@ class SyncNotifier extends Notifier<SyncState> {
     int added = 0, updated = 0, deleted = 0;
 
     // 1. Neue und geänderte Einträge vom Server herunterladen
-    final pullResponse = await _webService.pullSync(userUuid, _sessionService.settings!.lastSyncAt);
+    final lastSyncAt = _sessionService.settings!.lastSyncAt;
+    final pullResponse = await _webService.pullSync(userUuid, lastSyncAt);
 
     // 2. Gelöschte Einträge lokal entfernen
     for (var tombstoneDto in pullResponse.deletes) {
@@ -345,7 +358,13 @@ class SyncNotifier extends Notifier<SyncState> {
     for (var entryDto in pullResponse.updates.where((u) => u.accessLevel > 0)) {
       if (entryDto.encryptedKey.isEmpty) throw Exception("Heruntergeladenen Eintrag ${entryDto.entryUuid} hat kein Entry-Key.");
 
-      // 5.1 Suchfelder aus dem verschlüsselten Payload extrahieren
+      // 5.1 Tombstone-Check: lokales Löschen schlägt Server-Update wenn Tombstone neuer ist
+      final tombstone = await _databaseService.getTombstoneByUuid(entryDto.entryUuid);
+      if (tombstone != null && !tombstone.deletedAt.isBefore(entryDto.updatedAt)) {
+        continue;
+      }
+
+      // 5.2 Suchfelder aus dem verschlüsselten Payload extrahieren
       String encryptedIndex = '';
       try {
         // Wir brauchen den EntryKey (AES), um an die Suchfelder zu kommen
@@ -365,7 +384,7 @@ class SyncNotifier extends Notifier<SyncState> {
         throw Exception("Eintrag ${entryDto.entryUuid} konnte nicht extrahiert werden: $e");
       }
 
-      // 5.2 Statistik aktualisieren
+      // 5.3 Statistik aktualisieren
       final existing = await _databaseService.getEntryByUuid(entryDto.entryUuid);
       if (existing == null) {
         added++;
@@ -373,7 +392,7 @@ class SyncNotifier extends Notifier<SyncState> {
         updated++;
       }
 
-      // 5.3 Eintrag speichern
+      // 5.4 Eintrag speichern
       final entity = EntryEntity(
         id: 0,
         uuid: entryDto.entryUuid,

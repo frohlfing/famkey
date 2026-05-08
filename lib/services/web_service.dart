@@ -39,6 +39,13 @@ class WebService {
 
     _apiToken = apiToken ?? '';
 
+    // Timeouts (nur setzen wenn kein Test-Dio von außen injiziert)
+    if (dio == null) {
+      _dio.options.connectTimeout = const Duration(seconds: 10);
+      _dio.options.receiveTimeout = const Duration(seconds: 30);
+      _dio.options.sendTimeout = const Duration(seconds: 30);
+    }
+
     // Falls dio von außen kommt, stellen wir sicher, dass die BaseUrl passt
     if (host != null && host.isNotEmpty) {
       _dio.options.baseUrl = host.endsWith('/') ? '${host}api/' : '$host/api/';
