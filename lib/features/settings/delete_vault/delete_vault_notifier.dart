@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famkey/core/app_error.dart';
@@ -7,6 +10,7 @@ import 'package:famkey/database/database.dart';
 import 'package:famkey/features/settings/delete_vault/delete_vault_state.dart';
 import 'package:famkey/services/biometric_service.dart';
 import 'package:famkey/services/config_service.dart';
+import 'package:famkey/services/crypto_service.dart';
 import 'package:famkey/services/database_service.dart';
 import 'package:famkey/services/session_service.dart';
 import 'package:famkey/services/web_service.dart';
@@ -23,6 +27,7 @@ class DeleteVaultNotifier extends Notifier<DeleteVaultState> {
 
   late final BiometricService _biometricService;
   late final ConfigService _configService;
+  late final CryptoService _cryptoService;
   late final DatabaseService _databaseService;
   late final SessionService _sessionService;
   late final WebService _webService;
@@ -46,6 +51,7 @@ class DeleteVaultNotifier extends Notifier<DeleteVaultState> {
   DeleteVaultState build() {
     _biometricService = getIt<BiometricService>();
     _configService = getIt<ConfigService>();
+    _cryptoService = getIt<CryptoService>();
     _databaseService = getIt<DatabaseService>();
     _sessionService = getIt<SessionService>();
     _webService = getIt<WebService>();
@@ -63,6 +69,9 @@ class DeleteVaultNotifier extends Notifier<DeleteVaultState> {
       state = state.copyWith(
         isRegistered: _settings != null && _settings!.lastSyncAt.year > 1970,
         status: DeleteVaultActionStatus.loaded,
+        deleteServer: false,
+        deleteLocal: false,
+        password: '',
       );
     } catch (e, st) {
       log.fatal('Fehler beim Laden: $e', stack: st);
@@ -71,34 +80,71 @@ class DeleteVaultNotifier extends Notifier<DeleteVaultState> {
   }
 
   // ------------------------------------------------------------------------
-  // --- Löschen ---
+  // --- Bestätigen ---
+  // ------------------------------------------------------------------------
+
+  /// Validiert das Master-Passwort und führt die gewählte Löschaktion aus.
+  Future<void> confirm() async {
+    if (state.isBusy) return;
+    Uint8List? masterKey;
+
+    state = state.copyWith(status: DeleteVaultActionStatus.progress, error: AppError.none());
+
+    try {
+      // Sync-Server prüfen, bevor eine Server-Verbindung versucht wird
+      if (state.deleteServer && (_sessionService.settings?.host.isEmpty ?? true)) {
+        state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.noSyncService));
+        return;
+      }
+
+      // Master-Passwort validieren
+      if (_sessionService.settings == null) throw Exception('Session nicht initialisiert.');
+      final salt = base64Decode(_sessionService.settings!.salt);
+      masterKey = await _cryptoService.deriveKey(state.password, salt);
+      try {
+        await _cryptoService.decrypt(_sessionService.settings!.encryptedPrivateKey, masterKey);
+      } catch (_) {
+        state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.wrongPassword, field: 'password'));
+        return;
+      }
+
+      // Aktion ausführen
+      if (state.deleteServer && state.deleteLocal) {
+        await _deleteVaultBoth();
+      } else if (state.deleteServer) {
+        await _deleteVaultServer();
+      } else {
+        await _deleteVaultLocal();
+      }
+
+    } on DioException catch (de) {
+      final error = WebService.convertDioError(de);
+      log.error(error.text);
+      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: error);
+
+    } catch (e, st) {
+      log.fatal('Fehler beim Löschen: $e', stack: st);
+      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.unknown));
+
+    } finally {
+      if (masterKey != null) _cryptoService.wipeKey(masterKey);
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Private Lösch-Methoden ---
   // ------------------------------------------------------------------------
 
   /// Löscht den Tresor nur lokal vom Gerät.
   /// Die Daten auf dem Server bleiben erhalten.
-  Future<void> deleteVaultLocal() async {
-    if (state.isBusy) return;
-    state = state.copyWith(status: DeleteVaultActionStatus.progress, error: AppError.none());
-
-    try {
-      // 1. Datenbank löschen
-      await _databaseService.deleteCurrentDatabaseAndSaltFile();
-
-      // 2. SecureStore leeren
-      await _biometricService.removeMasterKey(_sessionService.vaultName);
-
-      // 3. Konfiguration bereinigen
-      if (_configService.lastVaultName == _sessionService.vaultName) {
-        _configService.lastVaultName = '';
-      }
-
-      // 4. Session zurücksetzen
-      _sessionService.clearSession();
-      state = state.copyWith(status: DeleteVaultActionStatus.deleted);
-    } catch (e, st) {
-      log.fatal('Fehler beim lokalen Löschen des Tresors: $e', stack: st);
-      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.unknown));
+  Future<void> _deleteVaultLocal() async {
+    await _databaseService.deleteCurrentDatabaseAndSaltFile();
+    await _biometricService.removeMasterKey(_sessionService.vaultName);
+    if (_configService.lastVaultName == _sessionService.vaultName) {
+      _configService.lastVaultName = '';
     }
+    _sessionService.clearSession();
+    state = state.copyWith(status: DeleteVaultActionStatus.deleted);
   }
 
   /// Löscht den Tresor nur auf dem Server.
@@ -107,77 +153,59 @@ class DeleteVaultNotifier extends Notifier<DeleteVaultState> {
   ///
   /// Falls der Benutzer der letzte im Tresor ist, wird der gesamte Tresor gelöscht.
   /// Andernfalls wird nur der eigene Benutzer-Datensatz entfernt.
-  Future<void> deleteVaultServer() async {
-    if (state.isBusy) return;
-    state = state.copyWith(status: DeleteVaultActionStatus.progress, error: AppError.none());
+  Future<void> _deleteVaultServer() async {
+    if (_sessionService.user == null || _sessionService.settings == null) throw Exception('Session nicht initialisiert.');
+    final settings = _sessionService.settings!;
+    final user = _sessionService.user!;
 
-    try {
-      if (_sessionService.user == null || _sessionService.settings == null) {
-        throw Exception('Session nicht initialisiert.');
-      }
-      final settings = _sessionService.settings!;
-      final user = _sessionService.user!;
+    _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
+    _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
+    await _webService.deleteVault(user.uuid);
 
-      // WebService konfigurieren
-      _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
-      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
+    // lastSyncAt zurücksetzen → nächster Sync registriert Tresor unter aktuellem Namen neu
+    if (_settings == null) throw Exception('Settings nicht geladen.');
+    final updatedSettings = _settings!.copyWith(
+      lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+    _settings = await _databaseService.saveSettings(updatedSettings);
+    _sessionService.setSettings(_settings!);
 
-      // Tresor serverseitig löschen (Server entscheidet: letzter User → Tresor löschen, sonst nur User)
-      await _webService.deleteVault(user.uuid);
-
-      // lastSyncAt zurücksetzen → nächster Sync registriert Tresor unter aktuellem Namen neu
-      if (_settings == null) throw Exception('Settings nicht geladen.');
-      final updatedSettings = _settings!.copyWith(
-        lastSyncAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      );
-      _settings = await _databaseService.saveSettings(updatedSettings);
-      _sessionService.setSettings(_settings!);
-
-      state = state.copyWith(isRegistered: false, status: DeleteVaultActionStatus.saved);
-    } on DioException catch (de) {
-      final error = WebService.convertDioError(de);
-      log.error(error.text);
-      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: error);
-    } catch (e, st) {
-      log.fatal('Fehler beim serverseitigen Löschen des Tresors: $e', stack: st);
-      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.unknown));
-    }
+    state = state.copyWith(isRegistered: false, status: DeleteVaultActionStatus.saved);
   }
 
   /// Löscht den Tresor sowohl auf dem Server als auch lokal.
-  Future<void> deleteVaultBoth() async {
-    if (state.isBusy) return;
-    state = state.copyWith(status: DeleteVaultActionStatus.progress, error: AppError.none());
+  Future<void> _deleteVaultBoth() async {
+    if (_sessionService.user == null || _sessionService.settings == null) throw Exception('Session nicht initialisiert.');
+    final settings = _sessionService.settings!;
+    final user = _sessionService.user!;
 
-    try {
-      if (_sessionService.user == null || _sessionService.settings == null) {
-        throw Exception('Session nicht initialisiert.');
-      }
-      final settings = _sessionService.settings!;
-      final user = _sessionService.user!;
+    _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
+    _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
+    await _webService.deleteVault(user.uuid);
 
-      // WebService konfigurieren
-      _webService.updateConfig(host: settings.host, apiToken: settings.apiToken);
-      _webService.setSignatureData(userUuid: user.uuid, privateKey: _sessionService.privateKey!, publicKey: user.publicKey);
-
-      // Tresor serverseitig löschen
-      await _webService.deleteVault(user.uuid);
-
-      // Lokal löschen
-      await _databaseService.deleteCurrentDatabaseAndSaltFile();
-      await _biometricService.removeMasterKey(_sessionService.vaultName);
-      if (_configService.lastVaultName == _sessionService.vaultName) {
-        _configService.lastVaultName = '';
-      }
-      _sessionService.clearSession();
-      state = state.copyWith(status: DeleteVaultActionStatus.deleted);
-    } on DioException catch (de) {
-      final error = WebService.convertDioError(de);
-      log.error(error.text);
-      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.unknown));
-    } catch (e, st) {
-      log.fatal('Fehler beim vollständigen Löschen des Tresors: $e', stack: st);
-      state = state.copyWith(status: DeleteVaultActionStatus.failure, error: AppError(ErrorCode.unknown));
+    await _databaseService.deleteCurrentDatabaseAndSaltFile();
+    await _biometricService.removeMasterKey(_sessionService.vaultName);
+    if (_configService.lastVaultName == _sessionService.vaultName) {
+      _configService.lastVaultName = '';
     }
+    _sessionService.clearSession();
+    state = state.copyWith(status: DeleteVaultActionStatus.deleted);
+  }
+
+  // ------------------------------------------------------------------------
+  // --- Setter für den UI-State (synchron) ---
+  // ------------------------------------------------------------------------
+
+  void setDeleteServer(bool value) {
+    state = state.copyWith(deleteServer: value, error: AppError.none());
+  }
+
+  void setDeleteLocal(bool value) {
+    state = state.copyWith(deleteLocal: value, error: AppError.none());
+  }
+
+  void setPassword(String value) {
+    final error = state.error.field == 'password' ? AppError.none() : null;
+    state = state.copyWith(password: value, error: error);
   }
 }
