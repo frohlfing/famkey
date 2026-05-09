@@ -52,21 +52,20 @@
 - ✅ Zwischenablage nach x Sekunden leeren
 - ✅ Notfall-Reset
 - ✅ Auto-Fill (unter Android per Systemfunktion, unter Windows per Auto-Type, für Web keine Unterstützung)
+- ❌ Dialog, um Kategorien umbenennen zu können
  
-### 1.5 Meilenstein 5: Androide App
-- ✅ Emulator  installieren
-- ✅ Layout anpassen
-
-### 1.6 Meilenstein 6: WebAssembly (WASM)
+### 1.5 Meilenstein 5: Cross-Compiling - Windows, Androide-App, WebAssembly (WASM)
+- ✅ Androide-Emulator installieren
 - ✅ Platform-Weichen (nativ/web) erstellen, wo notwendig
-- ✅ Web-App testen
+- ✅ Layout anpassen
  
-### 1.7 Meilenstein 7: Homepage
+### 1.6 Meilenstein 6: Homepage & Deployment
 - ✅ Homepage erstellen
 - ✅ Sync-Server für Multi-Tenant-Betrieb (pro Organisation einen virtuellen Server)
 - ✅ Deployment-Skript erstellen, Apps und WASM auf der Homepage bereitstellen
+- ❌ Windows-Installer (Inno Setup oder vergleichbares)
 
-### 1.8 Meilenstein 8: Version 1.1
+### 1.7 Meilenstein 7: Version 1.1
 - ❌ Entwickler-Menü freischalten (5x auf App-Version klicken)
 - ❌ DB-Viewer im Entwickler-Menü hinzufügen
 - ❌ Passkeys-Unterstützung (https://keepassxc.org/docs/KeePassXC_UserGuide#_passkeys, https://fidoalliance.org/passkeys/)

@@ -1,4 +1,5 @@
-﻿import 'dart:io';
+﻿import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -202,11 +203,22 @@ void main() {
     });
 
     test('5.1.1 deleteVaultLocal: Bereinigt alle lokalen Daten', () async {
+      final settings = SettingsEntity(
+        id: 1, salt: base64Encode(Uint8List(16)), encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+        host: '', apiToken: '', lastSyncAt: DateTime(0),
+        useBiometric: false, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
+        categoryPlaceholder: '',
+      );
+      when(mockSession.settings).thenReturn(settings);
+      when(mockCrypto.deriveKey(any, any)).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List(32));
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
 
       final notifier = container.read(deleteVaultProvider.notifier);
-      await notifier.deleteVaultLocal();
+      notifier.setDeleteLocal(true);
+      notifier.setPassword('password');
+      await notifier.confirm();
 
       expect(container.read(deleteVaultProvider).status, equals(DeleteVaultActionStatus.deleted));
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
@@ -216,7 +228,7 @@ void main() {
 
     test('5.2.1 deleteVaultServer: Löscht Tresor auf dem Server und setzt lastSyncAt zurück', () async {
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+        id: 1, salt: base64Encode(Uint8List(16)), encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
         host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
         useBiometric: false, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
         categoryPlaceholder: '',
@@ -230,12 +242,16 @@ void main() {
       when(mockSession.user).thenReturn(user);
       when(mockSession.settings).thenReturn(settings);
       when(mockSession.privateKey).thenReturn(Uint8List(32));
+      when(mockCrypto.deriveKey(any, any)).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List(32));
       when(mockWeb.deleteVault('u1')).thenAnswer((_) async => {});
       when(mockDb.saveSettings(any)).thenAnswer((inv) async => inv.positionalArguments[0]);
 
       final notifier = container.read(deleteVaultProvider.notifier);
       await notifier.load(); // setzt _settings
-      await notifier.deleteVaultServer();
+      notifier.setDeleteServer(true);
+      notifier.setPassword('password');
+      await notifier.confirm();
 
       verify(mockWeb.deleteVault('u1')).called(1);
       // lastSyncAt muss auf Epoch zurückgesetzt worden sein
@@ -247,7 +263,7 @@ void main() {
 
     test('5.3.1 deleteVaultBoth: Löscht Server und Gerät', () async {
       final settings = SettingsEntity(
-        id: 1, salt: 's', encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
+        id: 1, salt: base64Encode(Uint8List(16)), encryptedPrivateKey: 'e', masterKeyTimestamp: DateTime.now(),
         host: 'https://host', apiToken: 't', lastSyncAt: DateTime(2024),
         useBiometric: false, pwLength: 16, pwSpecialChars: '!', pwAvoidIlO0: true,
         categoryPlaceholder: '',
@@ -261,13 +277,18 @@ void main() {
       when(mockSession.user).thenReturn(user);
       when(mockSession.settings).thenReturn(settings);
       when(mockSession.privateKey).thenReturn(Uint8List(32));
+      when(mockCrypto.deriveKey(any, any)).thenAnswer((_) async => Uint8List(32));
+      when(mockCrypto.decrypt(any, any)).thenAnswer((_) async => Uint8List(32));
       when(mockWeb.deleteVault('u1')).thenAnswer((_) async => {});
       when(mockDb.deleteCurrentDatabaseAndSaltFile()).thenAnswer((_) async => {});
       when(mockBio.removeMasterKey('MyVault')).thenAnswer((_) async => {});
 
       final notifier = container.read(deleteVaultProvider.notifier);
       await notifier.load();
-      await notifier.deleteVaultBoth();
+      notifier.setDeleteServer(true);
+      notifier.setDeleteLocal(true);
+      notifier.setPassword('password');
+      await notifier.confirm();
 
       verify(mockWeb.deleteVault('u1')).called(1);
       verify(mockDb.deleteCurrentDatabaseAndSaltFile()).called(1);
