@@ -67,6 +67,10 @@ class MainNotifier extends Notifier<MainState> {
   Future<void> load() async {
     if (state.isBusy) return;
 
+    // Aktuellen UI-State vor dem Reset sichern
+    final previousSearchQuery = state.searchQuery;
+    final previousCollapsed = state.collapsedCategories;
+
     // UI-State zurücksetzen
     state = const MainState(status: MainActionStatus.progress, error: AppError.none());
 
@@ -89,12 +93,15 @@ class MainNotifier extends Notifier<MainState> {
 
       final hasFriends = await _databaseService.hasFriends();
 
-      // UI-State aktualisieren
-      final grouped = _groupEntries(searchQuery: state.searchQuery, onlyMyEntries: _configService.showOnlyMine);
-      final collapsed = _configService.categoriesCollapsed ? grouped.keys.toSet() : const <String>{};
+      // UI-State aktualisieren – gesicherte Werte wiederherstellen
+      final grouped = _groupEntries(searchQuery: previousSearchQuery, onlyMyEntries: _configService.showOnlyMine);
+      final collapsed = _configService.categoriesCollapsed ? grouped.keys.toSet() : previousCollapsed;
+      final allCats = (_allEntries.map((e) => e.index.category).where((c) => c.isNotEmpty).toSet().toList()..sort());
       state = state.copyWith(
         groupedEntries: grouped,
         collapsedCategories: collapsed,
+        allCategories: allCats,
+        searchQuery: previousSearchQuery,
         vaultName: _sessionService.vaultName,
         hasFriends: hasFriends,
         onlyMyEntries: _configService.showOnlyMine,
@@ -146,7 +153,7 @@ class MainNotifier extends Notifier<MainState> {
     );
   }
 
-  /// Gruppiert die gefilterten Einträge nach Kategorien für die Darstellung in der UI.
+  /// Filtert und gruppiert die Einträge nach Kategorien für die Darstellung in der UI.
   Map<String, List<EntryWithIndex>> _groupEntries({String searchQuery = '', bool onlyMyEntries = false}) {
     final Map<String, List<EntryWithIndex>> groups = {};
     final placeholder = _sessionService.settings?.categoryPlaceholder ?? 'Allgemein';

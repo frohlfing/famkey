@@ -110,6 +110,7 @@ class _CategoryPlaceholderDialogState extends ConsumerState<CategoryPlaceholderD
                   controller: _controller,
                   autofocus: true,
                   textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                   decoration: InputDecoration(
                     labelText: 'Unbenannte Kategorie',
                     prefixIcon: const Icon(Icons.label_outlined),

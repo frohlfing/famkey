@@ -110,6 +110,7 @@ class _UserNameDialogState extends ConsumerState<UserNameDialog> {
                   controller: _controller,
                   autofocus: true,
                   textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                   decoration: InputDecoration(
                     labelText: 'Benutzername',
                     prefixIcon: const Icon(Icons.person_outline),

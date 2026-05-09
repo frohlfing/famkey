@@ -147,6 +147,7 @@ class _VaultNameDialogState extends ConsumerState<VaultNameDialog> {
                   controller: _vaultNameController,
                   autofocus: true,
                   textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                   decoration: InputDecoration(
                     labelText: 'Tresorname',
                     prefixIcon: const Icon(Icons.shield_outlined),

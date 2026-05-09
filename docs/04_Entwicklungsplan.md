@@ -82,20 +82,10 @@
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
 - 🐞 Web: Import funktioniert nicht unter Web 
 - 🐞 Das Ladesymbol beim Sync läuft erst flüssig, dann friert es für einen Moment ein, danach wird die Statistik angezeigt.
-6) Bei der Kategorieauswahl in EditPage wird die gefilterte Liste aus MainPage genommen, statt alle.
-7) Favicon von famkey.de wird nicht heruntergeladen. Google hat famkey.de (ein privater Server)
-  nicht im Favicon-Cache — er liefert entweder eine generische Icon oder gar nichts. Lösung: Lk
 
-2) Fast regelmäßig wird der Verbindungstest im SyncServerDialog nicht beendet. Es hilft nur, die App abzuschießen und neu zu starten.
-   (Ohne Einstellungen zu ändern, manchmal "Verbindung erfolgreiche", manchmal Ladesymbol ohne Ende.)
+UX verbessern:
 
-
-
-4) UX verbessern:
-Den ersten Buchstaben beim Tippen des zweiten Zeichens groß machen, bei:
- - Settings: Benutzername und Tresorname:
- - Login: Tresorname 
-5) Bei Settings, Tresor löschen: Dialog komplett umbauen:
+5) Bau den DeleteVaultDialog komplett um. Tausche die 3 Buttons aus gegen:
 - Switch "Tresor auf dem Server löschen" (default off)
 - Switch "Tresor auf diesem Gerät löschen" (default off)
 - Hinweisfeld (Style ähnlich wie bei VaultNameDialog), je nach Schalterstellung:
@@ -103,4 +93,4 @@ Den ersten Buchstaben beim Tippen des zweiten Zeichens groß machen, bei:
     - "Die Daten auf dem Server bleiben erhalten."
     - "Alle Daten werden unwiderruflich entfernt." (mit rot hervorgehoben)
 - Master-Schlüssel (TextField wie bei VaultNameDialog), muss stimmen, sonst Fehlermeldung
-
+Halte die an den Aufbau und Stil von VaultNameDialog.

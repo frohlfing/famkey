@@ -166,6 +166,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                       controller: _categoryController,
                       autofocus: true,
                       textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                       decoration: InputDecoration(
                         labelText: 'Kategorie',
                         prefixIcon: const Icon(Icons.label_outlined),
@@ -196,6 +197,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                     return TextField(
                       controller: _titleController,
                       textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                       decoration: InputDecoration(
                         labelText: 'Titel',
                         prefixIcon: const Icon(Icons.title_outlined),
@@ -215,6 +217,7 @@ class _EditPageState extends ConsumerState<EditPage> {
                     return TextField(
                       controller: _usernameController,
                       textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                       decoration: InputDecoration(
                         labelText: 'Benutzername',
                         prefixIcon: const Icon(Icons.person_outline),

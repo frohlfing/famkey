@@ -88,8 +88,8 @@ class EditNotifier extends Notifier<EditState> {
 
       if (_sessionService.privateKey == null) throw Exception('Der private Schlüssel ist nicht entpackt.');
 
-      // Vorhandene Kategorien für Vorschlagsliste laden
-      final categories = ref.read(mainProvider).categories;
+      // Vorhandene Kategorien für Vorschlagsliste laden (ungefiltert)
+      final categories = ref.read(mainProvider).allCategories;
       state = state.copyWith(existingCategories: categories);
 
       if (id != null) {

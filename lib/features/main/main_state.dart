@@ -29,6 +29,9 @@ class MainState {
   /// Speichert die Namen der Kategorien, die aktuell in der UI eingeklappt sind.
   final Set<String> collapsedCategories;
 
+  /// Sortierte Liste aller vorhandenen Kategorienamen (ungefiltert) – für die Vorschlagsliste im Edit-Dialog.
+  final List<String> allCategories;
+
   /// Der Status der letzten Aktion.
   final MainActionStatus status;
 
@@ -43,9 +46,6 @@ class MainState {
   /// Gibt an, ob alle Kategorien eingeklappt sind.
   bool get allCategoriesCollapsed => groupedEntries.isNotEmpty && collapsedCategories.containsAll(groupedEntries.keys);
 
-  /// Sortierte Liste aller vorhandenen Kategorienamen – für die Vorschlagsliste im Edit-Dialog.
-  List<String> get categories => groupedEntries.keys.toList()..sort();
-
   /// Konstruktor
   const MainState({
     this.vaultName = '',
@@ -54,6 +54,7 @@ class MainState {
     this.onlyMyEntries = false,
     this.groupedEntries = const {},
     this.collapsedCategories = const {},
+    this.allCategories = const [],
     this.status = MainActionStatus.initial,
     this.error = const AppError.none(),
   });
@@ -66,6 +67,7 @@ class MainState {
     bool? onlyMyEntries,
     Map<String, List<EntryWithIndex>>? groupedEntries,
     Set<String>? collapsedCategories,
+    List<String>? allCategories,
     MainActionStatus? status,
     AppError? error,
   }) {
@@ -76,6 +78,7 @@ class MainState {
       onlyMyEntries: onlyMyEntries ?? this.onlyMyEntries,
       groupedEntries: groupedEntries ?? this.groupedEntries,
       collapsedCategories: collapsedCategories ?? this.collapsedCategories,
+      allCategories: allCategories ?? this.allCategories,
       status: status ?? this.status,
       error: error ?? this.error,
     );

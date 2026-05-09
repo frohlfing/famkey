@@ -202,6 +202,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _vaultController,
                         focusNode: _vaultFocusNode,
                         textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.sentences, // erster Buchstabe groß
                         decoration: InputDecoration(
                           labelText: 'Tresorname',
                           prefixIcon: const Icon(Icons.shield_outlined),
