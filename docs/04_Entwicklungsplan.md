@@ -81,14 +81,26 @@
 ## 3. Bugs
 - 🐞 Bearer geht nicht, warum? (taucht beim Server nicht im Header auf)
 - 🐞 Web: Import funktioniert nicht unter Web 
-- 🐞 Nativ: Liste in Main filtern. Eintrag löschen -> Filter wird ignoriert
 - 🐞 Das Ladesymbol beim Sync läuft erst flüssig, dann friert es für einen Moment ein, danach wird die Statistik angezeigt.
-
-1) Gesynct, dann Benutzername geändert, dann wieder Gesynct -> Fehlermeldung "Conflict (409)"
-   Laut Logeintrag auf dem Server wird in UserController.php Zeile 315 der Fehler geworfen:
-      `return Response::error(409); // Benutzer existiert bereits in diesem Tresor`
-   Der alte Name auf dem Server wurde tatsächlich nicht gelöscht. 
+6) Bei der Kategorieauswahl in EditPage wird die gefilterte Liste aus MainPage genommen, statt alle.
+7) Favicon von famkey.de wird nicht heruntergeladen. Google hat famkey.de (ein privater Server)
+  nicht im Favicon-Cache — er liefert entweder eine generische Icon oder gar nichts. Lösung: Lk
 
 2) Fast regelmäßig wird der Verbindungstest im SyncServerDialog nicht beendet. Es hilft nur, die App abzuschießen und neu zu starten.
    (Ohne Einstellungen zu ändern, manchmal "Verbindung erfolgreiche", manchmal Ladesymbol ohne Ende.)
-``
+
+
+
+4) UX verbessern:
+Den ersten Buchstaben beim Tippen des zweiten Zeichens groß machen, bei:
+ - Settings: Benutzername und Tresorname:
+ - Login: Tresorname 
+5) Bei Settings, Tresor löschen: Dialog komplett umbauen:
+- Switch "Tresor auf dem Server löschen" (default off)
+- Switch "Tresor auf diesem Gerät löschen" (default off)
+- Hinweisfeld (Style ähnlich wie bei VaultNameDialog), je nach Schalterstellung:
+    - "Lokale Daten bleiben erhalten. Beim nächsten Sync wird der Tresor neu registriert."
+    - "Die Daten auf dem Server bleiben erhalten."
+    - "Alle Daten werden unwiderruflich entfernt." (mit rot hervorgehoben)
+- Master-Schlüssel (TextField wie bei VaultNameDialog), muss stimmen, sonst Fehlermeldung
+

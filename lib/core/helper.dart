@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:html/parser.dart' show parse;
 import 'package:image/image.dart' as img;
 import 'package:famkey/core/service_locator.dart';
 import '../services/session_service.dart';
@@ -56,11 +57,14 @@ Future<String?> downloadFavicon(String url) async {
   }
 
   // Nativ (Android oder Windows):
-  // Google-Favicon-Dienst nutzen
+  // 1. Versuch: Google-Service (schnell und oft erfolgreich)
   var icon = await _getFavicon('https://www.google.com/s2/favicons?domain=$domain&sz=64');
 
-  // Fallback - für Webseiten, die Google (noch) nicht gecrawlt hat: Versuchen, von der Webseite direkt das Favicon herunterzuladen.
-  icon ??= await _getFavicon('${uri.scheme}://$domain/favicon.ico');
+  // 2. Versuch, falls Google die Webseite nicht gecrawlt hat: URL des Favicons aus der HTML-Seite parsen
+  icon ??= await _getFaviconFromHtml(uri);
+
+  // 3. Letzter Versuch: Standardpfad /favicon.ico
+  //icon ??= await _getFavicon('${uri.scheme}://$domain/favicon.ico');
 
   return icon;
 }
@@ -74,6 +78,44 @@ Future<String?> _getFavicon(String url) async {
       return base64.encode(response.data!);
     }
   } catch (_) {}
+  return null;
+}
+
+/// Versucht die HTML-Seite zu laden und nach <link rel="icon"> zu suchen.
+Future<String?> _getFaviconFromHtml(Uri originalUri) async {
+  final dio = Dio();
+  try {
+    // Kurzes Timeout, damit die UI nicht zu lange blockiert, falls die Seite langsam ist
+    final response = await dio.get<String>(
+      originalUri.toString(),
+      options: Options(responseType: ResponseType.plain),
+    ).timeout(const Duration(seconds: 3));
+
+    if (response.data == null) return null;
+    final document = parse(response.data);
+
+    // Suche nach verschiedenen Link-Tags.
+    // Der Selektor findet rel="icon", rel="shortcut icon", rel="apple-touch-icon" etc.
+    final linkElements = document.querySelectorAll('link[rel*="icon"]');
+
+    for (var element in linkElements) {
+      String? href = element.attributes['href'];
+      if (href == null || href.isEmpty) continue;
+
+      // Relative Pfade auflösen (z.B. "/favicon.png" -> "https://domain.de/favicon.png")
+      final absoluteHref = Uri.parse(href).isAbsolute ? href : originalUri.resolve(href).toString();
+
+      // Download versuchen
+      debugPrint('favicon: $absoluteHref');
+      final icon = await _getFavicon(absoluteHref);
+
+      // Nur zurückgeben, wenn wir wirklich ein Icon gefunden haben!
+      // Wenn icon null ist, geht die Schleife zum nächsten Element weiter.
+      if (icon != null) return icon;
+    }
+  } catch (e) {
+    debugPrint('HTML-Parsing fehlgeschlagen: $e');
+  }
   return null;
 }
 

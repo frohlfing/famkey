@@ -57,6 +57,7 @@ dependencies:
   # Importformate (XML, Zip)
   xml: ^6.3.0
   archive: ^4.0.9
+  html: ^0.15.4 # HTML-Parser
 
   # Riverpod
   flutter_riverpod: ^3.3.1
