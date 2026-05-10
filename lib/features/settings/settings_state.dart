@@ -71,6 +71,9 @@ class SettingsState {
   /// Der Benutzername.
   final String userName;
 
+  // Fingerprint des Benutzers
+  final String fingerprint;
+
   /// Die URL des Sync-Servers
   final String host;
 
@@ -173,6 +176,7 @@ class SettingsState {
     this.autotypeHotkey = 'Strg+Shift+A',
     this.isRegistered = false,
     this.userName = '',
+    this.fingerprint = '',
     this.host = '',
     this.friends = const [],
     this.fingerprints = const {},
@@ -209,6 +213,7 @@ class SettingsState {
     String? autotypeHotkey,
     bool? isRegistered,
     String? userName,
+    String? fingerprint,
     String? host,
     List<UserEntity>? friends,
     Map<int, String>? fingerprints,
@@ -242,6 +247,7 @@ class SettingsState {
       autotypeHotkey: autotypeHotkey ?? this.autotypeHotkey,
       isRegistered: isRegistered ?? this.isRegistered,
       userName: userName ?? this.userName,
+      fingerprint: fingerprint ?? this.fingerprint,
       host: host ?? this.host,
       friends: friends ?? this.friends,
       fingerprints: fingerprints ?? this.fingerprints,

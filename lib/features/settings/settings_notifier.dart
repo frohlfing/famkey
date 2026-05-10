@@ -87,6 +87,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _settings = await _databaseService.getSettings();
       if (_settings == null) throw Exception('Die Einstellungen sind nicht in der Datenbank hinterlegt.'); // wird bereits direkt nach dem Login angelegt
 
+      // Fingerprint des Benutzers (nutzt unsichtbares Leerzeichen (\u200B) nach den Doppelpunkten für bessere Zeilenumbrüche in der UI)
+      final fingerprint = _cryptoService.fingerprint(_sessionService.user?.publicKey ?? '').replaceAll(":", ":\u200B");
+
       // Freundesliste laden
       final friends = await _databaseService.getNotHiddenFriends();
       final fingerprints = _getFingerprints(friends);
@@ -110,6 +113,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         autotypeHotkey: _configService.autotypeHotkey,
         isRegistered: _settings!.lastSyncAt.year > 1970,
         userName: _sessionService.user?.name ?? '',
+        fingerprint: fingerprint,
         host: _settings!.host,
         friends: friends,
         fingerprints: fingerprints,

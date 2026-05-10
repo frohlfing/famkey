@@ -347,11 +347,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> with WidgetsBinding
 
                 // --- Benutzername ---
                 _buildText(
-                  'Benutzername',
+                  'Dein Benutzername',
                   (state) => state.userName,
                   icon: Icons.person_outline,
                   onPressed: _showUserNameDialog,
                   tooltip: 'Benutzername ändern',
+                ),
+
+                _buildText(
+                  'Dein Fingerprint',
+                  (state) => state.fingerprint,
+                  icon: Icons.badge_outlined,
                 ),
 
                 // --- Host ---
