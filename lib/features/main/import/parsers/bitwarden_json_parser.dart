@@ -165,7 +165,7 @@ class BitwardenJsonParser implements Parser {
       password: login?['password'] as String?, // Passwort nicht trimmen!
       passwordTimestamp: passwordTimestamp,
       url: (login?['uris'] as List?)?.firstOrNull?['uri']?.trim() as String?,
-      notes: _buildNotes(item['notes'] as String?, login?['totp'] as String?),
+      notes: _buildNotes(item['notes'] as String?, login?['totp'] as String?, item['fields'] as List?),
       updatedAt: updatedAt,
       attachments: attachments,
       lineNumber: lineNumber,
@@ -226,12 +226,41 @@ class BitwardenJsonParser implements Parser {
     return DateTime.tryParse(revisionDateStr ?? '')?.toUtc();
   }
 
-  /// Kombiniert Notiz und TOTP-Secret zu einem einzigen Notiz-String.
-  String? _buildNotes(String? notes, String? totp) {
-    if (totp == null || totp.isEmpty) return notes;
-    final totpLine = 'TOTP: $totp';
-    if (notes == null || notes.isEmpty) return totpLine;
-    return '$notes\n$totpLine';
+  /// Kombiniert Notiz, benutzerdefinierte Felder und TOTP-Secret zu einem einzigen Notiz-String.
+  ///
+  /// Struktur der JSON-Datei (nur die relevanten Teile):
+  /// ```json
+  /// "fields": [
+  ///   {
+  ///     "name": "Kontonummer",
+  ///     "value": "xyz",
+  ///     "type": 0,
+  ///     "linkedId": null
+  ///   },
+  ///   ...
+  /// ]
+  /// ```
+  String? _buildNotes(String? notes, String? totp, List? fields) {
+    final lines = <String>[];
+    if (notes != null && notes.isNotEmpty) lines.add(notes);
+    lines.addAll(_formatFields(fields));
+    if (totp != null && totp.isNotEmpty) lines.add('TOTP: $totp');
+    return lines.isEmpty ? null : lines.join('\n');
+  }
+
+  /// Formatiert die benutzerdefinierten Felder eines Items als "Name: Wert"-Zeilen.
+  /// Felder ohne Namen oder ohne Wert (z. B. verknüpfte Felder) werden übersprungen.
+  List<String> _formatFields(List? fields) {
+    if (fields == null || fields.isEmpty) return [];
+    final lines = <String>[];
+    for (final field in fields) {
+      if (field is! Map<String, dynamic>) continue;
+      final name = (field['name'] as String?)?.trim();
+      final value = field['value'];
+      if (name == null || name.isEmpty || value == null) continue;
+      lines.add('$name: $value');
+    }
+    return lines;
   }
 
   /// Ermittelt den Zeitstempel der letzten Passwortänderung für einen Eintrag.
