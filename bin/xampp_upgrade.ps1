@@ -360,6 +360,39 @@ if (-not $skipPhpInstall) {
     }
 
     Write-Host "[OK] PHP $PhpVersion installiert" -ForegroundColor Green
+
+    # Geteilte Laufzeit-DLLs (v.a. libssl-3-x64.dll/libcrypto-3-x64.dll) synchronisieren:
+    # C:\xampp\apache\bin hält eigene Kopien dieser DLLs (für Apache/mod_ssl selbst). Wird nur
+    # C:\xampp\php aktualisiert, lädt Apache beim Start von PHP-Modulen (z.B. php_curl.dll) über
+    # den DLL-Suchpfad zuerst die VERALTETEN Kopien aus apache\bin statt der neuen aus php\ -
+    # das führt zu Laufzeitfehlern wie "Der Prozedureinstiegspunkt ... wurde in der DLL
+    # php_curl.dll nicht gefunden", weil die alte OpenSSL-Version die von der neuen php_curl.dll
+    # benötigten Funktionen nicht kennt. Fix: jede DLL, die in beiden Verzeichnissen existiert,
+    # aus C:\xampp\php nach C:\xampp\apache\bin kopieren, damit Apache und PHP dieselbe Version laden.
+    if (Test-Path "C:\xampp\apache\bin") {
+        Write-Host ""
+        Write-Host "Synchronisiere geteilte Laufzeit-DLLs (apache\bin <- php)..." -ForegroundColor Yellow
+
+        $phpDlls = Get-ChildItem -Path "C:\xampp\php" -Filter "*.dll" -File
+        $syncedAny = $false
+
+        foreach ($dll in $phpDlls) {
+            $apacheDllPath = Join-Path "C:\xampp\apache\bin" $dll.Name
+            if (Test-Path $apacheDllPath) {
+                Copy-Item -Path $dll.FullName -Destination $apacheDllPath -Force
+                Write-Host "  - $($dll.Name) synchronisiert" -ForegroundColor Gray
+                $syncedAny = $true
+            }
+        }
+
+        if ($syncedAny) {
+            Write-Host "[OK] Laufzeit-DLLs synchronisiert" -ForegroundColor Green
+        } else {
+            Write-Host "[OK] Keine gemeinsamen DLLs gefunden, nichts zu synchronisieren" -ForegroundColor Green
+        }
+    } else {
+        Write-Warning "C:\xampp\apache\bin nicht gefunden, DLL-Synchronisation uebersprungen"
+    }
 } else {
     Write-Host ""
     Write-Host "[4/9] PHP-Installation uebersprungen" -ForegroundColor Green

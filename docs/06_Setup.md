@@ -551,9 +551,9 @@ Für die Entwicklung unter Windows dient **XAMPP** als Webserver.
 
 ### 5.1 Lokalen Webserver einrichten
 
-1. XAMPP installieren.
+1. XAMPP installieren (aktuelle Version: xampp-windows-x64-8.2.12-0-VS16-installer.exe)
    https://www.apachefriends.org/download.html
-
+   
 2. PowerShell-Skript ausführen, um die PHP-Version zu aktualisieren und um die Xdebug-Erweiterung zu installieren:
     ```shell
       .\bin\xampp_upgrade.ps1
@@ -602,7 +602,8 @@ Für die Entwicklung unter Windows dient **XAMPP** als Webserver.
     b) Xdebug installieren:
         1. PHP-Info ausgeben: <?php phpinfo(); ?>
         2. [Xdebug Wizard](https://xdebug.org/wizard) ausführen und ermittelte DLL nach `C:\xampp\php\ext\php_xdebug.dll` kopieren.
-        3. C:\xampp\php\php.ini ergänzen um diesen Abschnitt:
+			(ermittelt wurde: php_xdebug-3.5.1-8.2-ts-vs16-x86_64.dll)
+		3. C:\xampp\php\php.ini ergänzen um diesen Abschnitt:
             ```ini
             [Xdebug]
             zend_extension = xdebug
@@ -614,32 +615,73 @@ Für die Entwicklung unter Windows dient **XAMPP** als Webserver.
         4. Apache neu starten
         5. In PHP-Info sollte nun Xdebug aufgeführt sein.
 
-### 5.2. SSL-Zertifikat installieren.
+### 5.2 Eintrag in die Hosts-Datei
 
+`C:\Windows\System32\drivers\etc\hosts` als Administrator öffnen:
+
+```
+127.0.0.1      famkey.test
+```
+
+### 5.3. SSL-Zertifikat installieren.
+
+Mit der neuen, strengeren OpenSSL-Version lehnte Apache das mitgelieferte Dummy-SSL-Zertifikat (server.crt) ab:         
+  1024-Bit-RSA mit SHA-1, viel zu schwach für moderne OpenSSL-Standards (ee key too small).   
+
+Daher für localhost neues Zertifikat erzeugen (2048-Bit RSA mit SHA-256, Laufzeit 10 Jahre).
+Und für famkey.test ein weiteres.
+
+Backup:                                                                                                              
+```shell
+  Copy-Item "C:\xampp\apache\conf\ssl.crt\server.crt" "C:\xampp\apache\conf\ssl.crt\server.crt.bak"       
+  Copy-Item "C:\xampp\apache\conf\ssl.key\server.key" "C:\xampp\apache\conf\ssl.key\server.key.bak"       
+```
+  
 ```shell
 cd C:\xampp\apache\bin
 
-.\openssl.exe req -x509 -nodes -newkey rsa:2048 `
+.\openssl.exe req -x509 -nodes -newkey rsa:2048 -sha256 `
+ -keyout "C:\xampp\apache\conf\ssl.key\server.key" `
+ -out "C:\xampp\apache\conf\ssl.crt\server.crt" `
+ -days 3650 `
+ -config "C:\xampp\apache\conf\openssl.cnf" `
+ -subj "/CN=localhost" `
+ -addext "basicConstraints=CA:FALSE" `
+ -addext "subjectAltName=DNS:localhost,DNS:localhost.test,DNS:www.example.com,IP:127.0.0.1"
+	
+.\openssl.exe req -x509 -nodes -newkey rsa:2048 -sha256 `
  -keyout "C:\xampp\apache\conf\ssl.key\famkey.test.key" `
  -out "C:\xampp\apache\conf\ssl.crt\famkey.test.crt" `
- -days 365 `
+ -days 3650 `
  -config "C:\xampp\apache\conf\openssl.cnf" `
  -subj "/CN=famkey.test" `
  -addext "basicConstraints=CA:FALSE" `
  -addext "subjectAltName=DNS:famkey.test"
 ```
 
-Damit der Browser dem selbstsignierten Zertifikat vertraut, muss es in den Browser-Zertifikatsspeicher importiert werden:
-- Doppelklick auf `C:\xampp\apache\conf\ssl.crt\famkey.test.crt`, 
-   - Zertifikat installieren..., 
-      - Lokaler Computer
-      - Zertifikatsspeicher: Vertrauenswürdige Stammzertifizierungsstellen
+Apache neu starten!
 
-### 5.3 VirtualHost hinzufügen
+### 5.4 VirtualHost hinzufügen
 
 Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
 
 ```
+<VirtualHost *:443>
+    ServerName localhost
+    ServerAlias 127.0.0.1 localhost.test
+
+    DocumentRoot "C:/xampp/htdocs"
+
+    SSLEngine on
+	SSLCertificateFile "C:/xampp/apache/conf/ssl.crt/server.crt"
+	SSLCertificateKeyFile "C:/xampp/apache/conf/ssl.key/server.key"
+
+    <Directory "C:/xampp/htdocs">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+
 <VirtualHost *:80>
     ServerName famkey.test
     ServerAlias 192.168.178.21
@@ -667,20 +709,22 @@ Datei `C:\xampp\apache\conf\extra\httpd-vhosts.conf` bearbeiten:
     </Directory>
 </VirtualHost>
 ```
-Apache neu starten
+Apache neu starten!
 
-### 5.4 Eintrag in die Hosts-Datei
+### 5.5 SSL-Zertifikat in den Browser-Zertifikatsspeicher importieren
 
-`C:\Windows\System32\drivers\etc\hosts` als Administrator öffnen:
+Damit der Browser dem selbstsignierten Zertifikat vertraut, muss es in den Browser-Zertifikatsspeicher importiert werden:
+- Doppelklick auf `C:\xampp\apache\conf\ssl.crt\server.crt` (und danach auch für `famkey.test.crt`)
+    - Zertifikat installieren...
+        - Lokaler Computer
+        - Zertifikatsspeicher: Vertrauenswürdige Stammzertifizierungsstellen
 
-```
-127.0.0.1      famkey.test
-```
+Browser neu starten!
 
 Der Sync-Server ist jetzt erreichbar unter: https://famkey.test/
 Zum Testen via Android-Handy funktioniert auch: http://192.168.178.21/ (ohne SSL).
 
-### 5.5 MySQL-Datenbank anlegen
+### 5.6 MySQL-Datenbank anlegen
 
 1. phpMyAdmin starten:
    http://localhost/phpmyadmin// (User: root, kein Passwort)
